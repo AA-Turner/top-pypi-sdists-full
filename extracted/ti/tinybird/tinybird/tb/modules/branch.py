@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import click
 
-from tinybird.tb.modules.cli import cli
+from tinybird.tb.modules.cli import _looks_like_uuid, cli, ensure_valid_workspace_name
 from tinybird.tb.modules.common import (
     MAIN_BRANCH,
     create_workspace_branch,
@@ -93,7 +93,8 @@ def branch_ls(sort: bool) -> None:
     help="Wait for data branch jobs to finish, showing a progress bar. Disabled by default.",
 )
 def create_branch(branch_name: Optional[str], last_partition: bool, ignore_datasources: List[str], wait: bool) -> None:
-    create_workspace_branch(branch_name, last_partition, False, list(ignore_datasources), wait)
+    normalized_branch_name = ensure_valid_workspace_name(branch_name) if branch_name else branch_name
+    create_workspace_branch(normalized_branch_name, last_partition, False, list(ignore_datasources), wait)
 
 
 @branch.command(name="rm", short_help="Removes an branch from the workspace. It can't be recovered.")
@@ -194,11 +195,14 @@ def clear_branch(
     if branch_name_or_id:
         if branch_name_or_id == MAIN_BRANCH:
             raise CLIException(FeedbackManager.error_not_allowed_in_main_branch())
+        lookup_branch_name_or_id = (
+            branch_name_or_id if _looks_like_uuid(branch_name_or_id) else ensure_valid_workspace_name(branch_name_or_id)
+        )
         workspace_to_clear = next(
             (
                 workspace
                 for workspace in workspace_branches
-                if workspace["name"] == branch_name_or_id or workspace["id"] == branch_name_or_id
+                if workspace["name"] == lookup_branch_name_or_id or workspace["id"] == lookup_branch_name_or_id
             ),
             None,
         )
@@ -210,11 +214,16 @@ def clear_branch(
             raise CLIBranchException(FeedbackManager.error_not_a_branch(cli=get_cli_name()))
 
     if not workspace_to_clear:
-        raise CLIBranchException(FeedbackManager.error_branch(branch=branch_name_or_id or "", cli=get_cli_name()))
+        raise CLIBranchException(
+            FeedbackManager.error_branch(
+                branch=lookup_branch_name_or_id if branch_name_or_id else "",
+                cli=get_cli_name(),
+            )
+        )
 
     branch_name = workspace_to_clear["name"]
     if yes or click.confirm(FeedbackManager.warning_confirm_clear_workspace()):
-        was_current_branch = workspace_to_clear["id"] == config.get("id")
+        was_current_branch = workspace_to_clear["id"] == config["id"]
         client = config.get_client(token=current_main_workspace.get("token"))
         try:
             client.delete_branch(workspace_to_clear["id"])

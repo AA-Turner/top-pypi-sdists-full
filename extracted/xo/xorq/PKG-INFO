@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xorq
-Version: 0.3.27
+Version: 0.3.28
 Summary: Data processing library built on top of Ibis and DataFusion to write multi-engine data workflows.
 Project-URL: Homepage, https://www.xorq.dev/
 Project-URL: Repository, https://github.com/xorq-labs/xorq/
@@ -226,9 +226,7 @@ Requires-Dist: cityhash<1,>=0.4.7; python_version >= '3.10' and python_version <
 Requires-Dist: click>=8.0
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: cryptography>=45.0.3
-Requires-Dist: envyaml>=1.10.211231
 Requires-Dist: filelock>=3.13
-Requires-Dist: geoarrow-types<1,>=0.2; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: git-annex>=10.20250220
 Requires-Dist: gitpython>=3.1.46
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.32.1
@@ -242,7 +240,6 @@ Requires-Dist: py-yaml12
 Requires-Dist: pyarrow-hotfix<1,>=0.4; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: pyarrow<22,>=13.0.0; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: python-dateutil>=2.8.2
-Requires-Dist: pythran>=0.17.0; sys_platform == 'darwin'
 Requires-Dist: pytz>=2022.7
 Requires-Dist: rich>=13.9.4
 Requires-Dist: sqlglot!=26.32.0,<28.7.0,>=23.4
@@ -278,6 +275,8 @@ Requires-Dist: scikit-learn<2.0.0,>=1.4.0; extra == 'examples'
 Requires-Dist: xgboost>=1.6.1; (python_version >= '3.10' and python_version < '4.0') and extra == 'examples'
 Requires-Dist: xorq-feature-utils; extra == 'examples'
 Requires-Dist: xorq-weather-lib; extra == 'examples'
+Provides-Extra: geospatial
+Requires-Dist: geoarrow-types<1,>=0.2; extra == 'geospatial'
 Provides-Extra: gizmosql
 Requires-Dist: adbc-driver-gizmosql>=1.1.5; extra == 'gizmosql'
 Requires-Dist: cryptography>=42; extra == 'gizmosql'

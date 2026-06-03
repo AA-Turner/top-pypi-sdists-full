@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -30,7 +29,7 @@ class TrustLineEntryV1Ext:
     def __init__(
         self,
         v: int,
-        v2: Optional[TrustLineEntryExtensionV2] = None,
+        v2: TrustLineEntryExtensionV2 | None = None,
     ) -> None:
         self.v = v
         self.v2 = v2

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.sendmail
-Version: 7.1
+Version: 7.1.1
 Summary: Zope sendmail
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -112,6 +112,13 @@ Documentation is hosted at https://zopesendmail.readthedocs.io/
 =========
  Changes
 =========
+
+7.1.1 (2026-06-03)
+==================
+
+- Fix parsing of the ``X-Zope-To`` header when it contains display names with commas.
+  (`#68 <https://github.com/zopefoundation/zope.sendmail/issues/68>`_).
+
 
 7.1 (2026-04-24)
 ================

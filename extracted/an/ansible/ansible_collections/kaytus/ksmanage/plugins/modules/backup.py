@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: backup
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Backup server settings
 description:
    - Backup server settings on kaytus Server.

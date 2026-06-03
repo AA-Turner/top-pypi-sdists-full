@@ -3,7 +3,7 @@ members = ["crates/djust_core", "crates/djust_templates", "crates/djust_vdom", "
 resolver = "2"
 
 [workspace.package]
-version = "0.9.7"
+version = "1.0.0"
 edition = "2021"
 authors = ["djust contributors"]
 license = "MIT"
@@ -16,17 +16,17 @@ pyo3 = { version = "0.25" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rmp-serde = "1.3"  # MessagePack for binary serialization
-tokio = { version = "1.51", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 ahash = "0.8"  # Faster hashing
-dashmap = "6.1"  # Concurrent HashMap for template caching
+dashmap = "6.2"  # Concurrent HashMap for template caching
 indexmap = "2.13"  # HashMap that preserves insertion order
 smallvec = "1.13"
 regex = "1.12"
 once_cell = "1.21"
 thiserror = "2.0"
 quick-xml = "0.36"
-html5ever = "0.36"
-markup5ever_rcdom = "0.36"
+html5ever = "0.39"
+markup5ever_rcdom = "0.39"
 chrono = "0.4"  # DateTime handling for timesince filter
 
 # Actor system dependencies

@@ -123,6 +123,7 @@ from aiohasupervisor.models.os import (
     MigrateDataOptions,
     OSInfo,
     OSUpdate,
+    RaspberryPiFirmwareInfo,
     RaucState,
     SetBootSlotOptions,
     YellowInfo,
@@ -152,6 +153,7 @@ from aiohasupervisor.models.root import (
 )
 from aiohasupervisor.models.supervisor import (
     DetectBlockingIO,
+    FeatureFlag,
     SupervisorInfo,
     SupervisorOptions,
     SupervisorStats,
@@ -203,6 +205,7 @@ __all__ = [
     "DiscoveryConfig",
     "DockerNetwork",
     "DownloadBackupOptions",
+    "FeatureFlag",
     "Folder",
     "FreezeOptions",
     "FullBackupOptions",
@@ -256,6 +259,7 @@ __all__ = [
     "OSUpdate",
     "PartialBackupOptions",
     "PartialRestoreOptions",
+    "RaspberryPiFirmwareInfo",
     "RaucState",
     "RebootOptions",
     "RemoveBackupOptions",

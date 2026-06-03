@@ -1105,26 +1105,57 @@ def is_url_valid(url):
         return False
 
 
-def validate_kafka_bootstrap_servers(host_and_port):
-    if not isinstance(host_and_port, str):
-        raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
-    parts = host_and_port.split(":")
+def _parse_kafka_host_port(entry: str) -> tuple[str, int]:
+    """Parse a single Kafka bootstrap entry of the form 'host' or 'host:port'.
+
+    Raises CLIException on malformed input. Defaults the port to 9092 when omitted.
+    """
+    parts = entry.split(":")
     if len(parts) > 2:
         raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
     host = parts[0]
     port_str = parts[1] if len(parts) == 2 else "9092"
     try:
-        port = int(port_str)
+        return host, int(port_str)
     except Exception:
         raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
-        try:
-            sock.settimeout(3)
-            sock.connect((host, port))
-        except TimeoutError:
-            raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn_timeout(host=host, port=port))
-        except Exception:
-            raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn(host=host, port=port))
+
+
+def validate_kafka_bootstrap_servers(host_and_port):
+    """Validate a Kafka bootstrap-servers string (single entry or comma-separated list).
+
+    Format is checked for every entry. Connectivity is then probed per entry — Kafka
+    only needs one reachable bootstrap broker to discover the rest of the cluster,
+    so the validator passes as long as at least one host accepts a TCP connection.
+    The last connection error is re-raised when every host is unreachable.
+    """
+    if not isinstance(host_and_port, str):
+        raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
+
+    entries = [e.strip() for e in host_and_port.split(",") if e.strip()]
+    if not entries:
+        raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
+
+    # Format-check every entry up front so the user hears about all bad ones at
+    # once rather than discovering them sequentially.
+    hosts = [_parse_kafka_host_port(e) for e in entries]
+
+    last_error: Optional[CLIException] = None
+    for host, port in hosts:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+            try:
+                sock.settimeout(3)
+                sock.connect((host, port))
+                return  # at least one reachable broker is enough
+            except TimeoutError:
+                last_error = CLIException(
+                    FeedbackManager.error_kafka_bootstrap_server_conn_timeout(host=host, port=port)
+                )
+            except Exception:
+                last_error = CLIException(FeedbackManager.error_kafka_bootstrap_server_conn(host=host, port=port))
+
+    if last_error is not None:
+        raise last_error
 
 
 def validate_kafka_key(s):
@@ -1137,9 +1168,11 @@ def validate_kafka_secret(s):
         raise CLIException("Password format is not correct, it must be a string")
 
 
-def validate_string_connector_param(param, s):
+def validate_string_connector_param(param: str, s: str) -> None:
     if not isinstance(s, str):
         raise CLIConnectionException(param + " format is not correct, it must be a string")
+    if not s or not s.strip():
+        raise CLIConnectionException(param + " cannot be empty")
 
 
 def validate_connection_name(client, connection_name, service):

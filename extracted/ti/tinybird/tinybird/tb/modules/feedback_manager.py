@@ -729,6 +729,9 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     )
     warning_name_already_exists = warning_message("** Warning: {name} already exists, skipping")
     warning_dry_name_already_exists = warning_message("** [DRY RUN] {name} already exists, skipping")
+    warning_branch_name_sanitized = warning_message(
+        "** Warning: {context} name '{original}' is not valid; using '{sanitized}' instead."
+    )
     warning_datasource_cannot_be_pushed = warning_message(
         "** [DRY RUN] Failed pushing datasource. Top level object names must be unique. {name} cannot have same name as an existing pipe."
     )

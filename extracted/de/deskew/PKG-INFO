@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deskew
-Version: 1.6.0
+Version: 1.6.1
 Summary: Skew detection and correction in images containing text
 License-Expression: MIT
 License-File: LICENSE
@@ -20,7 +20,6 @@ Provides-Extra: debug-images
 Requires-Dist: matplotlib ; extra == "debug-images"
 Requires-Dist: numpy
 Requires-Dist: opencv-python-headless ; extra == "debug-images"
-Requires-Dist: pillow (==12.1.1)
 Requires-Dist: scikit-image
 Project-URL: Bug Tracker, https://github.com/sbrunner/deskew/issues
 Project-URL: Repository, https://github.com/sbrunner/deskew

@@ -404,6 +404,46 @@ async fn snapshot_without_functions_skips_function_restore() {
 }
 
 #[tokio::test]
+async fn snapshot_function_source_excludes_trailing_eof_comment() {
+    let mut bash = Bash::new();
+    let trailing = "x".repeat(2048);
+    bash.exec(&format!("trimmed() {{ :; }} #{trailing}"))
+        .await
+        .unwrap();
+
+    let bytes = bash.snapshot().unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&bytes[32..]).unwrap();
+    let source = json["shell"]["functions"]["trimmed"]["source"]
+        .as_str()
+        .unwrap();
+
+    assert_eq!(source, "trimmed() { :; }");
+}
+
+#[tokio::test]
+async fn snapshot_restore_counts_source_bytes_against_function_limit() {
+    let mut src = Bash::new();
+    src.exec("large_source() { :; }").await.unwrap();
+    let bytes = src.snapshot().unwrap();
+    let mut json: serde_json::Value = serde_json::from_slice(&bytes[32..]).unwrap();
+    json["shell"]["functions"]["large_source"] = serde_json::json!({
+        "source": format!("large_source() {{ :; }} #{}", "x".repeat(2048))
+    });
+
+    let rewritten: Snapshot = serde_json::from_value(json).unwrap();
+    let bytes = rewritten.to_bytes().unwrap();
+    let limits = MemoryLimits::new().max_function_body_bytes(256);
+    let mut restored = Bash::builder().memory_limits(limits).build();
+    restored.restore_snapshot(&bytes).unwrap();
+
+    let result = restored
+        .exec("type large_source >/dev/null 2>&1; echo $?")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "1\n");
+}
+
+#[tokio::test]
 async fn snapshot_restore_enforces_function_limits() {
     let mut src = Bash::new();
     src.exec("a() { echo a; }; b() { echo b; }").await.unwrap();
@@ -565,6 +605,39 @@ async fn snapshot_restore_does_not_reset_session_exec_limit_with_tampered_counte
         third.is_err(),
         "session exec-call budget must remain monotonic across restore"
     );
+}
+
+#[tokio::test]
+async fn keyed_snapshot_restore_carries_session_exec_budget_forward() {
+    let key = b"session-budget-hmac-key";
+    let session_limits = SessionLimits::new().max_exec_calls(2);
+    let mut bash = Bash::builder()
+        .session_limits(session_limits.clone())
+        .build();
+    bash.exec("echo first").await.unwrap();
+    let bytes = bash.snapshot_to_bytes_keyed(key).unwrap();
+
+    let mut restored = Bash::builder().session_limits(session_limits).build();
+    restored.restore_snapshot_keyed(&bytes, key).unwrap();
+    assert_eq!(restored.session_counters().1, 1);
+
+    restored.exec("echo second").await.unwrap();
+    let third = restored.exec("echo third").await;
+    assert!(
+        third.is_err(),
+        "authenticated snapshot resume must not grant a fresh exec-call budget"
+    );
+}
+
+#[tokio::test]
+async fn from_snapshot_keyed_restores_session_counters() {
+    let key = b"session-counter-hmac-key";
+    let mut bash = Bash::new();
+    bash.exec("echo first").await.unwrap();
+    let bytes = bash.snapshot_to_bytes_keyed(key).unwrap();
+
+    let restored = Bash::from_snapshot_keyed(&bytes, key).unwrap();
+    assert_eq!(restored.session_counters(), bash.session_counters());
 }
 
 #[tokio::test]

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -35,8 +34,8 @@ class SCPStatementPrepare:
         self,
         quorum_set_hash: Hash,
         ballot: SCPBallot,
-        prepared: Optional[SCPBallot],
-        prepared_prime: Optional[SCPBallot],
+        prepared: SCPBallot | None,
+        prepared_prime: SCPBallot | None,
         n_c: Uint32,
         n_h: Uint32,
     ) -> None:
@@ -126,14 +125,12 @@ class SCPStatementPrepare:
         return {
             "quorum_set_hash": self.quorum_set_hash.to_json_dict(),
             "ballot": self.ballot.to_json_dict(),
-            "prepared": (
-                self.prepared.to_json_dict() if self.prepared is not None else None
-            ),
-            "prepared_prime": (
-                self.prepared_prime.to_json_dict()
-                if self.prepared_prime is not None
-                else None
-            ),
+            "prepared": self.prepared.to_json_dict()
+            if self.prepared is not None
+            else None,
+            "prepared_prime": self.prepared_prime.to_json_dict()
+            if self.prepared_prime is not None
+            else None,
             "n_c": self.n_c.to_json_dict(),
             "n_h": self.n_h.to_json_dict(),
         }

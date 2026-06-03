@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2023, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -12,7 +10,7 @@ author: Felix Fontein (@felixfontein)
 short_description: Reverse-look up IP addresses
 version_added: 3.1.0
 requirements:
-  - dnspython >= 1.15.0 (maybe older versions also work)
+  - dnspython >= 2.0.0
 description:
   - Look up hostnames for IP addresses using DNS reverse lookup.
 options:
@@ -71,6 +69,7 @@ _result:
     - example.org
 """
 
+import ipaddress
 import typing as t
 from collections.abc import Callable
 
@@ -78,17 +77,14 @@ from ansible.errors import AnsibleLookupError
 from ansible.module_utils.common.text.converters import to_text
 from ansible.plugins.lookup import LookupBase
 
-from ansible_collections.community.dns.plugins.module_utils.ips import is_ip_address
-from ansible_collections.community.dns.plugins.module_utils.resolver import (
+from ansible_collections.community.dns.plugins.module_utils._ips import is_ip_address
+from ansible_collections.community.dns.plugins.module_utils._resolver import (
     SimpleResolver,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.ips import (
-    assert_requirements_present as assert_requirements_present_ipaddress,
-)
-from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
+from ansible_collections.community.dns.plugins.plugin_utils._resolver import (
     assert_requirements_present as assert_requirements_present_dnspython,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
+from ansible_collections.community.dns.plugins.plugin_utils._resolver import (
     guarded_run,
 )
 
@@ -101,12 +97,6 @@ except ImportError:
     pass
 else:
     RdataType = int  # type: ignore  # noqa: F811
-
-try:
-    import ipaddress
-except ImportError:  # pragma: no cover
-    # handled by assert_requirements_present
-    pass  # pragma: no cover
 
 
 class LookupModule(LookupBase):
@@ -142,7 +132,9 @@ class LookupModule(LookupBase):
             try:
                 return resolver.resolve_addresses(server)
             except NXDOMAIN as exc:
-                raise AnsibleLookupError(f"Nameserver {server} does not exist ({exc})")
+                raise AnsibleLookupError(
+                    f"Nameserver {server} does not exist ({exc})"
+                ) from None
 
         return f
 
@@ -150,7 +142,6 @@ class LookupModule(LookupBase):
         self, terms: list[t.Any], variables: t.Any | None = None, **kwargs: t.Any
     ) -> list[str]:
         assert_requirements_present_dnspython("community.dns.reverse_lookup", "lookup")
-        assert_requirements_present_ipaddress("community.dns.reverse_lookup", "lookup")
 
         self.set_options(var_options=variables, direct=kwargs)
 
@@ -187,7 +178,9 @@ class LookupModule(LookupBase):
                     pass  # pragma: no cover
                 ip_adresses.append(name)
             except Exception as e:
-                raise AnsibleLookupError(f"Cannot parse IP address {ip_address!r}: {e}")
+                raise AnsibleLookupError(
+                    f"Cannot parse IP address {ip_address!r}: {e}"
+                ) from e
 
         result = []
         for name in ip_adresses:

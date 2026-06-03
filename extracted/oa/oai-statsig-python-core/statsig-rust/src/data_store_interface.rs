@@ -45,12 +45,22 @@ impl Display for CompressFormat {
 pub struct DataStoreResponse {
     pub result: Option<String>,
     pub time: Option<u64>,
+    pub checksum: Option<String>,
+    pub has_updates: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct DataStoreBytesResponse {
     pub result: Option<Vec<u8>>,
     pub time: Option<u64>,
+    pub checksum: Option<String>,
+    pub has_updates: Option<bool>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DataStoreGetBytesRequest {
+    pub since_time: Option<u64>,
+    pub checksum: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -79,13 +89,18 @@ pub trait DataStoreTrait: Send + Sync {
         key: &str,
         value: &[u8],
         time: Option<u64>,
+        checksum: Option<String>,
     ) -> Result<(), StatsigErr> {
-        let _ = (key, value, time);
+        let _ = (key, value, time, checksum);
         Err(StatsigErr::BytesNotImplemented)
     }
 
-    async fn get_bytes(&self, key: &str) -> Result<DataStoreBytesResponse, StatsigErr> {
-        let _ = key;
+    async fn get_bytes(
+        &self,
+        _key: &str,
+        request: DataStoreGetBytesRequest,
+    ) -> Result<DataStoreBytesResponse, StatsigErr> {
+        let _ = request;
         Err(StatsigErr::BytesNotImplemented)
     }
 

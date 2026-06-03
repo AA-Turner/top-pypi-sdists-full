@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: ad_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get active directory information
 description:
    - Get active directory information on kaytus Server.

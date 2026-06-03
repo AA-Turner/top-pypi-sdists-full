@@ -1,4 +1,4 @@
-# Generated from hungarian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from hungarian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class HungarianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from hungarian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from hungarian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "á", "é", "í", "ó", "ö", "ú", "ü", "ő", "ű"}
@@ -113,12 +113,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            self.slice_del()
-        elif among_var == 2:
-            self.slice_from("a")
-        else:
-            self.slice_from("e")
+        self.slice_from(HungarianStemmer.as_5[among_var - 1])
         return True
 
     def __r_factive(self):
@@ -141,12 +136,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            self.slice_from("a")
-        elif among_var == 2:
-            self.slice_from("e")
-        else:
-            self.slice_del()
+        self.slice_from(HungarianStemmer.as_7[among_var - 1])
         return True
 
     def __r_owned(self):
@@ -157,12 +147,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            self.slice_del()
-        elif among_var == 2:
-            self.slice_from("e")
-        else:
-            self.slice_from("a")
+        self.slice_from(HungarianStemmer.as_8[among_var - 1])
         return True
 
     def __r_sing_owner(self):
@@ -173,12 +158,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            self.slice_del()
-        elif among_var == 2:
-            self.slice_from("a")
-        else:
-            self.slice_from("e")
+        self.slice_from(HungarianStemmer.as_9[among_var - 1])
         return True
 
     def __r_plur_owner(self):
@@ -189,12 +169,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            self.slice_del()
-        elif among_var == 2:
-            self.slice_from("a")
-        else:
-            self.slice_from("e")
+        self.slice_from(HungarianStemmer.as_10[among_var - 1])
         return True
 
     def _stem(self):
@@ -332,6 +307,7 @@ class HungarianStemmer(BaseStemmer):
         Among("estül", 3, 1),
         Among("éstül", 3, 3)
     ]
+    as_5 = ("", "a", "e")
 
     a_6 = [
         Among("á", -1, 1),
@@ -347,6 +323,7 @@ class HungarianStemmer(BaseStemmer):
         Among("ék", 0, 2),
         Among("ök", 0, 3)
     ]
+    as_7 = ("a", "e", "")
 
     a_8 = [
         Among("éi", -1, 1),
@@ -362,6 +339,7 @@ class HungarianStemmer(BaseStemmer):
         Among("öké", 4, 1),
         Among("éé", 3, 2)
     ]
+    as_8 = ("", "e", "a")
 
     a_9 = [
         Among("a", -1, 1),
@@ -396,6 +374,7 @@ class HungarianStemmer(BaseStemmer):
         Among("á", -1, 2),
         Among("é", -1, 3)
     ]
+    as_9 = ("", "a", "e")
 
     a_10 = [
         Among("id", -1, 1),
@@ -441,6 +420,7 @@ class HungarianStemmer(BaseStemmer):
         Among("áim", 35, 2),
         Among("éim", 35, 3)
     ]
+    as_10 = ("", "a", "e")
 
 
 class lab0(BaseException): pass

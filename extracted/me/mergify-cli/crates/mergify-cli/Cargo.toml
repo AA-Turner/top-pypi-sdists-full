@@ -22,11 +22,18 @@ mergify-core = { path = "../mergify-core" }
 mergify-freeze = { path = "../mergify-freeze" }
 mergify-py-shim = { path = "../mergify-py-shim" }
 mergify-queue = { path = "../mergify-queue" }
+mergify-stack = { path = "../mergify-stack" }
+# Used by Python-migration helpers (`_internal junit-parse`,
+# `_internal stack-local-commits`). When the last `_internal`
+# subcommand goes away — i.e. every stack subcommand is native —
+# this dep can be dropped too.
+serde_json = "1.0"
 tokio = { version = "1", default-features = false, features = ["macros", "rt", "time"] }
 
 [dev-dependencies]
 regex = "1"
 serde_yaml_ng = "0.10"
+temp-env = "0.3"
 
 [lints]
 workspace = true

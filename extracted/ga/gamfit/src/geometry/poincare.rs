@@ -114,19 +114,55 @@ fn dot(a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> f64 {
     acc
 }
 
+/// Reject points that are not in the open Poincaré ball `{x : √k·|x| < 1}`.
+///
+/// The closed forms below (`distance`, `mobius_add`, `log_origin`) are only
+/// defined on the open ball; for a point outside it the denominators
+/// `1 + c|x|²` go non-positive and the `.max(ORIGIN_EPS)` floors would turn an
+/// off-manifold input into a finite but meaningless number. Callers that
+/// genuinely need to accept arbitrary coordinates must
+/// [`project_into_ball`] first (as the decoder/Lorentz paths do). Tangent maps
+/// such as [`exp_origin`] take an unbounded tangent vector, not a ball point,
+/// and so must NOT use this check.
+fn require_in_ball(point: ArrayView1<'_, f64>, sqrt_negc: f64) -> GeometryResult<()> {
+    let mut norm_sq = 0.0_f64;
+    for v in point.iter() {
+        if !v.is_finite() {
+            return Err(GeometryError::InvalidPoint(
+                "Poincaré point contains NaN or infinity",
+            ));
+        }
+        norm_sq += v * v;
+    }
+    if sqrt_negc * norm_sq.sqrt() >= 1.0 {
+        return Err(GeometryError::InvalidPoint(
+            "Poincaré point lies outside the open ball (√k·|x| ≥ 1)",
+        ));
+    }
+    Ok(())
+}
+
 /// Project a point into the open ball so `sqrt(k) |y| <= 1 - BOUNDARY_EPS`.
 ///
-/// Returns `y` unchanged when it is already strictly inside; otherwise it
-/// is rescaled along the radial direction. Always finite, never NaN.
+/// Returns `y` unchanged when it is already strictly inside; otherwise it is
+/// rescaled along the radial direction. The output is always finite and never
+/// NaN — which requires rejecting a non-finite *input* up front, since a NaN or
+/// infinite coordinate cannot be radially rescaled into the ball (a `NaN` norm
+/// fails the `is_finite` guard and would otherwise pass straight through).
 pub fn project_into_ball(
     point: ArrayView1<'_, f64>,
     curvature: f64,
 ) -> GeometryResult<Array1<f64>> {
     let sqrt_negc = require_negative_curvature(curvature)?;
+    if !point.iter().all(|v| v.is_finite()) {
+        return Err(GeometryError::InvalidPoint(
+            "Poincaré projection input contains NaN or infinity",
+        ));
+    }
     let mut out = point.to_owned();
     let norm = out.iter().map(|v| v * v).sum::<f64>().sqrt();
     let max_norm = (1.0 - BOUNDARY_EPS) / sqrt_negc;
-    if norm.is_finite() && norm > max_norm && norm > ORIGIN_EPS {
+    if norm > max_norm && norm > ORIGIN_EPS {
         let scale = max_norm / norm;
         for v in out.iter_mut() {
             *v *= scale;
@@ -150,7 +186,9 @@ pub fn mobius_add(
     curvature: f64,
 ) -> GeometryResult<Array1<f64>> {
     check_same_len(u, v)?;
-    require_negative_curvature(curvature)?;
+    let sqrt_negc = require_negative_curvature(curvature)?;
+    require_in_ball(u, sqrt_negc)?;
+    require_in_ball(v, sqrt_negc)?;
     let k = -curvature;
     let uv = dot(u, v);
     let uu = dot(u, u);
@@ -180,6 +218,8 @@ pub fn poincare_distance(
 ) -> GeometryResult<f64> {
     check_same_len(a, b)?;
     let sqrt_negc = require_negative_curvature(curvature)?;
+    require_in_ball(a, sqrt_negc)?;
+    require_in_ball(b, sqrt_negc)?;
     let mut diff_sq = 0.0;
     let mut a_sq = 0.0;
     let mut b_sq = 0.0;
@@ -210,12 +250,15 @@ pub fn poincare_distance(
 /// Poincaré logarithm at the origin: `log_0(y) = artanh(sqrt(k)|y|) / (sqrt(k)|y|) * y`.
 pub fn log_origin(y: ArrayView1<'_, f64>, curvature: f64) -> GeometryResult<Array1<f64>> {
     let sqrt_negc = require_negative_curvature(curvature)?;
+    require_in_ball(y, sqrt_negc)?;
     let mut out = y.to_owned();
     let norm = y.iter().map(|v| v * v).sum::<f64>().sqrt();
     if norm <= ORIGIN_EPS {
         // log_0(0) = 0 in the tangent space; preserve the input shape.
         return Ok(out);
     }
+    // y is validated in-ball, so sqrt(k)·|y| < 1; the clamp only guards the
+    // last-ulp approach to the boundary, never an out-of-domain artanh.
     let arg = (sqrt_negc * norm).min(1.0 - BOUNDARY_EPS);
     let coeff = arg.atanh() / (sqrt_negc * norm);
     for v in out.iter_mut() {
@@ -344,7 +387,11 @@ pub fn tangent_decode_forward(
     check_atoms_shape(atoms, gates)?;
     let sqrt_negc = require_negative_curvature(curvature)?;
     let (projected, tangents, proj_scale) = project_and_log(atoms, curvature)?;
-    let v = gates.dot(&tangents);
+    // V = gates · tangents (batch×F · F×d): the dominant decode GEMM over the
+    // whole observation batch. Row-tile gates across ALL GPUs (each device runs
+    // one cuBLAS call over its batch-row tile with tangents broadcast); single
+    // device / small batch falls back to the auto-dispatch shim.
+    let v = crate::geometry::manifold::fast_ab_rows_multi_gpu(gates, tangents.view());
     let (batch, d) = v.dim();
     let mut x_hat = Array2::<f64>::zeros((batch, d));
     for b in 0..batch {
@@ -443,9 +490,12 @@ pub fn tangent_decode_backward(
         }
     }
 
-    // Step 2: grad_gates = grad_v @ tangents^T; grad_tangents = gates^T @ grad_v.
-    let grad_gates = grad_v.dot(&cache.tangents.t());
-    let grad_tangents = cache.gates.t().dot(&grad_v);
+    // Step 2: grad_gates = grad_v @ tangentsᵀ (batch×d · d×F); grad_tangents =
+    // gatesᵀ @ grad_v (F×batch · batch×d). Both are full-batch GEMMs,
+    // GPU-dispatched via fast_abt / fast_atb.
+    use crate::linalg::faer_ndarray::{fast_abt, fast_atb};
+    let grad_gates = fast_abt(&grad_v, &cache.tangents);
+    let grad_tangents = fast_atb(&cache.gates, &grad_v);
 
     // Step 3: pull grad_tangents back through psi(|sqrt(k) a|) * a.
     // Let y = sqrt(k) a, t = |y| = sqrt(k) |a|. Then
@@ -683,8 +733,9 @@ pub fn lorentz_decode_forward(
         }
     }
 
-    // Aggregate in tangent space, exp back, then project hyperboloid -> ball.
-    let v = gates.dot(&tangents);
+    // Aggregate in tangent space (batch×F · F×d GEMM over the whole batch,
+    // row-tiled across ALL GPUs), exp back, then project hyperboloid -> ball.
+    let v = crate::geometry::manifold::fast_ab_rows_multi_gpu(gates, tangents.view());
     let mut out = Array2::<f64>::zeros((batch, d));
     for b in 0..batch {
         let v_row: Array1<f64> = v.row(b).to_owned();

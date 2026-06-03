@@ -147,21 +147,21 @@ class EveAllianceForm(EveEntityForm):
         model = EveAllianceInfo
 
 
-@admin.action(description="Update all factions from ESI immediately, blocking the request until done")
+@admin.action(description="Update from ESI (Browser)")
 def update_factions_blocking(modeladmin: "EveFactionInfoAdmin", request: HttpRequest, queryset: QuerySet[EveFactionInfo]) -> None:
     EveFactionInfo.objects.update_factions()
 
     modeladmin.message_user(
-        request, f'Update from ESI performed for all factions'
+        request, 'Update from ESI performed for all factions'
     )
 
 
-@admin.action(description="Update all factions from ESI (queued task)")
+@admin.action(description="Update from ESI (Celery)")
 def update_factions_queued(modeladmin: "EveFactionInfoAdmin", request: HttpRequest, queryset: QuerySet[EveFactionInfo]) -> None:
     update_all_factions.delay()
 
     modeladmin.message_user(
-        request, f'Update from ESI queued for all factions'
+        request, 'Update from ESI Celery Task queued for all factions'
     )
 
 
@@ -181,8 +181,8 @@ class EveFactionInfoAdmin(admin.ModelAdmin):
         return super().get_form(request, obj, change, **kwargs)
 
 
-@admin.action(description="Update Corporations from ESI, immediately blocking the request until done")
-def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) :
+@admin.action(description="Update from ESI (Browser)")
+def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) -> None:
     tasks_count = 0
     for obj in queryset:
         obj.update_corporation()
@@ -192,25 +192,43 @@ def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request:
         request, f'Update from ESI performed for {tasks_count} corporations'
     )
 
-@admin.action(description="Update Corporations from ESI (queued task)")
-def update_corporations_queued(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) :
+
+@admin.action(description="Update from ESI (Browser) - Clear ETag/Cache")
+def update_corporations_blocking_forcerefresh(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) -> None:
+    # This task is provided as Synchronous only as being mid celery queue would have unexpected behaviour
+    tasks_count = 0
+    for obj in queryset:
+        obj.update_corporation(force_refresh=True)
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} corporations, clearing their ETags and Cache, please use responsibly'
+    )
+
+
+@admin.action(description="Update from ESI (Celery)")
+def update_corporations_queued(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) -> None:
     tasks_count = 0
     for obj in queryset:
         update_corp.delay(obj.corporation_id)
         tasks_count += 1
 
     modeladmin.message_user(
-        request, f'Update from ESI queued for {tasks_count} corporations'
+        request, f'Update from ESI Celery Task queued for {tasks_count} corporations'
     )
+
 
 @admin.register(EveCorporationInfo)
 class EveCorporationInfoAdmin(admin.ModelAdmin):
     search_fields = ['corporation_name']
-    list_display = ('corporation_name', 'alliance', 'last_updated')
+    list_display = ('corporation_name', 'ticker', 'member_count', 'alliance', 'faction', 'last_updated')
     list_select_related = ('alliance',)
-    list_filter = (('alliance', admin.RelatedOnlyFieldListFilter),)
+    list_filter = (
+        ('alliance', admin.RelatedOnlyFieldListFilter),
+        ('faction', admin.RelatedOnlyFieldListFilter),
+    )
     ordering = ('corporation_name',)
-    actions = [update_corporations_blocking, update_corporations_queued]
+    actions = [update_corporations_blocking, update_corporations_queued, update_corporations_blocking_forcerefresh]
 
     def has_change_permission(self, request, obj=None) -> bool:
         return False
@@ -221,8 +239,8 @@ class EveCorporationInfoAdmin(admin.ModelAdmin):
         return super().get_form(request, obj, change, **kwargs)
 
 
-@admin.action(description="Update Alliances from ESI, immediately blocking the request until done")
-def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) :
+@admin.action(description="Update from ESI (Browser)")
+def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) -> None:
     tasks_count = 0
     for obj in queryset:
         obj.update_alliance()
@@ -232,8 +250,23 @@ def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: HttpR
         request, f'Update from ESI performed for {tasks_count} alliances'
     )
 
+
+@admin.action(description="Update from ESI (Browser) - Clear ETag/Cache")
+def update_alliances_blocking_forcerefresh(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) -> None:
+    # This task is provided as Synchronous only as being mid celery queue would have unexpected behaviour
+    tasks_count = 0
+    for obj in queryset:
+        obj.update_alliance(force_refresh=True)
+        obj.populate_alliance(force_refresh=True)
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} alliances, clearing their ETags and Cache, please use responsibly'
+    )
+
+
 @admin.action(description="Update Alliances from ESI (queued task)")
-def update_alliances_queued(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) :
+def update_alliances_queued(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) -> None:
     tasks_count = 0
     for obj in queryset:
         update_alliance.delay(obj.alliance_id)
@@ -243,12 +276,16 @@ def update_alliances_queued(modeladmin: "EveAllianceInfoAdmin", request: HttpReq
         request, f'Update from ESI queued for {tasks_count} alliances'
     )
 
+
 @admin.register(EveAllianceInfo)
 class EveAllianceInfoAdmin(admin.ModelAdmin):
-    search_fields = ['alliance_name']
-    list_display = ('alliance_name', 'last_updated')
+    search_fields = ['alliance_name', 'ticker']
+    list_display = ('alliance_name', 'ticker', "faction", 'last_updated')
     ordering = ('alliance_name',)
-    actions = [update_alliances_blocking, update_alliances_queued]
+    list_filter = (
+        ('faction', admin.RelatedOnlyFieldListFilter),
+    )
+    actions = [update_alliances_blocking, update_alliances_queued, update_alliances_blocking_forcerefresh]
 
     def has_change_permission(self, request, obj=None) -> bool:
         return False
@@ -259,26 +296,42 @@ class EveAllianceInfoAdmin(admin.ModelAdmin):
         return super().get_form(request, obj, change, **kwargs)
 
 
-@admin.action(description="Update Characters from ESI, immediately blocking the request until done")
-def update_characters_blocking(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) :
+@admin.action(description="Update from ESI (Browser)")
+def update_characters_blocking(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) -> None:
     tasks_count = 0
     for obj in queryset:
         obj.update_character()
+        obj.update_character_other()
         tasks_count += 1
 
     modeladmin.message_user(
         request, f'Update from ESI performed for {tasks_count} characters'
     )
 
-@admin.action(description="Update Characters from ESI (queued task)")
-def update_characters_queued(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) :
+
+@admin.action(description="Update from ESI (Browser) - Clear ETag/Cache")
+def update_characters_blocking_forcerefresh(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) -> None:
+    # This task is provided as Synchronous only as being mid celery queue would have unexpected behaviour
+    tasks_count = 0
+    for obj in queryset:
+        obj.update_character()
+        obj.update_character_other(force_refresh=True)
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} characters, clearing their ETags and Cache, please use responsibly'
+    )
+
+
+@admin.action(description="Update from ESI (Celery)")
+def update_characters_queued(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) -> None:
     tasks_count = 0
     for obj in queryset:
         update_character.delay(obj.character_id)
         tasks_count += 1
 
     modeladmin.message_user(
-        request, f'Update from ESI queued for {tasks_count} characters'
+        request, f'Update from ESI Celery Task queued for {tasks_count} characters'
     )
 
 
@@ -297,7 +350,8 @@ class EveCharacterAdmin(admin.ModelAdmin):
         'faction_name',
         'user',
         'main_character',
-        'last_updated',
+        'last_updated_affiliations',
+        'last_updated_other',
     )
     list_select_related = (
         'character_ownership', 'character_ownership__user__profile__main_character'
@@ -305,14 +359,16 @@ class EveCharacterAdmin(admin.ModelAdmin):
     list_filter = (
         'corporation_name',
         'alliance_name',
+        ('alliance_name', admin.EmptyFieldListFilter),
         'faction_name',
+        ('faction_name', admin.EmptyFieldListFilter),
         (
             'character_ownership__user__profile__main_character',
             admin.RelatedOnlyFieldListFilter
         ),
     )
     ordering = ('character_name', )
-    actions = [update_characters_blocking, update_characters_queued]
+    actions = [update_characters_blocking, update_characters_queued, update_characters_blocking_forcerefresh]
 
     def has_change_permission(self, request, obj=None) -> bool:
         return False

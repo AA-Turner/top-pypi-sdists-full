@@ -46,6 +46,7 @@ from .json_utils import (to_complete_multipart_upload_request,
                          to_put_replication, to_put_bucket_website, to_put_bucket_notification, to_put_custom_domain,
                          to_put_bucket_real_time_log, to_restore_object, to_bucket_encrypt, to_put_fetch_object,
                          to_put_bucket_notification_type2, to_simple_query, to_semantic_query,
+                         to_put_bucket_quota_request,
                          to_put_bucket_object_set_configuration_request, to_put_object_set_request,
                          to_put_object_set_quota_request, to_put_object_set_quota_by_tag_request,
                          to_put_object_set_lifecycle_by_tag_request)
@@ -63,6 +64,7 @@ from .models2 import (AbortMultipartUpload, AppendObjectOutput,
                       UploadFileOutput, UploadPartCopyOutput, UploadPartOutput,
                       _PartToDo, PutBucketCorsOutput, DeleteBucketCorsOutput, GetBucketCorsOutput,
                       PutBucketMirrorBackOutPut, PutBucketStorageClassOutput, GetBucketLocationOutput,
+                      PutBucketQuotaOutput, GetBucketQuotaOutput,
                       PutBucketLifecycleOutput, GetBucketLifecycleOutput, DeleteBucketLifecycleOutput,
                       GetBucketPolicyOutput, DeleteBucketPolicy, DeleteBucketMirrorBackOutput,
                       GetBucketMirrorBackOutput, PutBucketPolicyOutPut, PutObjectTaggingOutput, GetObjectTaggingOutPut,
@@ -3415,6 +3417,42 @@ class TosClientV2(TosClient):
         resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value, params={'storageClass': ''},
                          headers=headers, generic_input=generic_input)
         return PutBucketStorageClassOutput(resp)
+
+    def put_bucket_quota(self, bucket: str, storage_quota: int,
+                         generic_input: GenericInput = None) -> PutBucketQuotaOutput:
+        """ 设置 bucket 的容量配额
+
+        :param bucket: 桶名
+        :param storage_quota: 桶容量配额，单位为字节。0 表示不设上限。
+        :param generic_input: 通用请求参数，比如request_date设置签名UTC时间，代表本次请求Header中指定的 X-Tos-Date 头域
+        :return: PutBucketQuotaOutput
+        """
+
+        if not isinstance(storage_quota, int) or isinstance(storage_quota, bool) \
+                or storage_quota < 0 or storage_quota > (1 << 63) - 1:
+            raise TosClientError('invalid storage_quota, the value must be an integer in [0, 9223372036854775807]')
+
+        data = to_put_bucket_quota_request(storage_quota)
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'quota': ''}, data=data, headers=headers, generic_input=generic_input)
+
+        return PutBucketQuotaOutput(resp)
+
+    def get_bucket_quota(self, bucket: str,
+                         generic_input: GenericInput = None) -> GetBucketQuotaOutput:
+        """ 获取 bucket 的容量配额
+
+        :param bucket: 桶名
+        :param generic_input: 通用请求参数，比如request_date设置签名UTC时间，代表本次请求Header中指定的 X-Tos-Date 头域
+        :return: GetBucketQuotaOutput
+        """
+
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'quota': ''}, generic_input=generic_input)
+
+        return GetBucketQuotaOutput(resp)
 
     def get_bucket_location(self, bucket: str, generic_input: GenericInput = None) -> GetBucketLocationOutput:
         """ 获取 bucket 的location信息

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -21,7 +20,7 @@ class SponsorshipDescriptor:
         typedef AccountID* SponsorshipDescriptor;
     """
 
-    def __init__(self, sponsorship_descriptor: Optional[AccountID]) -> None:
+    def __init__(self, sponsorship_descriptor: AccountID | None) -> None:
         self.sponsorship_descriptor = sponsorship_descriptor
 
     def pack(self, packer: Packer) -> None:

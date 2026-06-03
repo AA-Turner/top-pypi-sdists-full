@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_power_restore
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set power restore information
 description:
    - Set power restore information on kaytus Server.

@@ -172,6 +172,17 @@ ENV_RETAIN_LLM_MAX_BACKOFF = "HINDSIGHT_API_RETAIN_LLM_MAX_BACKOFF"
 ENV_RETAIN_LLM_TIMEOUT = "HINDSIGHT_API_RETAIN_LLM_TIMEOUT"
 ENV_RETAIN_LLM_LITELLMROUTER_CONFIG = "HINDSIGHT_API_RETAIN_LLM_LITELLMROUTER_CONFIG"
 
+# Fireworks AI batch inference. Fireworks' batch API is a proprietary
+# account-scoped dataset/job REST API on a control-plane host, distinct from the
+# OpenAI-compatible inference host. account_id is REQUIRED for batch retain
+# (the control-plane endpoints are /v1/accounts/{account_id}/...). Static,
+# server-level config — it pairs with the Fireworks API key.
+ENV_FIREWORKS_ACCOUNT_ID = "HINDSIGHT_API_FIREWORKS_ACCOUNT_ID"
+ENV_FIREWORKS_BATCH_BASE_URL = "HINDSIGHT_API_FIREWORKS_BATCH_BASE_URL"
+ENV_FIREWORKS_BATCH_MAX_WAIT_SECONDS = "HINDSIGHT_API_FIREWORKS_BATCH_MAX_WAIT_SECONDS"
+DEFAULT_FIREWORKS_BATCH_BASE_URL = "https://api.fireworks.ai"
+DEFAULT_FIREWORKS_BATCH_MAX_WAIT_SECONDS = 86_400  # 24h — Fireworks' max job timeout
+
 ENV_REFLECT_LLM_PROVIDER = "HINDSIGHT_API_REFLECT_LLM_PROVIDER"
 ENV_REFLECT_LLM_API_KEY = "HINDSIGHT_API_REFLECT_LLM_API_KEY"
 ENV_REFLECT_LLM_MODEL = "HINDSIGHT_API_REFLECT_LLM_MODEL"
@@ -362,6 +373,7 @@ ENV_RETAIN_CUSTOM_INSTRUCTIONS = "HINDSIGHT_API_RETAIN_CUSTOM_INSTRUCTIONS"
 ENV_RETAIN_DEFAULT_STRATEGY = "HINDSIGHT_API_RETAIN_DEFAULT_STRATEGY"
 ENV_RETAIN_BATCH_TOKENS = "HINDSIGHT_API_RETAIN_BATCH_TOKENS"
 ENV_RETAIN_ENTITY_LOOKUP = "HINDSIGHT_API_RETAIN_ENTITY_LOOKUP"
+ENV_RETAIN_ENTITY_RESOLUTION_BATCH_SIZE = "HINDSIGHT_API_RETAIN_ENTITY_RESOLUTION_BATCH_SIZE"
 ENV_RETAIN_BATCH_ENABLED = "HINDSIGHT_API_RETAIN_BATCH_ENABLED"
 ENV_RETAIN_BATCH_POLL_INTERVAL_SECONDS = "HINDSIGHT_API_RETAIN_BATCH_POLL_INTERVAL_SECONDS"
 ENV_RETAIN_CHUNK_BATCH_SIZE = "HINDSIGHT_API_RETAIN_CHUNK_BATCH_SIZE"
@@ -394,6 +406,7 @@ ENV_ENABLE_AUTO_CONSOLIDATION = "HINDSIGHT_API_ENABLE_AUTO_CONSOLIDATION"
 ENV_CONSOLIDATION_BATCH_SIZE = "HINDSIGHT_API_CONSOLIDATION_BATCH_SIZE"
 ENV_CONSOLIDATION_MAX_MEMORIES_PER_ROUND = "HINDSIGHT_API_CONSOLIDATION_MAX_MEMORIES_PER_ROUND"
 ENV_CONSOLIDATION_LLM_BATCH_SIZE = "HINDSIGHT_API_CONSOLIDATION_LLM_BATCH_SIZE"
+ENV_CONSOLIDATION_LLM_PARALLELISM = "HINDSIGHT_API_CONSOLIDATION_LLM_PARALLELISM"
 ENV_CONSOLIDATION_MAX_TOKENS = "HINDSIGHT_API_CONSOLIDATION_MAX_TOKENS"
 ENV_CONSOLIDATION_SOURCE_FACTS_MAX_TOKENS = "HINDSIGHT_API_CONSOLIDATION_SOURCE_FACTS_MAX_TOKENS"
 ENV_CONSOLIDATION_SOURCE_FACTS_MAX_TOKENS_PER_OBSERVATION = (
@@ -440,6 +453,7 @@ ENV_WORKER_ENABLED = "HINDSIGHT_API_WORKER_ENABLED"
 ENV_WORKER_ID = "HINDSIGHT_API_WORKER_ID"
 ENV_WORKER_POLL_INTERVAL_MS = "HINDSIGHT_API_WORKER_POLL_INTERVAL_MS"
 ENV_WORKER_MAX_RETRIES = "HINDSIGHT_API_WORKER_MAX_RETRIES"
+ENV_WORKER_TASK_RETRY_BACKOFF_SECONDS = "HINDSIGHT_API_WORKER_TASK_RETRY_BACKOFF_SECONDS"
 ENV_WORKER_HTTP_PORT = "HINDSIGHT_API_WORKER_HTTP_PORT"
 ENV_WORKER_MAX_SLOTS = "HINDSIGHT_API_WORKER_MAX_SLOTS"
 
@@ -518,6 +532,7 @@ PROVIDER_DEFAULT_MODELS = {
     "bedrock": "us.amazon.nova-2-lite-v1:0",
     "volcano": "doubao-pro-32k",
     "openrouter": "qwen/qwen3.5-9b",
+    "fireworks": "accounts/fireworks/models/llama-v3p1-8b-instruct",
 }
 DEFAULT_LLM_MODEL = "gpt-4o-mini"  # Fallback if provider not in table
 # Built-in llama.cpp defaults
@@ -668,6 +683,7 @@ DEFAULT_RETAIN_CHUNK_BATCH_SIZE = (
 )
 DEFAULT_RETAIN_BATCH_TOKENS = 10_000  # ~40KB of text  # Max chars per sub-batch for async retain auto-splitting
 DEFAULT_RETAIN_ENTITY_LOOKUP = "trigram"  # "full" or "trigram"
+DEFAULT_RETAIN_ENTITY_RESOLUTION_BATCH_SIZE = 100  # Unique entity names per pg_trgm candidate lookup query
 DEFAULT_RETAIN_BATCH_ENABLED = False  # Use LLM Batch API for fact extraction (only when async=True)
 DEFAULT_RETAIN_BATCH_POLL_INTERVAL_SECONDS = 60  # Batch API polling interval in seconds
 
@@ -697,6 +713,10 @@ DEFAULT_CONSOLIDATION_MAX_MEMORIES_PER_ROUND = (
     100  # Max memories per consolidation round (0 = unlimited). Limits how long one bank holds a worker slot.
 )
 DEFAULT_CONSOLIDATION_LLM_BATCH_SIZE = 8  # Facts per LLM call (1 = no batching; >1 = batch mode)
+DEFAULT_CONSOLIDATION_LLM_PARALLELISM = (
+    4  # Max tag groups consolidated concurrently per op. Locks on overlapping write
+    # scopes degrade to sequential automatically; matches retain_max_concurrent.
+)
 DEFAULT_CONSOLIDATION_MAX_TOKENS = 512  # Max tokens for recall when finding related observations
 DEFAULT_CONSOLIDATION_RECALL_BUDGET = "low"  # Budget level for consolidation recall (low/mid/high)
 DEFAULT_CONSOLIDATION_SOURCE_FACTS_MAX_TOKENS = (
@@ -723,6 +743,7 @@ DEFAULT_WORKER_ENABLED = True  # API runs worker by default (standalone mode)
 DEFAULT_WORKER_ID = None  # Will use hostname if not specified
 DEFAULT_WORKER_POLL_INTERVAL_MS = 500  # Poll database every 500ms
 DEFAULT_WORKER_MAX_RETRIES = 3  # Max retries before marking task failed
+DEFAULT_WORKER_TASK_RETRY_BACKOFF_SECONDS = 60  # Seconds between retries on transient task failure
 DEFAULT_WORKER_HTTP_PORT = 8889  # HTTP port for worker metrics/health
 DEFAULT_WORKER_MAX_SLOTS = 10  # Total concurrent tasks per worker
 DEFAULT_RETAIN_MAX_CONCURRENT = 4  # Max concurrent retain DB phases (HNSW reads + writes). Limits I/O contention.
@@ -933,9 +954,7 @@ def _parse_bank_priority(raw: str) -> dict[str, int]:
         try:
             priority = int(priority_str)
         except ValueError:
-            raise ValueError(
-                f"Invalid priority '{priority_str}' in entry '{entry}': must be an integer"
-            ) from None
+            raise ValueError(f"Invalid priority '{priority_str}' in entry '{entry}': must be an integer") from None
         if priority < 1:
             raise ValueError(f"Priority must be >= 1, got {priority} in entry '{entry}'")
         result[pattern] = priority
@@ -1067,6 +1086,11 @@ class HindsightConfig:
     retain_llm_max_backoff: float | None
     retain_llm_timeout: float | None
     retain_llm_litellmrouter_config: dict | None
+
+    # Fireworks AI batch inference (static, server-level)
+    fireworks_account_id: str | None
+    fireworks_batch_base_url: str
+    fireworks_batch_max_wait_seconds: int
 
     reflect_llm_provider: str | None
     reflect_llm_api_key: str | None
@@ -1203,6 +1227,7 @@ class HindsightConfig:
     retain_batch_enabled: bool
     retain_batch_poll_interval_seconds: int
     retain_entity_lookup: str  # "full" or "trigram"
+    retain_entity_resolution_batch_size: int  # Unique entity names per pg_trgm candidate lookup query
     retain_chunk_batch_size: int  # Max chunks per streaming batch (0 = disabled)
 
     # File storage (static - server-level only)
@@ -1236,6 +1261,7 @@ class HindsightConfig:
     consolidation_batch_size: int
     consolidation_max_memories_per_round: int
     consolidation_llm_batch_size: int
+    consolidation_llm_parallelism: int
     consolidation_max_tokens: int
     consolidation_recall_budget: str
     consolidation_source_facts_max_tokens: int
@@ -1298,6 +1324,7 @@ class HindsightConfig:
     worker_id: str | None
     worker_poll_interval_ms: int
     worker_max_retries: int
+    worker_task_retry_backoff_seconds: int
     worker_http_port: int
     worker_max_slots: int
     worker_slot_reservations: dict[str, int]
@@ -1403,6 +1430,7 @@ class HindsightConfig:
         "enable_observations",
         "enable_auto_consolidation",
         "consolidation_llm_batch_size",
+        "consolidation_llm_parallelism",
         "consolidation_max_memories_per_round",
         "consolidation_source_facts_max_tokens",
         "consolidation_source_facts_max_tokens_per_observation",
@@ -1647,6 +1675,11 @@ class HindsightConfig:
                 else None
             ),
             retain_llm_base_url=os.getenv(ENV_RETAIN_LLM_BASE_URL) or None,
+            fireworks_account_id=os.getenv(ENV_FIREWORKS_ACCOUNT_ID) or None,
+            fireworks_batch_base_url=os.getenv(ENV_FIREWORKS_BATCH_BASE_URL) or DEFAULT_FIREWORKS_BATCH_BASE_URL,
+            fireworks_batch_max_wait_seconds=int(
+                os.getenv(ENV_FIREWORKS_BATCH_MAX_WAIT_SECONDS, str(DEFAULT_FIREWORKS_BATCH_MAX_WAIT_SECONDS))
+            ),
             retain_llm_max_concurrent=int(os.getenv(ENV_RETAIN_LLM_MAX_CONCURRENT))
             if os.getenv(ENV_RETAIN_LLM_MAX_CONCURRENT)
             else None,
@@ -1953,6 +1986,11 @@ class HindsightConfig:
             retain_strategies=DEFAULT_RETAIN_STRATEGIES,
             retain_batch_tokens=int(os.getenv(ENV_RETAIN_BATCH_TOKENS, str(DEFAULT_RETAIN_BATCH_TOKENS))),
             retain_entity_lookup=os.getenv(ENV_RETAIN_ENTITY_LOOKUP, DEFAULT_RETAIN_ENTITY_LOOKUP),
+            retain_entity_resolution_batch_size=_parse_positive_int(
+                ENV_RETAIN_ENTITY_RESOLUTION_BATCH_SIZE,
+                os.getenv(ENV_RETAIN_ENTITY_RESOLUTION_BATCH_SIZE),
+                DEFAULT_RETAIN_ENTITY_RESOLUTION_BATCH_SIZE,
+            ),
             retain_batch_enabled=os.getenv(ENV_RETAIN_BATCH_ENABLED, str(DEFAULT_RETAIN_BATCH_ENABLED)).lower()
             == "true",
             retain_batch_poll_interval_seconds=int(
@@ -2022,6 +2060,15 @@ class HindsightConfig:
             consolidation_llm_batch_size=int(
                 os.getenv(ENV_CONSOLIDATION_LLM_BATCH_SIZE, str(DEFAULT_CONSOLIDATION_LLM_BATCH_SIZE))
             ),
+            consolidation_llm_parallelism=max(
+                1,
+                int(
+                    os.getenv(
+                        ENV_CONSOLIDATION_LLM_PARALLELISM,
+                        str(DEFAULT_CONSOLIDATION_LLM_PARALLELISM),
+                    )
+                ),
+            ),
             consolidation_max_tokens=int(
                 os.getenv(ENV_CONSOLIDATION_MAX_TOKENS, str(DEFAULT_CONSOLIDATION_MAX_TOKENS))
             ),
@@ -2057,6 +2104,12 @@ class HindsightConfig:
             worker_id=os.getenv(ENV_WORKER_ID) or DEFAULT_WORKER_ID,
             worker_poll_interval_ms=int(os.getenv(ENV_WORKER_POLL_INTERVAL_MS, str(DEFAULT_WORKER_POLL_INTERVAL_MS))),
             worker_max_retries=int(os.getenv(ENV_WORKER_MAX_RETRIES, str(DEFAULT_WORKER_MAX_RETRIES))),
+            worker_task_retry_backoff_seconds=int(
+                os.getenv(
+                    ENV_WORKER_TASK_RETRY_BACKOFF_SECONDS,
+                    str(DEFAULT_WORKER_TASK_RETRY_BACKOFF_SECONDS),
+                )
+            ),
             worker_http_port=int(os.getenv(ENV_WORKER_HTTP_PORT, str(DEFAULT_WORKER_HTTP_PORT))),
             worker_max_slots=int(os.getenv(ENV_WORKER_MAX_SLOTS, str(DEFAULT_WORKER_MAX_SLOTS))),
             worker_slot_reservations={

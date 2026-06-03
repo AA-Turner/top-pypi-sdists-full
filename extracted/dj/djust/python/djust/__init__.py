@@ -27,6 +27,10 @@ from .decorators import (
     debounce,
     throttle,
     on_mount,
+    optimistic,
+    cache,
+    client_state,
+    background,
 )
 from .auth import LoginRequiredMixin, PermissionRequiredMixin
 from .react import react_components, register_react_component, ReactMixin
@@ -71,7 +75,7 @@ except ImportError:
     # Rust components not yet built - this is optional
     rust_components = None  # noqa: F841 — accessed as djust.rust_components by user code
 
-__version__ = "0.9.7"
+__version__ = "1.0.0"
 
 
 def enable_hot_reload():
@@ -303,6 +307,11 @@ __all__ = [
     "PermissionRequiredMixin",
     # on_mount hooks
     "on_mount",
+    # Optimistic UI / caching / client-state / background-work decorators
+    "optimistic",
+    "cache",
+    "client_state",
+    "background",
     # Rust components (optional)
     "rust_components",
     # Database change notifications (pg_notify bridge)

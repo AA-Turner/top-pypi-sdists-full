@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: distlib
-Version: 0.4.0
+Version: 0.4.1
 Summary: Distribution utilities
 Home-page: https://github.com/pypa/distlib
 Author: Vinay Sajip
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 License-File: LICENSE.txt
 
@@ -114,5 +115,3 @@ Everyone interacting in the distlib project's codebases, issue trackers, chat
 rooms, and mailing lists is expected to follow the `PyPA Code of Conduct`_.
 
 .. _PyPA Code of Conduct: https://www.pypa.io/en/latest/code-of-conduct/
-
-

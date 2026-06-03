@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -32,7 +31,7 @@ class SCEnvMetaEntry:
     def __init__(
         self,
         kind: SCEnvMetaKind,
-        interface_version: Optional[SCEnvMetaEntryInterfaceVersion] = None,
+        interface_version: SCEnvMetaEntryInterfaceVersion | None = None,
     ) -> None:
         self.kind = kind
         self.interface_version = interface_version

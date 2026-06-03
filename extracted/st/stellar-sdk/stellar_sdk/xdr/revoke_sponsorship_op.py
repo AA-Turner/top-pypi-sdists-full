@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -36,8 +35,8 @@ class RevokeSponsorshipOp:
     def __init__(
         self,
         type: RevokeSponsorshipType,
-        ledger_key: Optional[LedgerKey] = None,
-        signer: Optional[RevokeSponsorshipOpSigner] = None,
+        ledger_key: LedgerKey | None = None,
+        signer: RevokeSponsorshipOpSigner | None = None,
     ) -> None:
         self.type = type
         self.ledger_key = ledger_key

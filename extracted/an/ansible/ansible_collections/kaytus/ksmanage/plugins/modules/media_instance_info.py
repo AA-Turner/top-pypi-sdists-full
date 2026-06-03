@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: media_instance_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get Virtual Media Instance information
 description:
    - Get Virtual Media Instance information on kaytus Server.

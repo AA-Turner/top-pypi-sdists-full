@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.93
+Version: 1.4.106
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -532,9 +532,22 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Discord
 | Method | Description |
 |--------|-------------|
+| `discord.list_discord_guild_members()` | List Discord guild members |
+| `discord.list_discord_guild_roles()` | List Discord guild roles |
+| `discord.list_discord_pinned_messages()` | List pinned messages in a Discord channel |
+| `discord.list_discord_scheduled_events()` | List Discord scheduled events |
+| `discord.create_discord_scheduled_event()` | Create a Discord scheduled event |
 | `discord.get_discord_channels()` | List Discord guild channels |
+| `discord.get_discord_scheduled_event()` | Get a Discord scheduled event |
 | `discord.get_discord_settings()` | Get Discord account settings |
+| `discord.update_discord_scheduled_event()` | Update a Discord scheduled event |
 | `discord.update_discord_settings()` | Update Discord settings |
+| `discord.delete_discord_scheduled_event()` | Delete a Discord scheduled event |
+| `discord.add_discord_member_role()` | Assign a role to a guild member |
+| `discord.pin_discord_message()` | Pin a Discord message |
+| `discord.remove_discord_member_role()` | Remove a role from a guild member |
+| `discord.send_discord_direct_message()` | Send a Discord Direct Message |
+| `discord.unpin_discord_message()` | Unpin a Discord message |
 
 ### GMB Attributes
 | Method | Description |
@@ -744,14 +757,19 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Workflows
 | Method | Description |
 |--------|-------------|
+| `workflows.list_workflow_execution_events()` | Get an execution's timeline |
 | `workflows.list_workflow_executions()` | List workflow runs |
+| `workflows.list_workflow_versions()` | List a workflow's version history |
 | `workflows.list_workflows()` | List workflows |
 | `workflows.create_workflow()` | Create workflow |
 | `workflows.get_workflow()` | Get workflow with graph |
+| `workflows.get_workflow_version()` | Get a specific workflow version |
 | `workflows.update_workflow()` | Update workflow |
 | `workflows.delete_workflow()` | Delete workflow |
 | `workflows.activate_workflow()` | Activate workflow |
+| `workflows.duplicate_workflow()` | Duplicate a workflow |
 | `workflows.pause_workflow()` | Pause workflow |
+| `workflows.restore_workflow_version()` | Restore a previous workflow version |
 | `workflows.trigger_workflow()` | Manually start a workflow run |
 
 ### Invites

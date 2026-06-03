@@ -528,8 +528,8 @@ def _fastapi_infra_files(stack: StackProfile) -> list[FileSlot]:
                 "Fixtures: event_loop (session scope), engine (create_all), "
                 "db_session (AsyncSession from the test engine), "
                 "client (AsyncClient with app, base_url). "
-                "Import from app.main import app — do NOT import from "
-                "app.models.user directly in conftest (let fixtures handle it)."
+                "Import SQLModel from sqlmodel and run conn.run_sync(SQLModel.metadata.create_all). "
+                "Do NOT import Base or anything else from app.models (it is empty)."
             ),
             language="python",
             must_contain=[
@@ -542,6 +542,7 @@ def _fastapi_infra_files(stack: StackProfile) -> list[FileSlot]:
                 "postgresql://",
                 "postgres://",
                 "asyncpg",
+                "from app.models import Base",
             ],
         )
     )

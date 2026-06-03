@@ -1,6 +1,7 @@
 [package]
+exclude = ["benches/**"]
 name = "path_resolver"
-version = "0.2.7"
+version = "0.2.10"
 categories.workspace = true
 homepage.workspace = true
 repository.workspace = true
@@ -20,7 +21,3 @@ tracing.workspace = true
 
 [dev-dependencies]
 divan = "0.1"
-
-[[bench]]
-name = "path_resolver_bench"
-harness = false

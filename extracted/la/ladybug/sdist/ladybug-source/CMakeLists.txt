@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Lbug VERSION 0.17.0 LANGUAGES CXX C)
+project(Lbug VERSION 0.17.1 LANGUAGES CXX C)
 
 option(SINGLE_THREADED "Single-threaded mode" FALSE)
 if(SINGLE_THREADED)
@@ -50,7 +50,12 @@ endif()
 set(OS_NAME "unknown")
 set(OS_ARCH "amd64")
 
-string(REGEX MATCH "(arm64|aarch64)" IS_ARM "${CMAKE_SYSTEM_PROCESSOR}")
+set(CMAKE_TARGET_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}")
+if(MSVC AND CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+  set(CMAKE_TARGET_PROCESSOR "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+endif()
+string(TOLOWER "${CMAKE_TARGET_PROCESSOR}" CMAKE_TARGET_PROCESSOR_LOWER)
+string(REGEX MATCH "(arm64|aarch64)" IS_ARM "${CMAKE_TARGET_PROCESSOR_LOWER}")
 if(IS_ARM)
   set(OS_ARCH "arm64")
 elseif(FORCE_32_BIT)
@@ -64,8 +69,11 @@ if(WIN32)
   set(OS_NAME "windows")
   # Prevent Windows min/max macros from breaking std::min/std::max (needed for Clang-on-Windows too)
   add_compile_definitions(NOMINMAX)
-  # Required for Windows SDK headers (winnt.h) when using Clang; MSVC branch sets _AMD64_ later
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  # Required for Windows SDK headers (winnt.h) when using Clang; MSVC branch sets the target arch later.
+  if(OS_ARCH STREQUAL "arm64")
+    add_compile_definitions(_ARM64_)
+    add_compile_definitions(PCG_LITTLE_ENDIAN=1)
+  elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
     add_compile_definitions(_AMD64_)
   else()
     add_compile_definitions(_X86_)
@@ -190,11 +198,7 @@ if(MSVC)
     # older versions of the MSVC runtime library
     # See: https://github.com/microsoft/STL/wiki/Changelog#vs-2022-1710
     add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
-    # TODO (bmwinger): Figure out if this can be set automatically by cmake,
-    # or at least better integrated with user-specified options
-    # For now, hardcode _AMD64_
-    # CMAKE_GENERATOR_PLATFORM can be used for visual studio builds, but not for ninja
-    add_compile_definitions(_AMD64_)
+    # Windows target architecture macros are set above from the detected compiler target.
     # Non-english windows system may use other encodings other than utf-8 (e.g. Chinese use GBK).
     add_compile_options("/utf-8")
     # Enables support for custom hardware exception handling
@@ -339,6 +343,7 @@ option(BUILD_PYTHON "Build Python API." FALSE)
 option(BUILD_SHELL "Build Interactive Shell" TRUE)
 option(BUILD_SINGLE_FILE_HEADER "Build single file header. Requires Python >= 3.9." TRUE)
 option(BUILD_LBUG "Build Lbug." TRUE)
+option(BUILD_SHARED_LBUG "Build the shared liblbug library." TRUE)
 option(BUILD_STATIC_LBUG "Build the bundled static liblbug archive." TRUE)
 option(LBUG_API_USE_PRECOMPILED_LIB "Link language bindings against a precompiled static liblbug archive." FALSE)
 set(LBUG_API_PRECOMPILED_LIB_PATH "" CACHE FILEPATH "Path to the precompiled static liblbug archive used by language bindings.")
@@ -504,7 +509,9 @@ foreach(ext IN LISTS STATICALLY_LINKED_EXTENSIONS)
     if(TARGET lbug)
         target_link_libraries(lbug PRIVATE "lbug_${ext}_static_extension")
     endif()
-    target_link_libraries(lbug_shared PRIVATE "lbug_${ext}_static_extension")
+    if(TARGET lbug_shared)
+        target_link_libraries(lbug_shared PRIVATE "lbug_${ext}_static_extension")
+    endif()
 endforeach()
 
 if (${BUILD_TESTS} OR ${BUILD_EXTENSION_TESTS})

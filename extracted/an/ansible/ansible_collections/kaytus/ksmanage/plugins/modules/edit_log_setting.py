@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_log_setting
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set bmc system and audit log setting
 description:
    - Set bmc system and audit log setting on kaytus Server.

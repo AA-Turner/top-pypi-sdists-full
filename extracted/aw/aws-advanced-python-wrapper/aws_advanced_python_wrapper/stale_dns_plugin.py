@@ -32,7 +32,7 @@ from aws_advanced_python_wrapper.plugin import Plugin, PluginFactory
 from aws_advanced_python_wrapper.utils.log import Logger
 from aws_advanced_python_wrapper.utils.messages import Messages
 from aws_advanced_python_wrapper.utils.notifications import HostEvent
-from aws_advanced_python_wrapper.utils.rdsutils import RdsUtils
+from aws_advanced_python_wrapper.utils.rds_utils import RdsUtils
 from aws_advanced_python_wrapper.utils.utils import LogUtils, Utils
 
 logger = Logger(__name__)
@@ -58,7 +58,8 @@ class StaleDnsHelper:
         :param connect_func:
         :return:
         """
-        if not self._rds_helper.is_writer_cluster_dns(host_info.host):
+        if not self._rds_helper.is_writer_cluster_dns(host_info.host) \
+                and not self._rds_helper.is_global_db_writer_cluster_dns(host_info.host):
             return connect_func()
 
         conn: Connection = connect_func()

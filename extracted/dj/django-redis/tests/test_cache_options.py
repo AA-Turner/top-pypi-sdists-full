@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 import copy
-from collections.abc import Iterable
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from django.core.cache import caches
 from pytest import LogCaptureFixture
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from django_redis.cache import RedisCache
 from django_redis.client import ShardClient
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from django_redis.cache import RedisCache
 
 
 def make_key(key: str, prefix: str, version: str) -> str:
@@ -38,7 +43,8 @@ def test_get_django_omit_exceptions_many_returns_default_arg(
 
 
 def test_get_django_omit_exceptions(
-    caplog: LogCaptureFixture, ignore_exceptions_cache: RedisCache
+    caplog: LogCaptureFixture,
+    ignore_exceptions_cache: RedisCache,
 ):
     assert ignore_exceptions_cache._ignore_exceptions is True
     assert ignore_exceptions_cache._log_ignored_exceptions is True
@@ -92,7 +98,9 @@ def with_prefix_cache() -> Iterable[RedisCache]:
 
 class TestDjangoRedisCacheEscapePrefix:
     def test_delete_pattern(
-        self, key_prefix_cache: RedisCache, with_prefix_cache: RedisCache
+        self,
+        key_prefix_cache: RedisCache,
+        with_prefix_cache: RedisCache,
     ):
         key_prefix_cache.set("a", "1")
         with_prefix_cache.set("b", "2")
@@ -101,7 +109,9 @@ class TestDjangoRedisCacheEscapePrefix:
         assert with_prefix_cache.get("b") == "2"
 
     def test_iter_keys(
-        self, key_prefix_cache: RedisCache, with_prefix_cache: RedisCache
+        self,
+        key_prefix_cache: RedisCache,
+        with_prefix_cache: RedisCache,
     ):
         if isinstance(key_prefix_cache.client, ShardClient):
             pytest.skip("ShardClient doesn't support iter_keys")

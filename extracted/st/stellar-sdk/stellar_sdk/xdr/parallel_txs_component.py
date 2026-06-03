@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List, Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -31,8 +30,8 @@ class ParallelTxsComponent:
 
     def __init__(
         self,
-        base_fee: Optional[Int64],
-        execution_stages: List[ParallelTxExecutionStage],
+        base_fee: Int64 | None,
+        execution_stages: list[ParallelTxExecutionStage],
     ) -> None:
         _expect_max_length = 4294967295
         if execution_stages and len(execution_stages) > _expect_max_length:
@@ -109,9 +108,9 @@ class ParallelTxsComponent:
 
     def to_json_dict(self) -> dict:
         return {
-            "base_fee": (
-                self.base_fee.to_json_dict() if self.base_fee is not None else None
-            ),
+            "base_fee": self.base_fee.to_json_dict()
+            if self.base_fee is not None
+            else None,
             "execution_stages": [item.to_json_dict() for item in self.execution_stages],
         }
 

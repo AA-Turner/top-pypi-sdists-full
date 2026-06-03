@@ -87,7 +87,6 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
             if not val_res.ok:
                 scores["code_quality"] = 1
                 reasons["code_quality"] = f"File {f.name} failed quality validation: {val_res.reason}"
-
     # 4. Testing & Validation
     # Ensure generated code/tests do not use simulated unit-level testing stubs
     if generated_files:

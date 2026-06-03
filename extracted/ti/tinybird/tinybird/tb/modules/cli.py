@@ -68,6 +68,7 @@ PROJECT_TYPE_TYPESCRIPT = "ts-sdk"
 PROJECT_TYPE_PYTHON = "python-sdk"
 PROJECT_TYPE_CLI = "cli"
 PROJECT_TYPES = {PROJECT_TYPE_TYPESCRIPT, PROJECT_TYPE_PYTHON, PROJECT_TYPE_CLI}
+UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
 
 CLI_PROJECT_MARKERS = (
@@ -163,16 +164,44 @@ def is_main_git_branch(branch_name: Optional[str]) -> bool:
     return branch_name in {"main", "master"}
 
 
-def sanitize_branch_name(branch_name: str) -> str:
+def sanitize_branch_name(branch_name: str, *, enforce_workspace_prefix_rules: bool = True) -> str:
     sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", branch_name)
     sanitized = re.sub(r"_+", "_", sanitized)
-    return sanitized.strip("_")
+    sanitized = sanitized.strip("_")
+    if enforce_workspace_prefix_rules:
+        if sanitized and sanitized[0].isdigit():
+            sanitized = f"branch_{sanitized}"
+        if sanitized.startswith("d_"):
+            sanitized = f"branch_{sanitized}"
+    return sanitized
+
+
+def _looks_like_uuid(value: str) -> bool:
+    return bool(UUID_PATTERN.fullmatch(value))
+
+
+def ensure_valid_workspace_name(name: str, *, context: str = "Branch") -> str:
+    sanitized = sanitize_branch_name(name)
+    if not sanitized:
+        raise CLIException(
+            FeedbackManager.error(
+                message=(
+                    f"{context} name '{name}' is not valid. "
+                    "Name must start with a letter and contain only letters, numbers, and underscores."
+                )
+            )
+        )
+
+    if sanitized != name:
+        click.echo(FeedbackManager.warning_branch_name_sanitized(context=context, original=name, sanitized=sanitized))
+
+    return sanitized
 
 
 def get_tinybird_branch_name_from_git_branch(branch_name: Optional[str]) -> Optional[str]:
     if not branch_name:
         return None
-    sanitized = sanitize_branch_name(branch_name)
+    sanitized = sanitize_branch_name(branch_name, enforce_workspace_prefix_rules=False)
     return sanitized or None
 
 

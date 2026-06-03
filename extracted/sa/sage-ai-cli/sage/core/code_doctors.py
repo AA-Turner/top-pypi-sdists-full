@@ -233,6 +233,9 @@ _WRONG_IMPORT_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
     # Wrong path imports in tests: "from backend.app import" → "from app import"
     (re.compile(r"from\s+backend\.app\."),
      "from app."),
+    # API router package import fix
+    (re.compile(r"from\s+app\.api\s+import\s+api_router"),
+     "from app.api.routes import api_router"),
 )
 
 
@@ -856,9 +859,172 @@ def fix_vitest_test_script(frontend_root: Path) -> int:
     new_cmd = re.sub(r"\s*--watchAll(?:=\S+)?", "", test_cmd).strip()
     if new_cmd == test_cmd:
         return 0
-    data["scripts"]["test"] = new_cmd
     pkg.write_text(_json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return 1
+
+
+def fix_package_level_imports(path: Path) -> int:
+    """Resolve package-level imports like `from app.models import X` to `from app.models.x import X`."""
+    try:
+        src = path.read_text("utf-8", errors="replace")
+    except OSError:
+        return 0
+
+    # Locate backend root
+    backend_root = None
+    for parent in path.parents:
+        if parent.name == "backend" or (parent / "app").is_dir():
+            backend_root = parent
+            break
+    if not backend_root:
+        for parent in path.parents:
+            if (parent / "app").is_dir():
+                backend_root = parent
+                break
+    if not backend_root:
+        return 0
+
+    import ast
+    try:
+        tree = ast.parse(src)
+    except Exception:
+        return 0
+
+    lines = src.split("\n")
+    replacements = []
+
+    # Cache file structures for speed
+    package_files_cache = {}
+
+    def get_defining_module(package_name: str, symbol: str) -> str | None:
+        cache_key = package_name
+        if cache_key not in package_files_cache:
+            # Locate the package directory
+            parts = package_name.split(".")
+            package_dir = backend_root / "/".join(parts)
+            if not package_dir.is_dir():
+                package_files_cache[cache_key] = []
+            else:
+                files = []
+                for f in package_dir.glob("*.py"):
+                    if f.name != "__init__.py":
+                        files.append(f)
+                package_files_cache[cache_key] = files
+
+        for f in package_files_cache[cache_key]:
+            try:
+                content = f.read_text("utf-8", errors="ignore")
+                if re.search(rf"\b(?:class|def)\s+{re.escape(symbol)}\b|^\s*{re.escape(symbol)}\s*=", content, re.MULTILINE):
+                    return f.stem
+            except Exception:
+                pass
+        return None
+
+    target_packages = {"app.models", "app.services", "app.schemas", "app.repositories", "app.tasks", "app.api.v1", "app.api"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module in target_packages:
+            start_idx = node.lineno - 1
+            end_idx = getattr(node, "end_lineno", node.lineno) - 1
+            
+            new_import_lines = []
+            for name_alias in node.names:
+                name = name_alias.name
+                asname = name_alias.asname
+                module_stem = get_defining_module(node.module, name)
+                if module_stem:
+                    full_module = f"{node.module}.{module_stem}"
+                    import_str = f"from {full_module} import {name}"
+                    if asname:
+                        import_str += f" as {asname}"
+                    new_import_lines.append(import_str)
+                else:
+                    if name and name[0].isupper():
+                        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+                        snake_name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+                        base_snake = snake_name
+                        for suffix in ["_create", "_update", "_out", "_list_response", "_repository", "_service", "_task", "_router", "_controller"]:
+                            if base_snake.endswith(suffix):
+                                base_snake = base_snake[:-len(suffix)]
+                                break
+                        parts = node.module.split(".")
+                        package_dir = backend_root / "/".join(parts)
+                        if (package_dir / f"{base_snake}.py").is_file():
+                            full_module = f"{node.module}.{base_snake}"
+                        elif (package_dir / f"{snake_name}.py").is_file():
+                            full_module = f"{node.module}.{snake_name}"
+                        else:
+                            full_module = node.module
+                    else:
+                        full_module = node.module
+
+                    import_str = f"from {full_module} import {name}"
+                    if asname:
+                        import_str += f" as {asname}"
+                    new_import_lines.append(import_str)
+            
+            new_text = "\n".join(new_import_lines)
+            replacements.append((start_idx, end_idx, new_text))
+
+    if not replacements:
+        return 0
+
+    replacements.sort(key=lambda x: x[0], reverse=True)
+    
+    modified = False
+    for start_idx, end_idx, new_text in replacements:
+        orig_text = "\n".join(lines[start_idx : end_idx + 1])
+        if orig_text.strip() != new_text.strip():
+            lines[start_idx : end_idx + 1] = [new_text]
+            modified = True
+
+    if modified:
+        path.write_text("\n".join(lines), encoding="utf-8")
+        return len(replacements)
+    return 0
+
+
+def fix_tsconfig_types(frontend_root: Path) -> int:
+    """Remove react-native-web from tsconfig.json types array to avoid type resolution issues."""
+    tsconfig_path = frontend_root / "tsconfig.json"
+    if not tsconfig_path.exists():
+        return 0
+    try:
+        content = tsconfig_path.read_text("utf-8")
+        data = _json.loads(content)
+        changed = False
+        if "compilerOptions" in data and "types" in data["compilerOptions"]:
+            types = data["compilerOptions"]["types"]
+            if isinstance(types, list) and "react-native-web" in types:
+                types.remove("react-native-web")
+                changed = True
+        if changed:
+            tsconfig_path.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            return 1
+    except Exception:
+        try:
+            content = tsconfig_path.read_text("utf-8")
+            new_content = re.sub(r'\s*,\s*"react-native-web"\s*', '', content)
+            new_content = re.sub(r'\s*"react-native-web"\s*,\s*', '', new_content)
+            new_content = re.sub(r'\s*"react-native-web"\s*', '', new_content)
+            if new_content != content:
+                tsconfig_path.write_text(new_content, encoding="utf-8")
+                return 1
+        except Exception:
+            pass
+    return 0
+
+
+def remove_duplicate_jest_configs(frontend_root: Path) -> int:
+    """Ensure we do not have both jest.config.js and jest.config.ts in React Native frontend projects."""
+    js_config = frontend_root / "jest.config.js"
+    ts_config = frontend_root / "jest.config.ts"
+    if js_config.exists() and ts_config.exists():
+        try:
+            ts_config.unlink()
+            return 1
+        except Exception:
+            pass
+    return 0
 
 
 def fix_missing_init_imports(backend_root: Path) -> int:
@@ -957,6 +1123,14 @@ def run_code_doctors(
         if n_rn_jest:
             log("  [doctor] fixed React Native jest.config.js (preset: jest-expo and transformIgnorePatterns)")
             report.files_touched += n_rn_jest
+        n_dup_jest = remove_duplicate_jest_configs(frontend)
+        if n_dup_jest:
+            log("  [doctor] removed duplicate jest.config.ts config file")
+            report.files_touched += n_dup_jest
+        n_tsconfig_types = fix_tsconfig_types(frontend)
+        if n_tsconfig_types:
+            log("  [doctor] removed react-native-web from tsconfig.json types array")
+            report.files_touched += n_tsconfig_types
         # Web projects using vitest: remove Jest-only --watchAll flag
         n_vitest = fix_vitest_test_script(frontend)
         if n_vitest:
@@ -971,6 +1145,12 @@ def run_code_doctors(
         if n_imports:
             log(f"  [doctor] fixed {n_imports} wrong import patterns in backend Python files")
             report.files_touched += n_imports
+        n_pkg_imports = 0
+        for p in _python_files(backend):
+            n_pkg_imports += fix_package_level_imports(p)
+        if n_pkg_imports:
+            log(f"  [doctor] resolved {n_pkg_imports} package-level imports to direct modules")
+            report.files_touched += n_pkg_imports
 
     # ── 1. Python: add missing imports ──
     if fix_imports and backend.is_dir():

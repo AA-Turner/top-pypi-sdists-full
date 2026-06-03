@@ -137,7 +137,7 @@ export const KanbanBoard = {
         'breakdown': ['plan.check_constraints', 'plan.plan_B', 'plan.user_confirm_spec', 'plan.complete'],
         'coding': ['execute.pitfall_check', 'execute.spawn'],
         'verify': ['execute.verify', 'execute.commit', 'execute.complete'],
-        'review': ['evaluate.e2e_run', 'evaluate.spawn', 'evaluate.spawn_qa', 'evaluate.collect_scores', 'evaluate.check_score', 'evaluate.complete'],
+        'review': ['evaluate.e2e_run', 'evaluate.spawn', 'evaluate.spawn_review', 'evaluate.collect_scores', 'evaluate.check_score', 'evaluate.complete'],
       };
 
       const stepIds = colFirstSteps[colKey] || [];
@@ -314,7 +314,7 @@ export const KanbanBoard = {
             'execute.commit': 'Commit',
             'evaluate.e2e_run': 'E2E',
             'evaluate.spawn': 'Review',
-            'evaluate.spawn_qa': 'QA',
+            'evaluate.spawn_review': 'Review',
             'evaluate.collect_scores': 'Scores',
           };
           return names[sid] || sid.split('.').pop();

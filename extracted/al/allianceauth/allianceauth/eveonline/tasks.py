@@ -57,7 +57,9 @@ def update_alliance(self, alliance_id: int) -> None:
 @rate_limit_retry_task
 def update_character(self, character_id: int) -> None:
     """Update given character from ESI."""
-    EveCharacter.objects.update_character(character_id)
+    # TODO: split these up as they operated on different Caches (1hr/1day)
+    EveCharacter.objects.update_character(character_id)  # Primary Affilation Data
+    EveCharacter.objects.update_character_other(character_id)  # the rest of the model fluff
 
 
 @shared_task(bind=True)
@@ -99,7 +101,7 @@ def update_character_chunk(character_ids_chunk: list) -> None:
     """Update a list of character from ESI"""
 
     try:
-        affiliations_raw = open_api_provider.get_affiliations(character_ids_chunk)
+        affiliations_raw, _ = open_api_provider.get_affiliations(character_ids_chunk)
         character_names = open_api_provider.post_names(character_ids_chunk)
     except HTTPError:
         logger.info("Failed to bulk update characters. Attempting single updates")

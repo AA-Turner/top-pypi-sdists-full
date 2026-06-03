@@ -12,6 +12,7 @@ Usage:
 
 import calendar as _calendar
 import datetime
+import itertools
 import json as _json
 import re as _re
 import uuid
@@ -120,12 +121,18 @@ class ModalNode(template.Node):
         cid_attr = (
             f' data-component-id="{conditional_escape(component_id)}"' if component_id else ""
         )
+        # ARIA: derive a stable id for the title so aria-labelledby can
+        # point at it. Derived deterministically from the existing `id`
+        # kwarg (or "modal" default) → VDOM dj-id stable, no randomness.
+        modal_id = conditional_escape(kw.get("id", "modal"))
+        title_id = f"{modal_id}-title"
+        labelledby = f' aria-labelledby="{title_id}"' if title else ""
 
         return mark_safe(f"""<div class="dj-modal-backdrop" dj-click="{e_close_event}"{cid_attr}>
-  <div class="dj-modal {size_class}" onclick="event.stopPropagation()">
+  <div class="dj-modal {size_class}" role="dialog" aria-modal="true"{labelledby} onclick="event.stopPropagation()">
     <div class="dj-modal__header">
-      <h3 class="dj-modal__title">{e_title}</h3>
-      <button class="dj-modal__close" dj-click="{e_close_event}"{cid_attr}>&times;</button>
+      <h3 class="dj-modal__title" id="{title_id}">{e_title}</h3>
+      <button class="dj-modal__close" aria-label="Close" dj-click="{e_close_event}"{cid_attr}>&times;</button>
     </div>
     <div class="dj-modal__body">{content}</div>
   </div>
@@ -180,35 +187,53 @@ class TabsNode(template.Node):
             f' data-component-id="{conditional_escape(component_id)}"' if component_id else ""
         )
 
+        # ARIA: derive stable per-tab ids for the tab/tabpanel
+        # aria-controls / aria-labelledby pairing. Derived deterministically
+        # from the existing `id` kwarg + the tab id → VDOM dj-id stable.
+        e_tabs_id = conditional_escape(tabs_id)
+
         # Build tab nav
         nav_items = []
         for tab in tabs:
             tid = _resolve(tab.tab_id, context)
             label = _resolve(tab.label, context)
             icon = _resolve(tab.icon, context) if tab.icon else ""
-            active_cls = "dj-tab--active" if tid == active else ""
+            is_active = tid == active
+            active_cls = "dj-tab--active" if is_active else ""
             icon_html = (
-                f'<span class="dj-tab__icon">{conditional_escape(icon)}</span> ' if icon else ""
+                f'<span class="dj-tab__icon" aria-hidden="true">{conditional_escape(icon)}</span> '
+                if icon
+                else ""
             )
+            e_tid = conditional_escape(tid)
+            tab_el_id = f"{e_tabs_id}-tab-{e_tid}"
+            panel_el_id = f"{e_tabs_id}-panel-{e_tid}"
             nav_items.append(
-                f'<button class="dj-tab {active_cls}" '
-                f'dj-click="{conditional_escape(event)}" data-value="{conditional_escape(tid)}"{cid_attr}>'
+                f'<button class="dj-tab {active_cls}" role="tab" '
+                f'id="{tab_el_id}" aria-controls="{panel_el_id}" '
+                f'aria-selected="{"true" if is_active else "false"}" '
+                f'dj-click="{conditional_escape(event)}" data-value="{e_tid}"{cid_attr}>'
                 f"{icon_html}{conditional_escape(label)}</button>"
             )
 
-        nav = f'<nav class="dj-tabs__nav">{"".join(nav_items)}</nav>'
+        nav = f'<nav class="dj-tabs__nav" role="tablist">{"".join(nav_items)}</nav>'
 
         # Build active pane
         pane = ""
         for tab in tabs:
             tid = _resolve(tab.tab_id, context)
             if tid == active:
-                pane = f'<div class="dj-tabs__pane">{tab.render(context)}</div>'
+                e_tid = conditional_escape(tid)
+                tab_el_id = f"{e_tabs_id}-tab-{e_tid}"
+                panel_el_id = f"{e_tabs_id}-panel-{e_tid}"
+                pane = (
+                    f'<div class="dj-tabs__pane" role="tabpanel" '
+                    f'id="{panel_el_id}" aria-labelledby="{tab_el_id}">'
+                    f"{tab.render(context)}</div>"
+                )
                 break
 
-        return mark_safe(
-            f'<div class="dj-tabs" id="{conditional_escape(tabs_id)}">{nav}{pane}</div>'
-        )
+        return mark_safe(f'<div class="dj-tabs" id="{e_tabs_id}">{nav}{pane}</div>')
 
 
 @register.tag("tabs")
@@ -263,6 +288,11 @@ class AccordionNode(template.Node):
             f' data-component-id="{conditional_escape(component_id)}"' if component_id else ""
         )
 
+        # ARIA: derive stable per-item ids so the trigger's aria-controls
+        # and the content panel's id/aria-labelledby can be paired.
+        # Deterministic from the existing `id` kwarg + item id.
+        e_accordion_id = conditional_escape(accordion_id)
+
         items = [n for n in self.nodelist if isinstance(n, AccordionItemNode)]
         parts = []
         for idx, item in enumerate(items):
@@ -271,21 +301,29 @@ class AccordionNode(template.Node):
             is_open = iid == active
             open_cls = "dj-accordion-item--open" if is_open else ""
             chevron_cls = "dj-accordion__chevron--open" if is_open else ""
+            e_iid = conditional_escape(iid)
+            trigger_id = f"{e_accordion_id}-trigger-{e_iid}"
+            panel_id = f"{e_accordion_id}-panel-{e_iid}"
             content_html = ""
             if is_open:
-                content_html = f'<div class="dj-accordion__content">{item.render(context)}</div>'
+                content_html = (
+                    f'<div class="dj-accordion__content" id="{panel_id}" '
+                    f'role="region" aria-labelledby="{trigger_id}">'
+                    f"{item.render(context)}</div>"
+                )
             parts.append(
                 f'<div class="dj-accordion-item {open_cls}">'
-                f'<button class="dj-accordion__trigger" dj-click="{conditional_escape(event)}" data-value="{conditional_escape(iid)}"{cid_attr}>'
+                f'<button class="dj-accordion__trigger" id="{trigger_id}" '
+                f'aria-expanded="{"true" if is_open else "false"}" '
+                f'aria-controls="{panel_id}" '
+                f'dj-click="{conditional_escape(event)}" data-value="{e_iid}"{cid_attr}>'
                 f"<span>{conditional_escape(title)}</span>"
-                f'<span class="dj-accordion__chevron {chevron_cls}">&#9662;</span>'
+                f'<span class="dj-accordion__chevron {chevron_cls}" aria-hidden="true">&#9662;</span>'
                 f"</button>"
                 f"{content_html}</div>"
             )
 
-        return mark_safe(
-            f'<div class="dj-accordion" id="{conditional_escape(accordion_id)}">{"".join(parts)}</div>'
-        )
+        return mark_safe(f'<div class="dj-accordion" id="{e_accordion_id}">{"".join(parts)}</div>')
 
 
 @register.tag("accordion")
@@ -334,13 +372,22 @@ class DropdownNode(template.Node):
             f' data-component-id="{conditional_escape(component_id)}"' if component_id else ""
         )
 
+        # ARIA: pair the trigger with the menu via aria-controls; the
+        # menu id is derived deterministically from the existing `id`
+        # kwarg so VDOM dj-id stays stable.
+        e_dropdown_id = conditional_escape(dropdown_id)
+        menu_id = f"{e_dropdown_id}-menu"
+
         menu_html = ""
         if is_open:
-            menu_html = f'<div class="dj-dropdown__menu">{content}</div>'
+            menu_html = f'<div class="dj-dropdown__menu" id="{menu_id}" role="menu">{content}</div>'
 
         return mark_safe(
-            f'<div class="dj-dropdown {variant_cls}" id="{conditional_escape(dropdown_id)}"{open_attr}>'
-            f'<button class="dj-dropdown__trigger" dj-click="{conditional_escape(toggle_event)}"{cid_attr}>{conditional_escape(label)}</button>'
+            f'<div class="dj-dropdown {variant_cls}" id="{e_dropdown_id}"{open_attr}>'
+            f'<button class="dj-dropdown__trigger" aria-haspopup="menu" '
+            f'aria-expanded="{"true" if is_open else "false"}" '
+            f'aria-controls="{menu_id}" '
+            f'dj-click="{conditional_escape(toggle_event)}"{cid_attr}>{conditional_escape(label)}</button>'
             f"{menu_html}</div>"
         )
 
@@ -375,6 +422,12 @@ def toast_container(toasts, dismiss_event="dismiss_toast"):
 # ---------------------------------------------------------------------------
 
 
+# Process-wide monotonic counter so each rendered tooltip without an
+# explicit component_id still gets a unique tip id (the WAI-ARIA tooltip
+# pattern requires a stable id to anchor aria-describedby).
+_tooltip_id_counter = itertools.count(1)
+
+
 class TooltipNode(template.Node):
     def __init__(self, nodelist, kwargs):
         self.nodelist = nodelist
@@ -390,10 +443,21 @@ class TooltipNode(template.Node):
             f' data-component-id="{conditional_escape(component_id)}"' if component_id else ""
         )
 
+        # Derive a stable, escaped tip id. When the caller supplies a
+        # component_id, anchor on it (deterministic); otherwise fall back to
+        # a process-wide counter so concurrently-rendered tooltips on one
+        # page never collide.
+        if component_id:
+            tip_id = f"{conditional_escape(component_id)}-tip"
+        else:
+            tip_id = f"dj-tooltip-tip-{next(_tooltip_id_counter)}"
+
         return mark_safe(
-            f'<span class="dj-tooltip dj-tooltip--{conditional_escape(position)}"{cid_attr}>'
+            f'<span class="dj-tooltip dj-tooltip--{conditional_escape(position)}"{cid_attr}'
+            f' aria-describedby="{tip_id}">'
             f"{content}"
-            f'<span class="dj-tooltip__text">{conditional_escape(text)}</span>'
+            f'<span class="dj-tooltip__text" id="{tip_id}" role="tooltip">'
+            f"{conditional_escape(text)}</span>"
             f"</span>"
         )
 
@@ -909,16 +973,21 @@ class AlertNode(template.Node):
         icon_char = _ALERT_ICONS.get(alert_type, "&#8505;")
         dismissible_cls = " alert-dismissible" if dismissible else ""
 
+        # ARIA: error/warning alerts are assertive ("alert"); info/success
+        # are polite ("status"). Both are static role literals.
+        aria_role = "alert" if alert_type in ("error", "danger", "warning") else "status"
+
         title_html = f'<div class="alert-title">{conditional_escape(title)}</div>' if title else ""
         close_html = (
-            f'<button class="alert-close" dj-click="{conditional_escape(event)}">&times;</button>'
+            f'<button class="alert-close" aria-label="Dismiss" '
+            f'dj-click="{conditional_escape(event)}">&times;</button>'
             if dismissible
             else ""
         )
 
         return mark_safe(
-            f'<div class="alert alert-{css_type}{dismissible_cls}">'
-            f'<span class="alert-icon">{icon_char}</span>'
+            f'<div class="alert alert-{css_type}{dismissible_cls}" role="{aria_role}">'
+            f'<span class="alert-icon" aria-hidden="true">{icon_char}</span>'
             f'<div class="alert-body">'
             f"{title_html}"
             f'<div class="alert-message">{content}</div>'
@@ -942,11 +1011,29 @@ def do_alert(parser, token):
 # ---------------------------------------------------------------------------
 
 
+# Variant keyword → CSS class name (#1619). djust-theming's components.css
+# ships rules only for .btn-primary / .btn-secondary / .btn-destructive /
+# .btn-ghost / .btn-link, so the variant keyword has to map to those
+# canonical class names. `danger` is kept as a back-compat alias for
+# `destructive` (matching shadcn/Tailwind convention). Variants not in
+# this map pass through as `btn-<variant>` with conditional_escape so
+# user-defined theme classes still work.
+_DJ_BUTTON_VARIANT_CLASS_MAP = {
+    "primary": "btn-primary",
+    "secondary": "btn-secondary",
+    "destructive": "btn-destructive",
+    "danger": "btn-destructive",  # back-compat alias (#1619)
+    "ghost": "btn-ghost",
+    "link": "btn-link",
+}
+
+
 @register.simple_tag
 def dj_button(
     label="",
     variant="primary",
     event="",
+    confirm="",
     icon="",
     disabled=False,
     loading=False,
@@ -957,8 +1044,16 @@ def dj_button(
 
     Args:
         label: button text
-        variant: primary, secondary, danger, ghost, link, success, warning
+        variant: one of ``primary``, ``secondary``, ``destructive``,
+            ``ghost``, ``link``. ``danger`` is accepted as a back-compat
+            alias for ``destructive`` (#1619). Any other string is passed
+            through verbatim as ``btn-<variant>`` so user-defined theme
+            classes still work.
         event: dj-click event name
+        confirm: optional JS ``confirm()`` dialog message shown before
+            firing the event. Emits the standard ``dj-confirm`` attribute
+            consumed by djust's client.js (#1621). Empty string (default)
+            emits no attribute and no dialog.
         icon: optional icon HTML/text prepended to label
         disabled: disables the button
         loading: shows spinner and disables button
@@ -975,6 +1070,7 @@ def dj_button(
             _defaults = {
                 "variant": "primary",
                 "event": "",
+                "confirm": "",
                 "icon": "",
                 "disabled": False,
                 "loading": False,
@@ -986,6 +1082,8 @@ def dj_button(
                 variant = preset_params["variant"]
             if event == _defaults["event"] and "event" in preset_params:
                 event = preset_params["event"]
+            if confirm == _defaults["confirm"] and "confirm" in preset_params:
+                confirm = preset_params["confirm"]
             if icon == _defaults["icon"] and "icon" in preset_params:
                 icon = preset_params["icon"]
             if disabled == _defaults["disabled"] and "disabled" in preset_params:
@@ -1000,7 +1098,10 @@ def dj_button(
     if isinstance(loading, str):
         loading = loading.lower() not in ("false", "0", "")
 
-    classes = f"btn btn-{conditional_escape(variant)}"
+    # Map well-known variants to their canonical CSS class names; for
+    # everything else, pass through with conditional_escape (#1619).
+    variant_class = _DJ_BUTTON_VARIANT_CLASS_MAP.get(variant, f"btn-{conditional_escape(variant)}")
+    classes = f"btn {variant_class}"
     if size and size != "md":
         classes += f" btn-{conditional_escape(size)}"
     if loading:
@@ -1009,6 +1110,13 @@ def dj_button(
     attrs = f'class="{classes}"'
     if event:
         attrs += f' dj-click="{conditional_escape(event)}"'
+    if confirm:
+        # #1621: emit djust's standard dj-confirm attribute so client.js
+        # shows a JS confirm() dialog before firing the event. Independent
+        # of `event` — client.js handles dj-confirm across multiple
+        # directives (dj-click, dj-submit, etc.), so the attr is useful
+        # on event-less buttons users have wired up via other directives.
+        attrs += f' dj-confirm="{conditional_escape(confirm)}"'
     if disabled or loading:
         attrs += " disabled"
 
@@ -1728,13 +1836,38 @@ def code_block(
 
     highlight_html = ""
     if highlight:
+        # The per-instance inline <script> runs on initial HTTP page load and
+        # highlights this code block. After hljs is loaded, we ALSO install a
+        # MutationObserver ONCE per page (gated by __djcHljsObserverInstalled)
+        # so any <code class="language-*"> element that arrives via a djust
+        # WS patch — which doesn't execute its own inline <script> in modern
+        # browsers — still gets highlighted (#1625).
         highlight_html = (
             f"<script>"
             f"(function(){{"
             f'var el=document.currentScript.previousElementSibling.querySelector("code");'
             f"if(el.dataset.highlighted)return;"
             f'function doHL(){{if(window.hljs){{hljs.highlightElement(el);el.dataset.highlighted="true";}}}}'
-            f"if(window.hljs){{doHL();return;}}"
+            # #1625: MutationObserver installer — idempotent via the
+            # __djcHljsObserverInstalled flag. Watches the whole document
+            # for added <pre><code class="language-*"> elements (typical
+            # WS-patch insertion point) and highlights any unmarked ones.
+            f"function installObserver(){{"
+            f"if(window.__djcHljsObserverInstalled)return;"
+            f"if(typeof MutationObserver==='undefined')return;"
+            f"window.__djcHljsObserverInstalled=true;"
+            f"var hl=function(root){{if(!window.hljs)return;"
+            f'var sel="pre code[class^=language-]";'
+            f"var nodes=root.matches&&root.matches(sel)?[root]:"
+            f"(root.querySelectorAll?root.querySelectorAll(sel):[]);"
+            f"Array.prototype.forEach.call(nodes,function(n)"
+            f'{{if(!n.dataset.highlighted){{hljs.highlightElement(n);n.dataset.highlighted="true";}}}});}};'
+            f"new MutationObserver(function(records){{"
+            f"records.forEach(function(r){{r.addedNodes&&Array.prototype.forEach.call(r.addedNodes,function(n)"
+            f"{{if(n.nodeType===1)hl(n);}});}});"
+            f"}}).observe(document.body,{{childList:true,subtree:true}});"
+            f"}}"
+            f"if(window.hljs){{doHL();installObserver();return;}}"
             f"if(!window.__djcHljsLoading){{"
             f"window.__djcHljsLoading=true;"
             f'var lnk=document.createElement("link");lnk.rel="stylesheet";'
@@ -1743,9 +1876,10 @@ def code_block(
             f'var s=document.createElement("script");'
             f's.src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js";'
             f's.onload=function(){{document.querySelectorAll("pre code[class^=language-]").forEach(function(b)'
-            f'{{if(!b.dataset.highlighted){{hljs.highlightElement(b);b.dataset.highlighted="true";}}}});}};'
+            f'{{if(!b.dataset.highlighted){{hljs.highlightElement(b);b.dataset.highlighted="true";}}}});'
+            f"installObserver();}};"
             f"document.head.appendChild(s);"
-            f"}}else{{var iv=setInterval(function(){{if(window.hljs){{clearInterval(iv);doHL();}}}},50);}}"
+            f"}}else{{var iv=setInterval(function(){{if(window.hljs){{clearInterval(iv);doHL();installObserver();}}}},50);}}"
             f"}})();"
             f"</script>"
         )
@@ -3045,7 +3179,13 @@ def kanban_board(
                 else ""
             )
             cards_html += (
-                f'<div class="kanban-card" draggable="true" '
+                # dj-key anchors each card by its stable id so the VDOM differ
+                # reconciles cards by IDENTITY (keyed) across a move, instead of
+                # by position. Without it, moving a card shifts per-column child
+                # counts and the differ patches against stale positional paths →
+                # a storm of failed patches + full html_recovery on every drag
+                # (#1678). `data-card-id` is for the drag JS, not the differ.
+                f'<div class="kanban-card" dj-key="{card_id}" draggable="true" '
                 f'data-card-id="{card_id}" data-col-id="{col_id}" '
                 f"ondragstart=\"(function(e,el){{e.dataTransfer.setData('card',el.dataset.cardId);"
                 f"e.dataTransfer.setData('from',el.dataset.colId);el.classList.add('dragging');}})( event,this)\" "
@@ -3062,7 +3202,12 @@ def kanban_board(
         )
 
         cols_html += (
-            f'<div class="kanban-col" '
+            # dj-key anchors each column by its stable id (keyed reconciliation),
+            # so when a card moves the differ matches the same column across
+            # renders and resolves its header/count/cards-container children by
+            # their stable positions rather than mis-patching positionally
+            # (#1678).
+            f'<div class="kanban-col" dj-key="{col_id}" '
             f'data-col-id="{col_id}" '
             f"ondragover=\"event.preventDefault();this.classList.add('kanban-col-over')\" "
             f"ondragleave=\"this.classList.remove('kanban-col-over')\" "

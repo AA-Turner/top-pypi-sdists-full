@@ -3,7 +3,8 @@ mod utils;
 use async_trait::async_trait;
 use statsig_rust::{
     data_store_interface::{
-        DataStoreBytesResponse, DataStoreResponse, DataStoreTrait, RequestPath,
+        DataStoreBytesResponse, DataStoreGetBytesRequest, DataStoreResponse, DataStoreTrait,
+        RequestPath,
     },
     SpecsSource, Statsig, StatsigErr, StatsigOptions,
 };
@@ -60,6 +61,8 @@ impl DataStoreTrait for RecordingBytesDataStore {
         Ok(DataStoreResponse {
             result: None,
             time: None,
+            checksum: None,
+            has_updates: None,
         })
     }
 
@@ -78,6 +81,7 @@ impl DataStoreTrait for RecordingBytesDataStore {
         key: &str,
         value: &[u8],
         _time: Option<u64>,
+        _checksum: Option<String>,
     ) -> Result<(), StatsigErr> {
         *self.set_bytes_calls.lock().unwrap() += 1;
         let _ = self
@@ -88,9 +92,18 @@ impl DataStoreTrait for RecordingBytesDataStore {
         Ok(())
     }
 
-    async fn get_bytes(&self, key: &str) -> Result<DataStoreBytesResponse, StatsigErr> {
+    async fn get_bytes(
+        &self,
+        key: &str,
+        _request: DataStoreGetBytesRequest,
+    ) -> Result<DataStoreBytesResponse, StatsigErr> {
         let result = self.values.lock().unwrap().get(key).cloned();
-        Ok(DataStoreBytesResponse { result, time: None })
+        Ok(DataStoreBytesResponse {
+            result,
+            time: None,
+            checksum: None,
+            has_updates: None,
+        })
     }
 
     async fn support_polling_updates_for(&self, _path: RequestPath) -> bool {
@@ -144,7 +157,17 @@ async fn test_json_bytes_are_written_and_reused_from_datastore_on_reinit() {
         .last_key_containing("|plain_text|")
         .expect("Expected JSON cache key to be written");
     assert_eq!(
-        data_store.get_bytes(&cached_json_key).await.unwrap().result,
+        data_store
+            .get_bytes(
+                &cached_json_key,
+                DataStoreGetBytesRequest {
+                    since_time: None,
+                    checksum: None,
+                },
+            )
+            .await
+            .unwrap()
+            .result,
         Some(EVAL_PROJ_JSON.as_bytes().to_vec())
     );
     assert_eq!(data_store.set_calls(), 0);
@@ -191,7 +214,17 @@ async fn test_json_bytes_are_written_and_reused_from_datastore_on_reinit() {
         0
     );
     assert_eq!(
-        data_store.get_bytes(&cached_json_key).await.unwrap().result,
+        data_store
+            .get_bytes(
+                &cached_json_key,
+                DataStoreGetBytesRequest {
+                    since_time: None,
+                    checksum: None,
+                },
+            )
+            .await
+            .unwrap()
+            .result,
         Some(EVAL_PROJ_JSON.as_bytes().to_vec())
     );
 }

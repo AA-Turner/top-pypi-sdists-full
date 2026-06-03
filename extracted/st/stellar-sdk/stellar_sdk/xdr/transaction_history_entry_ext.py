@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -30,7 +29,7 @@ class TransactionHistoryEntryExt:
     def __init__(
         self,
         v: int,
-        generalized_tx_set: Optional[GeneralizedTransactionSet] = None,
+        generalized_tx_set: GeneralizedTransactionSet | None = None,
     ) -> None:
         self.v = v
         self.generalized_tx_set = generalized_tx_set

@@ -1,4 +1,4 @@
-# Generated from indonesian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from indonesian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class IndonesianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from indonesian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from indonesian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_vowel = {"a", "e", "i", "o", "u"}

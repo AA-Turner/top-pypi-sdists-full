@@ -19,7 +19,7 @@ import sys
 import urllib.error
 import urllib.parse
 import webbrowser
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
@@ -852,6 +852,23 @@ def _configure_guard_parser(guard_parser: argparse.ArgumentParser) -> None:
     connect_parser.add_argument("--connect-url", default=DEFAULT_GUARD_CONNECT_URL, type=_guard_http_url)
     connect_parser.add_argument("--wait-timeout-seconds", type=int, default=180)
     connect_parser.add_argument("--headless", action="store_true")
+    connect_parser.add_argument(
+        "--ci-safe",
+        action="store_true",
+        help=(
+            "Use restricted headless OAuth scopes and require explicit workspace metadata "
+            "for CI or hosted automation."
+        ),
+    )
+    connect_parser.add_argument(
+        "--label",
+        help="With --ci-safe, require an explicit label for the CI or hosted runtime being connected.",
+    )
+    connect_parser.add_argument(
+        "--open-browser",
+        action="store_true",
+        help="With --headless, open the Device Code approval page before waiting for approval.",
+    )
     connect_parser.add_argument(
         "--no-browser",
         action="store_true",
@@ -2331,7 +2348,7 @@ def run_guard_command(
         payload, exit_code = _build_guard_device_connect_payload(
             store=store,
             connect_url=args.connect_url,
-            open_browser=True,
+            use_browser_oauth=True,
             wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
         )
         if payload is None:
@@ -2350,11 +2367,16 @@ def run_guard_command(
             )
             _emit("connect", payload, getattr(args, "json", False))
             return 0
+        try:
+            ci_safe, machine_label = _guard_ci_safe_connect_options(args)
+        except ValueError as error:
+            print(str(error), file=sys.stderr)
+            return 2
         if not bool(getattr(args, "headless", False)):
             payload, exit_code = _build_guard_device_connect_payload(
                 store=store,
                 connect_url=args.connect_url,
-                open_browser=True,
+                use_browser_oauth=True,
                 wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
             )
             if payload is None:
@@ -2365,11 +2387,14 @@ def run_guard_command(
             payload, exit_code = _build_guard_device_connect_payload(
                 store=store,
                 connect_url=args.connect_url,
-                open_browser=False,
+                use_browser_oauth=False,
+                open_device_browser=bool(getattr(args, "open_browser", False)),
                 wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
                 announce_copy=None
                 if getattr(args, "json", False)
                 else _announce_guard_device_connect_copy,
+                ci_safe=ci_safe,
+                machine_label=machine_label,
             )
             if payload is None:
                 return exit_code
@@ -8817,11 +8842,17 @@ def _run_guard_device_connect_flow(
     store: GuardStore,
     connect_url: str,
     announce_copy=None,
+    open_browser: Callable[[str], bool] | None = None,
+    ci_safe: bool = False,
+    machine_label: str | None = None,
 ) -> dict[str, object]:
     return run_guard_device_connect_command(
         store=store,
         connect_url=connect_url,
         announce_copy=announce_copy,
+        open_browser=open_browser,
+        ci_safe=ci_safe,
+        machine_label=machine_label,
     )
 
 
@@ -8842,24 +8873,37 @@ def _build_guard_device_connect_payload(
     *,
     store: GuardStore,
     connect_url: str,
-    open_browser: bool,
+    use_browser_oauth: bool,
+    open_device_browser: bool = False,
     wait_timeout_seconds: int = 180,
     announce_copy=None,
+    ci_safe: bool = False,
+    machine_label: str | None = None,
 ) -> tuple[dict[str, object] | None, int]:
     try:
-        payload = (
-            _run_guard_browser_connect_flow(
+        if use_browser_oauth:
+            payload = _run_guard_browser_connect_flow(
                 store=store,
                 connect_url=connect_url,
                 wait_timeout_seconds=wait_timeout_seconds,
             )
-            if open_browser
-            else _run_guard_device_connect_flow(
+        elif open_device_browser:
+            payload = _run_guard_device_connect_flow(
                 store=store,
                 connect_url=connect_url,
                 announce_copy=announce_copy,
+                open_browser=webbrowser.open,
+                ci_safe=ci_safe,
+                machine_label=machine_label,
             )
-        )
+        else:
+            payload = _run_guard_device_connect_flow(
+                store=store,
+                connect_url=connect_url,
+                announce_copy=announce_copy,
+                ci_safe=ci_safe,
+                machine_label=machine_label,
+            )
     except json.JSONDecodeError as error:
         print(f"Guard authorization failed: {error}", file=sys.stderr)
         return None, 1
@@ -8869,18 +8913,7 @@ def _build_guard_device_connect_payload(
     except (RuntimeError, TimeoutError, urllib.error.URLError, http.client.HTTPException) as error:
         print(f"Guard authorization failed: {error}", file=sys.stderr)
         return None, 1
-    if open_browser and str(payload.get("connect_mode") or "") == "device_code":
-        _open_guard_device_next_action(payload)
     return payload, 0
-
-
-def _open_guard_device_next_action(payload: dict[str, object]) -> None:
-    next_action = payload.get("next_action")
-    if not isinstance(next_action, dict):
-        return
-    target = _optional_string(next_action.get("target"))
-    if target is not None:
-        payload["browser_opened"] = bool(webbrowser.open(target))
 
 
 def _announce_guard_device_connect_copy(payload: dict[str, object]) -> None:
@@ -8894,6 +8927,21 @@ def _announce_guard_device_connect_copy(payload: dict[str, object]) -> None:
     print(f"1. Open {target}")
     print(f"2. Enter code {user_code}")
     print("3. Keep this terminal open while HOL Guard waits for approval.")
+
+
+def _guard_ci_safe_connect_options(args: argparse.Namespace) -> tuple[bool, str | None]:
+    ci_safe = bool(getattr(args, "ci_safe", False))
+    if not ci_safe:
+        return False, None
+    if not bool(getattr(args, "headless", False)):
+        raise ValueError("Guard CI-safe connect requires --headless.")
+    workspace = _optional_string(getattr(args, "workspace", None))
+    if workspace is None:
+        raise ValueError("Guard CI-safe headless connect requires --workspace.")
+    label = _optional_string(getattr(args, "label", None))
+    if label is None:
+        raise ValueError("Guard CI-safe headless connect requires --label.")
+    return True, label
 
 
 def _manual_guard_login_payload(
@@ -8964,11 +9012,19 @@ def _guard_service_login_payload(
                 "workspace": workspace or None,
             },
         }, 2
+    next_command = "hol-guard connect --headless"
+    next_message = "Use OAuth Device Code to connect headless or hosted runtimes."
+    if workspace:
+        next_command = (
+            "hol-guard connect --headless --ci-safe "
+            f"--workspace {shlex.quote(workspace)} --label {shlex.quote(label)}"
+        )
+        next_message = "Use CI-safe OAuth Device Code to connect a hosted runtime with explicit workspace metadata."
     return {
         "logged_in": False,
         "next_action": {
-            "command": "hol-guard connect --headless",
-            "message": "Use OAuth Device Code to connect headless or hosted runtimes.",
+            "command": next_command,
+            "message": next_message,
         },
         "service": {
             "runtime": runtime,

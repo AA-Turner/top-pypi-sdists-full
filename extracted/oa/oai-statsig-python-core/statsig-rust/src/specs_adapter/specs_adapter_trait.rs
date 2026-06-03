@@ -120,6 +120,7 @@ pub struct SpecsUpdate {
     pub source: SpecsSource,
     pub received_at: u64,
     pub source_api: Option<String>,
+    pub has_updates: Option<bool>,
 }
 
 #[repr(C)]

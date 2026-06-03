@@ -359,8 +359,15 @@ class ListBox(Widget, WidgetContainerMixin):
         :type body: ListWalker
         """
         super().__init__()
-        if getattr(body, "get_focus", None):
+        if isinstance(body, ListWalker):
             self._body: ListWalker = body
+        elif getattr(body, "get_focus", None):
+            self._body = typing.cast("ListWalker", body)
+            warnings.warn(
+                f"ListWalker or Iterable[Widget] argument expected, got: {type(body)}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         else:
             self._body = SimpleListWalker(body)
 
@@ -402,8 +409,15 @@ class ListBox(Widget, WidgetContainerMixin):
             signals.disconnect_signal(self._body, "modified", self._invalidate)
             # _body may be not yet assigned
 
-        if getattr(body, "get_focus", None):
+        if isinstance(body, ListWalker):
             self._body = body
+        elif getattr(body, "get_focus", None):
+            self._body = typing.cast("ListWalker", body)
+            warnings.warn(
+                f"ListWalker or Iterable[Widget] argument expected, got: {type(body)}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         else:
             self._body = SimpleListWalker(body)
         try:
@@ -1774,6 +1788,15 @@ class ListBox(Widget, WidgetContainerMixin):
                     (self.pref_col, 0),
                     snap_rows + maxrow - row_offset - 1,
                 )
+            elif row_offset + rows <= 0:
+                self.change_focus(
+                    (maxcol, maxrow),
+                    pos,
+                    -(rows - 1),
+                    "above",
+                    (self.pref_col, rows - 1),
+                    snap_rows - ((-row_offset) - (rows - 1)),
+                )
             else:
                 self.change_focus(
                     (maxcol, maxrow),
@@ -1823,6 +1846,9 @@ class ListBox(Widget, WidgetContainerMixin):
             if row_offset >= maxrow:
                 snap_rows -= snap_rows + maxrow - row_offset - 1
                 row_offset = maxrow - 1
+            elif row_offset + rows <= 0:
+                snap_rows -= (-row_offset) - (rows - 1)
+                row_offset = -(rows - 1)
 
             self.change_focus((maxcol, maxrow), pos, row_offset, "above", None, snap_rows)
             return None

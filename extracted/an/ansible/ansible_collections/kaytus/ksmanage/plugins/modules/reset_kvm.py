@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: reset_kvm
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: KVM reset
 description:
    - KVM reset on kaytus Server.

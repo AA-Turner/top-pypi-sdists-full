@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: injective-py
-Version: 1.14.1
+Version: 1.15.0
 Summary: Injective Python SDK, with Exchange API Client
 License: Apache-2.0
 License-File: LICENSE.md
@@ -108,6 +108,8 @@ Upgrade `pip` to the latest version, if you see these warnings:
 ```
 poetry run pytest -v
 ```
+
+> **Maintainers:** see [MAINTAINERS.md](MAINTAINERS.md) for how to regenerate proto bindings, refresh `pyinjective/ofac.json`, and cut a new release.
 
 ---
 

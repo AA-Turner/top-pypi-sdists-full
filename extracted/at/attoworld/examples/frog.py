@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
-#     "attoworld>=2026.1.8",
+#     "attoworld>=2026.2",
 #     "marimo>=0.23.8",
 #     "numpy>=2.4.6",
 #     "pyside6>=6.11.1",
@@ -28,7 +28,7 @@ async def _():
         import zipfile
         mo._runtime.context.get_context().marimo_config["runtime"]["output_max_bytes"] = 10000000000
         await micropip.install(
-            "https://nickkarpowicz.github.io/wheels/attoworld-2026.1.6-cp312-cp312-emscripten_3_1_58_wasm32.whl"
+            "https://nickkarpowicz.github.io/wheels/attoworld-2026.2-cp312-cp312-emscripten_3_1_58_wasm32.whl"
         )
         def display_download_link_from_file(
             path, output_name, mime_type="text/plain"
@@ -45,13 +45,12 @@ async def _():
     else:
         from PySide6.QtWidgets import QApplication, QFileDialog
         qtapp = QApplication(sys.argv)
-
+    import matplotlib.pyplot as plt
     import attoworld as aw
     import numpy as np
     import pathlib
     import time
 
-    aw.plot.set_style("nick_dark")
     return (
         QFileDialog,
         aw,
@@ -60,9 +59,17 @@ async def _():
         mo,
         np,
         pathlib,
+        plt,
         time,
         zipfile,
     )
+
+
+@app.cell
+def _(mo):
+    plot_style_selector = mo.ui.dropdown(options=["Dark", "Light"], label="Plot style", value="Dark")
+    mo.output.append(plot_style_selector)
+    return (plot_style_selector,)
 
 
 @app.cell
@@ -218,6 +225,7 @@ def _(is_in_web_notebook, loaded_settings, mo):
         bin_fblock,
         bin_median,
         bin_offset,
+        bin_save_button,
         bin_size,
         bin_spatial_chirp_correction,
         bin_t0,
@@ -266,10 +274,15 @@ def _(
     display_download_link_from_file,
     input_data,
     is_in_web_notebook,
+    plot_style_selector,
 ):
     # if not bin_live.value:
     #     mo.stop(not bin_button.value)
     if input_data is not None:
+        if plot_style_selector.value == "Light":
+            aw.plot.set_style("light")
+        else:
+            aw.plot.set_style("nick_dark")
         frog_data = input_data.to_bin_pipeline_result(bin_settings)
         frog_data.plot_log()
         aw.plot.showmo()
@@ -285,6 +298,26 @@ def _(
     else:
         frog_data = None
     return (frog_data,)
+
+
+@app.cell
+def _(
+    QFileDialog,
+    bin_save_button,
+    bin_settings,
+    is_in_web_notebook,
+    mo,
+    pathlib,
+):
+    mo.stop(not bin_save_button.value)
+    if not is_in_web_notebook and bin_settings is not None:
+        _file_path, _file_type = QFileDialog.getSaveFileName(
+                None, "Save file", "", "YAML Files (*.yml)")
+        if (_file_path is not None) and (bin_settings is not None) and (_file_path != ""):
+            if pathlib.Path(_file_path).suffix is "":
+                _file_path += ".yml"
+            bin_settings.save_yaml(_file_path)
+    return
 
 
 @app.cell
@@ -369,7 +402,6 @@ def _(mo, spectral_constraint_data, spectral_constraint_format):
 def _(
     aw,
     constraint_calibration_selector,
-    mo,
     spectral_constraint_bandpass_f0,
     spectral_constraint_bandpass_order,
     spectral_constraint_bandpass_sigma,
@@ -402,10 +434,23 @@ def _(
             )
             spectral_constraint = constraint_calibration.apply_to_spectrum(spectral_constraint)
         spectral_constraint = spectral_constraint.to_bandpassed(spectral_constraint_bandpass_f0.value * 1e12,spectral_constraint_bandpass_sigma.value * 1e12,int(spectral_constraint_bandpass_order.value))
-        mo.output.append(mo.md("### Loaded spectral constraint:"))
-        spectral_constraint.plot_with_group_delay()
-        aw.plot.showmo()
     return (spectral_constraint,)
+
+
+@app.cell
+def _(aw, mo, plot_style_selector, spectral_constraint):
+    if spectral_constraint is not None:
+        mo.output.append(mo.md("### Loaded spectral constraint:"))
+
+        if plot_style_selector.value == "Light":
+            aw.plot.set_style("light")
+            spectral_constraint.plot_with_group_delay()
+            aw.plot.showmo()
+        else:
+            aw.plot.set_style("nick_dark")
+            spectral_constraint.plot_with_group_delay()
+            aw.plot.showmo()
+    return
 
 
 @app.cell
@@ -489,6 +534,7 @@ def _(
     time,
     xfrog_reference,
 ):
+    frog_type = None
     mo.stop(not reconstruct_button.value)
     if frog_data is not None:
         roi = None
@@ -514,23 +560,21 @@ def _(
                     ptycho_exclude_upper.value * 1e12,
                 )
                 ptycho_threshhold_float = ptycho_threshhold.value
-        _start_time = time.time()
-        result, result_gate = aw.wave.reconstruct_frog(
-            measurement=frog_data,
-            repeats=int(recon_trials.value),
-            test_iterations=int(recon_trial_length.value),
-            polish_iterations=int(recon_followups.value),
-            frog_type=frog_type,
-            spectrum=spectral_constraint,
-            xfrog_gate=xfrog_reference,
-            roi=roi,
-            ptychographic_threshhold=ptycho_threshhold_float,
-        )
-        _stop_time = time.time()
-        reconstruction_time = _stop_time - _start_time
-        mo.output.append(mo.md(f"Reconstruction time: {reconstruction_time: .1f} s"))
-    else:
-        result = None
+                _start_time = time.time()
+                result, result_gate = aw.wave.reconstruct_frog(
+                    measurement=frog_data,
+                    repeats=int(recon_trials.value),
+                    test_iterations=int(recon_trial_length.value),
+                    polish_iterations=int(recon_followups.value),
+                    frog_type=frog_type,
+                    spectrum=spectral_constraint,
+                    xfrog_gate=xfrog_reference,
+                    roi=roi,
+                    ptychographic_threshhold=ptycho_threshhold_float,
+                )
+                _stop_time = time.time()
+                reconstruction_time = _stop_time - _start_time
+                mo.output.append(mo.md(f"Reconstruction time: {reconstruction_time: .1f} s"))
     return result, result_gate
 
 
@@ -542,11 +586,18 @@ def _(
     is_in_web_notebook,
     mo,
     mode_selector,
+    plot_style_selector,
     result,
     result_gate,
 ):
     if result is not None:
-        plot = result.plot_all(figsize=(9.6, 6), wavelength_autoscale=1e-3)
+        if plot_style_selector.value == "Light":
+            aw.plot.set_style("light")
+            plot = result.plot_all(figsize=(9.6, 6), wavelength_autoscale=1e-3)
+        else:
+            aw.plot.set_style("nick_dark")
+            plot = result.plot_all(figsize=(9.6, 6), wavelength_autoscale=1e-3)
+
         aw.plot.showmo()
         if mode_selector.value == "BlindFROG":
             mo.output.append(mo.md("### Gate"))
@@ -602,7 +653,7 @@ def _(
 
 
 @app.cell
-def _(QFileDialog, is_in_web_notebook, mo, result, save_button):
+def _(QFileDialog, is_in_web_notebook, mo, plot, result, save_button):
     mo.stop(not save_button.value)
     if not is_in_web_notebook:
         _file_path, _file_type = QFileDialog.getSaveFileName(
@@ -610,6 +661,7 @@ def _(QFileDialog, is_in_web_notebook, mo, result, save_button):
         if (_file_path is not None) and (result is not None) and (_file_path != ""):
             result.save(_file_path)
             result.save_yaml(_file_path + ".yml")
+            plot.savefig(_file_path + ".svg")
     return
 
 
@@ -627,13 +679,151 @@ def _(
     if not is_in_web_notebook:
         _file_path, _file_type = QFileDialog.getSaveFileName(
                 None, "Save file", "", "SVG files (*.svg);;PDF files (*.pdf)", "SVG files (*.svg)")
-        if _file_path is not None and result is not None:
+        if _file_path is not "" and result is not None:
             if pathlib.Path(_file_path).suffix is "":
                 if _file_type == "PDF files (*.pdf)":
                     _file_path += ".pdf"
                 else:
                     _file_path += ".svg"
             plot.savefig(_file_path)
+    return
+
+
+@app.cell
+def _(is_in_web_notebook, mo):
+    dazzer_time_constant_box = mo.ui.number(value=100, step=1, start=0, label="Filter time constant (fs)")
+    dazzler_filter_order_box = mo.ui.number(value=4, step=2, start=2, label="Filter order")
+    dazzler_roi_min_box = mo.ui.number(value=700, start=100, step=1, label="ROI min (nm)")
+    dazzler_roi_max_box = mo.ui.number(value=900, start=100, step=1, label="ROI max (nm)")
+    dazzler_save_button = mo.ui.run_button(label="Save custom phase files")
+    mo.output.append(mo.md("## Dazzler phase filtering:"))
+    mo.output.append(dazzer_time_constant_box)
+    mo.output.append(dazzler_filter_order_box)
+    mo.output.append(dazzler_roi_min_box)
+    mo.output.append(dazzler_roi_max_box)
+    if not is_in_web_notebook:
+        mo.output.append(dazzler_save_button)
+    return (
+        dazzer_time_constant_box,
+        dazzler_filter_order_box,
+        dazzler_roi_max_box,
+        dazzler_roi_min_box,
+        dazzler_save_button,
+    )
+
+
+@app.cell
+def _(
+    aw,
+    dazzer_time_constant_box,
+    dazzler_filter_order_box,
+    dazzler_roi_max_box,
+    dazzler_roi_min_box,
+    display_download_link_from_file,
+    is_in_web_notebook,
+    np,
+    plt,
+    result,
+):
+    def phase_roi(phase_data, lam_min, lam_max):
+        return phase_data[
+            (phase_data[:, 0] <= lam_max) & (phase_data[:, 0] >= lam_min), :
+        ]
+
+
+    if result is not None:
+        dazzler_phase_0 = phase_roi(
+            result.spectrum.to_dazzer_phase(
+                multiplier=1, filter_width=1.0, filter_order=8
+            ),
+            dazzler_roi_min_box.value,
+            dazzler_roi_max_box.value,
+        )
+        dazzler_phase_filtered = phase_roi(
+            result.spectrum.to_dazzer_phase(
+                multiplier=1, filter_width=100e-15, filter_order=8
+            ),
+            dazzler_roi_min_box.value,
+            dazzler_roi_max_box.value,
+        )
+        dazzler_phase_custom_filtered = result.spectrum.to_dazzer_phase(
+            multiplier=1,
+            filter_width=1e-15 * dazzer_time_constant_box.value,
+            filter_order=dazzler_filter_order_box.value,
+        )
+        dazzler_phase_custom_filtered_negative = result.spectrum.to_dazzer_phase(
+            multiplier=-1,
+            filter_width=1e-15 * dazzer_time_constant_box.value,
+            filter_order=dazzler_filter_order_box.value,
+        )
+        dazzler_phase_custom_filtered_roi = phase_roi(
+            dazzler_phase_custom_filtered,
+            dazzler_roi_min_box.value,
+            dazzler_roi_max_box.value,
+        )
+        plt.plot(dazzler_phase_0[:, 0], dazzler_phase_0[:, 1], label="Unfiltered")
+        plt.plot(
+            dazzler_phase_filtered[:, 0],
+            dazzler_phase_filtered[:, 1],
+            label="Default filter",
+        )
+        plt.plot(
+            dazzler_phase_custom_filtered_roi[:, 0],
+            dazzler_phase_custom_filtered_roi[:, 1],
+            label="Adjusted filter",
+        )
+        plt.legend()
+        plt.xlabel("Wavelength (nm)")
+        plt.ylabel("Phase (rad)")
+        aw.plot.showmo()
+
+        if is_in_web_notebook:
+            np.savetxt(
+                "positive_phase.txt",
+                dazzler_phase_custom_filtered,
+                delimiter="\t",
+                fmt="%12.12f",
+                newline="\r\n",
+            )
+            np.savetxt(
+                "negative_phase.txt",
+                dazzler_phase_custom_filtered_negative,
+                delimiter="\t",
+                fmt="%12.12f",
+                newline="\r\n",
+            )
+            display_download_link_from_file(
+                "positive_phase.txt", output_name=f"positive_phase.txt"
+            )
+            display_download_link_from_file(
+                "negative_phase.txt", output_name=f"negative_phase.txt"
+            )
+    return (
+        dazzler_phase_custom_filtered,
+        dazzler_phase_custom_filtered_negative,
+    )
+
+
+@app.cell
+def _(
+    QFileDialog,
+    dazzler_phase_custom_filtered,
+    dazzler_phase_custom_filtered_negative,
+    dazzler_save_button,
+    mo,
+    np,
+    result,
+):
+    mo.stop(not dazzler_save_button.value)
+    _file_path, _file_type = QFileDialog.getSaveFileName(
+            None, "Save file", "", "Base name (*)")
+    if _file_path is not "" and result is not None:
+        np.savetxt(_file_path+".txt",dazzler_phase_custom_filtered, delimiter="\t",
+                fmt="%12.12f",
+                newline="\r\n")
+        np.savetxt(_file_path+"_negative.txt",dazzler_phase_custom_filtered_negative, delimiter="\t",
+                fmt="%12.12f",
+                newline="\r\n")
     return
 
 

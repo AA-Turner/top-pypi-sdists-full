@@ -162,14 +162,33 @@ class Guard:
         return {}
 
     def _get_phase_checks(self, phase_str: str, mode: str | None = None) -> list[str]:
-        """Read guard checks list from workflow.json; fall back to hardcoded."""
+        """Read guard checks list; per-mode guard → step-derived → hardcoded."""
         guard_cfg = self._get_phase_guard(phase_str, mode)
         if "checks" in guard_cfg:
             return guard_cfg["checks"]
+        # For custom modes, auto-derive relevant checks from step definitions
+        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
+            from kanban_framework.domain.steps import _get_steps
+            mode_steps = _get_steps(mode)
+            phase_steps = mode_steps.get(phase_str, [])
+            checks = list(self._HARDCODED_CHECKS.get(phase_str, []))
+            if phase_str == "execute":
+                has_tdd = any("test" in (s.description or "").lower() or
+                              "TDD" in (s.spawn_prompt or "") for s in phase_steps)
+                if not has_tdd:
+                    checks = [c for c in checks if c != "tdd_evidence"]
+                has_test_step = any("test" in (s.description or "").lower() for s in phase_steps)
+                if not has_test_step:
+                    checks = [c for c in checks if c not in ("test_files", "test_spec_coverage")]
+            return checks
+        # All modes: execute checks are user-controlled via workflow
+        if phase_str == "execute":
+            return []
         return self._HARDCODED_CHECKS.get(phase_str, [])
 
-    def _get_required_artifacts(self, phase, lightweight: bool = False) -> list[str]:
-        """Read required_artifacts from workflow.json; fall back to hardcoded defaults."""
+    def _get_required_artifacts(self, phase, lightweight: bool = False,
+                                 mode: str | None = None) -> list[str]:
+        """Read required_artifacts; priority: per-mode → extensions → defaults."""
         phase_str = phase.value if isinstance(phase, Phase) else str(phase)
         workflow = self._cfg.workflow
         phases = workflow.get("phases", [])
@@ -180,6 +199,19 @@ class Guard:
                 artifacts = p.get("required_artifacts")
                 if artifacts:
                     return self._lightweight_reduce(phase_str, artifacts, lightweight)
+        # Check per-mode directory file
+        if mode:
+            try:
+                wf_file = self._fs.kanban_dir / "workflows" / f"{mode}.json"
+                if wf_file.is_file():
+                    mode_data = json.loads(wf_file.read_text(encoding="utf-8"))
+                    for p in mode_data.get("phases", []):
+                        if isinstance(p, dict) and p.get("id") == phase_str:
+                            artifacts = p.get("required_artifacts")
+                            if artifacts:
+                                return self._lightweight_reduce(phase_str, artifacts, lightweight)
+            except Exception:
+                pass
         # Check workflow extensions for custom phase artifacts
         from kanban_framework.domain.workflow_extensions import WorkflowExtension
         ext = WorkflowExtension(workflow)
@@ -188,6 +220,14 @@ class Guard:
             return self._lightweight_reduce(phase_str, custom_artifacts, lightweight)
         if lightweight and phase_str == Phase.EXECUTE.value:
             return ["execution_summary.md"]
+        # Auto-derive: for custom modes, use sensible minimum artifacts per phase
+        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
+            _MODE_MINIMUMS = {
+                "plan": ["spec.md", "plan/index.md", "task_breakdown.json"],
+                "execute": ["execution_summary.md"],
+            }
+            if phase_str in _MODE_MINIMUMS:
+                return self._lightweight_reduce(phase_str, _MODE_MINIMUMS[phase_str], lightweight)
         return self._DEFAULT_ARTIFACTS.get(phase_str, [])
 
     @staticmethod
@@ -196,6 +236,22 @@ class Guard:
         if lightweight and phase_str == Phase.EXECUTE.value:
             return [a for a in artifacts if a == "execution_summary.md"] or ["execution_summary.md"]
         return artifacts
+
+    def _mode_has_score_step(self, task: Task, mode: str | None) -> bool:
+        """Check whether the task's mode has a score collection step in evaluate phase."""
+        if not mode or mode == "quick":
+            return False  # quick mode has no evaluate phase
+        try:
+            from kanban_framework.domain.steps import _get_steps
+            mode_steps = _get_steps(mode)
+            evaluate_steps = mode_steps.get("evaluate", [])
+            for s in evaluate_steps:
+                if s.id.endswith(("collect_score", "collect_scores")):
+                    return True
+            return False
+        except (OSError, ValueError, KeyError):
+            # If we can't load steps, fall back to builtin behavior
+            return mode in ("full", "lightweight")
 
     _KNOWLEDGE_ARTIFACT_HINTS: dict[str, tuple[str, str]] = {
         "execute":        ("execution_pitfalls.md",
@@ -237,7 +293,8 @@ class Guard:
         if phase == Phase.EVALUATE:
             return self.check_evaluation(task, task.iteration, lightweight=lightweight)
 
-        required = self._get_required_artifacts(phase, lightweight=lightweight)
+        mode = getattr(task, 'mode', None)
+        required = self._get_required_artifacts(phase, lightweight=lightweight, mode=mode)
         if not required:
             return CheckResult(passed=True)
 
@@ -294,21 +351,28 @@ class Guard:
         missing = []
         report_dir = self._fs.report_dir(task.id, iteration)
         task_dir = self._fs.task_dir(task.id)
-        for role_def in Scheduler.eval_roles(lightweight=lightweight):
+        mode = getattr(task, 'mode', None)
+        for role_def in Scheduler.eval_roles(
+            lightweight=lightweight, mode=mode, kanban_dir=self._fs.kanban_dir,
+        ):
             role = role_def["name"]
-            filename = f"{role}_report.json"
-            # Search all known evaluate report locations
-            search_paths = [
-                report_dir / "reviews" / filename,
-                report_dir / filename,
-                report_dir / "evaluate" / filename,
-                task_dir / "reviews" / filename,
-                task_dir / "evaluate" / filename,
-                task_dir / filename,
-            ]
-            found = any(self._fs.file_exists(p) for p in search_paths)
+            # Accept both .json and .md report formats
+            found = False
+            for ext in (".json", ".md"):
+                filename = f"{role}_report{ext}"
+                search_paths = [
+                    report_dir / "reviews" / filename,
+                    report_dir / filename,
+                    report_dir / "evaluate" / filename,
+                    task_dir / "reviews" / filename,
+                    task_dir / "evaluate" / filename,
+                    task_dir / filename,
+                ]
+                if any(self._fs.file_exists(p) for p in search_paths):
+                    found = True
+                    break
             if not found:
-                missing.append(filename)
+                missing.append(f"{role}_report.json")
 
         if missing:
             return CheckResult(passed=False, failures=[f"missing {r} report" for r in missing])
@@ -329,12 +393,12 @@ class Guard:
     def check_phase_completeness(self, task: Task, lightweight: bool = False) -> CheckResult:
         """Verify no phases were skipped in the task's history."""
         from kanban_framework.infra.scheduler import Scheduler
-        if getattr(task, 'mode', '') == 'quick':
-            order = Scheduler.QUICK_PHASE_ORDER
-        elif lightweight:
-            order = Scheduler.LIGHTWEIGHT_PHASE_ORDER
-        else:
-            order = Scheduler.PHASE_ORDER
+        mode = getattr(task, 'mode', 'full')
+        order = Scheduler.dispatch_order(
+            lightweight=lightweight, quick=(mode == 'quick'),
+            mode=mode, workflow=self._cfg.workflow,
+            kanban_dir=self._fs.kanban_dir,
+        )
         completed_phases = {
             h["phase"] for h in task.history
             if h.get("status") == "completed"
@@ -392,8 +456,18 @@ class Guard:
         - PASS → passed=True
         - MAX_ITER → passed=True (forced user_decision per IR-17)
         - HOT/FULL → passed=False with iteration suggestion
+
+        Modes without score collection steps (e.g. custom workflows with only
+        lint/test) skip the check with a warning instead of blocking.
         """
         from kanban_framework.domain.self_improve import IterationDecider
+
+        # Custom modes without score collection: skip check
+        mode = getattr(task, 'mode', None)
+        if not self._mode_has_score_step(task, mode):
+            return CheckResult(passed=True,
+                warnings=["evaluate phase has no score collection step — "
+                          "score_history check skipped"])
 
         if not task.score_history:
             # Auto-collect scores from review reports (fix #210)

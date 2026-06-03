@@ -83,7 +83,7 @@ class FleetType(models.Model):
         - CTA
         - Home Defense
         - StratOP
-        - and so on …
+        - and so on…
     """
 
     id = models.AutoField(primary_key=True)
@@ -173,7 +173,7 @@ class FatLink(models.Model):
         related_name="+",
         on_delete=models.CASCADE,
         null=True,
-        help_text="Deprecated setting, will be removed in a future version …",
+        help_text="Deprecated setting, will be removed in a future version…",
     )
 
     fleet_type = models.CharField(

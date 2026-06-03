@@ -81,15 +81,24 @@ pub trait RiemannianManifold: Send + Sync {
         vec: ArrayView1<'_, f64>,
     ) -> GeometryResult<Array1<f64>> {
         // Default projection is the identity (Euclidean-flat tangent space).
-        // Validate the input point dimension matches the manifold's ambient
-        // dimension so a caller passing the wrong-length vector fails fast
-        // here rather than producing a silently mis-shaped tangent vector.
+        // Validate that BOTH the base point and the tangent vector live in the
+        // ambient space so a caller passing a wrong-length vector fails fast
+        // here rather than producing a silently mis-shaped tangent vector. The
+        // tangent of `T_pM` is represented in the same ambient coordinates as
+        // the point, so its length must equal `ambient_dim()` too.
         let expected = self.ambient_dim();
         if point.len() != expected {
             return Err(GeometryError::DimensionMismatch {
                 context: "project_tangent point",
                 expected,
                 got: point.len(),
+            });
+        }
+        if vec.len() != expected {
+            return Err(GeometryError::DimensionMismatch {
+                context: "project_tangent vector",
+                expected,
+                got: vec.len(),
             });
         }
         Ok(vec.to_owned())
@@ -204,6 +213,78 @@ pub(crate) fn dot(a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> f64 {
     out
 }
 
+/// Multi-GPU row-tiled matrix product `A·B`, fanned across **all** usable
+/// devices.
+///
+/// `A` is `m×k` and `B` is `k×n`; the result is `m×n`. The single-device
+/// `fast_ab` shim already offloads this GEMM, but it pins the launch to the
+/// primary device. For a tall `A` (many independent output rows — the common
+/// case when a manifold operation is applied to a large batch of points/atoms),
+/// the rows split cleanly across the pool: we reshape `A` into a
+/// `tiles × rows_per_tile × k` batch and call the broadcast-`B` strided-batched
+/// GEMM, which [`crate::gpu::pool::scatter_batched`]es one cuBLAS call per device
+/// on its own bound context (`b` is shared across every tile). The output tiles
+/// are stitched back into the `m×n` result. Any leftover rows that don't fill a
+/// whole tile, and the entire batch when the pool has one device / the workload
+/// is below the multi-GPU floor / the runtime is unavailable, fall through to the
+/// auto-dispatch `fast_ab` (single-device GPU or faer). f64 throughout, so the
+/// result is identical regardless of which path produced it.
+///
+/// Choosing the tiling: we target as many equal tiles as there are output rows
+/// can support while keeping each tile a non-trivial GEMM, so the batch axis is
+/// long enough to cross `crate::gpu::linalg`'s multi-GPU batch floor and spread
+/// across every device.
+pub(crate) fn fast_ab_rows_multi_gpu(
+    a: ArrayView2<'_, f64>,
+    b: ArrayView2<'_, f64>,
+) -> Array2<f64> {
+    use crate::linalg::faer_ndarray::fast_ab;
+    let (m, k) = a.dim();
+    let (kb, n) = b.dim();
+    assert_eq!(k, kb, "fast_ab_rows_multi_gpu inner dimension mismatch");
+
+    // Only worth the reshape/stitch overhead when the pool actually has more than
+    // one device and there are enough rows to tile across it; otherwise the plain
+    // single-device shim is strictly better.
+    let multi_gpu =
+        crate::gpu::runtime::GpuRuntime::global().is_some_and(|rt| rt.device_count() > 1);
+    // The batch axis must clear the multi-GPU floor used inside the dispatch
+    // layer (64) for the split to engage, so we need at least that many tiles.
+    const MIN_TILES: usize = 64;
+    const MIN_TILE_ROWS: usize = 4;
+    if multi_gpu && m >= MIN_TILES * MIN_TILE_ROWS && n > 0 {
+        let rows_per_tile = (m / MIN_TILES).max(MIN_TILE_ROWS);
+        let tiles = m / rows_per_tile;
+        let covered = tiles * rows_per_tile;
+        // Reshape the first `covered` rows into a tiles×rows_per_tile×k batch
+        // (row-major reshape is exactly the row-block tiling we want).
+        let a3 = a
+            .slice(ndarray::s![0..covered, ..])
+            .to_owned()
+            .into_shape_with_order((tiles, rows_per_tile, k));
+        if let Ok(a3) = a3 {
+            if let Some(result3) = crate::gpu::try_fast_ab_broadcast_b_batched(a3.view(), b.view())
+            {
+                let mut out = Array2::<f64>::zeros((m, n));
+                for t in 0..tiles {
+                    let block = result3.index_axis(ndarray::Axis(0), t);
+                    out.slice_mut(ndarray::s![t * rows_per_tile..(t + 1) * rows_per_tile, ..])
+                        .assign(&block);
+                }
+                // Tail rows that didn't fill a whole tile finish on the
+                // single-device shim; the result is bit-identical f64.
+                if covered < m {
+                    let tail = fast_ab(&a.slice(ndarray::s![covered..m, ..]), &b);
+                    out.slice_mut(ndarray::s![covered..m, ..]).assign(&tail);
+                }
+                return out;
+            }
+        }
+    }
+    // Single device / small batch / no runtime: plain auto-dispatch GEMM.
+    fast_ab(&a, &b)
+}
+
 pub(crate) fn norm(a: ArrayView1<'_, f64>) -> f64 {
     dot(a, a).sqrt()
 }
@@ -222,14 +303,13 @@ pub(crate) fn quad_form(
     let n = a.len();
     assert_eq!(g.nrows(), n);
     assert_eq!(g.ncols(), b.len());
-    let mut out = 0.0;
-    for i in 0..n {
-        let ai = a[i];
-        for j in 0..b.len() {
-            out += ai * g[[i, j]] * b[j];
-        }
-    }
-    out
+    // aᵀ G b: the inner matrix–vector product G·b is the O(n²) cost and is the
+    // hot kernel of every metric inner product (g_inner / g_norm) and of the
+    // metric Gram–Schmidt tangent basis. Route it through the GPU-dispatched
+    // fast_av shim so large-ambient metrics (SPD/Stiefel/Grassmann n²×n²) offload
+    // to the GPU; the trailing a·(Gb) is an O(n) dot.
+    let gb = crate::linalg::faer_ndarray::fast_av(&g, &b);
+    dot(a, gb.view())
 }
 
 pub(crate) fn identity(n: usize) -> Array2<f64> {
@@ -284,19 +364,31 @@ pub(crate) fn flatten(a: &Array2<f64>) -> Array1<f64> {
     out
 }
 
-/// Build an orthonormal basis of the tangent space at `point` by modified
-/// Gram–Schmidt over the projected ambient standard basis.
+/// Build a **Euclidean-orthonormal** basis of the tangent space at `point` by
+/// modified Gram–Schmidt over the projected ambient standard basis.
+///
+/// The returned columns satisfy `Qᵀ Q = I` under the *ambient Euclidean* inner
+/// product (the plain `dot`). This is the correct, intended basis for a
+/// manifold whose Riemannian metric *is* the embedded Euclidean metric on its
+/// horizontal tangent space — notably the **Grassmann** manifold, where the
+/// tangent inner product is `tr(Δ₁ᵀΔ₂)`.
+///
+/// It is **not** metric-orthonormal for a manifold with a non-Euclidean metric
+/// (Stiefel's canonical metric `⟨Δ₁,Δ₂⟩ = tr(Δ₁ᵀ(I−½YYᵀ)Δ₂)`, or SPD's
+/// affine-invariant metric): for those, use
+/// [`tangent_basis_metric_orthonormal`], which Gram–Schmidts under the
+/// manifold's own `metric_tensor`.
 ///
 /// This is the shared engine behind [`tangent_basis`](RiemannianManifold::tangent_basis)
-/// for the matrix manifolds whose tangent space has no closed-form basis (the
-/// Stiefel and Grassmann manifolds). It walks the `n × k` standard basis in
-/// column-major order (outer `col`, inner `row`), projects each `e_{row,col}`
-/// onto the tangent space via `m.project_tangent`, re-orthogonalizes against the
-/// columns accepted so far, and keeps it iff its residual norm exceeds the
-/// `1e-10` drop tolerance, stopping the moment `m.dim()` independent directions
-/// have been collected. Each caller keeps its own input validation and then
-/// delegates here, so the numerically delicate orthogonalization order, drop
-/// tolerance, and early-exit logic live in exactly one place.
+/// for the matrix manifolds whose tangent space has no closed-form basis. It
+/// walks the `n × k` standard basis in column-major order (outer `col`, inner
+/// `row`), projects each `e_{row,col}` onto the tangent space via
+/// `m.project_tangent`, re-orthogonalizes against the columns accepted so far,
+/// and keeps it iff its residual norm exceeds the `1e-10` drop tolerance,
+/// stopping the moment `m.dim()` independent directions have been collected.
+/// Each caller keeps its own input validation and then delegates here, so the
+/// numerically delicate orthogonalization order, drop tolerance, and early-exit
+/// logic live in exactly one place.
 pub(crate) fn projected_standard_basis_tangent<M: RiemannianManifold + ?Sized>(
     m: &M,
     point: ArrayView1<'_, f64>,
@@ -331,6 +423,75 @@ pub(crate) fn projected_standard_basis_tangent<M: RiemannianManifold + ?Sized>(
     Ok(Array2::<f64>::zeros((m.ambient_dim(), columns.len())))
 }
 
+/// Build a **metric-orthonormal** basis of the tangent space at `point`, i.e. a
+/// set of columns `Q` satisfying `Qᵀ W Q = I` where `W = m.metric_tensor(point)`
+/// is the manifold's Riemannian metric in flattened ambient coordinates.
+///
+/// This is the correct tangent basis for a manifold whose metric is **not** the
+/// embedded Euclidean inner product — Stiefel's canonical metric
+/// `⟨Δ₁,Δ₂⟩ = tr(Δ₁ᵀ(I−½YYᵀ)Δ₂)` and SPD's affine-invariant metric. (For a
+/// Euclidean-metric manifold like Grassmann, `W = I` and this coincides with
+/// [`projected_standard_basis_tangent`].)
+///
+/// Same projected-standard-basis walk as the Euclidean routine, but every inner
+/// product is the metric inner product `⟨u,v⟩_W = uᵀ W v` (via
+/// [`quad_form`]): Gram–Schmidt projections subtract `⟨q,v⟩_W · q` and the
+/// retained columns are normalized by `‖v‖_W = sqrt(⟨v,v⟩_W)`, so the resulting
+/// `Q` is orthonormal *in the manifold's metric*.
+///
+/// Concretely on `St(3, 2)` at `Y = [e₁, e₂]`, the vertical tangent
+/// `Δ = Y·[[0,−1],[1,0]]` has Euclidean norm² 2 but canonical-metric norm² 1, so
+/// a metric-orthonormal basis must reflect that — the Euclidean routine would
+/// mis-scale it.
+pub(crate) fn tangent_basis_metric_orthonormal<M: RiemannianManifold + ?Sized>(
+    m: &M,
+    point: ArrayView1<'_, f64>,
+    n: usize,
+    k: usize,
+) -> GeometryResult<Array2<f64>> {
+    let w = m.metric_tensor(point)?;
+    let mut columns: Vec<Array1<f64>> = Vec::with_capacity(m.dim());
+    for col in 0..k {
+        for row in 0..n {
+            let mut e = Array2::<f64>::zeros((n, k));
+            e[[row, col]] = 1.0;
+            let mut v = m.project_tangent(point, flatten(&e).view())?;
+            for q in &columns {
+                let proj = quad_form(w.view(), q.view(), v.view());
+                v -= &(q * proj);
+            }
+            let nrm = quad_form(w.view(), v.view(), v.view()).max(0.0).sqrt();
+            if nrm > 1.0e-10 {
+                columns.push(v / nrm);
+            }
+            if columns.len() == m.dim() {
+                let mut out = Array2::<f64>::zeros((m.ambient_dim(), m.dim()));
+                for j in 0..columns.len() {
+                    for i in 0..m.ambient_dim() {
+                        out[[i, j]] = columns[j][i];
+                    }
+                }
+                return Ok(out);
+            }
+        }
+    }
+    Ok(Array2::<f64>::zeros((m.ambient_dim(), columns.len())))
+}
+
+/// Thin/compact Gram–Schmidt QR factorization `A = Q·R` for an `n×k` input
+/// (`n ≥ k`). The returned `Q` is `n×k` with **orthonormal columns**
+/// (`QᵀQ = I`) and `R` is `k×k` upper-triangular.
+///
+/// On a rank-deficient column (residual ≈ 0 after orthogonalizing against the
+/// previously accepted columns) the diagonal `R[j, j]` is set to 0 and a
+/// *fallback* unit column is synthesized so the column count stays `k` and `Q`
+/// remains a valid orthonormal frame. The fallback is a standard axis `e_a`
+/// Gram–Schmidted against ALL previously accepted columns and renormalized; if
+/// that residual also vanishes (the axis lies in the accepted span) the next
+/// axis is tried, until an axis with a nonzero orthogonal residual is found.
+/// Simply planting `e_j` (the old behavior) breaks orthonormality — e.g. two
+/// identical columns `(1,1)/√2` would yield a fallback `e₂` with
+/// `q₁·q₂ = 1/√2 ≠ 0`.
 pub(crate) fn qr_thin(a: &Array2<f64>) -> (Array2<f64>, Array2<f64>) {
     let n = a.nrows();
     let k = a.ncols();
@@ -352,9 +513,33 @@ pub(crate) fn qr_thin(a: &Array2<f64>) -> (Array2<f64>, Array2<f64>) {
             for row in 0..n {
                 q[[row, j]] = v[row] / nrm;
             }
-        } else if j < n {
-            q[[j, j]] = 1.0;
+        } else {
+            // Rank-deficient column: `R[j, j] = 0`. Synthesize a fallback unit
+            // column orthogonal to ALL accepted columns 0..j by Gram–Schmidting
+            // a standard axis against them; try successive axes until one has a
+            // nonzero orthogonal residual (always succeeds for j < n since the
+            // accepted columns span a j-dimensional subspace of ℝⁿ, leaving an
+            // (n−j)-dimensional orthogonal complement that at least one axis
+            // touches).
             r[[j, j]] = 0.0;
+            for axis in 0..n {
+                let mut f = Array1::<f64>::zeros(n);
+                f[axis] = 1.0;
+                for i in 0..j {
+                    let qi = q.column(i);
+                    let proj = dot(qi, f.view());
+                    for row in 0..n {
+                        f[row] -= proj * q[[row, i]];
+                    }
+                }
+                let fnrm = norm(f.view());
+                if fnrm > GEOMETRY_EPS {
+                    for row in 0..n {
+                        q[[row, j]] = f[row] / fnrm;
+                    }
+                    break;
+                }
+            }
         }
     }
     (q, r)
@@ -515,7 +700,10 @@ pub(crate) fn spectral_map_spd(
         }
         diag[[i, i]] = f(evals[i])?;
     }
-    Ok(evecs.dot(&diag).dot(&evecs.t()))
+    // Reconstruction V·f(Λ)·Vᵀ: two dense n×n products GPU-dispatched via
+    // fast_ab/fast_abt for large ambient dimension.
+    use crate::linalg::faer_ndarray::{fast_ab, fast_abt};
+    Ok(fast_abt(&fast_ab(&evecs, &diag), &evecs))
 }
 
 pub(crate) fn spectral_map_symmetric(
@@ -528,18 +716,22 @@ pub(crate) fn spectral_map_symmetric(
     for i in 0..n {
         diag[[i, i]] = f(evals[i])?;
     }
-    Ok(evecs.dot(&diag).dot(&evecs.t()))
+    // Reconstruction V·f(Λ)·Vᵀ, GPU-dispatched via fast_ab/fast_abt.
+    use crate::linalg::faer_ndarray::{fast_ab, fast_abt};
+    Ok(fast_abt(&fast_ab(&evecs, &diag), &evecs))
 }
 
 /// Dense matrix exponential `exp(A)` via scaling-and-squaring with a truncated
-/// Taylor series. The Frobenius norm of `A` is driven below 1/2 by repeated
+/// Taylor series. The Frobenius norm of `A` is driven below 1/4 by repeated
 /// halving (`A → A / 2^s`), where Taylor converges rapidly and stably; the
-/// result is then squared `s` times. With the scaled norm `< 1/2`, a degree-12
-/// Taylor tail is bounded by `‖A_s‖^{13} / 13! · 1/(1 - ‖A_s‖)`, so the fixed
-/// degree reaches full f64 precision. This is the standard, exact algorithm; no
-/// eigendecomposition is assumed (the inputs here are the non-normal
-/// canonical-metric block matrices on Stiefel, which are skew-like but not
-/// symmetric, so `spectral_map_*` does not apply).
+/// result is then squared `s` times. With the scaled norm `θ < 1/4`, the
+/// degree-12 Taylor tail is bounded by `θ^{13} / 13! · 1/(1 - θ)`; since `13! ≈
+/// 6.23e9`, this is below `4·0.25^{13}/6.23e9 ≈ 3.8e-18`, i.e. under one f64 ulp,
+/// so the fixed degree truly reaches full f64 precision (the `< 1/2` threshold
+/// previously used left a ~2e-14 tail, two orders above an ulp). This is the
+/// standard, exact algorithm; no eigendecomposition is assumed (the inputs here
+/// are the non-normal canonical-metric block matrices on Stiefel, which are
+/// skew-like but not symmetric, so `spectral_map_*` does not apply).
 pub(crate) fn matrix_exp(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
     let n = a.nrows();
     if n != a.ncols() {
@@ -553,14 +745,14 @@ pub(crate) fn matrix_exp(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
         ));
     }
     // Frobenius norm; choose the squaring count so the scaled matrix has norm
-    // below 1/2, comfortably inside the Taylor radius for a degree-12 series.
+    // below 1/4, which keeps the degree-12 Taylor truncation under one f64 ulp.
     let mut frob = 0.0;
     for v in a.iter() {
         frob += v * v;
     }
     let frob = frob.sqrt();
-    let squarings = if frob > 0.5 {
-        (frob / 0.5).log2().ceil() as i32
+    let squarings = if frob > 0.25 {
+        (frob / 0.25).log2().ceil() as i32
     } else {
         0
     };
@@ -569,19 +761,39 @@ pub(crate) fn matrix_exp(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
 
     // exp(A_scaled) = sum_{k>=0} A_scaled^k / k! by term recurrence:
     //   term_k = term_{k-1} · A_scaled / k.
+    // Both the Taylor term recurrence and the scaling-and-squaring use dense
+    // n×n products; GPU-dispatch them via fast_ab for large blocks.
+    use crate::linalg::faer_ndarray::fast_ab;
     let mut result = identity(n);
     let mut term = identity(n);
     for k in 1..=12 {
-        term = term.dot(&a_scaled) / (k as f64);
+        term = fast_ab(&term, &a_scaled) / (k as f64);
         result = result + &term;
     }
     // exp(A) = exp(A_scaled)^{2^squarings}.
     for _ in 0..squarings {
-        result = result.dot(&result);
+        result = fast_ab(&result, &result);
     }
     Ok(result)
 }
 
+/// Cholesky factor `L` of a symmetric positive-definite matrix (`A = L Lᵀ`).
+///
+/// This is a *positive-definiteness* test, not a conditioning test: a genuine
+/// SPD matrix with tiny eigenvalues (e.g. `[[1e-16]]`) must factor
+/// successfully. A pivot is rejected only when it is non-finite or fails to be
+/// strictly positive *relative to the matrix scale*. The floor
+/// `GEOMETRY_EPS · max(1, trace(A)/n)` is the ambient scale of the matrix
+/// multiplied by the relative machine-noise tolerance, so a positive pivot that
+/// is merely small in absolute terms (but large relative to nothing — the whole
+/// matrix is small) passes, while a zero, negative, or numerically-noise pivot
+/// (indefinite / singular directions) is rejected.
+///
+/// Callers needing a *conditioning* margin (a lower bound on the smallest
+/// eigenvalue) must check that separately; overloading this PD test with an
+/// absolute `GEOMETRY_EPS` floor wrongly rejected well-formed small-scale SPD
+/// points. No current caller (only `SpdManifold::matrix`, which validates SPD
+/// membership) depends on a conditioning margin here.
 pub(crate) fn cholesky_spd(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
     let n = a.nrows();
     if n != a.ncols() {
@@ -589,6 +801,32 @@ pub(crate) fn cholesky_spd(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
             "Cholesky requires square input",
         ));
     }
+    // Scale-relative positive-definiteness floor. `trace(A)/n` is the mean
+    // diagonal, which equals `mean(eigenvalues)` and is therefore the natural
+    // scale of an SPD matrix's spectrum. The acceptance floor scales WITH the
+    // matrix (it shrinks for tiny matrices), so a uniformly small but genuine
+    // SPD matrix like `[[1e-16]]` — scale 1e-16, floor GEOMETRY_EPS·1e-16 =
+    // 1e-28 — passes, while a pivot that has collapsed to numerical noise
+    // relative to the matrix's own scale (the indefinite/singular directions)
+    // is rejected. An absolute `GEOMETRY_EPS` floor would have wrongly rejected
+    // such tiny SPD matrices; clamping the floor up to a constant would do the
+    // same, so we deliberately let it shrink with the spectrum.
+    let mut trace = 0.0_f64;
+    for i in 0..n {
+        trace += a[[i, i]];
+    }
+    if !trace.is_finite() {
+        return Err(GeometryError::InvalidPoint(
+            "matrix is not positive definite",
+        ));
+    }
+    // Reference scale of the matrix's spectrum. The acceptance floor is this
+    // scale times the relative tolerance, so a uniformly-tiny SPD matrix (small
+    // scale) has a correspondingly tiny floor and still factors, while a pivot
+    // that has collapsed to noise *relative to the matrix's own scale* (the
+    // indefinite/singular case) is rejected.
+    let scale = (trace / n as f64).abs().max(f64::MIN_POSITIVE);
+    let scale_eps = GEOMETRY_EPS * scale;
     let mut l = Array2::<f64>::zeros((n, n));
     for i in 0..n {
         for j in 0..=i {
@@ -597,7 +835,7 @@ pub(crate) fn cholesky_spd(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
                 sum -= l[[i, k]] * l[[j, k]];
             }
             if i == j {
-                if sum <= GEOMETRY_EPS || !sum.is_finite() {
+                if !sum.is_finite() || sum <= scale_eps {
                     return Err(GeometryError::InvalidPoint(
                         "matrix is not positive definite",
                     ));
@@ -609,6 +847,135 @@ pub(crate) fn cholesky_spd(a: &Array2<f64>) -> GeometryResult<Array2<f64>> {
         }
     }
     Ok(l)
+}
+
+#[cfg(test)]
+mod cholesky_tests {
+    use super::{GeometryError, cholesky_spd};
+    use ndarray::Array2;
+
+    /// A genuine SPD matrix with a uniformly tiny spectrum (`[[1e-16]]`) must
+    /// factor: the issue is positive-definiteness, not absolute scale. The old
+    /// absolute `GEOMETRY_EPS` floor wrongly rejected it.
+    #[test]
+    fn cholesky_accepts_tiny_spd() {
+        let mut a = Array2::<f64>::zeros((1, 1));
+        a[[0, 0]] = 1.0e-16;
+        let l = cholesky_spd(&a).expect("tiny positive 1x1 must be SPD");
+        assert!((l[[0, 0]] - 1.0e-8).abs() <= 1.0e-16);
+    }
+
+    /// A well-scaled SPD matrix factors and reproduces `L Lᵀ = A`.
+    #[test]
+    fn cholesky_accepts_well_scaled_spd() {
+        // [[4, 2], [2, 3]] is SPD (eigenvalues ≈ 5.56, 1.44).
+        let mut a = Array2::<f64>::zeros((2, 2));
+        a[[0, 0]] = 4.0;
+        a[[0, 1]] = 2.0;
+        a[[1, 0]] = 2.0;
+        a[[1, 1]] = 3.0;
+        let l = cholesky_spd(&a).expect("well-scaled SPD must factor");
+        let recon = l.dot(&l.t());
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!(
+                    (recon[[i, j]] - a[[i, j]]).abs() <= 1.0e-12,
+                    "L Lᵀ != A at ({i},{j})"
+                );
+            }
+        }
+    }
+
+    /// A zero pivot (singular) and an indefinite matrix must be rejected as not
+    /// positive definite — the scale-relative floor still catches the genuine
+    /// non-PD case.
+    #[test]
+    fn cholesky_rejects_zero_and_indefinite() {
+        let zero = Array2::<f64>::zeros((1, 1));
+        match cholesky_spd(&zero) {
+            Err(GeometryError::InvalidPoint(_)) => {}
+            other => panic!("expected non-PD rejection of zero pivot, got {other:?}"),
+        }
+        // [[1, 2], [2, 1]] has eigenvalues 3 and −1 (indefinite): the Schur
+        // complement pivot 1 − 4 = −3 is negative.
+        let mut indef = Array2::<f64>::zeros((2, 2));
+        indef[[0, 0]] = 1.0;
+        indef[[0, 1]] = 2.0;
+        indef[[1, 0]] = 2.0;
+        indef[[1, 1]] = 1.0;
+        match cholesky_spd(&indef) {
+            Err(GeometryError::InvalidPoint(_)) => {}
+            other => panic!("expected non-PD rejection of indefinite matrix, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod qr_thin_tests {
+    use super::qr_thin;
+    use ndarray::Array2;
+
+    /// Two identical columns make the second residual vanish; the fallback axis
+    /// must be Gram–Schmidted against the first accepted column so `QᵀQ = I`.
+    /// The old behavior planted `e₂` directly, giving `q₁·q₂ = 1/√2`.
+    #[test]
+    fn qr_thin_duplicated_columns_orthonormal() {
+        let mut a = Array2::<f64>::zeros((2, 2));
+        // Both columns = (1, 1).
+        a[[0, 0]] = 1.0;
+        a[[1, 0]] = 1.0;
+        a[[0, 1]] = 1.0;
+        a[[1, 1]] = 1.0;
+        let (q, r) = qr_thin(&a);
+        // Deficient second column ⇒ R[1,1] = 0.
+        assert!(
+            r[[1, 1]].abs() <= 1.0e-14,
+            "deficient column must set R[1,1]=0"
+        );
+        let gram = q.t().dot(&q);
+        for i in 0..2 {
+            for j in 0..2 {
+                let want = if i == j { 1.0 } else { 0.0 };
+                assert!(
+                    (gram[[i, j]] - want).abs() <= 1.0e-12,
+                    "QᵀQ != I at ({i},{j}): got {}",
+                    gram[[i, j]]
+                );
+            }
+        }
+    }
+
+    /// A full-rank input still gives `QᵀQ = I` and reconstructs `A = QR`.
+    #[test]
+    fn qr_thin_full_rank_reconstructs() {
+        let mut a = Array2::<f64>::zeros((3, 2));
+        a[[0, 0]] = 1.0;
+        a[[1, 0]] = 1.0;
+        a[[2, 0]] = 0.0;
+        a[[0, 1]] = 1.0;
+        a[[1, 1]] = 0.0;
+        a[[2, 1]] = 1.0;
+        let (q, r) = qr_thin(&a);
+        let gram = q.t().dot(&q);
+        for i in 0..2 {
+            for j in 0..2 {
+                let want = if i == j { 1.0 } else { 0.0 };
+                assert!(
+                    (gram[[i, j]] - want).abs() <= 1.0e-12,
+                    "QᵀQ != I at ({i},{j})"
+                );
+            }
+        }
+        let recon = q.dot(&r);
+        for i in 0..3 {
+            for j in 0..2 {
+                assert!(
+                    (recon[[i, j]] - a[[i, j]]).abs() <= 1.0e-12,
+                    "QR != A at ({i},{j})"
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]

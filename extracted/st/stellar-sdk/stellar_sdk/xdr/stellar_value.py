@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -49,7 +48,7 @@ class StellarValue:
         self,
         tx_set_hash: Hash,
         close_time: TimePoint,
-        upgrades: List[UpgradeType],
+        upgrades: list[UpgradeType],
         ext: StellarValueExt,
     ) -> None:
         _expect_max_length = 6

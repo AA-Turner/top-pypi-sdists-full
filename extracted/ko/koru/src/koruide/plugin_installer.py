@@ -123,6 +123,22 @@ class PluginInstallResult:
         return out
 
 
+@dataclass(frozen=True)
+class ExtensionMetadataAdapter:
+    """IDE-specific adapter for extension metadata location."""
+
+    ide: str
+    metadata_path: Path
+
+
+@dataclass(frozen=True)
+class ReassertDecision:
+    """Pure reassert policy output used by install/reassert orchestration."""
+
+    should_reassert: bool
+    skip_message: str = ""
+
+
 def _valid_ide(raw: str | None) -> str | None:
     ide = normalize_ide_id(raw)
     return ide if ide in supported_autopilot_ide_ids() else None
@@ -609,14 +625,21 @@ def _remove_conflicting_extensions(
 
 
 def _extensions_metadata_path_for_ide(ide: str) -> Path | None:
-    roots = {
-        "antigravity": Path.home() / ".antigravity" / "extensions" / "extensions.json",
-        "cursor": Path.home() / ".cursor" / "extensions" / "extensions.json",
-        "vscode": Path.home() / ".vscode" / "extensions" / "extensions.json",
-        "vscodium": Path.home() / ".vscode-oss" / "extensions" / "extensions.json",
-        "windsurf": Path.home() / ".windsurf" / "extensions" / "extensions.json",
+    return _metadata_adapter_for_ide(ide).metadata_path if _metadata_adapter_for_ide(ide) else None
+
+
+def _metadata_adapter_for_ide(ide: str) -> ExtensionMetadataAdapter | None:
+    relative_paths = {
+        "antigravity": Path(".antigravity") / "extensions" / "extensions.json",
+        "cursor": Path(".cursor") / "extensions" / "extensions.json",
+        "vscode": Path(".vscode") / "extensions" / "extensions.json",
+        "vscodium": Path(".vscode-oss") / "extensions" / "extensions.json",
+        "windsurf": Path(".windsurf") / "extensions" / "extensions.json",
     }
-    return roots.get(ide)
+    relative = relative_paths.get(ide)
+    if relative is None:
+        return None
+    return ExtensionMetadataAdapter(ide=ide, metadata_path=Path.home() / relative)
 
 
 def _active_extension_location_from_item(item: object) -> str | None:
@@ -644,6 +667,56 @@ def _active_extension_locations(metadata_path: Path) -> set[str]:
         loc for item in data
         if (loc := _active_extension_location_from_item(item)) is not None
     }
+
+
+def _installed_extension_build_sha(target_ide: str) -> str | None:
+    """Return the ``koruAutopilotBuild.sha`` of the currently installed extension.
+
+    Reads ``~/<ide>/extensions/extensions.json`` to find the active extension
+    directory, then reads its ``package.json`` to extract the build SHA.
+    Returns ``None`` when the installed SHA cannot be determined.
+    """
+    metadata_path = _extensions_metadata_path_for_ide(target_ide)
+    if metadata_path is None or not metadata_path.is_file():
+        return None
+    try:
+        data = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, list):
+        return None
+    ext_id = extension_id_for_ide(target_ide).lower()
+    extensions_root = metadata_path.parent
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        # Match by extension ID recorded in the metadata.
+        item_id = str(item.get("identifier", {}).get("id", "") or "").lower()
+        if item_id != ext_id:
+            continue
+        # Resolve the installation directory.
+        rel_loc = item.get("relativeLocation")
+        if isinstance(rel_loc, str) and rel_loc:
+            ext_dir = extensions_root / rel_loc
+        else:
+            location = item.get("location") if isinstance(item, dict) else None
+            raw_path = None
+            if isinstance(location, dict):
+                raw_path = location.get("path") or location.get("fsPath")
+            if not isinstance(raw_path, str) or not raw_path:
+                continue
+            ext_dir = Path(raw_path)
+        pkg = ext_dir / "package.json"
+        if not pkg.is_file():
+            continue
+        try:
+            pkg_data = json.loads(pkg.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        build_info = pkg_data.get("koruAutopilotBuild") if isinstance(pkg_data, dict) else None
+        if isinstance(build_info, dict) and isinstance(build_info.get("sha"), str):
+            return build_info["sha"] or None
+    return None
 
 
 def _move_path_aside(path: Path, disabled_root: Path) -> Path:
@@ -741,10 +814,23 @@ def _reassert_extension_extra(
     target_ide: str | None = None,
 ) -> tuple[list[str], str]:
     last_cmd: list[str] = [command, "--list-extensions"]
-    if dry_run or not _env_reassert_extension_install():
-        return last_cmd, ""
+    reassert_enabled = _env_reassert_extension_install()
     vsix = resolve_extension_vsix(target_ide)
     ext_id = extension_id_for_ide(target_ide)
+    # Skip --install-extension --force when the already-installed extension
+    # has the same build SHA as the VSIX we would install.  Running
+    # --install-extension triggers an IDE restart that reopens its previous
+    # workspace, so we must not do it unnecessarily.
+    installed_sha = _installed_extension_build_sha(target_ide or "")
+    expected_sha = _vsix_build_sha(vsix) if vsix is not None else None
+    decision = _decide_reassert_policy(
+        dry_run=dry_run,
+        reassert_enabled=reassert_enabled,
+        installed_sha=installed_sha,
+        expected_sha=expected_sha,
+    )
+    if not decision.should_reassert:
+        return last_cmd, decision.skip_message
     reassert_cmd = (
         [command, "--install-extension", str(vsix), "--force"]
         if vsix is not None
@@ -767,6 +853,23 @@ def _reassert_extension_extra(
             return last_cmd, retry_error
         return retry_cmd, _reassert_extra(retry_proc, fallback=True)
     return reassert_cmd, _reassert_extra(proc)
+
+
+def _decide_reassert_policy(
+    *,
+    dry_run: bool,
+    reassert_enabled: bool,
+    installed_sha: str | None,
+    expected_sha: str | None,
+) -> ReassertDecision:
+    if dry_run or not reassert_enabled:
+        return ReassertDecision(should_reassert=False)
+    if installed_sha and expected_sha and installed_sha == expected_sha:
+        return ReassertDecision(
+            should_reassert=False,
+            skip_message="; build sha match — reassert skipped",
+        )
+    return ReassertDecision(should_reassert=True)
 
 
 def _run_reassert_command(

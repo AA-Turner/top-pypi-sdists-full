@@ -204,3 +204,38 @@ class TestEdges:
 
 def test_verify_tool_name():
     assert Verify.get_name() == "verify"
+
+
+# ============================================================================
+# Auto-routing "exit_code N" in expect with contains mode
+# ============================================================================
+
+class TestExitCodeAutoRoute:
+    @pytest.mark.asyncio
+    async def test_exit_code_0_in_expect_string_passes(self):
+        # Model passes expect="exit_code 0" with default contains mode —
+        # should be auto-routed to exit_code mode and pass.
+        out = await _run(criterion="x", command="true", expect="exit_code 0")
+        assert out.ok
+        assert out.passed
+        assert out.expect_mode == "exit_code"
+
+    @pytest.mark.asyncio
+    async def test_exit_code_1_in_expect_string_passes_on_failure(self):
+        out = await _run(criterion="x", command="false", expect="exit_code 1")
+        assert out.ok
+        assert out.passed
+        assert out.expect_mode == "exit_code"
+
+    @pytest.mark.asyncio
+    async def test_exit_code_0_mismatch_fails(self):
+        out = await _run(criterion="x", command="false", expect="exit_code 0")
+        assert out.ok
+        assert not out.passed
+
+    @pytest.mark.asyncio
+    async def test_exit_code_space_variant(self):
+        # "exit code 0" (space not underscore) also auto-routes
+        out = await _run(criterion="x", command="true", expect="exit code 0")
+        assert out.ok
+        assert out.passed

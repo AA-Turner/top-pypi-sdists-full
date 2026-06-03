@@ -629,8 +629,15 @@ public class VRDrawing : MonoBehaviour {
 """
         # 4. File Extensions & Asset-Creation Pipelines
         elif task_id == "IMG-01":
-            return "generate_sprites.py", """import sys
-print("Sprite sheet generated")
+            return "generate_sprites.py", """from PIL import Image
+def generate_sprites():
+    img = Image.new("RGB", (64, 64), color="red")
+    img.save("sprites.png")
+    print("Sprite sheet generated")
+    return True
+
+if __name__ == "__main__":
+    generate_sprites()
 """
         elif task_id == "IMG-02":
             return "generate_logo.js", """const fs = require('fs');
@@ -663,28 +670,30 @@ with wave.open('drum_loop.wav', 'wb') as w:
 print("Procedural wav drum loop generated successfully.")
 """
         elif task_id == "AUD-02":
-            return "synthesize.py", """import os
-import sys
+            return "synthesize.py", """import wave
+import struct
 
 def synthesize_narration():
     print("Sending TTS API request for narration...")
-    audio_data = b"STABLE_AUDIO_STREAM"
-    with open("narration.mp3", "wb") as f:
-        f.write(audio_data)
+    with wave.open("narration.mp3", "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        for i in range(8000):
+            data = struct.pack('<h', int(16384 * 0.5))
+            w.writeframesraw(data)
     print("Voiceover narration MP3 synthesized successfully.")
 
 if __name__ == "__main__":
     synthesize_narration()
 """
         elif task_id == "VID-01":
-            return "generate_intro.py", """import os
-import sys
+            return "generate_intro.py", """from moviepy.editor import ColorClip
 
 def build_animated_intro():
     print("Creating animated intro scenes...")
-    video_buffer = b"STABLE_VIDEO_STREAM"
-    with open("intro.mp4", "wb") as f:
-        f.write(video_buffer)
+    clip = ColorClip(size=(64, 64), color=(255, 0, 0), duration=1)
+    clip.write_videofile("intro.mp4", fps=10, logger=None)
     print("Animated intro MP4 created successfully.")
 
 if __name__ == "__main__":
@@ -735,10 +744,14 @@ Technical Specification for OAuth2 Server
 }
 """
         elif task_id == "DATA-02":
-            return "generate_data.py", """import sys
-print("10M rows user data CSV dataset created")
+            return "generate_data.py", """def generate_data():
+    print("10M rows user data CSV dataset created")
+    return True
+
+if __name__ == "__main__":
+    generate_data()
 """
-        return "file.py", 'print("Hello default")'
+        return "file.py", 'def main():\n    print("Hello default")\n\nif __name__ == "__main__":\n    main()'
 
     def do_GET(self):
         if self.path.endswith("/models"):
@@ -861,9 +874,25 @@ print("10M rows user data CSV dataset created")
                     elif req_basename == task_filename.lower():
                         use_task_response = True
                     elif req_ext == task_ext:
-                        use_task_response = True
+                        is_build_request = (
+                            "build a " in filtered_history
+                            or "fastapi backend for:" in filtered_history
+                            or "nextjs app for:" in filtered_history
+                            or "spring-boot java" in filtered_history
+                            or "go-microservices app" in filtered_history
+                            or "rust-axum backend" in filtered_history
+                            or "cpp microservice" in filtered_history
+                            or "laravel php api" in filtered_history
+                            or "rails ruby on rails" in filtered_history
+                            or "ios-swift app" in filtered_history
+                        )
+                        if is_build_request:
+                            use_task_response = (req_basename == task_filename.lower())
+                        else:
+                            use_task_response = True
                     elif task_id in ("LARGE-001", "EXTREME-002"):
                         use_task_response = True
+
 
         if use_task_response:
             filename = os.path.basename(requested_path) if requested_path else task_filename
@@ -1084,7 +1113,12 @@ const styles = StyleSheet.create({ container: { flex: 1 } });"""
                 manifest = f"FILE_MANIFEST:\n{filename}"
             response_text = f"I will plan the structure.\n\n{manifest}"
         else:
-            if task_id == "LARGE-001":
+            is_test_file = False
+            if requested_path:
+                req_basename = os.path.basename(requested_path).lower()
+                is_test_file = "test" in req_basename or "spec" in req_basename
+                
+            if task_id == "LARGE-001" and not is_test_file:
                 match = re.search(r'already written \((\d+) files\):', last_msg_lower)
                 already_written = int(match.group(1)) if match else 0
                 batch_size = 40
@@ -1097,7 +1131,7 @@ const styles = StyleSheet.create({ container: { flex: 1 } });"""
                 response_text = "Here is the implementation.\n\n" + "\n\n".join(blocks)
                 if end_idx >= 400:
                     response_text += "\n\nSCAFFOLD_COMPLETE"
-            elif task_id == "EXTREME-002":
+            elif task_id == "EXTREME-002" and not is_test_file:
                 match = re.search(r'already written \((\d+) files\):', last_msg_lower)
                 already_written = int(match.group(1)) if match else 0
                 batch_size = 50
@@ -1157,6 +1191,101 @@ spec:
 SCAFFOLD_COMPLETE"""
             elif domain == "text_messages":
                 response_text = "Output for text_messages: The SMS message has been queued and sent successfully natively."
+            elif domain == "videos":
+                response_text = """Here is the video generation implementation.
+
+FILE: generate_video.py
+```python
+from moviepy.editor import ColorClip
+clip = ColorClip(size=(64, 64), color=(255, 0, 0), duration=1)
+clip.write_videofile("generated_media.mp4", fps=10, logger=None)
+```
+
+FILE: test_video.py
+```python
+import os
+import subprocess
+import sys
+def test_video_exists():
+    res = subprocess.run([sys.executable, "generate_video.py"], capture_output=True)
+    assert res.returncode == 0
+    assert os.path.exists("generated_media.mp4")
+```
+SCAFFOLD_COMPLETE"""
+            elif domain == "images":
+                response_text = """Here is the image generation implementation.
+
+FILE: generate_image.py
+```python
+from PIL import Image
+img = Image.new("RGB", (64, 64), color="blue")
+img.save("logo.png")
+with open("logo.svg", "w") as f:
+    f.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#3b82f6"/></svg>')
+```
+
+FILE: test_image.py
+```python
+import os
+import subprocess
+import sys
+def test_image_exists():
+    res = subprocess.run([sys.executable, "generate_image.py"], capture_output=True)
+    assert res.returncode == 0
+    assert os.path.exists("logo.png")
+    assert os.path.exists("logo.svg")
+```
+SCAFFOLD_COMPLETE"""
+            elif domain == "audio_files":
+                response_text = """Here is the audio generation implementation.
+
+FILE: generate_audio.py
+```python
+import wave
+import struct
+with wave.open("drum_loop.wav", "w") as w:
+    w.setnchannels(1)
+    w.setsampwidth(2)
+    w.setframerate(8000)
+    for i in range(8000):
+        data = struct.pack('<h', int(16384 * 0.5))
+        w.writeframesraw(data)
+with open("generated_media.mp4", "wb") as f:
+    f.write(b"fake mp4 audio content")
+```
+
+FILE: test_audio.py
+```python
+import os
+import subprocess
+import sys
+def test_audio_exists():
+    res = subprocess.run([sys.executable, "generate_audio.py"], capture_output=True)
+    assert res.returncode == 0
+    assert os.path.exists("drum_loop.wav")
+```
+SCAFFOLD_COMPLETE"""
+            elif domain == "music_videos":
+                response_text = """Here is the music video generation implementation.
+
+FILE: generate_music_video.py
+```python
+from moviepy.editor import ColorClip
+clip = ColorClip(size=(64, 64), color=(0, 255, 0), duration=1)
+clip.write_videofile("generated_media.mp4", fps=10, logger=None)
+```
+
+FILE: test_music_video.py
+```python
+import os
+import subprocess
+import sys
+def test_music_video_exists():
+    res = subprocess.run([sys.executable, "generate_music_video.py"], capture_output=True)
+    assert res.returncode == 0
+    assert os.path.exists("generated_media.mp4")
+```
+SCAFFOLD_COMPLETE"""
             else:
                 lang_map = {
                     "websites": "html",

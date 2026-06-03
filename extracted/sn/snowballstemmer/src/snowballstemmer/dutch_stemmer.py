@@ -1,4 +1,4 @@
-# Generated from dutch.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from dutch.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class DutchStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from dutch.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from dutch.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_E = {"e", "è", "é", "ê", "ë"}
@@ -739,11 +739,8 @@ class DutchStemmer(BaseStemmer):
             except lab0: pass
             self.cursor = v_4
             break
-        try:
-            if self.cursor < self.limit:
-                raise lab0()
+        if self.cursor >= self.limit:
             return False
-        except lab0: pass
         self.cursor = v_2
         among_var = self.find_among(DutchStemmer.a_9)
         if among_var == 1:
@@ -817,11 +814,8 @@ class DutchStemmer(BaseStemmer):
             except lab0: pass
             self.cursor = v_4
             break
-        try:
-            if self.cursor < self.limit:
-                raise lab0()
+        if self.cursor >= self.limit:
             return False
-        except lab0: pass
         self.cursor = v_2
         self.B_GE_removed = True
         self.slice_del()

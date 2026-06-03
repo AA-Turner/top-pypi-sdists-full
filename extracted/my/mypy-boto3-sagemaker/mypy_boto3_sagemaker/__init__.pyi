@@ -59,6 +59,8 @@ Usage::
         ListInferenceExperimentsPaginator,
         ListInferenceRecommendationsJobStepsPaginator,
         ListInferenceRecommendationsJobsPaginator,
+        ListJobSchemaVersionsPaginator,
+        ListJobsPaginator,
         ListLabelingJobsForWorkteamPaginator,
         ListLabelingJobsPaginator,
         ListLineageGroupsPaginator,
@@ -172,6 +174,8 @@ Usage::
     list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator("list_inference_experiments")
     list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator("list_inference_recommendations_job_steps")
     list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = client.get_paginator("list_inference_recommendations_jobs")
+    list_job_schema_versions_paginator: ListJobSchemaVersionsPaginator = client.get_paginator("list_job_schema_versions")
+    list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = client.get_paginator("list_labeling_jobs_for_workteam")
     list_labeling_jobs_paginator: ListLabelingJobsPaginator = client.get_paginator("list_labeling_jobs")
     list_lineage_groups_paginator: ListLineageGroupsPaginator = client.get_paginator("list_lineage_groups")
@@ -264,6 +268,8 @@ from .paginator import (
     ListInferenceExperimentsPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
+    ListJobSchemaVersionsPaginator,
+    ListJobsPaginator,
     ListLabelingJobsForWorkteamPaginator,
     ListLabelingJobsPaginator,
     ListLineageGroupsPaginator,
@@ -379,6 +385,8 @@ __all__ = (
     "ListInferenceExperimentsPaginator",
     "ListInferenceRecommendationsJobStepsPaginator",
     "ListInferenceRecommendationsJobsPaginator",
+    "ListJobSchemaVersionsPaginator",
+    "ListJobsPaginator",
     "ListLabelingJobsForWorkteamPaginator",
     "ListLabelingJobsPaginator",
     "ListLineageGroupsPaginator",

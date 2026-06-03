@@ -2879,8 +2879,29 @@ filters:
         // Inject one ServiceEntry into the registry.
         {
             let reg = gs.registry.write().await;
-            reg.register(make_service_entry("maya", "127.0.0.1", 18813, Some(4242)))
-                .unwrap();
+            let mut entry = make_service_entry("maya", "127.0.0.1", 18813, Some(4242));
+            entry
+                .metadata
+                .insert("host_rpc_uri".into(), "commandport://127.0.0.1:6000".into());
+            entry
+                .metadata
+                .insert("host_rpc_scheme".into(), "commandport".into());
+            entry
+                .metadata
+                .insert("dispatch_status".into(), "ready".into());
+            entry
+                .metadata
+                .insert("dispatch_ready_at_unix".into(), "1780367000".into());
+            entry
+                .metadata
+                .insert("mcp_url".into(), "http://127.0.0.1:18813/mcp".into());
+            entry
+                .metadata
+                .insert("gateway_runtime_mode".into(), "daemon-backed".into());
+            entry
+                .metadata
+                .insert("gateway_guardian_enabled".into(), "true".into());
+            reg.register(entry).unwrap();
         }
         let state = AdminState::new(gs);
         let router = build_admin_router(state);
@@ -2895,6 +2916,15 @@ filters:
         assert_eq!(w["port"], 18813);
         assert_eq!(w["mcp_url"], "http://127.0.0.1:18813/mcp");
         assert_eq!(w["adapter_version"], "0.3.0");
+        assert_eq!(w["host_rpc_uri"], "commandport://127.0.0.1:6000");
+        assert_eq!(w["host_rpc_scheme"], "commandport");
+        assert_eq!(w["dispatch_status"], "ready");
+        assert_eq!(w["dispatch_ready"], true);
+        assert_eq!(w["dispatch_ready_at_unix"], "1780367000");
+        assert_eq!(w["gateway_runtime_mode"], "daemon-backed");
+        assert_eq!(w["gateway_guardian_enabled"], true);
+        assert_eq!(w["gateway_recovery_driver"], "daemon_guardian");
+        assert_eq!(w["registration_refresh_mode"], "file_registry_heartbeat");
         // CPU/memory not yet wired — see workers.rs module docs.
         assert!(w["cpu_percent"].is_null());
         assert!(w["memory_bytes"].is_null());
@@ -2917,6 +2947,18 @@ filters:
             booting
                 .metadata
                 .insert("failure_reason".into(), "host-rpc connect failed".into());
+            booting
+                .metadata
+                .insert("failure_stage".into(), "host-rpc-connect".into());
+            booting
+                .metadata
+                .insert("host_rpc_uri".into(), "commandport://127.0.0.1:6000".into());
+            booting
+                .metadata
+                .insert("host_rpc_scheme".into(), "commandport".into());
+            booting
+                .metadata
+                .insert("dispatch_status".into(), "unavailable".into());
             reg.register(booting).unwrap();
         }
         let state = AdminState::new(gs);
@@ -2928,6 +2970,10 @@ filters:
         assert_eq!(workers[0]["status"], "booting");
         assert_eq!(workers[0]["port"], 0);
         assert_eq!(workers[0]["failure_reason"], "host-rpc connect failed");
+        assert_eq!(workers[0]["failure_stage"], "host-rpc-connect");
+        assert_eq!(workers[0]["host_rpc_scheme"], "commandport");
+        assert_eq!(workers[0]["dispatch_status"], "unavailable");
+        assert_eq!(workers[0]["dispatch_ready"], false);
         assert_eq!(body["summary"]["unhealthy"].as_u64(), Some(1));
     }
 

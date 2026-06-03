@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "collate-data-diff"
-version = "0.11.10"
+version = "0.11.11"
 description = "Command-line tool and Python library to efficiently diff rows across two different databases."
 authors = ["Collate <info@getcollate.io>", "Datafold <data-diff@datafold.com>"]
 license = "MIT"
@@ -21,10 +21,10 @@ classifiers = [
 ]
 packages = [{ include = "data_diff" }]
 [tool.poetry.dependencies]
-pydantic = ">=1.10.12"
+pydantic = ">=2.0,<3"
 python = ">=3.10,<4.0"
 dsnparse = "<0.2.0"
-click = ">=8.1"
+click = ">=8.3.3" # Security fix for CVE-2026-7246
 rich = "*"
 toml = ">=0.10.2"
 mysql-connector-python = [
@@ -33,9 +33,9 @@ mysql-connector-python = [
 ]
 psycopg2 = {version="*", optional=true}
 snowflake-connector-python = [
-    {version = ">=3.15.0,<4.0.0", python = ">=3.9", optional=true}
+    {version = ">=4.4.0,<5.0.0", python = ">=3.10", optional=true}
 ]
-cryptography = {version="*", optional=true}
+cryptography = {version=">=46.0.5", optional=true} # Security fix for CVE-2026-26007
 trino = {version=">=0.314.0", optional=true}
 presto-python-client = {version="*", optional=true}
 clickhouse-driver = {version="*", optional=true}
@@ -46,7 +46,7 @@ keyring = "*"
 tabulate = ">=0.9.0"
 preql = {version=">=0.2.19", optional=true}
 vertica-python = {version="*", optional=true}
-urllib3 = "<2"
+urllib3 = ">=2.7.0,<3" # Security fix for CVE-2026-44431, CVE-2026-21441, CVE-2025-66418, CVE-2025-66471
 oracledb = {version = "*", optional=true}
 pyodbc = {version=">=4.0.39", optional=true}
 typing-extensions = ">=4.0.1"
@@ -84,9 +84,9 @@ mysql-connector-python = [
 ]
 psycopg2 = "*"
 snowflake-connector-python = [
-    {version=">=3.13.1,<4.0.0", python = ">=3.9"}
+    {version=">=4.4.0,<5.0.0", python = ">=3.10"}
 ]
-cryptography = "*"
+cryptography = ">=46.0.5" # Security fix for CVE-2026-26007
 trino = ">=0.314.0"
 presto-python-client = ">=0.8.3"
 clickhouse-driver = "*"

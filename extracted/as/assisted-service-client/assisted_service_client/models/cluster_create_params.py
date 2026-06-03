@@ -49,6 +49,7 @@ class ClusterCreateParams(object):
         'no_proxy': 'str',
         'user_managed_networking': 'bool',
         'additional_ntp_source': 'str',
+        'ntp_sources': 'str',
         'olm_operators': 'list[OperatorCreateParams]',
         'hyperthreading': 'str',
         'network_type': 'str',
@@ -84,6 +85,7 @@ class ClusterCreateParams(object):
         'no_proxy': 'no_proxy',
         'user_managed_networking': 'user_managed_networking',
         'additional_ntp_source': 'additional_ntp_source',
+        'ntp_sources': 'ntp_sources',
         'olm_operators': 'olm_operators',
         'hyperthreading': 'hyperthreading',
         'network_type': 'network_type',
@@ -100,7 +102,7 @@ class ClusterCreateParams(object):
         'load_balancer': 'load_balancer'
     }
 
-    def __init__(self, name=None, high_availability_mode='Full', openshift_version=None, ocp_release_image=None, base_dns_domain=None, cluster_network_cidr='10.128.0.0/14', cluster_network_host_prefix=None, service_network_cidr='172.30.0.0/16', api_vips=None, ingress_vips=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=False, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=False, additional_ntp_source=None, olm_operators=None, hyperthreading='all', network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, platform=None, cpu_architecture='x86_64', disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, name=None, high_availability_mode='Full', openshift_version=None, ocp_release_image=None, base_dns_domain=None, cluster_network_cidr='10.128.0.0/14', cluster_network_host_prefix=None, service_network_cidr='172.30.0.0/16', api_vips=None, ingress_vips=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=False, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=False, additional_ntp_source=None, ntp_sources=None, olm_operators=None, hyperthreading='all', network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, platform=None, cpu_architecture='x86_64', disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
         """ClusterCreateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
@@ -121,6 +123,7 @@ class ClusterCreateParams(object):
         self._no_proxy = None
         self._user_managed_networking = None
         self._additional_ntp_source = None
+        self._ntp_sources = None
         self._olm_operators = None
         self._hyperthreading = None
         self._network_type = None
@@ -170,6 +173,8 @@ class ClusterCreateParams(object):
             self.user_managed_networking = user_managed_networking
         if additional_ntp_source is not None:
             self.additional_ntp_source = additional_ntp_source
+        if ntp_sources is not None:
+            self.ntp_sources = ntp_sources
         if olm_operators is not None:
             self.olm_operators = olm_operators
         if hyperthreading is not None:
@@ -632,6 +637,29 @@ class ClusterCreateParams(object):
         """
 
         self._additional_ntp_source = additional_ntp_source
+
+    @property
+    def ntp_sources(self):
+        """Gets the ntp_sources of this ClusterCreateParams.  # noqa: E501
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for the cluster hosts.  # noqa: E501
+
+        :return: The ntp_sources of this ClusterCreateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._ntp_sources
+
+    @ntp_sources.setter
+    def ntp_sources(self, ntp_sources):
+        """Sets the ntp_sources of this ClusterCreateParams.
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for the cluster hosts.  # noqa: E501
+
+        :param ntp_sources: The ntp_sources of this ClusterCreateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._ntp_sources = ntp_sources
 
     @property
     def olm_operators(self):

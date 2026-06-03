@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class FeeBumpTransactionInnerTx:
     def __init__(
         self,
         type: EnvelopeType,
-        v1: Optional[TransactionV1Envelope] = None,
+        v1: TransactionV1Envelope | None = None,
     ) -> None:
         self.type = type
         self.v1 = v1

@@ -524,19 +524,51 @@ class GenericBackend:
         if not probe_messages or probe_messages[-1].role != Role.user:
             probe_messages.append(LLMMessage(role=Role.user, content=""))
 
-        result = await self.complete(
-            model=model,
-            messages=probe_messages,
-            temperature=temperature,
-            tools=tools,
-            max_tokens=16,  # Minimal amount for openrouter with openai models
-            tool_choice=tool_choice,
-            extra_headers=extra_headers,
-        )
-        if result.usage is None:
-            raise ValueError("Missing usage in non streaming completion")
-
-        return result.usage.prompt_tokens
+        # 2026-06-02: chicken-and-egg fix. The original implementation
+        # sent the FULL message history to the backend just to read
+        # usage.prompt_tokens — but when the history exceeds the
+        # backend's n_ctx (32768 on the 3090/romulus/Jetson; only
+        # the local Docker llamacpp has 65536), the count call itself
+        # gets rejected with 400 Bad Request "exceeds context size".
+        # That blocks compact() from ever running because compact()
+        # calls count_tokens to decide its strategy. Result: drydock
+        # crashes with an unrecoverable BackendError on any session
+        # that grows past 32K tokens on a small-context backend.
+        # Observed in tbench probe v2937: 2 of 4 trials died here.
+        #
+        # Fix: try the real probe; on context-overflow specifically,
+        # fall back to a local char-based heuristic (~4 chars/token,
+        # then add 30% headroom). Returns a slightly-pessimistic count
+        # which is the right direction — callers (compact, middleware)
+        # use this to DECIDE whether to compact; overestimating means
+        # we compact slightly earlier than needed, which is fine.
+        try:
+            result = await self.complete(
+                model=model,
+                messages=probe_messages,
+                temperature=temperature,
+                tools=tools,
+                max_tokens=16,  # Minimal amount for openrouter with openai models
+                tool_choice=tool_choice,
+                extra_headers=extra_headers,
+            )
+            if result.usage is None:
+                raise ValueError("Missing usage in non streaming completion")
+            return result.usage.prompt_tokens
+        except Exception as e:
+            msg = str(e).lower()
+            if (
+                "exceeds the available context size" in msg
+                or "exceed_context_size_error" in msg
+                or "context length" in msg
+                or "maximum context" in msg
+            ):
+                # Local fallback: 4 chars ≈ 1 token, +30% headroom for
+                # tool-call JSON, chat-template overhead, etc.
+                total_chars = sum(len(str(m.content or "")) for m in probe_messages)
+                est_tokens = int((total_chars / 4) * 1.3)
+                return est_tokens
+            raise
 
     async def close(self) -> None:
         if self._owns_client and self._client:

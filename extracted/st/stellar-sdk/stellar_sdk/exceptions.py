@@ -1,32 +1,37 @@
+import contextlib
 from json import JSONDecodeError
 
 from .client.response import Response
 
 __all__ = [
-    "SdkError",
-    "BadSignatureError",
-    "Ed25519PublicKeyInvalidError",
-    "Ed25519SecretSeedInvalidError",
-    "MissingEd25519SecretSeedError",
-    "MemoInvalidException",
+    "AccountNotFoundException",
     "AssetCodeInvalidError",
     "AssetIssuerInvalidError",
-    "NoApproximationError",
-    "SignatureExistError",
-    "BaseRequestError",
-    "BaseHorizonError",
-    "ConnectionError",
-    "NotFoundError",
     "BadRequestError",
     "BadResponseError",
-    "UnknownRequestError",
-    "NotPageableError",
-    "StreamClientError",
-    "FeatureNotEnabledError",
-    "SorobanRpcErrorResponse",
-    "AccountNotFoundException",
-    "PrepareTransactionException",
+    "BadSignatureError",
+    "BaseHorizonError",
+    "BaseRequestError",
+    "ConnectionError",
     "ContentSizeLimitExceededError",
+    "ContractCodeNotFoundError",
+    "ContractInstanceNotFoundError",
+    "ContractWasmRetrievalError",
+    "Ed25519PublicKeyInvalidError",
+    "Ed25519SecretSeedInvalidError",
+    "FeatureNotEnabledError",
+    "MemoInvalidException",
+    "MissingEd25519SecretSeedError",
+    "NoApproximationError",
+    "NotFoundError",
+    "NotPageableError",
+    "PrepareTransactionException",
+    "SACHasNoWasmError",
+    "SdkError",
+    "SignatureExistError",
+    "SorobanRpcErrorResponse",
+    "StreamClientError",
+    "UnknownRequestError",
 ]
 
 from .soroban_rpc import SimulateTransactionResponse
@@ -93,10 +98,8 @@ class BaseHorizonError(BaseRequestError):
         self.status: int = response.status_code
 
         message = {}
-        try:
+        with contextlib.suppress(JSONDecodeError):
             message = response.json()
-        except JSONDecodeError:
-            pass  # pragma: no cover
         self.type: str | None = message.get("type")
         self.title: str | None = message.get("title")
         self.detail: str | None = message.get("detail")
@@ -191,6 +194,22 @@ class PrepareTransactionException(SdkError):
         self.simulate_transaction_response = simulate_transaction_response
 
 
+class ContractWasmRetrievalError(SdkError):
+    """Raised when contract Wasm code cannot be retrieved from Stellar RPC."""
+
+
+class ContractInstanceNotFoundError(ContractWasmRetrievalError):
+    """Raised when a contract instance ledger entry cannot be found."""
+
+
+class SACHasNoWasmError(ContractWasmRetrievalError):
+    """Raised when a Stellar Asset Contract has no Wasm code."""
+
+
+class ContractCodeNotFoundError(ContractWasmRetrievalError):
+    """Raised when a contract code ledger entry cannot be found."""
+
+
 class ContentSizeLimitExceededError(BaseRequestError):
     """The exception is thrown when the response content size exceeds the specified limit.
 
@@ -213,7 +232,7 @@ class ContentSizeLimitExceededError(BaseRequestError):
 def raise_request_exception(response: Response) -> None:
     status_code = response.status_code
     if 200 <= status_code < 300:
-        pass  # pragma: no cover
+        pass
     elif status_code == 404:
         raise NotFoundError(response)
     elif 400 <= status_code < 500:

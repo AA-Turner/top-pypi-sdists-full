@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class SurveyResponseBody:
     def __init__(
         self,
         type: SurveyMessageResponseType,
-        topology_response_body_v2: Optional[TopologyResponseBodyV2] = None,
+        topology_response_body_v2: TopologyResponseBodyV2 | None = None,
     ) -> None:
         self.type = type
         self.topology_response_body_v2 = topology_response_body_v2

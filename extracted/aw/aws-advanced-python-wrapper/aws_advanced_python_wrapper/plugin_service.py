@@ -36,7 +36,6 @@ from aws_advanced_python_wrapper.states.session_state_service import (
 from aws_advanced_python_wrapper.utils.utils import Utils
 
 if TYPE_CHECKING:
-    from aws_advanced_python_wrapper.allowed_and_blocked_hosts import AllowedAndBlockedHosts
     from aws_advanced_python_wrapper.driver_dialect import DriverDialect
     from aws_advanced_python_wrapper.driver_dialect_manager import DriverDialectManager
     from aws_advanced_python_wrapper.pep249 import Connection
@@ -48,6 +47,8 @@ from contextlib import closing
 from typing import (Any, Callable, Dict, FrozenSet, Optional, Protocol, Set,
                     Tuple)
 
+from aws_advanced_python_wrapper.allowed_and_blocked_hosts import \
+    AllowedAndBlockedHosts
 from aws_advanced_python_wrapper.aurora_connection_tracker_plugin import \
     AuroraConnectionTrackerPluginFactory
 from aws_advanced_python_wrapper.aws_secrets_manager_plugin import \
@@ -57,7 +58,7 @@ from aws_advanced_python_wrapper.connect_time_plugin import \
 from aws_advanced_python_wrapper.connection_provider import (
     ConnectionProvider, ConnectionProviderManager)
 from aws_advanced_python_wrapper.database_dialect import (
-    DatabaseDialect, DatabaseDialectManager, TopologyAwareDatabaseDialect,
+    DatabaseDialect, DatabaseDialectManager, DialectUtils,
     UnknownDatabaseDialect)
 from aws_advanced_python_wrapper.default_plugin import DefaultPlugin
 from aws_advanced_python_wrapper.developer_plugin import DeveloperPluginFactory
@@ -88,9 +89,7 @@ from aws_advanced_python_wrapper.read_write_splitting_plugin import \
 from aws_advanced_python_wrapper.simple_read_write_splitting_plugin import \
     SimpleReadWriteSplittingPluginFactory
 from aws_advanced_python_wrapper.stale_dns_plugin import StaleDnsPluginFactory
-from aws_advanced_python_wrapper.thread_pool_container import \
-    ThreadPoolContainer
-from aws_advanced_python_wrapper.utils.cache_map import CacheMap
+from aws_advanced_python_wrapper.utils import services_container
 from aws_advanced_python_wrapper.utils.decorators import \
     preserve_transaction_status_with_timeout
 from aws_advanced_python_wrapper.utils.log import Logger
@@ -100,6 +99,7 @@ from aws_advanced_python_wrapper.utils.notifications import (
 from aws_advanced_python_wrapper.utils.properties import (Properties,
                                                           PropertiesUtils,
                                                           WrapperProperties)
+from aws_advanced_python_wrapper.utils.storage.cache_map import CacheMap
 from aws_advanced_python_wrapper.utils.telemetry.telemetry import (
     TelemetryContext, TelemetryFactory, TelemetryTraceLevel)
 
@@ -112,7 +112,7 @@ class PluginServiceManagerContainer:
         return self._plugin_service
 
     @plugin_service.setter
-    def plugin_service(self, value):
+    def plugin_service(self, value: PluginService) -> None:
         self._plugin_service = value
 
     @property
@@ -120,7 +120,7 @@ class PluginServiceManagerContainer:
         return self._plugin_manager
 
     @plugin_manager.setter
-    def plugin_manager(self, value):
+    def plugin_manager(self, value: PluginManager) -> None:
         self._plugin_manager = value
 
 
@@ -320,7 +320,6 @@ class PluginService(ExceptionHandler, Protocol):
 class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResources):
     _STATUS_CACHE_EXPIRATION_NANO = 60 * 60 * 1_000_000_000  # one hour
     _host_availability_expiring_cache: CacheMap[str, HostAvailability] = CacheMap()
-    _status_cache: ClassVar[CacheMap[str, Any]] = CacheMap()
 
     _executor_name: ClassVar[str] = "PluginServiceImplExecutor"
 
@@ -339,7 +338,6 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
         self._host_list_provider: HostListProvider = ConnectionStringHostListProvider(self, props)
 
         self._all_hosts: Tuple[HostInfo, ...] = ()
-        self._allowed_and_blocked_hosts: Optional[AllowedAndBlockedHosts] = None
         self._current_connection: Optional[Connection] = None
         self._current_host_info: Optional[HostInfo] = None
         self._initial_connection_host_info: Optional[HostInfo] = None
@@ -351,7 +349,7 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
         self._driver_dialect = driver_dialect
         self._database_dialect = self._dialect_provider.get_dialect(driver_dialect.dialect_code, props)
         self._session_state_service = session_state_service if session_state_service is not None else SessionStateServiceImpl(self, props)
-        self._thread_pool = ThreadPoolContainer.get_thread_pool(self._executor_name)
+        self._thread_pool = services_container.get_thread_pool(self._executor_name)
 
     @property
     def all_hosts(self) -> Tuple[HostInfo, ...]:
@@ -377,11 +375,15 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
 
     @property
     def allowed_and_blocked_hosts(self) -> Optional[AllowedAndBlockedHosts]:
-        return self._allowed_and_blocked_hosts
+        return services_container.get_storage_service().get(AllowedAndBlockedHosts, self._original_url)
 
     @allowed_and_blocked_hosts.setter
     def allowed_and_blocked_hosts(self, allowed_and_blocked_hosts: Optional[AllowedAndBlockedHosts]):
-        self._allowed_and_blocked_hosts = allowed_and_blocked_hosts
+        storage = services_container.get_storage_service()
+        if allowed_and_blocked_hosts is None:
+            storage.remove(AllowedAndBlockedHosts, self._original_url)
+        else:
+            storage.put(AllowedAndBlockedHosts, self._original_url, allowed_and_blocked_hosts)
 
     @property
     def current_connection(self) -> Optional[Connection]:
@@ -566,7 +568,13 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
         if connection is None:
             raise AwsWrapperError(Messages.get("PluginServiceImpl.GetHostRoleConnectionNone"))
 
-        return self._host_list_provider.get_host_role(connection)
+        timeout_sec = WrapperProperties.AUXILIARY_QUERY_TIMEOUT_SEC.get_float(self._props)
+        return DialectUtils.get_host_role(
+                connection,
+                self._driver_dialect,
+                self.database_dialect.is_reader_query,
+                self._thread_pool,
+                timeout_sec)
 
     def refresh_host_list(self, connection: Optional[Connection] = None):
         connection = self.current_connection if connection is None else connection
@@ -610,11 +618,51 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
 
     def identify_connection(self, connection: Optional[Connection] = None) -> Optional[HostInfo]:
         connection = self.current_connection if connection is None else connection
+        if connection is None:
+            raise AwsWrapperError(Messages.get("PluginServiceImpl.ErrorIdentifyConnection"))
 
-        if not isinstance(self.database_dialect, TopologyAwareDatabaseDialect):
-            return None
+        try:
+            timeout_sec = WrapperProperties.AUXILIARY_QUERY_TIMEOUT_SEC.get_float(self._props)
+            instance_ids = DialectUtils.get_instance_id(
+                connection,
+                self._driver_dialect,
+                self.database_dialect.host_id_query,
+                self._thread_pool,
+                timeout_sec)
 
-        return self.host_list_provider.identify_connection(connection)
+            if instance_ids is None:
+                raise AwsWrapperError(Messages.get("PluginServiceImpl.ErrorIdentifyConnection"))
+
+            topology = self.host_list_provider.refresh(connection)
+            is_force_refresh = False
+            if topology is None:
+                topology = self.host_list_provider.force_refresh(connection)
+                is_force_refresh = True
+
+            if topology is None:
+                return None
+
+            instance_name = instance_ids[1]
+            found_host: Optional[HostInfo] = next(
+                (host for host in topology if host.host_id == instance_name),
+                None)
+
+            if found_host is None and not is_force_refresh:
+                topology = self.host_list_provider.force_refresh(connection)
+                if topology is None:
+                    return None
+
+                found_host = next(
+                    (host for host in topology if host.host_id == instance_name),
+                    None)
+
+            return found_host
+        except TimeoutError as e:
+            raise QueryTimeoutError(Messages.get("PluginServiceImpl.IdentifyConnectionTimeout")) from e
+        except UnsupportedOperationError as e:
+            raise e
+        except Exception as e:
+            raise AwsWrapperError(Messages.get("PluginServiceImpl.ErrorIdentifyConnection")) from e
 
     def fill_aliases(self, connection: Optional[Connection] = None, host_info: Optional[HostInfo] = None):
         connection = self.current_connection if connection is None else connection
@@ -741,19 +789,14 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
             host_list_provider.release_resources()
 
     def set_status(self, clazz: Type[StatusType], status: Optional[StatusType], key: str):
-        cache_key = self._get_status_cache_key(clazz, key)
+        storage = services_container.get_storage_service()
         if status is None:
-            self._status_cache.remove(cache_key)
+            storage.remove(clazz, key)
         else:
-            self._status_cache.put(cache_key, status, PluginServiceImpl._STATUS_CACHE_EXPIRATION_NANO)
-
-    def _get_status_cache_key(self, clazz: Type[StatusType], key: str) -> str:
-        key_str = "" if key is None else key.strip().lower()
-        return f"{key_str}::{clazz.__name__}"
+            storage.put(clazz, key, status)
 
     def get_status(self, clazz: Type[StatusType], key: str) -> Optional[StatusType]:
-        cache_key = self._get_status_cache_key(clazz, key)
-        status = PluginServiceImpl._status_cache.get(cache_key)
+        status = services_container.get_storage_service().get(clazz, key)
         if status is None:
             return None
 
@@ -871,9 +914,12 @@ class PluginManager(CanReleaseResources):
                     Messages.get_formatted("PluginManager.ConfigurationProfileNotFound", profile_name))
             plugin_factories = DriverConfigurationProfiles.get_plugin_factories(profile_name)
         else:
-            plugin_codes = WrapperProperties.PLUGINS.get(self._props)
+            plugin_codes = WrapperProperties.PLUGINS.get(self._props, False)
             if plugin_codes is None:
-                plugin_codes = WrapperProperties.DEFAULT_PLUGINS
+                driver_dialect = self._container.plugin_service.driver_dialect
+                plugin_codes = WrapperProperties.MYSQL_CONNECTOR_DEFAULT_PLUGINS \
+                    if driver_dialect.dialect_code == "mysql-connector-python" \
+                    else WrapperProperties.DEFAULT_PLUGINS
 
             if plugin_codes != "":
                 plugin_factories = self.create_plugin_factories_from_list(plugin_codes.split(","))

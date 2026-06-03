@@ -97,11 +97,70 @@ class AppContext(_ChatContextBase):
     time_zone: str = Field(alias="timeZone")
 
 
+class PlaygroundBuiltinModelContext(_ChatContextBase):
+    """Built-in playground model selection."""
+
+    type: Literal["builtin"] = "builtin"
+    provider: str
+    model_name: str = Field(alias="modelName")
+
+
+class PlaygroundCustomProviderModelContext(_ChatContextBase):
+    """Custom-provider playground model selection."""
+
+    type: Literal["custom"] = "custom"
+    custom_provider_id: str = Field(alias="customProviderId")
+    custom_provider_name: str = Field(alias="customProviderName")
+    provider: str
+    model_name: str = Field(alias="modelName")
+
+
+PlaygroundModelContext = Annotated[
+    PlaygroundBuiltinModelContext | PlaygroundCustomProviderModelContext,
+    Field(discriminator="type"),
+]
+
+
+class PlaygroundInstanceContext(_ChatContextBase):
+    """One mounted playground instance and its current model selection."""
+
+    instance_id: int = Field(alias="instanceId")
+    model: PlaygroundModelContext | None = None
+
+
 class PlaygroundContext(_ChatContextBase):
     """Playground prompt editor state mounted in the current browser route."""
 
     type: Literal["playground"]
-    instance_ids: list[int] = Field(alias="instanceIds")
+    instances: list[PlaygroundInstanceContext] = Field(default_factory=list)
+
+
+class CodeEvaluatorContext(_ChatContextBase):
+    """Code-evaluator create/edit form mounted in the current browser route."""
+
+    type: Literal["code_evaluator"]
+    evaluator_node_id: str | None = Field(default=None, alias="evaluatorNodeId")
+
+
+class LlmEvaluatorContext(_ChatContextBase):
+    """LLM-evaluator create/edit form mounted in the current browser route."""
+
+    type: Literal["llm_evaluator"]
+    evaluator_node_id: str | None = Field(default=None, alias="evaluatorNodeId")
+
+
+class DatasetContext(_ChatContextBase):
+    """Dataset the user is currently viewing or has bound to a workflow.
+
+    Carries the dataset's relay node id and, when known, the active version
+    node id. These IDs scope the create-form handoff link and the sampling of
+    active dataset examples used as prompt context; the dataset schema itself
+    is open.
+    """
+
+    type: Literal["dataset"]
+    dataset_node_id: str = Field(alias="datasetNodeId")
+    dataset_version_node_id: str | None = Field(default=None, alias="datasetVersionNodeId")
 
 
 class GraphQLContext(_ChatContextBase):
@@ -126,6 +185,9 @@ class ChatContext(
             | TraceContext
             | AgentSpanContext
             | PlaygroundContext
+            | CodeEvaluatorContext
+            | LlmEvaluatorContext
+            | DatasetContext
             | GraphQLContext
             | WebAccessContext,
             Field(discriminator="type"),
@@ -142,6 +204,9 @@ class ResolvedContexts:
     trace: TraceContext | None = None
     span: AgentSpanContext | None = None
     playground: PlaygroundContext | None = None
+    code_evaluator: CodeEvaluatorContext | None = None
+    llm_evaluator: LlmEvaluatorContext | None = None
+    dataset: DatasetContext | None = None
     graphql: GraphQLContext | None = None
     web_access: WebAccessContext | None = None
 
@@ -154,6 +219,12 @@ def resolve_contexts(contexts: list[ChatContext]) -> ResolvedContexts:
             resolved.app = context_value
         elif isinstance(context_value, PlaygroundContext):
             resolved.playground = context_value
+        elif isinstance(context_value, CodeEvaluatorContext):
+            resolved.code_evaluator = context_value
+        elif isinstance(context_value, LlmEvaluatorContext):
+            resolved.llm_evaluator = context_value
+        elif isinstance(context_value, DatasetContext):
+            resolved.dataset = context_value
         elif isinstance(context_value, ProjectContext):
             resolved.project = context_value
         elif isinstance(context_value, TraceContext):

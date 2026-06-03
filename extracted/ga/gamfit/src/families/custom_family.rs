@@ -502,7 +502,12 @@ pub struct FamilyLinearizationState<'a> {
 pub trait BlockEffectiveJacobian: Send + Sync {
     /// Stacked multi-output Jacobian at the current β.
     ///
-    /// Shape: `(n_rows * n_outputs, p_block)`.
+    /// Shape: `(n_rows * n_outputs, p_block)`, **channel-major**: rows
+    /// `r * n_rows .. (r + 1) * n_rows` carry output channel `r`'s row
+    /// Jacobian, so `stacked[r * n_rows + i, j]` is observation `i`'s row at
+    /// output `r` and coefficient column `j`.  Every consumer that destacks
+    /// this matrix (audit, canonicaliser, fit) relies on this layout — see
+    /// `BlockJacobianAsRowOp::from_callback` for the destacking transpose.
     /// For `n_outputs = 1` this is identical to the `(n_rows, p_block)` effective
     /// design used by the flat identifiability audit.
     fn effective_jacobian_at(
@@ -23428,8 +23433,8 @@ mod tests {
     // itself does *not* show divergence between project_hessian_logdet=true
     // and =false at biobank-scale ρ: the dominant term ½ λ β'Sβ grows
     // linearly in λ regardless of projection, and the trace pair cancels
-    // in both routes at this fixture's geometry.  The biobank failure on
-    // gamfit 0.1.92 lives in the custom survival-marginal-slope outer-
+    // in both routes at this fixture's geometry.  The biobank failure lives
+    // in the custom survival-marginal-slope outer-
     // gradient assembler (which has its own unprojected formula and has
     // not been retrofitted to use joint_outer_evaluate's projected
     // kernel).

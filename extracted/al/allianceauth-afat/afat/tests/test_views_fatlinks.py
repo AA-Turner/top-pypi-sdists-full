@@ -3,7 +3,9 @@ Test fatlinks views
 """
 
 # Standard Library
-from datetime import datetime, timedelta
+import datetime as dt
+
+# from datetime import datetime, timedelta
 from http import HTTPStatus
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, Mock, patch
@@ -11,7 +13,6 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 # Third Party
 # Eve SDE
 from eve_sde.models import ItemType, SolarSystem
-from pytz import utc
 
 # Django
 from django.contrib.messages import get_messages
@@ -21,7 +22,6 @@ from django.db import IntegrityError
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.timezone import now
 
 # Alliance Auth
 from allianceauth.eveonline.models import EveCharacter
@@ -83,28 +83,28 @@ class FatlinksViewTestCase(BaseTestCase):
             hash="1231",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=4, day=1, tzinfo=utc),
+            created=dt.datetime(year=2020, month=4, day=1, tzinfo=dt.timezone.utc),
         )
         cls.afat_link_april_2 = FatLink.objects.create(
             fleet="April Fleet 2",
             hash="1232",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=4, day=15, tzinfo=utc),
+            created=dt.datetime(year=2020, month=4, day=15, tzinfo=dt.timezone.utc),
         )
         cls.afat_link_september = FatLink.objects.create(
             fleet="September Fleet",
             hash="1233",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=9, day=1, tzinfo=utc),
+            created=dt.datetime(year=2020, month=9, day=1, tzinfo=dt.timezone.utc),
         )
         cls.afat_link_september_no_fats = FatLink.objects.create(
             fleet="September Fleet 2",
             hash="1234",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=9, day=1, tzinfo=utc),
+            created=dt.datetime(year=2020, month=9, day=1, tzinfo=dt.timezone.utc),
         )
 
         Fat.objects.create(
@@ -393,7 +393,7 @@ class TestDetailsFatlink(FatlinksViewTestCase):
         mock_fatlink = Mock()
         mock_fatlink.is_esilink = False
         mock_fatlink.reopened = False
-        mock_fatlink.created = timezone.now() - timedelta(days=2)
+        mock_fatlink.created = timezone.now() - dt.timedelta(days=2)
 
         # Make select_related_default().get(...) return the mock fatlink
         mock_qs = Mock()
@@ -432,7 +432,7 @@ class TestDetailsFatlink(FatlinksViewTestCase):
         mock_fatlink = Mock()
         mock_fatlink.is_esilink = False
         mock_fatlink.reopened = False
-        mock_fatlink.created = timezone.now() - timedelta(hours=1)
+        mock_fatlink.created = timezone.now() - dt.timedelta(hours=1)
 
         # Make select_related_default().get(...) return the mock fatlink
         mock_qs = Mock()
@@ -866,7 +866,7 @@ class TestReopenFatlink(FatlinksViewTestCase):
 
         mock_duration = MagicMock()
         mock_duration.fleet.reopened = False
-        mock_duration.fleet.created = datetime(2023, 1, 1, 12, 0, 0)
+        mock_duration.fleet.created = dt.datetime(2023, 1, 1, 12, 0, 0)
         mock_duration.fleet.hash = "test_hash"
         mock_get_setting.return_value = 60
         mock_duration_get.return_value = mock_duration
@@ -1198,7 +1198,7 @@ class TestAjaxGetFatsByFatlink(FatlinksViewTestCase):
                 is_esilink = True
                 is_registered_on_esi = True
                 hash = "test_hash"
-                created = datetime(2020, 4, 1, tzinfo=utc)
+                created = dt.datetime(2020, 4, 1, tzinfo=dt.timezone.utc)
                 fleet = "Test Fleet"
                 doctrine = "Test Doctrine"
                 fleet_type = "Test Fleet Type"
@@ -1357,7 +1357,7 @@ class TestAddFatView(BaseTestCase):
         self.fatlink = FatLink.objects.create(
             hash="valid_hash",
             is_esilink=False,
-            created=now(),
+            created=timezone.now(),
             fleet="Test Fleet",
             creator=self.user_fatlinik_creator,
         )
@@ -1370,7 +1370,7 @@ class TestAddFatView(BaseTestCase):
             id=6000, defaults={"name": "Test Ship", "published": 1}
         )
 
-    @patch("afat.views.fatlinks.esi_handler.result")
+    @patch("afat.views.fatlinks.ESIHandler.result")
     def test_redirects_to_dashboard_if_fatlink_does_not_exist(self, mock_esi_result):
         """
         Test redirects to dashboard if fatlink does not exist
@@ -1401,7 +1401,7 @@ class TestAddFatView(BaseTestCase):
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("afat:dashboard"))
 
-    @patch("afat.views.fatlinks.esi_handler.result")
+    @patch("afat.views.fatlinks.ESIHandler.result")
     def test_redirects_to_dashboard_if_fatlink_is_expired(self, mock_esi_result):
         """
         Test redirects to dashboard if fatlink is expired
@@ -1413,7 +1413,7 @@ class TestAddFatView(BaseTestCase):
         """
 
         # Make the fatlink expired
-        self.fatlink.created = timezone.now() - timedelta(minutes=120)
+        self.fatlink.created = timezone.now() - dt.timedelta(minutes=120)
         self.fatlink.save()
 
         url = reverse("afat:fatlinks_add_fat", args=[self.fatlink.hash])
@@ -1437,7 +1437,7 @@ class TestAddFatView(BaseTestCase):
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("afat:dashboard"))
 
-    @patch("afat.views.fatlinks.esi_handler.result")
+    @patch("afat.views.fatlinks.ESIHandler.result")
     @patch("afat.views.fatlinks.EveCharacter.objects.get")
     def test_redirects_to_dashboard_if_character_is_offline(
         self, mock_eve_get, mock_esi_result
@@ -1497,7 +1497,7 @@ class TestAddFatView(BaseTestCase):
     @patch("afat.views.fatlinks.ItemType.objects.get")
     @patch("afat.views.fatlinks.SolarSystem.objects.get")
     @patch("afat.views.fatlinks.esi")
-    @patch("afat.views.fatlinks.esi_handler.result")
+    @patch("afat.views.fatlinks.ESIHandler.result")
     def test_creates_fat_and_redirects_on_success(
         self, mock_esi_result, mock_esi, mock_get_solar, mock_get_type
     ):
@@ -1588,7 +1588,7 @@ class TestAddFatView(BaseTestCase):
     @patch("afat.views.fatlinks.Fat.objects.create")
     @patch("afat.views.fatlinks.EveCharacter.objects.get")
     @patch("afat.views.fatlinks.esi")
-    @patch("afat.views.fatlinks.esi_handler.result")
+    @patch("afat.views.fatlinks.ESIHandler.result")
     def test_does_not_create_duplicate_fat(
         self,
         mock_esi_result,

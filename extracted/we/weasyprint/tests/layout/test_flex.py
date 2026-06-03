@@ -801,7 +801,7 @@ def test_flex_absolute_content():
 @assert_no_logs
 def test_flex_column_height():
     # Regression test for issue #2222.
-    page, = render_pages("""
+    page, = render_pages('''
       <section style="display: flex; width: 10em">
         <article style="display: flex; flex-direction: column">
           <div>
@@ -814,7 +814,7 @@ def test_flex_column_height():
           </div>
         </article>
       </section>
-    """)
+    ''')
     html, = page.children
     body, = html.children
     section, = body.children
@@ -826,7 +826,7 @@ def test_flex_column_height():
 @assert_no_logs
 def test_flex_column_height_margin():
     # Regression test for issue #2222.
-    page, = render_pages("""
+    page, = render_pages('''
       <section style="display: flex; flex-direction: column; width: 10em">
         <article style="margin: 5px">
           Lorem ipsum dolor sit amet
@@ -835,7 +835,7 @@ def test_flex_column_height_margin():
           Lorem ipsum dolor sit amet
         </article>
       </section>
-    """)
+    ''')
     html, = page.children
     body, = html.children
     section, = body.children
@@ -846,7 +846,7 @@ def test_flex_column_height_margin():
 @assert_no_logs
 def test_flex_column_width():
     # Regression test for issue #1171.
-    page, = render_pages("""
+    page, = render_pages('''
       <main style="display: flex; flex-direction: column;
                    width: 40px; height: 50px; font: 2px weasyprint">
         <section style="width: 100%; height: 5px">a</section>
@@ -856,7 +856,7 @@ def test_flex_column_width():
           <div>c</div>
         </section>
       </main>
-    """)
+    ''')
     html, = page.children
     body, = html.children
     main, = body.children
@@ -870,14 +870,14 @@ def test_flex_column_width():
 
 @assert_no_logs
 def test_flex_column_in_flex_row():
-    page, = render_pages("""
+    page, = render_pages('''
       <body style="display: flex; flex-wrap: wrap; font: 2px weasyprint">
         <article>1</article>
         <section style="display: flex; flex-direction: column">
           <div>2</div>
         </section>
       </body>
-    """)
+    ''')
     html, = page.children
     body, = html.children
     article, section = body.children
@@ -1982,3 +1982,64 @@ def test_flex_root_formatting_context():
     assert div.children[0].children[0].text == 'A'
     assert div.position_y == body.position_y
     assert div.position_x == body.position_x
+
+
+@assert_no_logs
+def test_flex_height_page_overflow():
+    # Regression test for #2689.
+    page, = render_pages('''
+      <style>
+        @page { size: 4px 6px }
+      </style>
+      <section style="display: flex; font: 2px weasyprint; height: 2px">
+        <div style="width: 100%; display: flex; align-content: flex-start">a b c d</div>
+      </section>
+    ''')
+    html, = page.children
+    body, = html.children
+    section, = body.children
+    div, = section.children
+    assert len(div.children[0].children) == 3
+
+
+@assert_no_logs
+def test_flex_break_after_page():
+    # Regression test for #2469.
+    page1, page2, page3 = render_pages('''
+      <style>
+        @page { size: 5px }
+        body {
+          display: flex; flex-direction: column;
+          font: 2px/1 weasyprint; margin-top: 1px;
+        }
+      </style>
+      <div style="height: 10px">a</div>
+      <section>
+        <div style="break-after: page">b</div>
+        <div>c</div>
+      </section>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 1
+    assert div.height == 10
+    assert div.children[0].children[0].text == 'a'
+    html, = page2.children
+    body, = html.children
+    assert body.position_y == 0
+    assert body.height == 5
+    section, = body.children
+    div, = section.children
+    assert div.position_y == 0
+    assert div.height == 2
+    assert div.children[0].children[0].text == 'b'
+    html, = page3.children
+    body, = html.children
+    assert body.position_y == 0
+    assert body.height == 2
+    section, = body.children
+    div, = section.children
+    assert div.position_y == 0
+    assert div.height == 2
+    assert div.children[0].children[0].text == 'c'

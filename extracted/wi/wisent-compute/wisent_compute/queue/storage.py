@@ -138,10 +138,11 @@ class JobStorage:
         if self._azure_backend is not None:
             return self._azure_backend.download_text(blob_path)
         if self._sdk_bucket:
-            blob = self._sdk_bucket.blob(blob_path)
-            if not blob.exists():
+            from google.api_core.exceptions import NotFound
+            try:
+                blob = self._sdk_bucket.blob(blob_path); blob.reload(); return blob.download_as_text()
+            except NotFound:
                 return None
-            return blob.download_as_text()
         return _gsutil_cat(f"{self.gs}/{blob_path}")
 
     def _delete_blob(self, blob_path: str):

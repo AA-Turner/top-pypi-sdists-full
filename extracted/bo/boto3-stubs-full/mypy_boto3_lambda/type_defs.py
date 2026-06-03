@@ -49,6 +49,7 @@ from .literals import (
     OperationStatusType,
     OperationTypeType,
     PackageTypeType,
+    PropagateTagsModeType,
     ProvisionedConcurrencyStatusEnumType,
     RecursiveLoopType,
     ResponseStreamingInvocationTypeType,
@@ -315,6 +316,9 @@ __all__ = (
     "OperationTypeDef",
     "OperationUpdateTypeDef",
     "PaginatorConfigTypeDef",
+    "PropagateTagsOutputTypeDef",
+    "PropagateTagsTypeDef",
+    "PropagateTagsUnionTypeDef",
     "ProvisionedConcurrencyConfigListItemTypeDef",
     "ProvisionedPollerConfigTypeDef",
     "PublishLayerVersionRequestTypeDef",
@@ -500,6 +504,11 @@ class InstanceRequirementsOutputTypeDef(TypedDict):
     Architectures: NotRequired[list[ArchitectureType]]
     AllowedInstanceTypes: NotRequired[list[str]]
     ExcludedInstanceTypes: NotRequired[list[str]]
+
+
+class PropagateTagsOutputTypeDef(TypedDict):
+    Mode: NotRequired[PropagateTagsModeType]
+    ExplicitTags: NotRequired[dict[str, str]]
 
 
 class CapacityProviderVpcConfigTypeDef(TypedDict):
@@ -1075,6 +1084,11 @@ class StepOptionsTypeDef(TypedDict):
 
 class WaitOptionsTypeDef(TypedDict):
     WaitSeconds: NotRequired[int]
+
+
+class PropagateTagsTypeDef(TypedDict):
+    Mode: NotRequired[PropagateTagsModeType]
+    ExplicitTags: NotRequired[Mapping[str, str]]
 
 
 class PublishVersionRequestTypeDef(TypedDict):
@@ -1798,6 +1812,9 @@ class ListProvisionedConcurrencyConfigsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+PropagateTagsUnionTypeDef = Union[PropagateTagsTypeDef, PropagateTagsOutputTypeDef]
+
+
 class StepSucceededDetailsTypeDef(TypedDict):
     Result: EventResultTypeDef
     RetryDetails: RetryDetailsTypeDef
@@ -1941,6 +1958,7 @@ class CapacityProviderTypeDef(TypedDict):
     CapacityProviderScalingConfig: NotRequired[CapacityProviderScalingConfigOutputTypeDef]
     KmsKeyArn: NotRequired[str]
     LastModified: NotRequired[str]
+    PropagateTags: NotRequired[PropagateTagsOutputTypeDef]
 
 
 CapacityProviderScalingConfigUnionTypeDef = Union[
@@ -2312,11 +2330,13 @@ class CreateCapacityProviderRequestTypeDef(TypedDict):
     CapacityProviderScalingConfig: NotRequired[CapacityProviderScalingConfigUnionTypeDef]
     KmsKeyArn: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+    PropagateTags: NotRequired[PropagateTagsUnionTypeDef]
 
 
 class UpdateCapacityProviderRequestTypeDef(TypedDict):
     CapacityProviderName: str
     CapacityProviderScalingConfig: NotRequired[CapacityProviderScalingConfigUnionTypeDef]
+    PropagateTags: NotRequired[PropagateTagsUnionTypeDef]
 
 
 class ListFunctionEventInvokeConfigsResponseTypeDef(TypedDict):

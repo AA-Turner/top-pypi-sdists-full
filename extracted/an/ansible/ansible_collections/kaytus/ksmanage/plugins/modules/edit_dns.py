@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_dns
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set dns information
 description:
    - Set dns information on kaytus Server.

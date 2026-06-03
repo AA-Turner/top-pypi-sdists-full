@@ -9,7 +9,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 class DeleteClientParams(UncheckedBaseModel):
     """
-    Delete an existing client from the system.
+    Delete a client, cascading deletion of all their appointments first.
     """
 
     smb_tool_type: typing.Optional[typing.Literal["delete_client"]] = None

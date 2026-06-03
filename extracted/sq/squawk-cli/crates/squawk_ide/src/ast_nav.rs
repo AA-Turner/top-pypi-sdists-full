@@ -13,28 +13,30 @@ pub(crate) fn find_cte_with_table(
     name_ref: &ast::NameRef,
     cte_name: &Name,
 ) -> Option<ast::WithTable> {
-    let with_clause = name_ref
+    let ref_start = name_ref.syntax().text_range().start();
+
+    for with_clause in name_ref
         .syntax()
         .ancestors()
-        .find_map(|query| ast::WithQuery::cast(query)?.with_clause())?;
-
-    let is_recursive = with_clause.recursive_token().is_some();
-    for with_table in with_clause.with_tables() {
-        if let Some(name) = with_table.name()
-            && Name::from_node(&name) == *cte_name
+        .filter_map(|query| ast::WithQuery::cast(query)?.with_clause())
+    {
+        let is_recursive = with_clause.recursive_token().is_some();
+        if let Some(with_table) = with_clause
+            .with_tables()
+            // Without RECURSIVE, only CTEs before the reference are visible.
+            .filter(|with_table| {
+                is_recursive || with_table.syntax().text_range().end() <= ref_start
+            })
+            .find(|with_table| {
+                with_table
+                    .name()
+                    .is_some_and(|name| Name::from_node(&name) == *cte_name)
+            })
         {
-            // Skip if we're inside this CTE's definition (CTE doesn't shadow itself)
-            if !is_recursive
-                && with_table
-                    .syntax()
-                    .text_range()
-                    .contains_range(name_ref.syntax().text_range())
-            {
-                continue;
-            }
             return Some(with_table);
         }
     }
+
     None
 }
 
@@ -205,6 +207,7 @@ pub(crate) enum ParentSouce {
     CreateTableAs(ast::CreateTableAs),
     CreateView(ast::CreateViewLike),
     ParenSelect(ast::ParenSelect),
+    SelectInto(ast::SelectInto),
     WithTable(ast::WithTable),
 }
 
@@ -236,6 +239,10 @@ pub(crate) fn parent_source(node: &SyntaxNode) -> Option<ParentSouce> {
 
         if let Some(create_table) = ast::CreateTableLike::cast(ancestor.clone()) {
             return Some(ParentSouce::CreateTable(create_table));
+        }
+
+        if let Some(select_into) = ast::SelectInto::cast(ancestor.clone()) {
+            return Some(ParentSouce::SelectInto(select_into));
         }
     }
 

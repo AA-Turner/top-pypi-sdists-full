@@ -23,7 +23,7 @@ from opentelemetry import trace as trace_api
 from opentelemetry.trace import INVALID_SPAN
 from opentelemetry.util.types import AttributeValue
 from typing_extensions import assert_never
-from wrapt import ObjectProxy  # type: ignore[attr-defined,unused-ignore]
+from wrapt import ObjectProxy
 
 from openinference.instrumentation import get_attributes_from_context, safe_json_dumps
 from openinference.instrumentation.anthropic._stream import (
@@ -812,6 +812,8 @@ def _get_llm_input_messages(
                     elif block["type"] == "tool_search_tool_result":
                         pass
                     elif block["type"] == "container_upload":
+                        pass
+                    elif block["type"] == "mid_conv_system":
                         pass
                     elif TYPE_CHECKING:
                         assert_never(block)

@@ -4011,24 +4011,251 @@ releases:
     - sonarcloud_regex.yml
     - unittests-boto3-credentials.yml
     release_date: '2026-03-16'
-  10.3.1:
+  11.0.0:
+    changes:
+      major_changes:
+      - amazon.aws collection - ``awscli`` version has been bumped to 1.34.0 (https://github.com/ansible-collections/amazon.aws/pull/2774).
+      - amazon.aws collection - ``botocore`` and ``boto3`` versions have been bumped
+        to 1.35.0 (https://github.com/ansible-collections/amazon.aws/pull/2774).
+      - ec2_security_group - Support for passing nested lists of strings to ``rules.cidr_ip``
+        and ``rules.cidr_ipv6`` have been removed (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      - iam_user - Support for ``iam_user`` return key has been removed; only ``user``
+        is now returned (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      - lambda_info - Support for ``function`` has been removed (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      - route53_info - Support for CamelCased lists (``ResourceRecordSets``, ``HostedZones``,
+        ``HealthChecks``, ``CheckerIpRanges``, ``DelegationSets``, ``HealthCheck``)
+        have been removed (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      - s3_object - Support for ``list`` mode has been removed; use ``s3_object_info``
+        instead (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      - s3_object - Support for passing the leading ``/`` has been removed (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      - s3_object_info - Support for passing ``dualstack`` and ``endpoint_url`` at
+        the same time has been removed (https://github.com/ansible-collections/amazon.aws/issues/2777).
+      minor_changes:
+      - module_utils/s3 - refactored S3 module utilities to consolidate duplicate
+        code, add comprehensive type hints and docstrings, and improve maintainability
+        (https://github.com/ansible-collections/amazon.aws/pull/2782).
+      - s3_bucket - refactored to use centralized S3 wrapper functions from module_utils
+        and consistently use S3ErrorHandler (https://github.com/ansible-collections/amazon.aws/pull/2782).
+      - s3_bucket_info - refactored to use centralized S3 wrapper functions from module_utils
+        and consistently use S3ErrorHandler (https://github.com/ansible-collections/amazon.aws/pull/2782).
+      - s3_object - refactored to use centralized S3 wrapper functions from module_utils
+        and consistently use S3ErrorHandler (https://github.com/ansible-collections/amazon.aws/pull/2782).
+      - s3_object_info - refactored to use centralized S3 wrapper functions from module_utils
+        and consistently use S3ErrorHandler (https://github.com/ansible-collections/amazon.aws/pull/2782).
+      release_summary: This major release includes changes such as refactored S3 module
+        utilities to consolidate duplicate code, add comprehensive type hints and
+        docstrings, and improve maintainability. Additionally, ``botocore`` and ``boto3``
+        versions have been bumped to 1.35.0 and ``awscli`` version has been bumped
+        to 1.34.0.
+    fragments:
+    - 11-0-0.yaml
+    - 2728-reference_error_ssm_destructor.yml
+    - 2734-AES_explicit_bucket_key.yml
+    - 2748-io2_storage_support.yml
+    - 2749-gp3-limits.yml
+    - 2774-bump-botocore-1.35.0.yml
+    - 2777-deprecation_removals.yml
+    - fix-bad-return-value-keys.yml
+    - is_boto3_error_httpstatus.yml
+    - s3-module-utils-refactoring.yml
+    - sts_assume_role-malformed_policy.yml
+    release_date: '2026-01-14'
+  11.1.0:
+    changes:
+      bugfixes:
+      - elb_application_lb - fixed comparison of multi-rule default actions to properly
+        handle the ``Order`` field when determining if listener modifications are
+        needed (https://github.com/ansible-collections/amazon.aws/issues/2537).
+      - 'elb_application_lb - fixed error where creating a new application load balancer
+        with listener rules would fail with ``Parameter validation failed: Invalid
+        type for parameter ListenerArn, value: None`` (https://github.com/ansible-collections/amazon.aws/issues/2400).'
+      - s3_object - fixed error when using PUT with an empty ``content`` string (https://github.com/ansible-collections/amazon.aws/pull/2810)
+      minor_changes:
+      - aws_cloudtrail - Ported the event source plugin from ``ansible.eda`` to ``amazon.aws``
+        (https://github.com/ansible-collections/amazon.aws/pull/2816).
+      - aws_sqs_queue - Ported the event source plugin from ``ansible.eda`` to ``amazon.aws``
+        (https://github.com/ansible-collections/amazon.aws/pull/2816).
+      - indirect node count - Add support for querying RDS database resources (https://github.com/ansible-collections/amazon.aws/pull/2825).
+      - indirect node count - Create query for networking load balancer resources
+        (https://github.com/ansible-collections/amazon.aws/pull/2818).
+      - indirect node count - create query for ec2 (https://github.com/ansible-collections/amazon.aws/pull/2807).
+      - indirect node count - create query for networking resources vpc, subnet, nat
+        gateway, internet gateway, virtual gateway, route table, vpn, vpc peering
+        (https://github.com/ansible-collections/amazon.aws/pull/2811).
+      - indirect node count - create query for storage resources S3 bucket and Object
+        (https://github.com/ansible-collections/amazon.aws/pull/2811).
+      - requirements.txt - Added ``aiobotocore`` as a dependency for the event source
+        plugins only (https://github.com/ansible-collections/amazon.aws/pull/2816).
+      release_summary: This release adds support for indirect node counts across various
+        EC2, RDS, and S3 resources. It also introduces the new ``amazon.aws.ec2_instance_type_info``
+        module to support EC2 instance types. Furthermore, the ``aws_cloudtrail``
+        and ``aws_sqs_queue`` Event Source plugins have been ported from the  ``ansible.eda``
+        collection; please note that this introduces ``aiobotocore >= 2.14.0`` as
+        a new dependency for this collection. Several bugfixes are included for the
+        ``elb_application_lb`` and ``s3_object`` modules.
+    fragments:
+    - 20260119-indirect-node-count-for-storage-s3.yml
+    - 20260120-networking-load-balancer-node-query.yml
+    - 20260121-indirect-node-count-networking.yml
+    - 20260123-indirect-node-count-ec2.yml
+    - 20260125-aws-event-source.yml
+    - 20260127-nodequery-database.yml
+    - 2773-elb-application-lb-listener-rules.yml
+    - 2810-fix-put-empty-content.yml
+    - release_summary.yml
+    modules:
+    - description: Retrieve information about EC2 instance types
+      name: ec2_instance_type_info
+      namespace: ''
+    release_date: '2026-02-03'
+  11.2.0:
+    changes:
+      bugfixes:
+      - aws_ssm - Fixed connection being re-established on every loop iteration. The
+        plugin now properly establishes a single connection for a loop (https://github.com/ansible-collections/amazon.aws/pull/2869).
+      deprecated_features:
+      - aws_ec2 - the ``tags`` host variable has been deprecated to avoid conflicts
+        with Ansible reserved variable names and will be removed in a release after
+        2026-12-01. Use ``ec2_tags`` instead (https://github.com/ansible-collections/amazon.aws/pull/2847).
+      - aws_ec2 - the ``use_contrib_script_compatible_ec2_tag_keys`` option has been
+        deprecated and will be removed in a release after 2026-12-01. Use the ``ec2_tags``
+        structure instead. (https://github.com/ansible-collections/amazon.aws/pull/2854)
+      - aws_ec2 - the ``use_contrib_script_compatible_sanitization`` option has been
+        deprecated and will be removed in a release after 2026-12-01. Use Ansible's
+        default group name sanitization instead. (https://github.com/ansible-collections/amazon.aws/pull/2854)
+      - aws_rds - the ``tags`` host variable has been deprecated to avoid conflicts
+        with Ansible reserved variable names and will be removed in a release after
+        2026-12-01. Use ``rds_tags`` instead (https://github.com/ansible-collections/amazon.aws/pull/2847).
+      - route53 - the ``region`` parameter for latency-based routing has been deprecated
+        and will be removed in a release after 2027-06-01. The ``routing_region``
+        parameter behaves exactly as ``region`` behaves today and should be used instead
+        (https://github.com/ansible-collections/amazon.aws/issues/2893).
+      minor_changes:
+      - autoscaling_group - Added a boolean parameter ``protected_from_scale_in``
+        to toggle protection from scale-in. This allows users to enable or disable
+        scale-in protection for instances in an autoscaling group. (https://github.com/ansible-collections/amazon.aws/pull/2207)
+      - aws_cloudtrail - replace deprecated ``datetime.utcnow()`` with timezone-aware
+        ``datetime.now(tz=timezone.utc)`` (https://github.com/ansible-collections/amazon.aws/pull/2858).
+      - aws_ec2 - added "ec2_tags" host variable (https://github.com/ansible-collections/amazon.aws/pull/2847).
+      - aws_ec2 - remove explicit ``disable_lookups=False`` parameter from template
+        calls as it is deprecated and False is the default value (https://github.com/ansible-collections/amazon.aws/pull/2864).
+      - aws_inventory_base - remove explicit ``disable_lookups=False`` parameter from
+        template calls as it is deprecated and False is the default value (https://github.com/ansible-collections/amazon.aws/pull/2864).
+      - aws_rds - added "rds_tags" host variable (https://github.com/ansible-collections/amazon.aws/pull/2847).
+      - aws_resource_actions - remove redundant ``list()`` call when using ``sorted()``,
+        improving efficiency by allowing sorted() to consume the generator expression
+        directly (https://github.com/ansible-collections/amazon.aws/pull/2882).
+      - ec2_vol - added ``volume_initialization_rate`` optional parameter to support
+        Provisioned Initialization Rate when creating a volume from snapshots. (https://github.com/ansible-collections/amazon.aws/issues/2665)
+      - ec2_vpc_endpoint - replace deprecated ``datetime.utcnow()`` with timezone-aware
+        ``datetime.now(datetime.timezone.utc)`` (https://github.com/ansible-collections/amazon.aws/pull/2866).
+      - ec2_vpc_nat_gateway - replace deprecated ``datetime.utcnow()`` with timezone-aware
+        ``datetime.now(datetime.timezone.utc)`` (https://github.com/ansible-collections/amazon.aws/pull/2866).
+      - plugin_utils/inventory - add error handling for ClientError and BotoCoreError
+        in _freeze_iam_role method (https://github.com/ansible-collections/amazon.aws/pull/2902).
+      - plugin_utils/inventory - extract role session name generation into separate
+        method to improve code organisation (https://github.com/ansible-collections/amazon.aws/pull/2902).
+      - route53 - added ``routing_region`` parameter to explicitly specify the region
+        for latency-based resource record sets (https://github.com/ansible-collections/amazon.aws/issues/2893).
+      - route53 - added temporary ``aws_region`` parameter to allow specifying the
+        AWS region for API requests while the ``region`` parameter is being transitioned
+        (https://github.com/ansible-collections/amazon.aws/issues/2893).
+      - route53 - refactored module utility to use decorator-based error handling.
+        (https://github.com/ansible-collections/amazon.aws/pull/2892)
+      - route53_health_check - refactored module to improve testability and type safety.
+        (https://github.com/ansible-collections/amazon.aws/pull/2892)
+      release_summary: 'This release introduces several new features and improvements
+        across the collection. Notable additions include support for the ``volume_initialization_rate``
+        parameter in ``ec2_vol`` to enable Provisioned Initialization Rate when creating
+        volumes from snapshots, and a new ``protected_from_scale_in`` option in ``autoscaling_group``
+        to control scale-in protection for instances. Route53 modules have been enhanced
+        with new parameters for latency-based routing, including ``routing_region``
+        and a temporary ``aws_region`` option to support the transition away from
+        the deprecated ``region`` parameter.
+
+        The release also includes security fixes addressing potential ReDoS vulnerabilities
+        in ARN and EC2 security group ID parsing, as well as several internal improvements
+        and refactorings to improve code maintainability, error handling, and testability
+        across modules and plugin utilities.
+
+        Several deprecations were introduced in inventory plugins to avoid conflicts
+        with Ansible reserved variable names and modernize configuration options.
+        In addition, the release includes code modernization updates such as replacing
+        deprecated ``datetime.utcnow()`` usage with timezone-aware alternatives, improvements
+        to inventory plugin utilities, and various testing and internal maintenance
+        updates.'
+      security_fixes:
+      - arn - fix potential ReDoS vulnerability in ARN parsing regex by using negated
+        character class instead of non-greedy quantifier (https://github.com/ansible-collections/amazon.aws/pull/2884).
+      - ec2_security_group - fix potential ReDoS vulnerability in security group ID
+        parsing regex by using negated character classes and adding end anchor (https://github.com/ansible-collections/amazon.aws/pull/2884).
+    fragments:
+    - 2207_scale_in_protection_auto_scaling_group.yml
+    - 2665-ec2_vol-provisioned-initialization-rate.yaml
+    - 2847_tags_deprecation.yml
+    - 2854-deprecate-legacy-script-options.yml
+    - 2869_aws_ssm_connection_fix.yml
+    - aws_resource_actions_callback.yml
+    - plugin_utils-inventory-unittests.yml
+    - pytest-ansible-compatibility.yml
+    - release_summary.yml
+    - route53-region-parameter-refactor.yml
+    - route53_error_handling_refactor.yml
+    - sonarcloud_regex.yml
+    - template_disable_lookups_cleanup.yml
+    - unittests-boto3-credentials.yml
+    - unittests-common.yml
+    - utcnow-deprecation.yml
+    release_date: '2026-03-17'
+  11.3.0:
     changes:
       bugfixes:
       - autoscaling_group - Fixed duplicate default_cooldown assignment in properties
         dict (https://github.com/ansible-collections/amazon.aws/pull/2923).
+      - elb_application_lb - Listener rules are now returned sorted by priority with
+        the default rule appearing last (https://github.com/ansible-collections/amazon.aws/issues/2939).
+      - elb_application_lb_info - Listener rules are now returned sorted by priority
+        with the default rule appearing last (https://github.com/ansible-collections/amazon.aws/issues/2939).
       - kms_key - Fixed parameter reassignment by using passed alias parameter instead
         of re-fetching from module params (https://github.com/ansible-collections/amazon.aws/pull/2923).
       - module_utils/cloudfront_facts - fix TypeError in CloudFrontFactsServiceManager.describe_cloudfront_property
         (https://github.com/ansible-collections/community.aws/issues/1915).
       - s3_object_info - Fixed duplicate dictionary key assignments when retrieving
         object facts (https://github.com/ansible-collections/amazon.aws/pull/2923).
-      release_summary: This patch release includes bugfixes for the ``s3_object_info``,
-        ``autoscaling_group``, and ``kms_key`` modules, addressing duplicate dictionary
-        key assignments and improving reliability. It also fixes a TypeError in CloudFront
-        module utilities.
+      minor_changes:
+      - Various modules and utilities - migrated from deprecated ``ansible.module_utils._text``
+        to ``ansible.module_utils.common.text.converters`` (https://github.com/ansible-collections/amazon.aws/pull/2860).
+      - amazon.aws.cloudformation - Fixed an issue where creating a changeset in check
+        mode would fail if the stack is not in a ready state (e.g., UPDATE_IN_PROGRESS).
+        The module now waits for the stack to be in a ready state (UPDATE_COMPLETE)
+        before creating the changeset (https://github.com/ansible-collections/amazon.aws/pull/1910)
+      - elb_application_lb_info - Fixed return value documentation to correctly reflect
+        actual types and added missing fields (https://github.com/ansible-collections/amazon.aws/issues/2939).
+      - extensions/eda/plugins/event_source/aws_sqs_queue.py - Added optional support
+        for feedback so that the event can be removed from the SQS Queue on receipt
+        of acknowledgement from ansible-rulebook.
+      - module_utils/errors - Add support for f-string style parameter interpolation
+        in error handler descriptions to provide more detailed error messages (https://github.com/ansible-collections/amazon.aws/pull/2944).
+      - s3_bucket - Added O(account_regional) parameter to support creating buckets
+        in the account-regional namespace. Requires at least botocore version 1.42.67
+        (https://github.com/ansible-collections/amazon.aws/pull/2960).
+      - s3_bucket - Added support for managing bucket logging configuration (https://github.com/ansible-collections/amazon.aws/pull/2855).
+      release_summary: This minor release adds new features and improvements to the
+        ``autoscaling_group``, ``elb_application_lb``, ``elb_application_lb_info``,
+        ``elb_classic_lb``, ``event_source_aws_cloudtrail``, ``kms_key``, ``s3_bucket``,
+        ``s3_object_info`` module(s).
     fragments:
-    - 10.3.1.yml
+    - 11.3.0.yml
+    - 1910-check_stack_change_set.yml
     - 1915-cloudfront_distribution_info-TypeError.yml
+    - 20260225-migrate-text-converters.yml
+    - 2868_event_source_aws_cloudtrail_integration_tests.yaml
+    - 2939-elb-rules-sorting.yml
     - ansible-test-gh-action-migration.yml
+    - elb_logging_service_principal.yml
+    - error-handler-format-strings.yml
+    - feedback_eda_sqs_source_plugin.yml
     - reliability-duplicate-assignments.yml
-    release_date: '2026-05-06'
+    - s3_bucket-account_regional.yml
+    - s3_bucket_logging.yml
+    release_date: '2026-05-08'

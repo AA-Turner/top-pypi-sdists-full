@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class TransactionMetaV1:
     def __init__(
         self,
         tx_changes: LedgerEntryChanges,
-        operations: List[OperationMeta],
+        operations: list[OperationMeta],
     ) -> None:
         _expect_max_length = 4294967295
         if operations and len(operations) > _expect_max_length:

@@ -1496,7 +1496,7 @@ class menus:
                     + ") "
                     "" + colorText.END
                 )
-                if checkUpdate:
+                if checkUpdate and "RUNNER" not in os.environ.keys():
                     # Start background check only if not yet checked today
                     _start_background_update_check()
                     

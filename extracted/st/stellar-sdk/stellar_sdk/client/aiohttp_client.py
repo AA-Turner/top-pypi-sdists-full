@@ -150,7 +150,7 @@ class AiohttpClient(BaseAsyncClient):
                 url=str(response.url),
             )
         except aiohttp.ClientError as e:  # TODO: need more research
-            raise ConnectionError(e)
+            raise ConnectionError(e) from e
 
     async def _read_with_limit(
         self, response: "aiohttp.ClientResponse", max_content_size: int
@@ -202,7 +202,7 @@ class AiohttpClient(BaseAsyncClient):
                 url=str(response.url),
             )
         except aiohttp.ClientError as e:
-            raise ConnectionError(e)
+            raise ConnectionError(e) from e
 
     async def stream(
         self, url: str, params: dict[str, str] | None = None
@@ -222,7 +222,7 @@ class AiohttpClient(BaseAsyncClient):
             timeout = aiohttp.ClientTimeout(total=60 * 5)
             self._sse_session = aiohttp.ClientSession(timeout=timeout)
 
-        query_params = params.copy() if params else dict()
+        query_params = params.copy() if params else {}
 
         query_params |= IDENTIFICATION_HEADERS
         retry = 0.1
@@ -262,7 +262,7 @@ class AiohttpClient(BaseAsyncClient):
                                 yield json.loads(data)
                         except json.JSONDecodeError:
                             # Content was not json-decodable
-                            pass  # pragma: no cover
+                            pass
             except aiohttp.ClientError as e:
                 raise StreamClientError(
                     query_params["cursor"], "Failed to get stream message."

@@ -56,6 +56,7 @@ def ensure_chroma(km) -> bool:
                     "category": r["category"],
                     "title": title,
                     "status": r["status"],
+                    "biz_context": r["biz_context"] if "biz_context" in r.keys() else None,
                 }],
             )
         return True
@@ -63,7 +64,7 @@ def ensure_chroma(km) -> bool:
         return False
 
 
-def defer_embed_and_chroma(km, entry_id, title, content, domain, category, status):
+def defer_embed_and_chroma(km, entry_id, title, content, domain, category, status, biz_context=None):
     """Compute embedding + upsert to Chroma synchronously.
 
     Previously ran in a background thread, but this caused #366:
@@ -82,12 +83,12 @@ def defer_embed_and_chroma(km, entry_id, title, content, domain, category, statu
                 (emb, entry_id),
             )
             km._conn.commit()
-        chroma_upsert_entry(km, entry_id, title, content, domain, category, status)
+        chroma_upsert_entry(km, entry_id, title, content, domain, category, status, biz_context=biz_context)
     except Exception:
         pass
 
 
-def chroma_upsert_entry(km, entry_id, title, content, domain, category, status):
+def chroma_upsert_entry(km, entry_id, title, content, domain, category, status, biz_context=None):
     """Upsert a single entry to Chroma. Silently ignores failures."""
     from kanban_framework.domain.knowledge_lazy import _embed, _unpack_embedding
 
@@ -109,6 +110,7 @@ def chroma_upsert_entry(km, entry_id, title, content, domain, category, status):
                 "category": category,
                 "title": title,
                 "status": status,
+                "biz_context": biz_context,
             }],
         )
     except Exception:

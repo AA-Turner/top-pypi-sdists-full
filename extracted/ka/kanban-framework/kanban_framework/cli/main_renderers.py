@@ -103,7 +103,7 @@ def _render_create(data: dict):
         mode = assessment.get("recommended_mode", "?")
         reason = assessment.get("reason", "")
         risks = assessment.get("risk_factors", [])
-        mode_label = "lightweight" if mode == "lightweight" else "full"
+        mode_label = mode if mode else "full"
         print(f"  推荐模式: {mode_label}")
         print(f"  原因: {reason}")
         if risks:

@@ -149,16 +149,6 @@ def response_matrix_from_table(data: Any, response_columns: Sequence[str]) -> An
     )
 
 
-_SIMPLEX_KINDS = {"simplex", "clr", "alr"}
-_SPHERE_KINDS = {"spherical", "sphere"}
-
-
-def _resolve_simplex_coord(kind: str, coordinates: str | None) -> str:
-    if coordinates is not None:
-        return coordinates.lower()
-    return "alr" if kind == "alr" else "clr"
-
-
 def geometry_log_map(
     values: Any,
     *,
@@ -167,33 +157,23 @@ def geometry_log_map(
     coordinates: str | None = None,
     reference: int = -1,
 ) -> tuple[Any, Any, str]:
+    """Map response observations to tangent coordinates at an intrinsic base.
+
+    Geometry-kind routing, simplex-coordinate resolution, and base-point
+    selection (intrinsic Fréchet mean when ``base`` is ``None``) all live in
+    Rust (``response_geometry_log_map``); this only marshals arrays.
+    """
     np = _np()
-    kind = geometry.lower()
-    if kind in _SPHERE_KINDS:
-        if base is None:
-            base_point = sphere_frechet_mean(values)
-        else:
-            # Normalize a single base row via the sphere_log_map FFI by mapping
-            # the base to itself: the impl normalizes its base argument internally.
-            base_point = _ffi(
-                "response_geometry_sphere_normalize_base",
-                np.asarray(base, dtype=float).reshape(-1),
-            )
-        return sphere_log_map(values, base_point), base_point, "spherical"
-    if kind in _SIMPLEX_KINDS:
-        coord = _resolve_simplex_coord(kind, coordinates)
-        if base is None:
-            base_point = simplex_frechet_mean(values)
-        else:
-            base_point = closure(np.asarray(base, dtype=float).reshape(1, -1))[0]
-        return (
-            simplex_log_map(values, base_point, coordinates=coord, reference=reference),
-            base_point,
-            coord,
-        )
-    raise ValueError(
-        "response_geometry must be one of 'spherical', 'simplex', 'clr', or 'alr'"
+    base_arr = None if base is None else np.asarray(base, dtype=float).reshape(-1)
+    tangent, base_point, coord = _ffi(
+        "response_geometry_log_map",
+        np.asarray(values, dtype=float),
+        str(geometry),
+        base_arr,
+        None if coordinates is None else str(coordinates),
+        int(reference),
     )
+    return tangent, base_point, coord
 
 
 def geometry_exp_map(
@@ -204,14 +184,15 @@ def geometry_exp_map(
     coordinates: str | None = None,
     reference: int = -1,
 ) -> Any:
-    kind = geometry.lower()
-    if kind in _SPHERE_KINDS:
-        return sphere_exp_map(tangent, base)
-    if kind in _SIMPLEX_KINDS:
-        coord = _resolve_simplex_coord(kind, coordinates)
-        return simplex_exp_map(tangent, base, coordinates=coord, reference=reference)
-    raise ValueError(
-        "response_geometry must be one of 'spherical', 'simplex', 'clr', or 'alr'"
+    """Map tangent coordinates back onto the response manifold (Rust-owned)."""
+    np = _np()
+    return _ffi(
+        "response_geometry_exp_map",
+        np.asarray(tangent, dtype=float),
+        str(geometry),
+        np.asarray(base, dtype=float).reshape(-1),
+        None if coordinates is None else str(coordinates),
+        int(reference),
     )
 
 
@@ -351,12 +332,24 @@ def fit_response_geometry(
     kwargs["frailty_kind"] = None
     kwargs["frailty_sd"] = None
     kwargs["hazard_loading"] = None
+    np = _np()
+    fisher_source = fisher_rao_w
+    if fisher_source is None and resolved_coordinates.lower() == "alr":
+        # ALR is a valid chart but NOT isometric to Aitchison geometry: in ALR
+        # coordinates the Aitchison inner product is ⟨u, v⟩ = uᵀ G v with the
+        # Gram G = I_{D-1} − (1/D)·11ᵀ (for D = 3 it is [[2/3,-1/3],[-1/3,2/3]]
+        # ≠ I). Fitting a plain Gaussian/Euclidean model in ALR therefore
+        # minimizes the wrong (non-Aitchison) residual norm. Attach G as the
+        # per-observation residual weight so the Gaussian objective rᵀ G r and
+        # its gradient XᵀG(y−Xβ) are Aitchison-correct. (ILR/CLR have G = I and
+        # need no weighting; that is why the default coordinate is isometric.)
+        n_parts = int(y.shape[1])
+        fisher_source = _aitchison_metric_blocks(np, int(tangent.shape[0]), n_parts)
     fisher_w = None
-    if fisher_rao_w is not None:
-        np = _np()
+    if fisher_source is not None:
         fisher_w = _ffi(
             "response_geometry_normalize_fisher_rao",
-            np.asarray(fisher_rao_w, dtype=float),
+            np.asarray(fisher_source, dtype=float),
             int(tangent.shape[0]),
             int(tangent.shape[1]),
         )
@@ -385,6 +378,25 @@ def fit_response_geometry(
             fit=shared_fit,
         ),
     )
+
+
+def _aitchison_metric_blocks(np: Any, n_obs: int, n_parts: int) -> Any:
+    """Aitchison Gram ``G = I_{D-1} − (1/D)·11ᵀ`` for ALR coordinates.
+
+    ALR maps a ``D``-part composition to ``D-1`` log-ratio coordinates, but the
+    Aitchison inner product in those coordinates is ``⟨u, v⟩ = uᵀ G v`` with this
+    ``(D-1)×(D-1)`` Gram (for ``D = 3`` it is ``[[2/3,-1/3],[-1/3,2/3]]`` ≠ I).
+    Returned as a single 2-D block; the FFI broadcasts it across all ``n_obs``
+    observations so the Gaussian residual weighting ``rᵀ G r`` is constant and
+    Aitchison-correct. ``n_obs`` is accepted to document the broadcast intent.
+    """
+    if n_parts < 2:
+        raise ValueError("Aitchison metric requires at least two compositional parts")
+    if n_obs <= 0:
+        raise ValueError("Aitchison metric requires at least one observation")
+    dim = n_parts - 1
+    gram = np.eye(dim, dtype=float) - (1.0 / float(n_parts))
+    return gram
 
 
 def _formula_rhs(formula: str) -> str:

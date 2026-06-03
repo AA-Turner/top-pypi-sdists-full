@@ -483,3 +483,47 @@ releases:
       name: system_lock_mode_info
       namespace: ''
     release_date: '2024-09-27'
+  3.0.0:
+    changes:
+      bugfixes:
+      - Modify the automated tests and add support for version 2.18. (https://github.com/ieisystem/kaytus.ksmanage/pull/31).
+      - Modify the failure details returned in module_utils (https://github.com/ieisystem/kaytus.ksmanage/pull/29).
+      - Modify the failure details returned in module_utils (https://github.com/ieisystem/kaytus.ksmanage/pull/29).
+      - Modify the ksmanage.py file in the module_utils directory, and change the
+        reference path of iteritems to be a reference from within Python. (https://github.com/ieisystem/kaytus.ksmanage/pull/32).
+      major_changes:
+      - Add new modules upload_ssl,ssl_info,generate_ssl. (https://github.com/ieisystem/kaytus.ksmanage/pull/34).
+      - The edit_m6_log_setting.py module has added the 'server_status' attribute;
+        The edit_network_bond.py module modifies the attribute descriptions; The edit_snmp.py
+        and edit_snmp_trap.py module modifies the allowable value ranges for the auth_protocol
+        and priv_protocol attributes. (https://github.com/ieisystem/kaytus.ksmanage/pull/33).
+    fragments:
+    - 28-edit_module_utils_msg.yml
+    - 29-edit_module_utils_msg.yml
+    - 31-add_CI_2.18.yml
+    - 32-edit_module_utils_ksmanage.yml
+    - 33-edit_snmp_log_trap.yml
+    - 34-add_ssl_module.yml
+    modules:
+    - description: Generate SSL certificate
+      name: generate_ssl
+      namespace: ''
+    - description: Get SSL certificate information
+      name: ssl_info
+      namespace: ''
+    - description: Upload SSL certificate
+      name: upload_ssl
+      namespace: ''
+    release_date: '2025-11-24'
+  4.0.0:
+    changes:
+      major_changes:
+      - Change the name of the used SDK. (https://github.com/ieisystem/kaytus.ksmanage/pull/37).
+      - Modify the URL address path when the owner is changed. (https://github.com/ieisystem/kaytus.ksmanage/pull/38).
+      minor_changes:
+      - Modify the contact email in the README.md file. (https://github.com/KSManageOSS/kaytus.ksmanage/pull/39).
+    fragments:
+    - 37-edit_sdk.yml
+    - 38-editKaytusUrl.yml
+    - 39-editReadmeEmail.yml
+    release_date: '2025-12-02'

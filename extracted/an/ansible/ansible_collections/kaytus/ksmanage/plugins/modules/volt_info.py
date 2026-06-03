@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: volt_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get volt information
 description:
    - Get volt information on kaytus Server.

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_fan
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set fan information
 description:
    - Set fan information on kaytus Server.

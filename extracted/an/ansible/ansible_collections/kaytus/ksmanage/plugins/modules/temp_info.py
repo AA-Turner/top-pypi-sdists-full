@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: temp_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get temp information
 description:
    - Get temp information on kaytus Server.

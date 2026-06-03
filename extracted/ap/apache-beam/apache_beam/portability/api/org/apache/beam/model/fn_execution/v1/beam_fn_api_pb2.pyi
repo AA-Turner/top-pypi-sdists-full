@@ -1523,6 +1523,55 @@ class Elements(google.protobuf.message.Message):
         ) -> None: ...
 
     @typing_extensions.final
+    class ValueKind(google.protobuf.message.Message):
+        """The type of change operation represented by a Change Data Capture (CDC) record"""
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Enum:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _EnumEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Elements.ValueKind._Enum.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            VALUE_KIND_UNSPECIFIED: Elements.ValueKind._Enum.ValueType  # 0
+            """Unspecified ValueKind. Will be treated as an INSERT"""
+            INSERT: Elements.ValueKind._Enum.ValueType  # 1
+            """Indicates a new record was created in the source system."""
+            UPDATE_BEFORE: Elements.ValueKind._Enum.ValueType  # 2
+            """Indicates the state of a record immediately <b>before</b> an update occurred.
+            This is typically used to identify the previous values of modified columns
+            or to locate the record via its primary key.
+            """
+            UPDATE_AFTER: Elements.ValueKind._Enum.ValueType  # 3
+            """Indicates the state of a record immediately after an update occurred.
+            Represents the current, valid state of the record following the change.
+            """
+            DELETE: Elements.ValueKind._Enum.ValueType  # 4
+            """Indicates that an existing record was removed from the source system."""
+
+        class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
+        VALUE_KIND_UNSPECIFIED: Elements.ValueKind.Enum.ValueType  # 0
+        """Unspecified ValueKind. Will be treated as an INSERT"""
+        INSERT: Elements.ValueKind.Enum.ValueType  # 1
+        """Indicates a new record was created in the source system."""
+        UPDATE_BEFORE: Elements.ValueKind.Enum.ValueType  # 2
+        """Indicates the state of a record immediately <b>before</b> an update occurred.
+        This is typically used to identify the previous values of modified columns
+        or to locate the record via its primary key.
+        """
+        UPDATE_AFTER: Elements.ValueKind.Enum.ValueType  # 3
+        """Indicates the state of a record immediately after an update occurred.
+        Represents the current, valid state of the record following the change.
+        """
+        DELETE: Elements.ValueKind.Enum.ValueType  # 4
+        """Indicates that an existing record was removed from the source system."""
+
+        def __init__(
+            self,
+        ) -> None: ...
+
+    @typing_extensions.final
     class ElementMetadata(google.protobuf.message.Message):
         """Element metadata passed as part of WindowedValue to make WindowedValue
         extensible and backward compatible
@@ -1533,6 +1582,7 @@ class Elements(google.protobuf.message.Message):
         DRAIN_FIELD_NUMBER: builtins.int
         TRACEPARENT_FIELD_NUMBER: builtins.int
         TRACESTATE_FIELD_NUMBER: builtins.int
+        VALUE_KIND_FIELD_NUMBER: builtins.int
         drain: global___Elements.DrainMode.Enum.ValueType
         traceparent: builtins.str
         """(Optional) As part of https://www.w3.org/TR/trace-context/ we are forwarding a trace and participating in it.
@@ -1545,21 +1595,28 @@ class Elements(google.protobuf.message.Message):
         across IOs - Kafka, PubSub, http.
         Example value: congo=t61rcWkgMzE
         """
+        value_kind: global___Elements.ValueKind.Enum.ValueType
+        """(Optional) The kind of value for CDC metadata.
+        If missing or unspecified, implies INSERT for backwards compatibility.
+        """
         def __init__(
             self,
             *,
             drain: global___Elements.DrainMode.Enum.ValueType | None = ...,
             traceparent: builtins.str | None = ...,
             tracestate: builtins.str | None = ...,
+            value_kind: global___Elements.ValueKind.Enum.ValueType | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal["_drain", b"_drain", "_traceparent", b"_traceparent", "_tracestate", b"_tracestate", "drain", b"drain", "traceparent", b"traceparent", "tracestate", b"tracestate"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal["_drain", b"_drain", "_traceparent", b"_traceparent", "_tracestate", b"_tracestate", "drain", b"drain", "traceparent", b"traceparent", "tracestate", b"tracestate"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["_drain", b"_drain", "_traceparent", b"_traceparent", "_tracestate", b"_tracestate", "_value_kind", b"_value_kind", "drain", b"drain", "traceparent", b"traceparent", "tracestate", b"tracestate", "value_kind", b"value_kind"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["_drain", b"_drain", "_traceparent", b"_traceparent", "_tracestate", b"_tracestate", "_value_kind", b"_value_kind", "drain", b"drain", "traceparent", b"traceparent", "tracestate", b"tracestate", "value_kind", b"value_kind"]) -> None: ...
         @typing.overload
         def WhichOneof(self, oneof_group: typing_extensions.Literal["_drain", b"_drain"]) -> typing_extensions.Literal["drain"] | None: ...
         @typing.overload
         def WhichOneof(self, oneof_group: typing_extensions.Literal["_traceparent", b"_traceparent"]) -> typing_extensions.Literal["traceparent"] | None: ...
         @typing.overload
         def WhichOneof(self, oneof_group: typing_extensions.Literal["_tracestate", b"_tracestate"]) -> typing_extensions.Literal["tracestate"] | None: ...
+        @typing.overload
+        def WhichOneof(self, oneof_group: typing_extensions.Literal["_value_kind", b"_value_kind"]) -> typing_extensions.Literal["value_kind"] | None: ...
 
     @typing_extensions.final
     class Timers(google.protobuf.message.Message):

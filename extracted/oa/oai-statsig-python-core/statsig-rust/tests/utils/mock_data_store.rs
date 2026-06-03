@@ -6,7 +6,8 @@ use std::sync::{
 use async_trait::async_trait;
 use statsig_rust::{
     data_store_interface::{
-        DataStoreBytesResponse, DataStoreResponse, DataStoreTrait, RequestPath,
+        DataStoreBytesResponse, DataStoreGetBytesRequest, DataStoreResponse, DataStoreTrait,
+        RequestPath,
     },
     StatsigErr,
 };
@@ -140,6 +141,8 @@ impl DataStoreTrait for MockDataStore {
                 StatsigErr::DataStoreFailure(format!("Cached value is not UTF-8: {e}"))
             })?),
             time: Some(1),
+            checksum: None,
+            has_updates: None,
         })
     }
 
@@ -151,7 +154,11 @@ impl DataStoreTrait for MockDataStore {
         Ok(())
     }
 
-    async fn get_bytes(&self, key: &str) -> Result<DataStoreBytesResponse, StatsigErr> {
+    async fn get_bytes(
+        &self,
+        key: &str,
+        _request: DataStoreGetBytesRequest,
+    ) -> Result<DataStoreBytesResponse, StatsigErr> {
         self.get_bytes_call_count.fetch_add(1, Ordering::SeqCst);
         if !self.byte_cache_enabled {
             return Err(StatsigErr::BytesNotImplemented);
@@ -164,6 +171,8 @@ impl DataStoreTrait for MockDataStore {
         Ok(DataStoreBytesResponse {
             result: self.get_bytes_cache_for_key(key),
             time: Some(1),
+            checksum: None,
+            has_updates: None,
         })
     }
 
@@ -172,6 +181,7 @@ impl DataStoreTrait for MockDataStore {
         key: &str,
         value: &[u8],
         _time: Option<u64>,
+        _checksum: Option<String>,
     ) -> Result<(), StatsigErr> {
         self.set_bytes_call_count.fetch_add(1, Ordering::SeqCst);
         if !self.byte_cache_enabled {

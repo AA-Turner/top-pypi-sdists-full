@@ -1,4 +1,4 @@
-# Generated from sesotho.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from sesotho.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class SesothoStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from sesotho.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from sesotho.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u"}
@@ -42,11 +42,8 @@ class SesothoStemmer(BaseStemmer):
         if self.cursor >= self.limit:
             return False
         self.cursor += 1
-        try:
-            if self.cursor < self.limit:
-                raise lab0()
+        if self.cursor >= self.limit:
             return False
-        except lab0: pass
         self.cursor = v_1
         if not self.go_out_grouping(SesothoStemmer.g_v):
             return False

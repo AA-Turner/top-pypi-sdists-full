@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 7.6.0.dev645
+Version: 7.6.0.dev649
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
 Author-email: Julien <github@qc-h.net>
 License: MIT
@@ -25,7 +25,7 @@ Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: truststore==0.10.4
 Requires-Dist: websockets==16.0
 Requires-Dist: cryptography==48.0.0
-Requires-Dist: pydantic-monty==0.0.17
+Requires-Dist: pydantic-monty==0.0.18
 Dynamic: license-file
 
 > **Breaking change (v7.3.0):** `ha_config_set_yaml` has been moved to [beta](docs/beta.md).
@@ -219,6 +219,7 @@ Spend less time configuring, more time enjoying your smart home.
 | **Blueprints** | `ha_get_blueprint`, `ha_import_blueprint` |
 | **Calendar** | `ha_config_get_calendar_events`, `ha_config_remove_calendar_event`, `ha_config_set_calendar_event` |
 | **Camera** | `ha_get_camera_image` |
+| **Dashboard** | `ha_get_dashboard_screenshot` *(beta)* |
 | **Dashboards** | `ha_config_delete_dashboard_resource`, `ha_config_delete_dashboard`, `ha_config_get_dashboard`, `ha_config_list_dashboard_resources`, `ha_config_set_dashboard_resource`, `ha_config_set_dashboard` |
 | **Device Registry** | `ha_get_device`, `ha_remove_device`, `ha_set_device` |
 | **Energy** | `ha_manage_energy_prefs` |
@@ -234,7 +235,7 @@ Spend less time configuring, more time enjoying your smart home.
 | **Scripts** | `ha_config_get_script`, `ha_config_remove_script`, `ha_config_set_script` |
 | **Search & Discovery** | `ha_deep_search`, `ha_get_overview`, `ha_get_state`, `ha_search_entities` |
 | **Service & Device Control** | `ha_bulk_control`, `ha_call_event`, `ha_call_service`, `ha_get_operation_status`, `ha_list_services` |
-| **System** | `ha_check_config`, `ha_config_set_yaml` *(beta)*, `ha_get_updates`, `ha_manage_backup`, `ha_manage_custom_tool` *(beta)*, `ha_reload_core`, `ha_restart` |
+| **System** | `ha_config_set_yaml` *(beta)*, `ha_get_updates`, `ha_manage_backup`, `ha_manage_custom_tool` *(beta)*, `ha_reload_core`, `ha_restart` |
 | **Todo Lists** | `ha_get_todo`, `ha_remove_todo_item`, `ha_set_todo_item` |
 | **Utilities** | `ha_eval_template`, `ha_install_mcp_tools` *(beta)*, `ha_report_issue` |
 | **Zones** | `ha_get_zone`, `ha_remove_zone`, `ha_set_zone` |

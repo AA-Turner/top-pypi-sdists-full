@@ -13,6 +13,46 @@ from kanban_framework.domain.steps_full import FULL_STEPS  # noqa: F401
 from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS  # noqa: F401
 from kanban_framework.domain.steps_quick import QUICK_STEPS  # noqa: F401
 
+# Knowledge retrieval preamble — first agent seeds the pool, all agents read + supplement dynamically
+_KNOWLEDGE_PREAMBLE_FIRST = (
+    "【知识库检索 — 首个 Agent，建立共享知识池】\n"
+    "根据任务的实际内容动态检索，而非预设关键词：\n"
+    "1. 全局检索：kanban knowledge hybrid \"$task_title 踩坑 注意事项 最佳实践\" --json --summary-only\n"
+    "2. 筛选 3-10 条最相关的条目，kanban knowledge get <id> --json 取详情\n"
+    '3. 将筛选结果写入 $task_dir/plan/knowledge_used.json（后续 Agent 复用）：\n'
+    '   {"matched": [{"id": "K001", "title": "...", "relevance": "high", "how_to_apply": "..."}]}\n'
+    "4. 在你的产出文档中标注「知识库参考」章节，列出你实际引用了哪些条目\n"
+    "5. 如发现新的通用模式/踩坑，kanban knowledge add 写入知识库\n\n"
+)
+
+_KNOWLEDGE_PREAMBLE_REUSE = (
+    "【知识库参考 — 共享知识池】\n"
+    "任务已有知识池：$task_dir/plan/knowledge_used.json\n"
+    "1. 首先读取该文件，应用其中 high/medium 条目\n"
+    "2. 工作中遇到具体问题时，按需动态检索（不要预设式搜索）：\n"
+    "   - 遇到报错/异常 → kanban knowledge hybrid \"<错误关键词>\" --json --summary-only\n"
+    "   - 技术选型不确定 → kanban knowledge hybrid \"<技术点> 最佳实践\" --json --summary-only\n"
+    "   - 需要参考模式 → kanban knowledge hybrid \"<模式名> 踩坑\" --json --summary-only\n"
+    "3. 检索到的新条目追加写入 knowledge_used.json（合并，保留已有条目）\n"
+    "4. 在你的产出文档中标注「知识库参考」章节，列出你实际引用了哪些条目（格式：[K001] 条目标题 — 如何应用）\n"
+    "5. 发现新通用模式/踩坑 → kanban knowledge add 补充写入\n\n"
+)
+
+_KNOWLEDGE_PROTOCOL = (
+    "【知识库检索协议 — 必须遵守】\n"
+    "- 检索前先查已有踩坑记录，避免重蹈覆辙\n"
+    "- 方案选型时搜索最佳实践，不要凭经验猜测\n"
+    "- 完成编码后，提取通用模式写入知识库\n"
+    "$knowledge_protocol"
+)
+
+# Step types that should NOT get knowledge auto-injection
+_KNOWLEDGE_SKIP_PREFIXES = (
+    "plan.complete", "execute.complete", "evaluate.complete",
+    "retrospective.complete", "spec_review.complete", "plan_review.complete",
+    "qa_spec.complete", "user_decision.", "archive.",
+)
+
 KNOWLEDGE_SEARCH_PROTOCOL = (
     "知识库检索协议（Token 高效模式）：\n"
     "- 所有 kanban knowledge search/hybrid/semantic 必须加 --json --summary-only\n"
@@ -132,6 +172,11 @@ def _get_steps(mode: str, custom_steps: dict[str, list[StepDef]] | None = None) 
         cfg = Config(fs)
         result = load_steps_for_mode(cfg.workflow, mode, kanban_dir=fs.kanban_dir)
         if result and any(v for v in result.values()):
+            # Apply extensions if active for this mode
+            from kanban_framework.domain.workflow_extensions import WorkflowExtension
+            ext = WorkflowExtension(cfg.workflow)
+            if ext.is_active_for_mode(mode):
+                result = ext.build_step_map(result, mode=mode)
             return result
     except (OSError, ValueError, KeyError):
         pass

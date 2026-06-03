@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class LedgerSCPMessages:
     def __init__(
         self,
         ledger_seq: Uint32,
-        messages: List[SCPEnvelope],
+        messages: list[SCPEnvelope],
     ) -> None:
         _expect_max_length = 4294967295
         if messages and len(messages) > _expect_max_length:

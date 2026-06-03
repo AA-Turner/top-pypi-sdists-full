@@ -4,7 +4,6 @@ import dataclasses
 import pathlib
 from unittest import mock
 
-import anys
 import httpx
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace import id_generator
@@ -647,11 +646,21 @@ async def test_upload_failure(
 
     assert result.exit_code == 0
     assert result.upload_mock.call_count == 1
+    # Phase B migration: the Python `upload.upload` now wraps a
+    # subprocess to `mergify _internal junit-upload`. The new
+    # signature takes `files` (original tuple) + `run_id` +
+    # `quarantined_names` (the union the Rust span builder bakes
+    # into `cicd.test.quarantined`) instead of the pre-built
+    # `spans` list.
     assert result.upload_mock.call_args.kwargs == {
         "api_url": "https://api.mergify.com",
         "token": "foobar",
         "repository": "foo/bar",
-        "spans": anys.ANY_LIST,
+        "files": (str(REPORT_ALL_PASS_XML),),
+        "run_id": "00000002dfdc1c3e",
+        "quarantined_names": [],
+        "test_framework": None,
+        "test_language": None,
     }
     assert result.stdout == (
         "══════════════════════════════════════════\n"
@@ -755,6 +764,12 @@ async def test_invalid_junit_xml(
     )
 
     assert result.exit_code == 1
+    # The error wording comes from the native Rust parser (the
+    # quick-xml-backed `mergify _internal junit-parse` subprocess
+    # Python shells out to). The Rust parser is lenient about
+    # malformed XML — it accepts the surrounding text as long as
+    # there are recognisable elements — and only fails when no
+    # `<testsuites>` / `<testsuite>` tag is found.
     assert result.stdout == (
         "══════════════════════════════════════════\n"
         "  🚀 CI Insights\n"
@@ -764,7 +779,7 @@ async def test_invalid_junit_xml(
         "  final CI status — quarantined failures are ignored.\n"
         "  Learn more: https://docs.mergify.com/ci-insights/quarantine\n"
         "══════════════════════════════════════════\n"
-        "❌ FAIL — Failed to parse JUnit XML: syntax error: line 1, column 0\n"
+        "❌ FAIL — Failed to parse JUnit XML: no testsuites or testsuite tag found\n"
         "  Check that your test framework is generating valid JUnit XML output.\n"
         "  Exit code: 1\n"
         "══════════════════════════════════════════\n"

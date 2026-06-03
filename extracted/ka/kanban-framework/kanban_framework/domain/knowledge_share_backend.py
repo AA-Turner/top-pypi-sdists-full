@@ -30,7 +30,7 @@ class ShareBackend:
         except Exception:
             self._share_conn = None
 
-    def _search_share(self, keyword, limit=20):
+    def _search_share(self, keyword, limit=20, *, biz_context=None):
         if not hasattr(self, '_share_conn') or self._share_conn is None:
             return []
         fts_query = keyword
@@ -66,6 +66,9 @@ class ShareBackend:
                         results.append(d)
                         if len(results) >= limit:
                             break
+            if biz_context is not None:
+                from kanban_framework.domain.knowledge_search import _filter_by_biz
+                results = _filter_by_biz(results, biz_context)
             if results:
                 return results
             return []
@@ -76,18 +79,22 @@ class ShareBackend:
                     "AND (title LIKE ? OR content LIKE ?) LIMIT ?",
                     (f"%{keyword}%", f"%{keyword}%", limit)
                 ).fetchall()
-                return [dict(r) for r in rows]
+                results = [dict(r) for r in rows]
+                if biz_context is not None:
+                    from kanban_framework.domain.knowledge_search import _filter_by_biz
+                    results = _filter_by_biz(results, biz_context)
+                return results
             except Exception:
                 return []
 
-    def search(self, keyword, limit=20):
-        return self._search_share(keyword, limit=limit)
+    def search(self, keyword, limit=20, *, biz_context=None):
+        return self._search_share(keyword, limit=limit, biz_context=biz_context)
 
-    def search_semantic(self, query, limit=20):
-        return self._search_share(query, limit=limit)
+    def search_semantic(self, query, limit=20, *, biz_context=None):
+        return self._search_share(query, limit=limit, biz_context=biz_context)
 
-    def search_hybrid(self, keyword, limit=20):
-        return self._search_share(keyword, limit=limit)
+    def search_hybrid(self, keyword, limit=20, *, biz_context=None):
+        return self._search_share(keyword, limit=limit, biz_context=biz_context)
 
     def add_entry(self, **kwargs):
         """Push entry to shared knowledge base. (#237)"""
@@ -175,8 +182,8 @@ class ShareBackend:
         self._share_conn.execute(
             """INSERT INTO entries(id, domain, category, title, content,
                content_segmented, code_example, tags, source, severity,
-               status, created_at, type, steps)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               status, created_at, type, steps, biz_context)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (eid, domain, kwargs.get("category", ""),
              title, content, content_segmented,
              kwargs.get("code_example", ""),
@@ -184,12 +191,13 @@ class ShareBackend:
              json.dumps(source),
              kwargs.get("severity", "medium"), "active", now.isoformat(),
              kwargs.get("entry_type", "knowledge"),
-             json.dumps(kwargs.get("steps")) if kwargs.get("steps") else None)
+             json.dumps(kwargs.get("steps")) if kwargs.get("steps") else None,
+             kwargs.get("biz_context"))
         )
         self._share_conn.commit()
         return {**kwargs, "id": eid, "source": source}
 
-    def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0):
+    def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0, biz_context=None):
         if not hasattr(self, '_share_conn') or self._share_conn is None:
             return []
         try:
@@ -201,6 +209,9 @@ class ShareBackend:
             if category:
                 clauses.append("category=?")
                 params.append(category)
+            if biz_context:
+                clauses.append("(biz_context IS NULL OR biz_context LIKE ?)")
+                params.append(f"%{biz_context}%")
             where = " AND ".join(clauses)
             params.extend([limit, offset])
             rows = self._share_conn.execute(
@@ -252,7 +263,8 @@ class ShareBackend:
                 created_at TEXT NOT NULL, updated_at TEXT, stale_at TEXT,
                 referenced_count INTEGER DEFAULT 0, last_referenced_at TEXT,
                 last_referenced_by TEXT, type TEXT DEFAULT 'knowledge',
-                steps TEXT DEFAULT NULL, embedding BLOB DEFAULT NULL
+                steps TEXT DEFAULT NULL, embedding BLOB DEFAULT NULL,
+                biz_context TEXT DEFAULT NULL
             );
             CREATE TABLE IF NOT EXISTS usage_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

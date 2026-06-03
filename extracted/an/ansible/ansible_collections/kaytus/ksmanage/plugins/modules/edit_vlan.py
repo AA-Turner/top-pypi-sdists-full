@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_vlan
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set vlan information
 description:
    - Set vlan information on kaytus Server.

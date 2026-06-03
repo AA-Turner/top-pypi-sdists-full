@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: fw_version_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get firmware version information
 description:
    - Get firmware version information on kaytus Server.

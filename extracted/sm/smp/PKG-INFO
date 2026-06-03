@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: smp
-Version: 4.0.2
+Version: 4.1.0
 Summary: Simple Management Protocol (SMP) for remotely managing MCU firmware
 Home-page: https://github.com/JPHutchins/smp
 License: Apache-2.0

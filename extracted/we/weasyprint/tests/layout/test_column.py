@@ -1098,3 +1098,40 @@ def test_columns_margin_top():
     column1, column2 = div.children
     assert column1.position_y == column2.position_y == 2
     assert column1.children[0].position_y == column2.children[0].position_y == 2
+
+
+@assert_no_logs
+def test_columns_grid():
+    # Regression test for #2680.
+    page1, = render_pages('''
+      <div style="columns: 2">
+        <div>1</div>
+        <div style="display: grid">2</div>
+      </div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    column1, column2 = div.children
+
+
+@assert_no_logs
+def test_columns_first_letter():
+    # Regression test for #2717.
+    page, = render_pages('''
+      <style>
+        h1:first-letter { font-size: 120% }
+        div { columns: 2 }
+      </style>
+      <div>
+        <h1>test</h1>
+        <h1>test</h1>
+      </div>
+    ''')
+    html, = page.children
+    body, = html.children
+    div, = body.children
+    column1, column2 = div.children
+    h1_1, = column1.children
+    h1_2, = column2.children
+    assert h1_1.element_tag == h1_2.element_tag == 'h1'

@@ -1,4 +1,4 @@
-# Generated from swedish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from swedish.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class SwedishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from swedish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from swedish.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "y", "ä", "å", "ö"}
@@ -46,11 +46,8 @@ class SwedishStemmer(BaseStemmer):
             return False
         if not self.in_grouping_b(SwedishStemmer.g_v):
             return False
-        try:
-            if self.cursor > self.limit_backward:
-                raise lab0()
+        if self.cursor <= self.limit_backward:
             return False
-        except lab0: pass
         self.cursor = self.limit - v_1
         v_2 = self.limit - self.cursor
         try:

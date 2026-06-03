@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -34,8 +33,8 @@ class Preconditions:
     def __init__(
         self,
         type: PreconditionType,
-        time_bounds: Optional[TimeBounds] = None,
-        v2: Optional[PreconditionsV2] = None,
+        time_bounds: TimeBounds | None = None,
+        v2: PreconditionsV2 | None = None,
     ) -> None:
         self.type = type
         self.time_bounds = time_bounds

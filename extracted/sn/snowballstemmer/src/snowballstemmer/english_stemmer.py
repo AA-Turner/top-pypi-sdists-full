@@ -1,4 +1,4 @@
-# Generated from english.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from english.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class EnglishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from english.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from english.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_aeo = "aeo"
@@ -287,11 +287,8 @@ class EnglishStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.out_grouping_b(EnglishStemmer.g_v):
             return False
-        try:
-            if self.cursor > self.limit_backward:
-                raise lab0()
+        if self.cursor <= self.limit_backward:
             return False
-        except lab0: pass
         self.slice_from("i")
         return True
 

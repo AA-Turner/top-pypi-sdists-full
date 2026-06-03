@@ -561,35 +561,58 @@ def persist_tinybird_config(root_folder: str, project_type: str, dev_mode: str, 
 def generate_kafka_connection_with_secrets(
     name: str,
     bootstrap_servers: str,
-    key: str,
-    secret: str,
+    key: Optional[str],
+    secret: Optional[str],
     tb_secret_bootstrap_servers: Optional[str],
     tb_secret_key: Optional[str],
     tb_secret_secret: Optional[str],
     security_protocol: str,
-    sasl_mechanism: str,
+    sasl_mechanism: Optional[str],
     ssl_ca_pem: Optional[str],
     tb_secret_ssl_ca_pem: Optional[str],
     schema_registry_url: Optional[str],
     folder: str,
+    kafka_sasl_oauthbearer_method: Optional[str] = None,
+    kafka_sasl_oauthbearer_aws_region: Optional[str] = None,
+    kafka_sasl_oauthbearer_aws_role_arn: Optional[str] = None,
+    kafka_sasl_oauthbearer_aws_external_id: Optional[str] = None,
+    tb_secret_aws_role_arn: Optional[str] = None,
 ) -> Path:
     kafka_bootstrap_servers = (
         inject_tb_secret(tb_secret_bootstrap_servers) if tb_secret_bootstrap_servers else bootstrap_servers
     )
-    kafka_key = inject_tb_secret(tb_secret_key) if tb_secret_key else key
-    kafka_secret = inject_tb_secret(tb_secret_secret) if tb_secret_secret else secret
-    kafka_ssl_ca_pem = inject_tb_secret(tb_secret_ssl_ca_pem) if tb_secret_ssl_ca_pem else ssl_ca_pem
     content = f"""TYPE kafka
 KAFKA_BOOTSTRAP_SERVERS {kafka_bootstrap_servers}
 KAFKA_SECURITY_PROTOCOL {security_protocol or "SASL_SSL"}
-KAFKA_SASL_MECHANISM {sasl_mechanism or "PLAIN"}
-KAFKA_KEY {kafka_key}
-KAFKA_SECRET {kafka_secret}
 """
+    # PLAINTEXT skips SASL entirely.
+    if sasl_mechanism:
+        content += f"KAFKA_SASL_MECHANISM {sasl_mechanism}\n"
+
+    if sasl_mechanism == "OAUTHBEARER" and kafka_sasl_oauthbearer_method == "AWS":
+        content += f"KAFKA_SASL_OAUTHBEARER_METHOD {kafka_sasl_oauthbearer_method}\n"
+        if kafka_sasl_oauthbearer_aws_region:
+            content += f"KAFKA_SASL_OAUTHBEARER_AWS_REGION {kafka_sasl_oauthbearer_aws_region}\n"
+        if kafka_sasl_oauthbearer_aws_role_arn:
+            kafka_role_arn = (
+                inject_tb_secret(tb_secret_aws_role_arn)
+                if tb_secret_aws_role_arn
+                else kafka_sasl_oauthbearer_aws_role_arn
+            )
+            content += f"KAFKA_SASL_OAUTHBEARER_AWS_ROLE_ARN {kafka_role_arn}\n"
+        if kafka_sasl_oauthbearer_aws_external_id:
+            content += f"KAFKA_SASL_OAUTHBEARER_AWS_EXTERNAL_ID {kafka_sasl_oauthbearer_aws_external_id}\n"
+    elif sasl_mechanism in ("PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"):
+        kafka_key = inject_tb_secret(tb_secret_key) if tb_secret_key else key
+        kafka_secret = inject_tb_secret(tb_secret_secret) if tb_secret_secret else secret
+        content += f"KAFKA_KEY {kafka_key}\nKAFKA_SECRET {kafka_secret}\n"
+
     if schema_registry_url:
-        content += f"""KAFKA_SCHEMA_REGISTRY_URL {schema_registry_url}\n"""
+        content += f"KAFKA_SCHEMA_REGISTRY_URL {schema_registry_url}\n"
+
+    kafka_ssl_ca_pem = inject_tb_secret(tb_secret_ssl_ca_pem) if tb_secret_ssl_ca_pem else ssl_ca_pem
     if kafka_ssl_ca_pem:
-        content += f"""KAFKA_SSL_CA_PEM >\n    {kafka_ssl_ca_pem}\n"""
+        content += f"KAFKA_SSL_CA_PEM >\n    {kafka_ssl_ca_pem}\n"
     content += """# Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/kafka#kafka-connection-settings
 """
 

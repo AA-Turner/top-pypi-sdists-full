@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -42,7 +41,7 @@ class PathPaymentStrictReceiveOp:
         destination: MuxedAccount,
         dest_asset: Asset,
         dest_amount: Int64,
-        path: List[Asset],
+        path: list[Asset],
     ) -> None:
         _expect_max_length = 5
         if path and len(path) > _expect_max_length:

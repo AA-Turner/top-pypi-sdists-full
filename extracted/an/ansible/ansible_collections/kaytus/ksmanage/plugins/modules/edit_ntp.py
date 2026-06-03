@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_ntp
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set NTP
 description:
    - Set NTP on kaytus Server.

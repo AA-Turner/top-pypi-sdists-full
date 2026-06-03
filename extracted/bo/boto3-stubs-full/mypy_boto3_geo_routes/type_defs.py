@@ -34,11 +34,14 @@ from .literals import (
     RoadSnapHazardousCargoTypeType,
     RoadSnapNoticeCodeType,
     RoadSnapTravelModeType,
+    RouteAccessibilityAvailabilityType,
+    RouteAttributionTypeType,
     RouteDirectionType,
     RouteEngineTypeType,
     RouteFerryNoticeCodeType,
     RouteFerryTravelStepTypeType,
     RouteHazardousCargoTypeType,
+    RouteIntermodalEnabledLegsType,
     RouteLegAdditionalFeatureType,
     RouteLegTravelModeType,
     RouteLegTypeType,
@@ -49,7 +52,11 @@ from .literals import (
     RouteMatrixZoneCategoryType,
     RouteNoticeImpactType,
     RoutePedestrianNoticeCodeType,
+    RoutePedestrianPlaceTypeType,
     RoutePedestrianTravelStepTypeType,
+    RouteRentalModeType,
+    RouteRentalPlaceTypeType,
+    RouteRentalTravelStepTypeType,
     RouteResponseNoticeCodeType,
     RouteRoadTypeType,
     RouteSideOfStreetType,
@@ -62,16 +69,29 @@ from .literals import (
     RouteSpanScooterAccessAttributeType,
     RouteSpanTruckAccessAttributeType,
     RouteSteeringDirectionType,
+    RouteTaxiModeType,
+    RouteTaxiNoticeCodeType,
+    RouteTaxiPlaceTypeType,
+    RouteTaxiTravelStepTypeType,
     RouteTollPassValidityPeriodTypeType,
     RouteTollPaymentMethodType,
+    RouteTransitIncidentEffectType,
+    RouteTransitIncidentTypeType,
+    RouteTransitIntermediateStopAttributeType,
+    RouteTransitModeType,
+    RouteTransitNoticeCodeType,
+    RouteTransitTripStatusType,
     RouteTravelModeType,
     RouteTravelStepTypeType,
     RouteTruckTypeType,
     RouteTurnIntensityType,
     RouteVehicleIncidentSeverityType,
     RouteVehicleIncidentTypeType,
+    RouteVehicleModeType,
     RouteVehicleNoticeCodeType,
+    RouteVehiclePlaceTypeType,
     RouteVehicleTravelStepTypeType,
+    RouteWebLinkDeviceTypeType,
     RouteWeightConstraintTypeType,
     RouteZoneCategoryType,
     RoutingObjectiveType,
@@ -136,12 +156,16 @@ __all__ = (
     "RoadSnapTrailerOptionsTypeDef",
     "RoadSnapTravelModeOptionsTypeDef",
     "RoadSnapTruckOptionsTypeDef",
+    "RouteAccessPointDetailsTypeDef",
+    "RouteAccessibilityAvailabilityDetailsTypeDef",
     "RouteAllowOptionsTypeDef",
+    "RouteAttributionTypeDef",
     "RouteAvoidanceAreaGeometryTypeDef",
     "RouteAvoidanceAreaTypeDef",
     "RouteAvoidanceOptionsTypeDef",
     "RouteAvoidanceZoneCategoryTypeDef",
     "RouteCarOptionsTypeDef",
+    "RouteChargeStepDetailsTypeDef",
     "RouteContinueHighwayStepDetailsTypeDef",
     "RouteContinueStepDetailsTypeDef",
     "RouteDestinationOptionsTypeDef",
@@ -163,6 +187,12 @@ __all__ = (
     "RouteFerrySummaryTypeDef",
     "RouteFerryTravelOnlySummaryTypeDef",
     "RouteFerryTravelStepTypeDef",
+    "RouteIntermodalOptionsTypeDef",
+    "RouteIntermodalPedestrianOptionsTypeDef",
+    "RouteIntermodalRentalOptionsTypeDef",
+    "RouteIntermodalTaxiOptionsTypeDef",
+    "RouteIntermodalTransitOptionsTypeDef",
+    "RouteIntermodalVehicleOptionsTypeDef",
     "RouteKeepStepDetailsTypeDef",
     "RouteLegGeometryTypeDef",
     "RouteLegTypeDef",
@@ -199,6 +229,7 @@ __all__ = (
     "RouteOriginOptionsTypeDef",
     "RoutePassThroughPlaceTypeDef",
     "RoutePassThroughWaypointTypeDef",
+    "RoutePedestrianAfterTravelStepTypeDef",
     "RoutePedestrianArrivalTypeDef",
     "RoutePedestrianDepartureTypeDef",
     "RoutePedestrianLegDetailsTypeDef",
@@ -211,6 +242,18 @@ __all__ = (
     "RoutePedestrianTravelOnlySummaryTypeDef",
     "RoutePedestrianTravelStepTypeDef",
     "RouteRampStepDetailsTypeDef",
+    "RouteRentalAfterTravelStepTypeDef",
+    "RouteRentalAgencyTypeDef",
+    "RouteRentalArrivalTypeDef",
+    "RouteRentalBeforeTravelStepTypeDef",
+    "RouteRentalDepartureTypeDef",
+    "RouteRentalLegDetailsTypeDef",
+    "RouteRentalOverviewSummaryTypeDef",
+    "RouteRentalPlaceTypeDef",
+    "RouteRentalSummaryTypeDef",
+    "RouteRentalTransportModeDetailsTypeDef",
+    "RouteRentalTravelOnlySummaryTypeDef",
+    "RouteRentalTravelStepTypeDef",
     "RouteResponseNoticeTypeDef",
     "RouteRoadTypeDef",
     "RouteRoundaboutEnterStepDetailsTypeDef",
@@ -222,7 +265,21 @@ __all__ = (
     "RouteSignpostTypeDef",
     "RouteSpanDynamicSpeedDetailsTypeDef",
     "RouteSpanSpeedLimitDetailsTypeDef",
+    "RouteStationDetailsTypeDef",
     "RouteSummaryTypeDef",
+    "RouteTaxiAfterTravelStepTypeDef",
+    "RouteTaxiAgencyTypeDef",
+    "RouteTaxiArrivalTypeDef",
+    "RouteTaxiBeforeTravelStepTypeDef",
+    "RouteTaxiDepartureTypeDef",
+    "RouteTaxiLegDetailsTypeDef",
+    "RouteTaxiNoticeTypeDef",
+    "RouteTaxiOverviewSummaryTypeDef",
+    "RouteTaxiPlaceTypeDef",
+    "RouteTaxiSummaryTypeDef",
+    "RouteTaxiTransportModeDetailsTypeDef",
+    "RouteTaxiTravelOnlySummaryTypeDef",
+    "RouteTaxiTravelStepTypeDef",
     "RouteTollOptionsTypeDef",
     "RouteTollPassTypeDef",
     "RouteTollPassValidityPeriodTypeDef",
@@ -236,12 +293,32 @@ __all__ = (
     "RouteTollTypeDef",
     "RouteTrafficOptionsTypeDef",
     "RouteTrailerOptionsTypeDef",
+    "RouteTransitAfterTravelStepTypeDef",
+    "RouteTransitAgencyTypeDef",
+    "RouteTransitArrivalTypeDef",
+    "RouteTransitBeforeTravelStepTypeDef",
+    "RouteTransitDepartureTypeDef",
+    "RouteTransitIncidentTypeDef",
+    "RouteTransitIntermediateStopTypeDef",
+    "RouteTransitLegDetailsTypeDef",
+    "RouteTransitNextDepartureTypeDef",
+    "RouteTransitNoticeTypeDef",
+    "RouteTransitOptionsTypeDef",
+    "RouteTransitOverviewSummaryTypeDef",
+    "RouteTransitPedestrianOptionsTypeDef",
+    "RouteTransitPlaceTypeDef",
+    "RouteTransitSpanTypeDef",
+    "RouteTransitSummaryTypeDef",
+    "RouteTransitTransportModeDetailsTypeDef",
+    "RouteTransitTravelOnlySummaryTypeDef",
+    "RouteTransitTravelStepTypeDef",
     "RouteTransponderTypeDef",
     "RouteTravelModeOptionsTypeDef",
     "RouteTruckOptionsTypeDef",
     "RouteTurnStepDetailsTypeDef",
     "RouteTypeDef",
     "RouteUTurnStepDetailsTypeDef",
+    "RouteVehicleAfterTravelStepTypeDef",
     "RouteVehicleArrivalTypeDef",
     "RouteVehicleDepartureTypeDef",
     "RouteVehicleIncidentTypeDef",
@@ -257,6 +334,7 @@ __all__ = (
     "RouteVehicleTravelStepTypeDef",
     "RouteViolatedConstraintsTypeDef",
     "RouteWaypointTypeDef",
+    "RouteWebLinkTypeDef",
     "RouteWeightConstraintTypeDef",
     "RouteZoneTypeDef",
     "SnapToRoadsRequestTypeDef",
@@ -490,12 +568,29 @@ class RoadSnapTrailerOptionsTypeDef(TypedDict):
     TrailerCount: NotRequired[int]
 
 
+class RouteAccessibilityAvailabilityDetailsTypeDef(TypedDict):
+    Wheelchair: NotRequired[RouteAccessibilityAvailabilityType]
+
+
+class RouteWebLinkTypeDef(TypedDict):
+    Description: str
+    AnchorText: NotRequired[str]
+    DeviceType: NotRequired[RouteWebLinkDeviceTypeType]
+    Url: NotRequired[str]
+
+
 class RouteAvoidanceZoneCategoryTypeDef(TypedDict):
     Category: RouteZoneCategoryType
 
 
 class RouteVehicleLicensePlateTypeDef(TypedDict):
     LastCharacter: NotRequired[str]
+
+
+class RouteChargeStepDetailsTypeDef(TypedDict):
+    ArrivalCharge: NotRequired[float]
+    ConsumablePower: NotRequired[float]
+    DesiredCharge: NotRequired[float]
 
 
 class RouteMatchingOptionsTypeDef(TypedDict):
@@ -575,6 +670,35 @@ class RouteFerryTravelOnlySummaryTypeDef(TypedDict):
     Duration: int
 
 
+class RouteIntermodalPedestrianOptionsTypeDef(TypedDict):
+    MaxDistance: NotRequired[int]
+    Speed: NotRequired[float]
+
+
+class RouteIntermodalRentalOptionsTypeDef(TypedDict):
+    AllowedModes: NotRequired[Sequence[RouteRentalModeType]]
+    EnabledFor: NotRequired[Sequence[RouteIntermodalEnabledLegsType]]
+    ExcludedModes: NotRequired[Sequence[RouteRentalModeType]]
+
+
+class RouteIntermodalTaxiOptionsTypeDef(TypedDict):
+    AllowedModes: NotRequired[Sequence[RouteTaxiModeType]]
+    EnabledFor: NotRequired[Sequence[RouteIntermodalEnabledLegsType]]
+    ExcludedModes: NotRequired[Sequence[RouteTaxiModeType]]
+
+
+class RouteIntermodalTransitOptionsTypeDef(TypedDict):
+    AllowedModes: NotRequired[Sequence[RouteTransitModeType]]
+    EnabledFor: NotRequired[Sequence[RouteIntermodalEnabledLegsType]]
+    ExcludedModes: NotRequired[Sequence[RouteTransitModeType]]
+
+
+class RouteIntermodalVehicleOptionsTypeDef(TypedDict):
+    AllowedModes: NotRequired[Sequence[RouteVehicleModeType]]
+    EnabledFor: NotRequired[Sequence[RouteIntermodalEnabledLegsType]]
+    ExcludedModes: NotRequired[Sequence[RouteVehicleModeType]]
+
+
 class RouteLegGeometryTypeDef(TypedDict):
     LineString: NotRequired[list[list[float]]]
     Polyline: NotRequired[str]
@@ -632,12 +756,14 @@ class RoutePassThroughPlaceTypeDef(TypedDict):
     WaypointIndex: NotRequired[int]
 
 
-class RoutePedestrianPlaceTypeDef(TypedDict):
-    Position: list[float]
-    Name: NotRequired[str]
-    OriginalPosition: NotRequired[list[float]]
-    SideOfStreet: NotRequired[RouteSideOfStreetType]
-    WaypointIndex: NotRequired[int]
+RoutePedestrianAfterTravelStepTypeDef = TypedDict(
+    "RoutePedestrianAfterTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Wait"],
+        "Instruction": NotRequired[str],
+    },
+)
 
 
 class RoutePedestrianNoticeTypeDef(TypedDict):
@@ -669,6 +795,103 @@ class RoutePedestrianTravelOnlySummaryTypeDef(TypedDict):
     Duration: int
 
 
+RouteRentalAfterTravelStepTypeDef = TypedDict(
+    "RouteRentalAfterTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Park"],
+        "Instruction": NotRequired[str],
+    },
+)
+
+
+class RouteRentalAgencyTypeDef(TypedDict):
+    Name: str
+    Url: NotRequired[str]
+
+
+RouteRentalBeforeTravelStepTypeDef = TypedDict(
+    "RouteRentalBeforeTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Setup"],
+        "Instruction": NotRequired[str],
+    },
+)
+
+
+class RouteRentalTransportModeDetailsTypeDef(TypedDict):
+    Mode: RouteRentalModeType
+    AvailableSeats: NotRequired[int]
+    Category: NotRequired[str]
+    Color: NotRequired[str]
+    Engine: NotRequired[RouteEngineTypeType]
+    LicensePlate: NotRequired[str]
+    Model: NotRequired[str]
+    Name: NotRequired[str]
+    TextColor: NotRequired[str]
+
+
+class RouteRentalOverviewSummaryTypeDef(TypedDict):
+    Duration: int
+    Distance: int
+
+
+class RouteRentalTravelOnlySummaryTypeDef(TypedDict):
+    Duration: int
+
+
+RouteTaxiAfterTravelStepTypeDef = TypedDict(
+    "RouteTaxiAfterTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Park"],
+        "Instruction": NotRequired[str],
+    },
+)
+
+
+class RouteTaxiAgencyTypeDef(TypedDict):
+    Name: str
+    Url: NotRequired[str]
+
+
+RouteTaxiBeforeTravelStepTypeDef = TypedDict(
+    "RouteTaxiBeforeTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Wait"],
+        "Instruction": NotRequired[str],
+    },
+)
+
+
+class RouteTaxiNoticeTypeDef(TypedDict):
+    Code: RouteTaxiNoticeCodeType
+    Impact: NotRequired[RouteNoticeImpactType]
+
+
+class RouteTaxiTransportModeDetailsTypeDef(TypedDict):
+    Mode: RouteTaxiModeType
+    AvailableSeats: NotRequired[int]
+    Category: NotRequired[str]
+    Color: NotRequired[str]
+    Engine: NotRequired[RouteEngineTypeType]
+    LicensePlate: NotRequired[str]
+    Model: NotRequired[str]
+    Name: NotRequired[str]
+    TextColor: NotRequired[str]
+
+
+class RouteTaxiOverviewSummaryTypeDef(TypedDict):
+    Duration: int
+    Distance: int
+
+
+class RouteTaxiTravelOnlySummaryTypeDef(TypedDict):
+    Duration: int
+
+
 class RouteTollPassValidityPeriodTypeDef(TypedDict):
     Period: RouteTollPassValidityPeriodTypeType
     PeriodCount: NotRequired[int]
@@ -697,12 +920,71 @@ class RouteTrailerOptionsTypeDef(TypedDict):
     TrailerCount: NotRequired[int]
 
 
-class RouteVehiclePlaceTypeDef(TypedDict):
-    Position: list[float]
-    Name: NotRequired[str]
-    OriginalPosition: NotRequired[list[float]]
-    SideOfStreet: NotRequired[RouteSideOfStreetType]
-    WaypointIndex: NotRequired[int]
+RouteTransitAfterTravelStepTypeDef = TypedDict(
+    "RouteTransitAfterTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Deboard"],
+        "Instruction": NotRequired[str],
+    },
+)
+
+
+class RouteTransitAgencyTypeDef(TypedDict):
+    Name: str
+    Url: NotRequired[str]
+
+
+RouteTransitBeforeTravelStepTypeDef = TypedDict(
+    "RouteTransitBeforeTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Board"],
+        "Instruction": NotRequired[str],
+    },
+)
+RouteTransitIncidentTypeDef = TypedDict(
+    "RouteTransitIncidentTypeDef",
+    {
+        "Effect": RouteTransitIncidentEffectType,
+        "Type": RouteTransitIncidentTypeType,
+        "Description": NotRequired[str],
+        "EndTime": NotRequired[str],
+        "StartTime": NotRequired[str],
+        "Url": NotRequired[str],
+    },
+)
+
+
+class RouteTransitNoticeTypeDef(TypedDict):
+    Code: RouteTransitNoticeCodeType
+    Impact: NotRequired[RouteNoticeImpactType]
+
+
+RouteTransitTravelStepTypeDef = TypedDict(
+    "RouteTransitTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Depart"],
+        "Distance": NotRequired[int],
+        "GeometryOffset": NotRequired[int],
+        "Instruction": NotRequired[str],
+    },
+)
+
+
+class RouteTransitPedestrianOptionsTypeDef(TypedDict):
+    MaxDistance: NotRequired[int]
+    Speed: NotRequired[float]
+
+
+class RouteTransitOverviewSummaryTypeDef(TypedDict):
+    Distance: int
+    Duration: int
+
+
+class RouteTransitTravelOnlySummaryTypeDef(TypedDict):
+    Duration: int
 
 
 RouteVehicleIncidentTypeDef = TypedDict(
@@ -926,6 +1208,15 @@ class RouteRoundaboutPassStepDetailsTypeDef(TypedDict):
     TurnIntensity: NotRequired[RouteTurnIntensityType]
 
 
+class RouteTransitSpanTypeDef(TypedDict):
+    Country: NotRequired[str]
+    Distance: NotRequired[int]
+    Duration: NotRequired[int]
+    GeometryOffset: NotRequired[int]
+    Names: NotRequired[list[LocalizedStringTypeDef]]
+    Region: NotRequired[str]
+
+
 class RouteTurnStepDetailsTypeDef(TypedDict):
     Intersection: list[LocalizedStringTypeDef]
     SteeringDirection: NotRequired[RouteSteeringDirectionType]
@@ -959,6 +1250,32 @@ class RoadSnapTruckOptionsTypeDef(TypedDict):
     Width: NotRequired[int]
 
 
+class RouteAccessPointDetailsTypeDef(TypedDict):
+    Accessibility: NotRequired[RouteAccessibilityAvailabilityDetailsTypeDef]
+
+
+class RouteStationDetailsTypeDef(TypedDict):
+    Accessibility: NotRequired[RouteAccessibilityAvailabilityDetailsTypeDef]
+    PlatformName: NotRequired[str]
+    ShortName: NotRequired[str]
+
+
+class RouteTransitTransportModeDetailsTypeDef(TypedDict):
+    Mode: RouteTransitModeType
+    Accessibility: NotRequired[RouteAccessibilityAvailabilityDetailsTypeDef]
+    Color: NotRequired[str]
+    Headsign: NotRequired[str]
+    LongRouteName: NotRequired[str]
+    RouteName: NotRequired[str]
+    ShortRouteName: NotRequired[str]
+    TextColor: NotRequired[str]
+
+
+class RouteAttributionTypeDef(TypedDict):
+    WebLink: RouteWebLinkTypeDef
+    AttributionType: NotRequired[RouteAttributionTypeType]
+
+
 class RouteCarOptionsTypeDef(TypedDict):
     EngineType: NotRequired[RouteEngineTypeType]
     LicensePlate: NotRequired[RouteVehicleLicensePlateTypeDef]
@@ -971,6 +1288,17 @@ class RouteScooterOptionsTypeDef(TypedDict):
     LicensePlate: NotRequired[RouteVehicleLicensePlateTypeDef]
     MaxSpeed: NotRequired[float]
     Occupancy: NotRequired[int]
+
+
+RouteVehicleAfterTravelStepTypeDef = TypedDict(
+    "RouteVehicleAfterTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": Literal["Park"],
+        "ChargeStepDetails": NotRequired[RouteChargeStepDetailsTypeDef],
+        "Instruction": NotRequired[str],
+    },
+)
 
 
 class RouteDestinationOptionsTypeDef(TypedDict):
@@ -1026,6 +1354,16 @@ class RouteFerryDepartureTypeDef(TypedDict):
 class RouteFerrySummaryTypeDef(TypedDict):
     Overview: NotRequired[RouteFerryOverviewSummaryTypeDef]
     TravelOnly: NotRequired[RouteFerryTravelOnlySummaryTypeDef]
+
+
+class RouteIntermodalOptionsTypeDef(TypedDict):
+    AccessibilityAttributes: NotRequired[Sequence[Literal["Wheelchair"]]]
+    MaxTransfers: NotRequired[int]
+    Pedestrian: NotRequired[RouteIntermodalPedestrianOptionsTypeDef]
+    Rental: NotRequired[RouteIntermodalRentalOptionsTypeDef]
+    Taxi: NotRequired[RouteIntermodalTaxiOptionsTypeDef]
+    Transit: NotRequired[RouteIntermodalTransitOptionsTypeDef]
+    Vehicle: NotRequired[RouteIntermodalVehicleOptionsTypeDef]
 
 
 class RouteMajorRoadLabelTypeDef(TypedDict):
@@ -1119,16 +1457,6 @@ class RoutePassThroughWaypointTypeDef(TypedDict):
     GeometryOffset: NotRequired[int]
 
 
-class RoutePedestrianArrivalTypeDef(TypedDict):
-    Place: RoutePedestrianPlaceTypeDef
-    Time: NotRequired[str]
-
-
-class RoutePedestrianDepartureTypeDef(TypedDict):
-    Place: RoutePedestrianPlaceTypeDef
-    Time: NotRequired[str]
-
-
 class RoutePedestrianSpanTypeDef(TypedDict):
     BestCaseDuration: NotRequired[int]
     Country: NotRequired[str]
@@ -1178,6 +1506,16 @@ class RoutePedestrianSummaryTypeDef(TypedDict):
     TravelOnly: NotRequired[RoutePedestrianTravelOnlySummaryTypeDef]
 
 
+class RouteRentalSummaryTypeDef(TypedDict):
+    Overview: NotRequired[RouteRentalOverviewSummaryTypeDef]
+    TravelOnly: NotRequired[RouteRentalTravelOnlySummaryTypeDef]
+
+
+class RouteTaxiSummaryTypeDef(TypedDict):
+    Overview: NotRequired[RouteTaxiOverviewSummaryTypeDef]
+    TravelOnly: NotRequired[RouteTaxiTravelOnlySummaryTypeDef]
+
+
 class RouteTollPassTypeDef(TypedDict):
     IncludesReturnTrip: NotRequired[bool]
     SeniorPass: NotRequired[bool]
@@ -1225,14 +1563,17 @@ class RouteTruckOptionsTypeDef(TypedDict):
     Width: NotRequired[int]
 
 
-class RouteVehicleArrivalTypeDef(TypedDict):
-    Place: RouteVehiclePlaceTypeDef
-    Time: NotRequired[str]
+class RouteTransitOptionsTypeDef(TypedDict):
+    AccessibilityAttributes: NotRequired[Sequence[Literal["Wheelchair"]]]
+    AllowedModes: NotRequired[Sequence[RouteTransitModeType]]
+    ExcludedModes: NotRequired[Sequence[RouteTransitModeType]]
+    MaxTransfers: NotRequired[int]
+    Pedestrian: NotRequired[RouteTransitPedestrianOptionsTypeDef]
 
 
-class RouteVehicleDepartureTypeDef(TypedDict):
-    Place: RouteVehiclePlaceTypeDef
-    Time: NotRequired[str]
+class RouteTransitSummaryTypeDef(TypedDict):
+    Overview: NotRequired[RouteTransitOverviewSummaryTypeDef]
+    TravelOnly: NotRequired[RouteTransitTravelOnlySummaryTypeDef]
 
 
 class RouteVehicleSummaryTypeDef(TypedDict):
@@ -1322,8 +1663,119 @@ class IsolineTravelModeOptionsTypeDef(TypedDict):
     Truck: NotRequired[IsolineTruckOptionsTypeDef]
 
 
+RouteRentalTravelStepTypeDef = TypedDict(
+    "RouteRentalTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": RouteRentalTravelStepTypeType,
+        "ContinueStepDetails": NotRequired[RouteContinueStepDetailsTypeDef],
+        "Distance": NotRequired[int],
+        "ExitStepDetails": NotRequired[RouteExitStepDetailsTypeDef],
+        "GeometryOffset": NotRequired[int],
+        "Instruction": NotRequired[str],
+        "KeepStepDetails": NotRequired[RouteKeepStepDetailsTypeDef],
+        "RampStepDetails": NotRequired[RouteRampStepDetailsTypeDef],
+        "RoundaboutEnterStepDetails": NotRequired[RouteRoundaboutEnterStepDetailsTypeDef],
+        "RoundaboutExitStepDetails": NotRequired[RouteRoundaboutExitStepDetailsTypeDef],
+        "RoundaboutPassStepDetails": NotRequired[RouteRoundaboutPassStepDetailsTypeDef],
+        "TurnStepDetails": NotRequired[RouteTurnStepDetailsTypeDef],
+        "UTurnStepDetails": NotRequired[RouteUTurnStepDetailsTypeDef],
+    },
+)
+RouteTaxiTravelStepTypeDef = TypedDict(
+    "RouteTaxiTravelStepTypeDef",
+    {
+        "Duration": int,
+        "Type": RouteTaxiTravelStepTypeType,
+        "ContinueStepDetails": NotRequired[RouteContinueStepDetailsTypeDef],
+        "Distance": NotRequired[int],
+        "ExitStepDetails": NotRequired[RouteExitStepDetailsTypeDef],
+        "GeometryOffset": NotRequired[int],
+        "Instruction": NotRequired[str],
+        "KeepStepDetails": NotRequired[RouteKeepStepDetailsTypeDef],
+        "RampStepDetails": NotRequired[RouteRampStepDetailsTypeDef],
+        "RoundaboutEnterStepDetails": NotRequired[RouteRoundaboutEnterStepDetailsTypeDef],
+        "RoundaboutExitStepDetails": NotRequired[RouteRoundaboutExitStepDetailsTypeDef],
+        "RoundaboutPassStepDetails": NotRequired[RouteRoundaboutPassStepDetailsTypeDef],
+        "TurnStepDetails": NotRequired[RouteTurnStepDetailsTypeDef],
+        "UTurnStepDetails": NotRequired[RouteUTurnStepDetailsTypeDef],
+    },
+)
+
+
 class RoadSnapTravelModeOptionsTypeDef(TypedDict):
     Truck: NotRequired[RoadSnapTruckOptionsTypeDef]
+
+
+RoutePedestrianPlaceTypeDef = TypedDict(
+    "RoutePedestrianPlaceTypeDef",
+    {
+        "Position": list[float],
+        "AccessPointDetails": NotRequired[RouteAccessPointDetailsTypeDef],
+        "Name": NotRequired[str],
+        "OriginalPosition": NotRequired[list[float]],
+        "SideOfStreet": NotRequired[RouteSideOfStreetType],
+        "StationDetails": NotRequired[RouteStationDetailsTypeDef],
+        "Type": NotRequired[RoutePedestrianPlaceTypeType],
+        "WaypointIndex": NotRequired[int],
+    },
+)
+RouteRentalPlaceTypeDef = TypedDict(
+    "RouteRentalPlaceTypeDef",
+    {
+        "Position": list[float],
+        "AccessPointDetails": NotRequired[RouteAccessPointDetailsTypeDef],
+        "Name": NotRequired[str],
+        "OriginalPosition": NotRequired[list[float]],
+        "StationDetails": NotRequired[RouteStationDetailsTypeDef],
+        "Type": NotRequired[RouteRentalPlaceTypeType],
+        "WaypointIndex": NotRequired[int],
+    },
+)
+RouteTaxiPlaceTypeDef = TypedDict(
+    "RouteTaxiPlaceTypeDef",
+    {
+        "Position": list[float],
+        "AccessPointDetails": NotRequired[RouteAccessPointDetailsTypeDef],
+        "Name": NotRequired[str],
+        "OriginalPosition": NotRequired[list[float]],
+        "StationDetails": NotRequired[RouteStationDetailsTypeDef],
+        "Type": NotRequired[RouteTaxiPlaceTypeType],
+        "WaypointIndex": NotRequired[int],
+    },
+)
+RouteTransitPlaceTypeDef = TypedDict(
+    "RouteTransitPlaceTypeDef",
+    {
+        "Position": list[float],
+        "Name": NotRequired[str],
+        "OriginalPosition": NotRequired[list[float]],
+        "StationDetails": NotRequired[RouteStationDetailsTypeDef],
+        "Type": NotRequired[Literal["Station"]],
+        "WaypointIndex": NotRequired[int],
+    },
+)
+RouteVehiclePlaceTypeDef = TypedDict(
+    "RouteVehiclePlaceTypeDef",
+    {
+        "Position": list[float],
+        "Name": NotRequired[str],
+        "OriginalPosition": NotRequired[list[float]],
+        "SideOfStreet": NotRequired[RouteSideOfStreetType],
+        "WaypointIndex": NotRequired[int],
+        "AccessPointDetails": NotRequired[RouteAccessPointDetailsTypeDef],
+        "StationDetails": NotRequired[RouteStationDetailsTypeDef],
+        "Type": NotRequired[RouteVehiclePlaceTypeType],
+    },
+)
+
+
+class RouteTransitNextDepartureTypeDef(TypedDict):
+    Time: str
+    Delay: NotRequired[int]
+    PlatformName: NotRequired[str]
+    Status: NotRequired[RouteTransitTripStatusType]
+    Transport: NotRequired[RouteTransitTransportModeDetailsTypeDef]
 
 
 class RouteSignpostTypeDef(TypedDict):
@@ -1403,6 +1855,8 @@ class RouteTravelModeOptionsTypeDef(TypedDict):
     Pedestrian: NotRequired[RoutePedestrianOptionsTypeDef]
     Scooter: NotRequired[RouteScooterOptionsTypeDef]
     Truck: NotRequired[RouteTruckOptionsTypeDef]
+    Intermodal: NotRequired[RouteIntermodalOptionsTypeDef]
+    Transit: NotRequired[RouteTransitOptionsTypeDef]
 
 
 class RouteVehicleNoticeDetailTypeDef(TypedDict):
@@ -1511,6 +1965,60 @@ class SnapToRoadsRequestTypeDef(TypedDict):
     SnapRadius: NotRequired[int]
     TravelMode: NotRequired[RoadSnapTravelModeType]
     TravelModeOptions: NotRequired[RoadSnapTravelModeOptionsTypeDef]
+
+
+class RoutePedestrianArrivalTypeDef(TypedDict):
+    Place: RoutePedestrianPlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RoutePedestrianDepartureTypeDef(TypedDict):
+    Place: RoutePedestrianPlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RouteRentalArrivalTypeDef(TypedDict):
+    Place: RouteRentalPlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RouteRentalDepartureTypeDef(TypedDict):
+    Place: RouteRentalPlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RouteTaxiArrivalTypeDef(TypedDict):
+    Place: RouteTaxiPlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RouteTaxiDepartureTypeDef(TypedDict):
+    Place: RouteTaxiPlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RouteTransitArrivalTypeDef(TypedDict):
+    Place: RouteTransitPlaceTypeDef
+    Delay: NotRequired[int]
+    Status: NotRequired[RouteTransitTripStatusType]
+    Time: NotRequired[str]
+
+
+class RouteTransitDepartureTypeDef(TypedDict):
+    Place: RouteTransitPlaceTypeDef
+    Delay: NotRequired[int]
+    Status: NotRequired[RouteTransitTripStatusType]
+    Time: NotRequired[str]
+
+
+class RouteVehicleArrivalTypeDef(TypedDict):
+    Place: RouteVehiclePlaceTypeDef
+    Time: NotRequired[str]
+
+
+class RouteVehicleDepartureTypeDef(TypedDict):
+    Place: RouteVehiclePlaceTypeDef
+    Time: NotRequired[str]
 
 
 RoutePedestrianTravelStepTypeDef = TypedDict(
@@ -1659,7 +2167,43 @@ class CalculateRoutesRequestTypeDef(TypedDict):
     Waypoints: NotRequired[Sequence[RouteWaypointTypeDef]]
 
 
+class RouteRentalLegDetailsTypeDef(TypedDict):
+    AfterTravelSteps: list[RouteRentalAfterTravelStepTypeDef]
+    Agency: RouteRentalAgencyTypeDef
+    Arrival: RouteRentalArrivalTypeDef
+    Attributions: list[RouteAttributionTypeDef]
+    BeforeTravelSteps: list[RouteRentalBeforeTravelStepTypeDef]
+    BookingWebLinks: list[RouteWebLinkTypeDef]
+    Departure: RouteRentalDepartureTypeDef
+    Transport: RouteRentalTransportModeDetailsTypeDef
+    TravelSteps: list[RouteRentalTravelStepTypeDef]
+    Summary: NotRequired[RouteRentalSummaryTypeDef]
+
+
+class RouteTaxiLegDetailsTypeDef(TypedDict):
+    AfterTravelSteps: list[RouteTaxiAfterTravelStepTypeDef]
+    Agency: RouteTaxiAgencyTypeDef
+    Arrival: RouteTaxiArrivalTypeDef
+    Attributions: list[RouteAttributionTypeDef]
+    BeforeTravelSteps: list[RouteTaxiBeforeTravelStepTypeDef]
+    BookingWebLinks: list[RouteWebLinkTypeDef]
+    Departure: RouteTaxiDepartureTypeDef
+    Notices: list[RouteTaxiNoticeTypeDef]
+    Transport: RouteTaxiTransportModeDetailsTypeDef
+    TravelSteps: list[RouteTaxiTravelStepTypeDef]
+    Summary: NotRequired[RouteTaxiSummaryTypeDef]
+
+
+class RouteTransitIntermediateStopTypeDef(TypedDict):
+    Departure: RouteTransitDepartureTypeDef
+    Duration: int
+    Attributes: NotRequired[list[RouteTransitIntermediateStopAttributeType]]
+    GeometryOffset: NotRequired[int]
+    Transport: NotRequired[RouteTransitTransportModeDetailsTypeDef]
+
+
 class RoutePedestrianLegDetailsTypeDef(TypedDict):
+    AfterTravelSteps: list[RoutePedestrianAfterTravelStepTypeDef]
     Arrival: RoutePedestrianArrivalTypeDef
     Departure: RoutePedestrianDepartureTypeDef
     Notices: list[RoutePedestrianNoticeTypeDef]
@@ -1686,6 +2230,7 @@ class CalculateRouteMatrixRequestTypeDef(TypedDict):
 
 
 class RouteVehicleLegDetailsTypeDef(TypedDict):
+    AfterTravelSteps: list[RouteVehicleAfterTravelStepTypeDef]
     Arrival: RouteVehicleArrivalTypeDef
     Departure: RouteVehicleDepartureTypeDef
     Incidents: list[RouteVehicleIncidentTypeDef]
@@ -1700,6 +2245,25 @@ class RouteVehicleLegDetailsTypeDef(TypedDict):
     Summary: NotRequired[RouteVehicleSummaryTypeDef]
 
 
+class RouteTransitLegDetailsTypeDef(TypedDict):
+    AfterTravelSteps: list[RouteTransitAfterTravelStepTypeDef]
+    Arrival: RouteTransitArrivalTypeDef
+    Attributions: list[RouteAttributionTypeDef]
+    BeforeTravelSteps: list[RouteTransitBeforeTravelStepTypeDef]
+    BookingWebLinks: list[RouteWebLinkTypeDef]
+    Departure: RouteTransitDepartureTypeDef
+    Incidents: list[RouteTransitIncidentTypeDef]
+    IntermediateStops: list[RouteTransitIntermediateStopTypeDef]
+    NextDepartures: list[RouteTransitNextDepartureTypeDef]
+    Notices: list[RouteTransitNoticeTypeDef]
+    PassThroughWaypoints: list[RoutePassThroughWaypointTypeDef]
+    Spans: list[RouteTransitSpanTypeDef]
+    Transport: RouteTransitTransportModeDetailsTypeDef
+    TravelSteps: list[RouteTransitTravelStepTypeDef]
+    Agency: NotRequired[RouteTransitAgencyTypeDef]
+    Summary: NotRequired[RouteTransitSummaryTypeDef]
+
+
 RouteLegTypeDef = TypedDict(
     "RouteLegTypeDef",
     {
@@ -1710,6 +2274,9 @@ RouteLegTypeDef = TypedDict(
         "Language": NotRequired[str],
         "PedestrianLegDetails": NotRequired[RoutePedestrianLegDetailsTypeDef],
         "VehicleLegDetails": NotRequired[RouteVehicleLegDetailsTypeDef],
+        "RentalLegDetails": NotRequired[RouteRentalLegDetailsTypeDef],
+        "TaxiLegDetails": NotRequired[RouteTaxiLegDetailsTypeDef],
+        "TransitLegDetails": NotRequired[RouteTransitLegDetailsTypeDef],
     },
 )
 

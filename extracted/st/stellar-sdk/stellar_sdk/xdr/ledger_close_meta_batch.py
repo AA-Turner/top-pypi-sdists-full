@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -36,7 +35,7 @@ class LedgerCloseMetaBatch:
         self,
         start_sequence: Uint32,
         end_sequence: Uint32,
-        ledger_close_metas: List[LedgerCloseMeta],
+        ledger_close_metas: list[LedgerCloseMeta],
     ) -> None:
         _expect_max_length = 4294967295
         if ledger_close_metas and len(ledger_close_metas) > _expect_max_length:

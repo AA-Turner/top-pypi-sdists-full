@@ -13,6 +13,8 @@ from ..testing_utils import assert_no_logs, capture_logs, render_pages
 @pytest.mark.parametrize('width', [
     'calc(100px)',
     'calc(10em)',
+    'calc(50vw)',
+    'calc(20pvh)',
     'calc(50%)',
     'calc(10px + 90px)',
     'calc(5em + 50px)',
@@ -73,7 +75,10 @@ from ..testing_utils import assert_no_logs, capture_logs, render_pages
 ])
 def test_math_functions(width):
     page, = render_pages('''
-      <style>body { font-size: 10px; width: 200px }</style>
+      <style>
+        @page { size: 400px 500px; margin: 100px }
+        body { font-size: 10px; width: 200px }
+      </style>
       <div style="--one: 1; height: 1px; width: %s"></div>
     ''' % width)
     html, = page.children
@@ -94,7 +99,7 @@ def test_math_functions(width):
     'calc(100px, 100px)',
     'calc(100px * 100px)',
     'calc(100 * 100)',
-    'calc(calc(100vw))',
+    'calc(calc(100unknown))',
     'calc(0.1)',
     'calc(-1)',
     'min()',
@@ -372,4 +377,42 @@ def test_math_table_column():
           </tr>
         </tbody>
       </table>
+    ''')
+
+
+@assert_no_logs
+def test_math_border_spacing_em():
+    render_pages('''
+      <table style="
+          --spacing: 1em; --border-spacing: calc(var(--spacing) * 5);
+          border-spacing: var(--border-spacing) var(--border-spacing)">
+        <tbody>
+          <tr>
+            <td>a</td>
+            <td>a</td>
+          </tr>
+        </tbody>
+      </table>
+    ''')
+
+
+@assert_no_logs
+def test_math_vertical_align_table_percent():
+    render_pages('''
+      <table><tr><td style="vertical-align: calc(1em + 1%)">abc
+    ''')
+
+
+@assert_no_logs
+def test_math_vertical_align_inline_percent():
+    render_pages('''
+      <span style="vertical-align: calc(1em + 1%)">abc
+    ''')
+
+
+@assert_no_logs
+def test_math_vertical_align_page_percent():
+    render_pages('''
+      <style>@page{@top-left{content: "a"; vertical-align: calc(1em + 1%)}}</style>
+      <body>abc
     ''')

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: collect_blackbox
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Collect blackbox log
 description:
    - Collect blackbox log on kaytus Server.

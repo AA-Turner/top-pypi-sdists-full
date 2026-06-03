@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_network_link
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set network link
 description:
    - Set network link on kaytus Server.

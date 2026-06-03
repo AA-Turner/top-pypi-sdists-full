@@ -1,4 +1,4 @@
-# Generated from finnish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from finnish.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class FinnishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from finnish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from finnish.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_AEI = {"a", "e", "i", "ä"}
@@ -41,9 +41,6 @@ class FinnishStemmer(BaseStemmer):
         self.I_p2 = self.cursor
         return True
 
-    def __r_R2(self):
-        return self.I_p2 <= self.cursor
-
     def __r_particle_etc(self):
         if self.cursor < self.I_p1:
             return False
@@ -60,7 +57,7 @@ class FinnishStemmer(BaseStemmer):
             if not self.in_grouping_b(FinnishStemmer.g_particle_end):
                 return False
         else:
-            if not self.__r_R2():
+            if self.I_p2 > self.cursor:
                 return False
         self.slice_del()
         return True

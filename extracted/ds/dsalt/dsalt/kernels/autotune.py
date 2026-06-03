@@ -30,7 +30,7 @@ import triton
 _TUNED_CONFIG: dict = {}
 
 
-def _is_main_process() -> bool:
+def _is_main_process(device: torch.device | None = None) -> bool:
     """True only on the main rank (or always, when not under DDP).
 
     Every rank still benchmarks its own GPU, timings may differ from card to
@@ -38,6 +38,13 @@ def _is_main_process() -> bool:
     directly from the environment (``torch.distributed`` or the ``torchrun``
     env vars) so as not to depend on the ``training`` package and to avoid
     circular imports in the kernels.
+
+    Under ``mp.spawn`` (e.g. Kaggle) the autotune may fire on the very first
+    forward, *before* ``init_process_group``: there ``is_initialized()`` is
+    still ``False`` and ``RANK``/``LOCAL_RANK`` may be unset, so every worker
+    would fall through to ``True`` and print a duplicate table. As a last
+    resort we key off the CUDA device ordinal — distinct per worker in DDP —
+    and treat only ``cuda:0`` as main.
     """
     if torch.distributed.is_available() and torch.distributed.is_initialized():
         return torch.distributed.get_rank() == 0
@@ -45,7 +52,11 @@ def _is_main_process() -> bool:
         val = os.environ.get(var)
         if val is not None:
             return int(val) == 0
-    return True
+    # No torch.distributed and no env rank: fall back to the device ordinal so
+    # mp.spawn workers don't each print before init_process_group.
+    dev = device if device is not None else torch.device("cuda", torch.cuda.current_device())
+    idx = dev.index if dev.index is not None else torch.cuda.current_device()
+    return int(idx) == 0
 
 
 def _device_key(head_dim: int, device: torch.device) -> tuple:
@@ -80,23 +91,22 @@ def _heuristic_config(head_dim: int, device: torch.device) -> dict:
 
 
 def _candidate_configs(head_dim: int, device: torch.device) -> list[dict]:
-    """Generate the candidates to benchmark.
+    """Generate the candidates to benchmark (shared by inference and training).
 
-    Few and targeted: we vary ``BLOCK_M`` (power of 2 around the heuristic),
-    ``num_warps`` (2/4) and ``num_stages`` (2/3). We keep ``BLOCK_N`` aligned to
-    ``BLOCK_M`` but capped at 64 (the bwd reduces it to 32 anyway, so exploring
-    beyond that is pointless). All combinations are filtered so as not to exceed
-    the estimated shared memory of the current GPU.
+    We vary ``BLOCK_M`` (½/1/2/4× the heuristic, within [16, 128]), ``num_warps``
+    (2/4/8) and ``num_stages`` (2/3 on sm_80+). ``BLOCK_N`` is aligned to
+    ``BLOCK_M`` but capped at 64 (the bwd reduces it to 32 anyway). All filtered by
+    estimated shared memory. Kept identical to the training kernel's candidate set
+    so the two autotune tables are coherent (same count, same sweep).
     """
     base = _heuristic_config(head_dim, device)
     major, _ = torch.cuda.get_device_capability(device)
 
-    # BLOCK_M candidates: the heuristic and its two neighbours (powers of 2), within [16, 128].
     bm0 = base["BLOCK_M"]
-    block_ms = sorted({max(16, bm0 // 2), bm0, min(128, bm0 * 2)})
+    block_ms = sorted({max(16, bm0 // 2), bm0, min(128, bm0 * 2), min(128, bm0 * 4)})
 
     stage_opts = (2, 3) if major >= 8 else (2,)
-    warp_opts = (2, 4)
+    warp_opts = (2, 4, 8)
 
     seen = set()
     configs = []
@@ -199,7 +209,7 @@ def autotune_blocks(head_dim: int, device: torch.device, make_runner, verbose: b
 
     # Under DDP every rank benchmarks its own GPU, but only the main one prints:
     # no duplicated tables (one per device).
-    if verbose and _is_main_process():
+    if verbose and _is_main_process(device):
         _print_table(head_dim, device, results, best_cfg, best_ms)
 
     return best_cfg

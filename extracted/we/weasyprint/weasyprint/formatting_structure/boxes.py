@@ -49,6 +49,7 @@ See respective docstrings for details.
 """
 
 import itertools
+import sys
 
 from ..css import AnonymousStyle
 
@@ -220,14 +221,15 @@ class Box:
         brrx, brry = self.border_bottom_right_radius
         blrx, blry = self.border_bottom_left_radius
 
-        tlrx = max(0, tlrx - bl)
-        tlry = max(0, tlry - bt)
-        trrx = max(0, trrx - br)
-        trry = max(0, trry - bt)
-        brrx = max(0, brrx - br)
-        brry = max(0, brry - bb)
-        blrx = max(0, blrx - bl)
-        blry = max(0, blry - bb)
+        # TODO: clamp all computed values, see #2705.
+        tlrx = min(max(0, tlrx - bl), sys.maxsize)
+        tlry = min(max(0, tlry - bt), sys.maxsize)
+        trrx = min(max(0, trrx - br), sys.maxsize)
+        trry = min(max(0, trry - bt), sys.maxsize)
+        brrx = min(max(0, brrx - br), sys.maxsize)
+        brry = min(max(0, brry - bb), sys.maxsize)
+        blrx = min(max(0, blrx - bl), sys.maxsize)
+        blry = min(max(0, blry - bb), sys.maxsize)
 
         x = self.border_box_x() + bl
         y = self.border_box_y() + bt
@@ -284,7 +286,7 @@ class Box:
 
     def is_floated(self):
         """Return whether this box is floated."""
-        return self.style['float'] in ('left', 'right')
+        return self.style['float'] in ('left', 'right', 'inline-start', 'inline-end')
 
     def is_footnote(self):
         """Return whether this box is a footnote."""
@@ -670,10 +672,10 @@ class TableColumnGroupBox(ParentBox):
         if self.children:
             return len(self.children)
         else:
-            try:
-                return max(int(self.element.get('span', '').strip()), 1)
-            except ValueError:
-                return 1
+            from ..html import parse_integer
+
+            span = parse_integer(self.element.get('span'))
+            return max(span, 1) if span is not None else 1
 
 
 # Not really a parent box, but pretending to be removes some corner cases.
@@ -704,10 +706,10 @@ class TableColumnBox(ParentBox):
 
     @property
     def span(self):
-        try:
-            return max(int(self.element.get('span', '').strip()), 1)
-        except ValueError:
-            return 1
+        from ..html import parse_integer
+
+        span = parse_integer(self.element.get('span'))
+        return max(span, 1) if span is not None else 1
 
 
 class TableCellBox(BlockContainerBox):
@@ -722,14 +724,12 @@ class TableCellBox(BlockContainerBox):
         # but HTML 5 removed it
         # https://html.spec.whatwg.org/multipage/tables.html#attr-tdth-colspan
         # rowspan=0 is still there though.
-        try:
-            self.colspan = max(int(self.element.get('colspan', '').strip()), 1)
-        except (AttributeError, ValueError):
-            self.colspan = 1
-        try:
-            self.rowspan = max(int(self.element.get('rowspan', '').strip()), 0)
-        except (AttributeError, ValueError):
-            self.rowspan = 1
+        from ..html import parse_integer
+
+        colspan = parse_integer(self.element.get('colspan'))
+        self.colspan = max(colspan, 1) if colspan is not None else 1
+        rowspan = parse_integer(self.element.get('rowspan'))
+        self.rowspan = max(rowspan, 0) if rowspan is not None else 1
 
 
 class TableCaptionBox(BlockBox):

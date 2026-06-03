@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "djust"
-version = "0.9.7"
+version = "1.0.0"
 description = "Phoenix LiveView-style reactive components for Django with Rust-powered performance. Real-time UI updates over WebSocket, no JavaScript build step required."
 authors = [{name = "djust contributors"}]
 readme = "README.md"
@@ -107,7 +107,7 @@ dev = [
     "pytest-xdist>=3.0,<4",  # Parallel test execution
     "pytest-benchmark>=4.0.0,<6",  # Performance benchmarking
     "ruff>=0.1,<1",
-    "mypy>=1.0,<2",
+    "mypy>=1.0,<3",
     "uvicorn[standard]>=0.30.0,<1",
     "redis>=5.0.0,<8",
     "watchdog>=3.0.0,<7",  # File system monitoring for hot reload

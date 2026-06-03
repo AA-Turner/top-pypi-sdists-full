@@ -4,13 +4,12 @@ from collections import deque
 from dataclasses import dataclass
 from functools import wraps
 from types import FunctionType, MethodType
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 import torch
-from accelerate.hooks import remove_hook_from_module
-from compressed_tensors.offload import disable_onloading, offload_model
+from compressed_tensors.offload import disable_onloading
 from compressed_tensors.utils import patch_attr
-from compressed_tensors.utils.match import match_targets
+from compressed_tensors.utils.match import match_named_modules
 from loguru import logger
 from torch.fx import Graph, GraphModule, Node
 from torch.fx.graph import PythonCode
@@ -19,25 +18,16 @@ from torch.nn import Module
 from transformers import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
 
-from llmcompressor.modifiers import Modifier
 from llmcompressor.modifiers.utils.hooks import HooksMixin
 from llmcompressor.pipelines.sequential.transformers_helpers import HFTracer
-from llmcompressor.utils.dev import get_main_device
 from llmcompressor.utils.helpers import calibration_forward_context
-from llmcompressor.utils.pytorch.module import get_no_split_params
 
 from .ast_helpers import append_autowrap_source_on_fail, autowrap_forwards
 
 if TYPE_CHECKING:
-    from llmcompressor.args.dataset_arguments import DatasetArguments
+    pass
 
-__all__ = [
-    "trace_subgraphs",
-    "Subgraph",
-    "get_sequential_targets",
-    "dispatch_for_sequential",
-    "handle_sequential_oom",
-]
+__all__ = ["trace_subgraphs", "Subgraph", "handle_sequential_oom"]
 
 
 @dataclass
@@ -87,6 +77,7 @@ def trace_subgraphs(
     sample_input: dict[str, Any],
     sequential_targets: list[str],
     ignore: list[str],
+    targets_per_subgraph: int = 1,
 ) -> list[Subgraph]:
     """
     Trace a model to produce subgraphs, where each sequential target belongs to exactly
@@ -98,15 +89,17 @@ def trace_subgraphs(
         __len__, __bool__, and __contains__ values are assumed constant across batches
     :param sequential_targets: list of patterns matching sequential targets
     :param ignore: function and method names to skip during tracing
+    :param targets_per_subgraph: number of targets to include per subgraph
     :return: a list of Subgraphs in order of execution
     """
     # find modules
-    targets = match_modules(model, sequential_targets)
+    targets = set(
+        module for _, module in match_named_modules(model, sequential_targets)
+    )
     ancestors = get_sequential_ancestors(model, targets)
-    offloaded = set()  # TODO: cleanup logic
 
     # initialize arguments
-    tracer = SequentialTracer(ancestors, offloaded)
+    tracer = SequentialTracer(ancestors)
     concrete_args = populate_concrete_args(model, sample_input)
 
     with contextlib.ExitStack() as stack:
@@ -150,7 +143,7 @@ def trace_subgraphs(
     graph.device = model.device
 
     # perform subgraph partition
-    partitions = topological_partition(graph, targets)
+    partitions = topological_partition(graph, targets, targets_per_subgraph)
     subgraphs = partition_graph(model, partitions)
     trace_consumed_names(subgraphs)
 
@@ -172,29 +165,14 @@ class SequentialTracer(HFTracer):
     inside of sequential targets, nor any modules which are not call graph ancestors of
     sequential targets
 
-    Tracing within sequential targets is unnecessary, and tracing within offloaded
-    modules may result in meta tensors being added to the model graph
-
     :param ancestors: modules which are ancestors of sequential targets
-    :param offloaded: modules which have offloaded params and should not be traced
     """
 
-    def __init__(self, ancestors: set[Module], offloaded: set[Module]):
+    def __init__(self, ancestors: set[Module]):
         self.ancestors = ancestors
-        self.offloaded = offloaded
 
         # skip any mask creation functions not already caught by the autowrapper
         super().__init__(autowrap_functions=_get_autowrap_functions())
-
-        # check unlikely case that ancestors have direct params which are offloaded
-        offloaded_ancestors = offloaded & ancestors
-        for ancestor in offloaded_ancestors:
-            remove_hook_from_module(ancestor, recurse=False)
-            self.offloaded.remove(ancestor)
-            logger.warning(
-                f"Direct parameters attached to {ancestor.__class__.__name__} have "
-                "been onloaded in order to ensure safe graph capture and execution"
-            )
 
     def create_arg(self, a: Any) -> Argument:
         # special extension allows models which depend on config values to be traced
@@ -206,8 +184,8 @@ class SequentialTracer(HFTracer):
             return super().create_arg(a)
 
     def is_leaf_module(self, module: Module, module_qualified_name: str) -> bool:
-        # do not trace non-ancestors or modules with offloaded params
-        return module not in self.ancestors or module in self.offloaded
+        # do not trace non-ancestors; trace sequential ancestors only
+        return module not in self.ancestors
 
 
 def populate_concrete_args(model: Module, sample_input: dict) -> dict:
@@ -258,7 +236,9 @@ def find_target_nodes(graph: GraphModule, targets: set[Module]) -> set[Node]:
     )
 
 
-def topological_partition(graph: GraphModule, targets: set[Module]) -> list[list[Node]]:
+def topological_partition(
+    graph: GraphModule, targets: set[Module], targets_per_subgraph: int = 1
+) -> list[list[Node]]:
     """
     Partition the graph into partitions such that each `target` belongs to exactly one
     partition and executing each partition depends only on intermediate values produced
@@ -266,11 +246,17 @@ def topological_partition(graph: GraphModule, targets: set[Module]) -> list[list
 
     :param graph: graph being partitioned
     :param targets: target modules which will be assigned to disjoint partitions
+    :param targets_per_subgraph: number of targets to include per subgraph
     :return: list of partitions, where each partition is a list of nodes belonging to
         that partition
     """
     assert graph_is_well_formed(graph.graph)
     target_nodes = find_target_nodes(graph, targets)
+
+    if targets_per_subgraph <= 0:
+        raise ValueError(
+            "targets_per_subgraph is required to be greater than or equal to one"
+        )
 
     partitions: list[list[Node]] = [[]]
     remaining_indegrees = {
@@ -278,6 +264,7 @@ def topological_partition(graph: GraphModule, targets: set[Module]) -> list[list
         for node in graph.graph.nodes
     }
     partition_index = 0  # global counter
+    targets_seen = 0  # number of targets encountered so far
 
     # start with graph input nodes,
     # but delay the `get_attr` nodes as long as possible
@@ -289,13 +276,25 @@ def topological_partition(graph: GraphModule, targets: set[Module]) -> list[list
     while len(queue) > 0:
         node = queue.popleft()
 
+        is_target = node in target_nodes
+        if is_target:
+            # put all nodes prior to first target into separate subgraph
+            is_head = partition_index == 0 and len(partitions[partition_index]) > 0
+
+            # finish creating subgraph when number of targets has been seen
+            is_complete = targets_seen >= targets_per_subgraph
+
+            if is_head or is_complete:
+                partition_index += 1
+                partitions.append([])
+                targets_seen = 0
+
         # assign to partition
         partitions[partition_index].append(node)
 
-        # guarantee targets are assigned to disjoint partitions
-        if node in target_nodes:
-            partition_index += 1
-            partitions.append([])
+        # increment after assignment so is_complete fires after the target is placed
+        if is_target:
+            targets_seen += 1
 
         # recurse on last indegree only in order to guarantee that
         # the node is assigned to maximal partition
@@ -427,77 +426,6 @@ def graph_is_well_formed(graph: Graph) -> bool:
     return True
 
 
-def match_modules(model: Module, target_names: list[str]) -> set[Module]:
-    """
-    Find modules whose names match the patterns given by `target_names`
-
-    :param model: model containing submodules to find
-    :param target_names: target patterns to find
-    :return: all submodules matching `target_names`
-    """
-    return set(
-        module
-        for name, module in model.named_modules()
-        if match_targets(name, module, target_names)
-    )
-
-
-def get_sequential_targets(
-    modifiers: list[Modifier], model: PreTrainedModel, args: "DatasetArguments"
-) -> list[str]:
-    """
-    Infer sequential targets from modifiers list and dataset args
-
-    :param model: model being calibrated
-    :param modifiers: list of modifiers being applied during calibration
-    :param dataset_args: dataset arguments passed by user
-    :return: list of sequential targets
-    """
-    modifier_targets = [
-        (modifier, modifier.sequential_targets)
-        for modifier in modifiers
-        if getattr(modifier, "sequential_targets", None) is not None
-    ]
-
-    # deprecation warning
-    if len(modifier_targets) >= 1:
-        logger.warning(
-            "Passing sequential targets through modifiers is deprecated, "
-            "please use `oneshot(sequential_targets=...)`"
-        )
-
-    # cannot infer from multiple modifiers
-    if len(modifier_targets) >= 2:
-        types = [type(modifier) for modifier, _ in modifier_targets]
-        raise ValueError(
-            "Cannot infer sequential targets from multiple sequential modifiers "
-            f"({types})"
-        )
-
-    # resolve single modifier
-    if len(modifier_targets) == 1:
-        if args.sequential_targets is not None:
-            raise ValueError(
-                f"Got sequential targets from both {type(modifier_targets[0][0])} "
-                "and dataset arguments `sequential_targets`"
-            )
-
-        sequential_targets = modifier_targets[0][1]
-
-    # if no modifiers, use data args
-    else:
-        sequential_targets = args.sequential_targets  # may be `None`
-
-    # validate and infer
-    match sequential_targets:
-        case None:
-            return get_no_split_params(model)
-        case str():
-            return [sequential_targets]
-        case _:
-            return sequential_targets
-
-
 def add_line_numbers(text: str) -> str:
     lines = text.splitlines()
     numbered_lines = [f"{i + 1} {line}" for i, line in enumerate(lines)]
@@ -529,24 +457,6 @@ def get_sequential_ancestors(model: Module, targets: set[Module]) -> set[Module]
     return ancestors
 
 
-def dispatch_for_sequential(
-    model: PreTrainedModel,
-    onload_device: Optional[torch.device | str] = None,
-    offload_device: Optional[torch.device | str] = None,
-) -> PreTrainedModel:
-    """
-    Dispatch a model for sequential calibration using a sequential pipeline.
-    The model will be offloaded to the CPU and dispatched to CUDA/XPU device
-    if available. Removes any existing hooks.
-
-    :param model: model to dispatch
-    :return: dispatched model
-    """
-    if onload_device is None:
-        onload_device = get_main_device()
-    return offload_model(model, onload_device, offload_device)
-
-
 def _get_autowrap_functions() -> tuple[Callable[[Any], Any], ...]:
     try:
         from transformers.masking_utils import LAYER_PATTERN_TO_MASK_FUNCTION_MAPPING
@@ -563,8 +473,8 @@ def handle_sequential_oom(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except torch.cuda.OutOfMemoryError as e:
-            raise torch.cuda.OutOfMemoryError(
+        except torch.OutOfMemoryError as e:
+            raise torch.OutOfMemoryError(
                 "Sequential pipeline ran out of memory. "
                 "Please consider choosing a smaller module "
                 "for `sequential_targets` argument, ex. 'Linear'"

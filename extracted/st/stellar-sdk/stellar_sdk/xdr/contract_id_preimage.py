@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -36,8 +35,8 @@ class ContractIDPreimage:
     def __init__(
         self,
         type: ContractIDPreimageType,
-        from_address: Optional[ContractIDPreimageFromAddress] = None,
-        from_asset: Optional[Asset] = None,
+        from_address: ContractIDPreimageFromAddress | None = None,
+        from_asset: Asset | None = None,
     ) -> None:
         self.type = type
         self.from_address = from_address

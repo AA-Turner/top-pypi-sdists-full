@@ -42,13 +42,24 @@ mod cuda_impl {
     use cudarc::driver::{CudaSlice, CudaStream, DevicePtr, DevicePtrMut};
     use std::sync::Arc;
 
+    /// Create a fresh stream + cuBLAS handle bound to a specific device
+    /// ordinal. This is the per-ordinal entry point used by multi-GPU fan-out
+    /// (`super::super::pool::scatter_batched` workers): the worker thread has
+    /// already bound that ordinal's context, and the stream/handle created here
+    /// target the same device. The single-device helper below is the
+    /// primary-ordinal specialization.
     #[inline]
-    fn stream_and_blas(runtime: &GpuRuntime) -> Option<(Arc<CudaStream>, CudaBlas)> {
-        let stream = super::super::runtime::cuda_context_for(runtime.device.ordinal)?
+    pub(crate) fn stream_and_blas_for(ordinal: usize) -> Option<(Arc<CudaStream>, CudaBlas)> {
+        let stream = super::super::runtime::cuda_context_for(ordinal)?
             .new_stream()
             .ok()?;
         let blas = CudaBlas::new(stream.clone()).ok()?;
         Some((stream, blas))
+    }
+
+    #[inline]
+    fn stream_and_blas(runtime: &GpuRuntime) -> Option<(Arc<CudaStream>, CudaBlas)> {
+        stream_and_blas_for(runtime.device.ordinal)
     }
 
     #[inline]
@@ -222,6 +233,22 @@ mod cuda_impl {
         trans_a: bool,
         trans_b: bool,
     ) -> Option<Array2<f64>> {
+        gemm_on_ordinal_cuda(runtime.device.ordinal, a, b, trans_a, trans_b)
+    }
+
+    /// Dense GEMM (optionally transposing either operand) on a specific device
+    /// ordinal. The ordinal's context is expected to be bound on the calling
+    /// thread (pool-tiled callers via `super::super::pool::scatter_batched`, or
+    /// the single-device dispatcher through [`gemm_cuda`]). Semantics are
+    /// identical to [`gemm_cuda`]; only the target device differs.
+    #[inline]
+    pub(crate) fn gemm_on_ordinal_cuda(
+        ordinal: usize,
+        a: ArrayView2<'_, f64>,
+        b: ArrayView2<'_, f64>,
+        trans_a: bool,
+        trans_b: bool,
+    ) -> Option<Array2<f64>> {
         let (a_rows, a_cols) = a.dim();
         let (b_rows, b_cols) = b.dim();
         let (m, k_a) = if trans_a {
@@ -237,7 +264,7 @@ mod cuda_impl {
         if m == 0 || n == 0 || k_a == 0 || k_a != k_b {
             return None;
         }
-        let (stream, blas) = stream_and_blas(runtime)?;
+        let (stream, blas) = stream_and_blas_for(ordinal)?;
         let a_col = to_col_major(&a);
         let b_col = to_col_major(&b);
         let a_dev = stream.clone_htod(&*a_col).ok()?;
@@ -269,9 +296,13 @@ mod cuda_impl {
         from_col_major(&out_col, m, n)
     }
 
+    /// Broadcast-B batched GEMM on a specific device ordinal. The caller
+    /// (`super::super::pool::scatter_batched` worker, or the single-device
+    /// dispatcher) supplies the ordinal whose context is already bound on this
+    /// thread; the stream/handle are created on that same device.
     #[inline]
     pub(crate) fn gemm_broadcast_b_batched_cuda(
-        runtime: &GpuRuntime,
+        ordinal: usize,
         a: ArrayView3<'_, f64>,
         b: ArrayView2<'_, f64>,
     ) -> Option<Array3<f64>> {
@@ -280,7 +311,7 @@ mod cuda_impl {
         if batch == 0 || m == 0 || n == 0 || k == 0 || b_rows != k {
             return None;
         }
-        let (stream, blas) = stream_and_blas(runtime)?;
+        let (stream, blas) = stream_and_blas_for(ordinal)?;
         let a_col = to_col_major_batch(a);
         let b_col = to_col_major(&b);
         let a_dev = stream.clone_htod(&a_col).ok()?;
@@ -314,9 +345,12 @@ mod cuda_impl {
         from_col_major_batch(&out_col, batch, m, n)
     }
 
+    /// A·Bᵀ strided-batched GEMM on a specific device ordinal. As with the
+    /// broadcast variant, the ordinal's context is expected to be bound on the
+    /// calling thread (multi-GPU worker or single-device dispatcher).
     #[inline]
     pub(crate) fn gemm_abt_strided_batched_cuda(
-        runtime: &GpuRuntime,
+        ordinal: usize,
         a: ArrayView3<'_, f64>,
         b: ArrayView3<'_, f64>,
     ) -> Option<Array3<f64>> {
@@ -325,7 +359,7 @@ mod cuda_impl {
         if batch == 0 || m == 0 || n == 0 || k == 0 || batch != batch_b || k != k_b {
             return None;
         }
-        let (stream, blas) = stream_and_blas(runtime)?;
+        let (stream, blas) = stream_and_blas_for(ordinal)?;
         let a_col = to_col_major_batch(a);
         let b_col = to_col_major_batch(b);
         let a_dev = stream.clone_htod(&a_col).ok()?;
@@ -513,6 +547,6 @@ mod cuda_impl {
 
 #[cfg(target_os = "linux")]
 pub(crate) use cuda_impl::{
-    gemm_abt_strided_batched_cuda, gemm_broadcast_b_batched_cuda, gemm_cuda, gemv_cuda,
-    joint_hessian_2x2_cuda, trsm_cuda, xt_diag_x_cuda, xt_diag_y_cuda,
+    gemm_abt_strided_batched_cuda, gemm_broadcast_b_batched_cuda, gemm_cuda, gemm_on_ordinal_cuda,
+    gemv_cuda, joint_hessian_2x2_cuda, trsm_cuda, xt_diag_x_cuda, xt_diag_y_cuda,
 };

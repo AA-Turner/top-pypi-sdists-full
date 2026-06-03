@@ -1,7 +1,6 @@
 [build-system]
 requires = [
     "setuptools>=68.0,<82.1",
-    "wheel>=0.40,<0.47",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -24,26 +23,26 @@ dependencies = [
     "mashumaro>=3.11,<4.0",
     "orjson>=3.6.1,<4.0.0",
 ]
-version = "0.4.3"
+version = "0.5.0"
 
 [project.license]
 text = "Apache-2.0"
 
 [project.optional-dependencies]
 dev = [
-    "aiohttp==3.13.3",
-    "mashumaro==3.20",
-    "orjson==3.11.7",
+    "aiohttp==3.13.5",
+    "mashumaro==3.22",
+    "orjson==3.11.9",
     "aioresponses==0.7.8",
     "codespell==2.4.2",
-    "coverage==7.13.5",
-    "mypy==1.19.1",
-    "pre-commit==4.5.1",
+    "coverage==7.14.1",
+    "mypy==2.1.0",
+    "pre-commit==4.6.0",
     "pytest-aiohttp==1.1.0",
     "pytest-cov==7.1.0",
     "pytest-timeout==2.4.0",
-    "pytest==9.0.2",
-    "ruff==0.15.7",
+    "pytest==9.0.3",
+    "ruff==0.15.15",
     "yamllint==1.38.0",
 ]
 

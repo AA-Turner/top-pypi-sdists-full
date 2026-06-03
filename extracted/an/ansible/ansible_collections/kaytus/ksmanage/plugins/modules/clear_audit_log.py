@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: clear_audit_log
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Clear BMC audit log
 description:
    - Clear BMC audit log on kaytus Server.

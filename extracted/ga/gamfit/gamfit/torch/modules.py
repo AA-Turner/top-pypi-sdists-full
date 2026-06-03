@@ -189,9 +189,11 @@ class AdaptiveTopK(nn.Module):
     >>> from gamfit.torch import AdaptiveTopK
     >>> gate = AdaptiveTopK(F=8, k_min=2, k_max=6, head='mlp', hidden=16)
     >>> z_raw = torch.randn(4, 8)
-    >>> z_active, k_pred = gate(z_raw)
+    >>> z_active, k_pred, sparsity = gate(z_raw)
     >>> z_active.shape, k_pred.shape
     (torch.Size([4, 8]), torch.Size([4]))
+    >>> bool(sparsity.isfinite())
+    True
     >>> bool(gate.penalty().isfinite())
     True
     """
@@ -246,30 +248,72 @@ class AdaptiveTopK(nn.Module):
         self.log_weight = nn.Parameter(
             torch.tensor(float(torch.log(torch.tensor(float(init_weight)))))
         )
+        # Detached scalar for logging / metrics / the REML descriptor only. The
+        # penalty path must NOT read this -- a detached value carries no gradient
+        # into ``k_head`` (see ``_last_k_pred_mean_graph`` below).
         self.register_buffer(
             "_last_k_pred_mean",
             torch.tensor(float((k_min_i + k_max_i) / 2.0)),
             persistent=False,
         )
+        # Graph-connected mean of ``k_pred`` from the most recent forward pass,
+        # consumed by ``penalty()`` so the sparsity penalty trains ``k_head``.
+        # ``None`` until the first forward; ``penalty()`` then returns a zero
+        # tensor anchored on ``log_weight`` so it stays graph-connected.
+        self._last_k_pred_mean_graph: torch.Tensor | None = None
 
     def _predict_k(self, z: torch.Tensor) -> torch.Tensor:
         raw = self.k_head(z).reshape(z.shape[0])
         gated = torch.sigmoid(raw)
         return self.k_min + (self.k_max - self.k_min) * gated
 
-    def forward(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, z: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return ``(z_active, k_pred_eff, sparsity_penalty)``.
+
+        ``z_active`` is the straight-through-gated activation (hard top-K
+        forward, soft-mask backward); ``k_pred_eff`` is the per-row soft count
+        ``sum_j sigmoid((|z_ij| - tau_i)/temperature)`` whose expectation equals
+        the predicted per-row K. ``sparsity_penalty = lambda * mean(k_pred)`` is
+        the graph-connected penalty for THIS batch — add it directly to the
+        training loss so reconstruction + sparsity train ``k_head`` and
+        ``log_weight`` end-to-end on the exact batch just forwarded.
+
+        ``mean(k_pred)`` flows from ``k_head`` (it is *not* detached), so the
+        sparsity term backpropagates into the learned-K head; ``z_active``
+        flows recon gradient into ``z`` (hence into upstream parameters) through
+        the soft top-K surrogate via the STE.
+        """
         z = _check_2d_float_tensor(z, "z")
         if z.shape[1] != self.F:
             raise ValueError(f"AdaptiveTopK expected width {self.F}, got {z.shape[1]}")
         k_pred = self._predict_k(z)
         z_active, k_pred_eff = _AdaptiveTopKSTE.apply(z, k_pred, self.temperature)
+        # Graph-connected mean for the penalty (trains ``k_head``); detached copy
+        # for logging / ``reml_descriptor``.
+        k_pred_mean = k_pred.mean()
+        self._last_k_pred_mean_graph = k_pred_mean
         with torch.no_grad():
-            self._last_k_pred_mean = k_pred.detach().mean()
-        return z_active, k_pred_eff
+            self._last_k_pred_mean = k_pred_mean.detach()
+        sparsity_penalty = torch.exp(self.log_weight) * k_pred_mean
+        return z_active, k_pred_eff, sparsity_penalty
 
     def penalty(self) -> torch.Tensor:
-        """Return ``lambda * E[K_pred]`` using the most recent forward pass."""
-        return torch.exp(self.log_weight) * self._last_k_pred_mean
+        """Return ``lambda * E[K_pred]`` using the most recent forward pass.
+
+        The mean of ``k_pred`` is kept graph-connected from ``forward`` so that
+        ``loss = recon + gate.penalty()`` backpropagates into ``k_head`` (and into
+        ``log_weight``). Prefer the ``sparsity_penalty`` returned directly by
+        :meth:`forward` for the current batch; this accessor returns the same
+        graph-connected quantity for the most recent forward and exists for
+        callers that hold the module rather than the forward outputs. Before any
+        forward pass it returns a graph-connected zero anchored on ``log_weight``.
+        """
+        weight = torch.exp(self.log_weight)
+        if self._last_k_pred_mean_graph is None:
+            return weight * 0.0
+        return weight * self._last_k_pred_mean_graph
 
     def reml_descriptor(self) -> dict[str, object]:
         """Return the gamfit Rust analytic-penalty descriptor for outer-loop REML.

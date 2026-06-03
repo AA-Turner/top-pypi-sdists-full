@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_ldap
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set ldap information
 description:
    - Set ldap information on kaytus Server.

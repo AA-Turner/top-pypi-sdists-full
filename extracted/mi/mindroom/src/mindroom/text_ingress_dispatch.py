@@ -8,12 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from mindroom.attachments import merge_attachment_ids, parse_attachment_ids_from_event_source
 from mindroom.commands.parsing import command_parser
-from mindroom.constants import (
-    ATTACHMENT_IDS_KEY,
-    ORIGINAL_SENDER_KEY,
-    ROUTER_AGENT_NAME,
-    VOICE_RAW_AUDIO_FALLBACK_KEY,
-)
+from mindroom.constants import ATTACHMENT_IDS_KEY, ORIGINAL_SENDER_KEY, ROUTER_AGENT_NAME, VOICE_RAW_AUDIO_FALLBACK_KEY
 from mindroom.dispatch_handoff import (
     DispatchEvent,
     DispatchIngressMetadata,
@@ -279,13 +274,14 @@ async def _blocked_before_plan(
     ):
         return True
 
+    may_be_superseded = prepared.dispatch.envelope.origin.may_be_superseded_by_newer_requester_turn
     if prepared.replay_guard.degraded:
         skips_turn = await controller._has_newer_unresponded_cached_thread_event(
             room_id=room.room_id,
             event=prepared.event,
             requester_user_id=requester_user_id,
             thread_id=prepared.replay_guard.thread_id,
-            source_kind=prepared.dispatch.envelope.source_kind,
+            may_be_superseded_by_newer_requester_turn=may_be_superseded,
         )
         if not skips_turn:
             controller.deps.logger.warning(
@@ -300,7 +296,7 @@ async def _blocked_before_plan(
             prepared.event,
             requester_user_id,
             prepared.replay_guard.history,
-            source_kind=prepared.dispatch.envelope.source_kind,
+            may_be_superseded_by_newer_requester_turn=may_be_superseded,
         )
     if skips_turn:
         controller._mark_source_events_responded(prepared.handled_turn)

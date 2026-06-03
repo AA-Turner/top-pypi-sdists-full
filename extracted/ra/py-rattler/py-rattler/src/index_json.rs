@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
 use pyo3::{
-    exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyErr, PyResult, Python,
+    Bound, Py, PyAny, PyErr, PyResult, Python, exceptions::PyValueError, pyclass, pymethods,
 };
 use pyo3_async_runtimes::tokio::future_into_py;
 use rattler_conda_types::{
+    Flag, VersionWithSource,
     package::{IndexJson, PackageFile},
     utils::TimestampMs,
-    VersionWithSource,
 };
 use rattler_package_streaming::seek::read_package_file;
 use url::Url;
@@ -182,6 +182,17 @@ impl PyIndexJson {
         self.inner.features = features;
     }
 
+    /// Plain string flags used to select package variants.
+    #[getter]
+    pub fn flags(&self) -> Vec<String> {
+        self.inner.flags.iter().map(ToString::to_string).collect()
+    }
+
+    #[setter]
+    pub fn set_flags(&mut self, flags: Vec<String>) {
+        self.inner.flags = flags.into_iter().map(Flag::new_unchecked).collect();
+    }
+
     /// Optionally, the license
     #[getter]
     pub fn license(&self) -> Option<String> {
@@ -246,9 +257,9 @@ impl PyIndexJson {
     #[setter]
     pub fn set_timestamp(&mut self, timestamp: Option<i64>) -> PyResult<()> {
         if let Some(ts) = timestamp {
-            self.inner.timestamp = Some(TimestampMs::from_datetime_millis(
-                chrono::DateTime::from_timestamp_millis(ts)
-                    .ok_or_else(|| PyValueError::new_err("Invalid timestamp"))?,
+            self.inner.timestamp = Some(TimestampMs::from_timestamp_millis(
+                jiff::Timestamp::from_millisecond(ts)
+                    .map_err(|_| PyValueError::new_err("Invalid timestamp"))?,
             ));
         } else {
             self.inner.timestamp = None;

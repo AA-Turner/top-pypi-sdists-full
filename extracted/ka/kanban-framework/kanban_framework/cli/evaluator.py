@@ -55,7 +55,14 @@ def _collect_scores(fs: Filesystem, tm: TaskManager, task_id: str) -> dict:
     for it in range(1, task.iteration + 1):
         report_dir = fs.report_dir(task_id, it)
 
-        for role in ["code_reviewer", "qa", "product_reviewer", "pm", "designer"]:
+        # Use mode-specific eval roles as primary source, plus broad fallback
+        from kanban_framework.infra.scheduler import Scheduler
+        mode = getattr(task, 'mode', None)
+        mode_roles = [r["name"] for r in Scheduler.eval_roles(
+            lightweight=task.lightweight, mode=mode, kanban_dir=fs.kanban_dir)]
+        all_roles = list(dict.fromkeys(mode_roles + [
+            "code_reviewer", "qa", "product_reviewer", "pm", "designer", "review"]))
+        for role in all_roles:
             filename = f"{role}_report.json"
             # Search multiple locations: iter reviews, iter root, task reviews
             for rf in (report_dir / "reviews" / filename,

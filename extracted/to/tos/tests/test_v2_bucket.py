@@ -258,6 +258,27 @@ class TestBucket(TosTestBase):
         with self.assertRaises(TosServerError):
             self.client.delete_bucket(bucket_name)
 
+    def test_bucket_quota(self):
+        bucket_name = self.bucket_name + "quota"
+        self.bucket_delete.append(bucket_name)
+        self.client.create_bucket(bucket_name)
+
+        with self.assertRaises(TosClientError):
+            self.client.put_bucket_quota(bucket_name, -1)
+        with self.assertRaises(TosClientError):
+            self.client.put_bucket_quota(bucket_name, True)
+
+        quota = 65536
+        put_out = self.client.put_bucket_quota(bucket_name, quota)
+        self.assertIsNotNone(put_out.request_id)
+
+        get_out = self.client.get_bucket_quota(bucket_name)
+        self.assertEqual(get_out.storage_quota, quota)
+
+        reset_out = self.client.put_bucket_quota(bucket_name, 0)
+        self.assertIsNotNone(reset_out.request_id)
+        self.assertEqual(self.client.get_bucket_quota(bucket_name).storage_quota, 0)
+
     def test_bucket_with_storage_class(self):
         bucket_name = self.bucket_name + "storage-class"
         self.client.create_bucket(bucket_name, storage_class=StorageClassType.Storage_Class_Ia)

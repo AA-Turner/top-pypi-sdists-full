@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: infrared-protocols
-Version: 5.8.0
+Version: 5.8.1
 Summary: Library to decode and encode infrared signals.
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/home-assistant-libs/infrared-protocols

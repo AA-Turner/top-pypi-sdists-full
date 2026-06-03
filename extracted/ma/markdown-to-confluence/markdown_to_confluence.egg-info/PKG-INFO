@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.6.0
+Version: 0.6.1
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>

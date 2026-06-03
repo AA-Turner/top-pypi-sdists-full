@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List, Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -31,8 +30,8 @@ class TransactionPhase:
     def __init__(
         self,
         v: int,
-        v0_components: Optional[List[TxSetComponent]] = None,
-        parallel_txs_component: Optional[ParallelTxsComponent] = None,
+        v0_components: list[TxSetComponent] | None = None,
+        parallel_txs_component: ParallelTxsComponent | None = None,
     ) -> None:
         _expect_max_length = 4294967295
         if v0_components and len(v0_components) > _expect_max_length:

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_smtp
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set SMTP information
 description:
    - Set SMTP information on kaytus Server.
@@ -116,7 +116,7 @@ EXAMPLES = '''
   - name: "Set smtp information"
     kaytus.ksmanage.edit_smtp:
       interface: "eth0"
-      email: "ieit@ieisystem.com"
+      email: "ieit@KSManageOSS.com"
       primary_status: "enable"
       primary_ip: "100.2.2.2"
       primary_name: "test"
@@ -126,7 +126,7 @@ EXAMPLES = '''
   - name: "Set smtp information"
     kaytus.ksmanage.edit_smtp:
       interface: "eth0"
-      email: "ieit@ieisystem.com"
+      email: "ieit@KSManageOSS.com"
       primary_status: "enable"
       primary_ip: "100.2.2.2"
       primary_name: "test"

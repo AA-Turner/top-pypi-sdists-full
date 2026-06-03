@@ -1,30 +1,35 @@
 Metadata-Version: 2.4
 Name: aa-freight
-Version: 2.0.0
+Version: 3.0.0
 Summary: Freight is an Alliance Auth app for running a freight service.
 Author-email: Erik Kalkoken <kaloken87@gmail.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
-Requires-Dist: allianceauth-app-utils>=1.18.0
-Requires-Dist: allianceauth>=4,<5
+Requires-Dist: allianceauth>=4,<6
+Requires-Dist: allianceauth-app-utils>=1.32
 Requires-Dist: dhooks-lite>=1.1.0
+Requires-Dist: django-esi>=8,<10
 Requires-Dist: django-navhelper
+Requires-Dist: typing_extensions
+Requires-Dist: coverage ; extra == "test"
+Requires-Dist: factory_boy ; extra == "test"
+Requires-Dist: pook ; extra == "test"
 Project-URL: Homepage, https://gitlab.com/ErikKalkoken/aa-freight
+Provides-Extra: test
 
 # Freight for Alliance Auth
 
@@ -114,7 +119,7 @@ Configure your AA settings (`local.py`) as follows:
    # settings for freight
    CELERYBEAT_SCHEDULE['freight_run_contracts_sync'] = {
        'task': 'freight.tasks.run_contracts_sync',
-       'schedule': crontab(minute='*/10'),
+       'schedule': 600,
    }
    ```
 

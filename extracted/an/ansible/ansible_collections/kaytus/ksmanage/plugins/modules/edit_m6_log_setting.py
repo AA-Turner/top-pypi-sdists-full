@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_m6_log_setting
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set bmc system and audit log setting
 description:
    - Set bmc system and audit log setting on kaytus Server.
@@ -46,6 +46,11 @@ options:
             - Syslog Server ID, set when I(status=enable).
         choices: [0, 1, 2, 3]
         type: int
+    server_status:
+        description:
+            - Syslog Server status, set when server_id is not none.
+        choices: ['enable', 'disable']
+        type: str
     server_addr:
         description:
             - Server Address, set when server_id is not none.
@@ -160,6 +165,7 @@ def main():
         level=dict(type='str', required=False, choices=['Critical', 'Warning', 'Info']),
         protocol_type=dict(type='str', required=False, choices=['UDP', 'TCP']),
         server_id=dict(type='int', required=False, choices=[0, 1, 2, 3]),
+        server_status=dict(type='str', required=False, choices=['enable', 'disable']),
         server_addr=dict(type='str', required=False),
         server_port=dict(type='int', required=False),
         log_type=dict(type='str', required=False, choices=['idl', 'audit', 'both']),

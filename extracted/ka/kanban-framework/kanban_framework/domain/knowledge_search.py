@@ -8,6 +8,16 @@ from __future__ import annotations
 import sqlite3
 
 
+def _filter_by_biz(results: list[dict], biz_context: str) -> list[dict]:
+    """Filter results: keep entries with NULL biz_context or matching biz_context."""
+    allowed = set(biz_context.split(","))
+    return [
+        r for r in results
+        if r.get("biz_context") is None
+        or allowed & set((r.get("biz_context") or "").split(","))
+    ]
+
+
 def fts_safe(conn, query, params):
     """Execute FTS5 MATCH safely, falling back to empty on syntax error."""
     try:
@@ -16,7 +26,7 @@ def fts_safe(conn, query, params):
         return []
 
 
-def search_fts(km, keyword: str, limit: int = 20) -> list[dict]:
+def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
     """FTS5 keyword search with jieba segmentation and BM25 ranking."""
     from kanban_framework.domain.knowledge_lazy import (
         _expand_abbreviations, _get_jieba, _substring_match_score, _stale_penalty,
@@ -82,10 +92,12 @@ def search_fts(km, keyword: str, limit: int = 20) -> list[dict]:
     for r in results:
         r["_stale_penalty"] = _stale_penalty(r.get("stale_at"))
 
+    if biz_context is not None:
+        results = _filter_by_biz(results, biz_context)
     return results
 
 
-def search_semantic(km, query: str, limit: int = 20) -> list[dict]:
+def search_semantic(km, query: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
     """Semantic search using Chroma ANN with cosine distance.
 
     Falls back to full-table cosine scan, then to keyword search.
@@ -128,6 +140,8 @@ def search_semantic(km, query: str, limit: int = 20) -> list[dict]:
                         if distances and idx < len(distances):
                             entry["score"] = round(1.0 - distances[idx], 4)
                         entries.append(entry)
+                if biz_context is not None:
+                    entries = _filter_by_biz(entries, biz_context)
                 return entries
         except Exception:
             pass
@@ -152,18 +166,20 @@ def search_semantic(km, query: str, limit: int = 20) -> list[dict]:
     for s, e in scored[:limit]:
         e["score"] = round(s, 4)
         results.append(e)
+    if biz_context is not None:
+        results = _filter_by_biz(results, biz_context)
     return results
 
 
-def search_hybrid(km, keyword: str, limit: int = 20) -> list[dict]:
+def search_hybrid(km, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
     """Hybrid search: BM25 keyword + semantic vector fused via RRF.
 
     Uses search_fts and search_semantic to avoid backend recursion.
     Sets normalized relevance score on output entries.
     """
-    kw_results = search_fts(km, keyword, limit=limit * 2) if keyword else []
+    kw_results = search_fts(km, keyword, limit=limit * 2, biz_context=biz_context) if keyword else []
     try:
-        sem_results = search_semantic(km, keyword, limit=limit * 2)
+        sem_results = search_semantic(km, keyword, limit=limit * 2, biz_context=biz_context)
     except Exception:
         sem_results = []
 
@@ -199,7 +215,7 @@ def search_hybrid(km, keyword: str, limit: int = 20) -> list[dict]:
     return results
 
 
-def search_by_intent(km, intent: str, query: str, limit: int = 20, **context) -> list[dict]:
+def search_by_intent(km, intent: str, query: str, limit: int = 20, *, biz_context: str | None = None, **context) -> list[dict]:
     """Route a search to the right strategy based on retrieval intent.
 
     Intents:
@@ -211,7 +227,7 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, **context) ->
     backend = km._backend
 
     if intent == "pitfall_check":
-        results = backend.search(query, limit=limit * 2)
+        results = backend.search(query, limit=limit * 2, biz_context=biz_context)
         domain = context.get("domain")
         scored = []
         for r in results:
@@ -227,7 +243,7 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, **context) ->
         return [e for _, e in scored[:limit]]
 
     elif intent == "constraint_lookup":
-        keyword_results = backend.search(query, limit=limit)
+        keyword_results = backend.search(query, limit=limit, biz_context=biz_context)
         source_file = context.get("source_file")
         domain = context.get("domain")
         if source_file:
@@ -246,7 +262,7 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, **context) ->
         return keyword_results[:limit]
 
     elif intent == "experience_reuse":
-        results = backend.search_hybrid(query, limit=limit * 2)
+        results = backend.search_hybrid(query, limit=limit * 2, biz_context=biz_context)
         domain = context.get("domain")
         scored = []
         for r in results:
@@ -263,4 +279,4 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, **context) ->
         return [e for _, e in scored[:limit]]
 
     else:
-        return backend.search_hybrid(query, limit=limit)
+        return backend.search_hybrid(query, limit=limit, biz_context=biz_context)

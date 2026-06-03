@@ -7,6 +7,8 @@ from .parseutils.tables import extract_tables
 from .parseutils.ctes import isolate_query_ctes
 from pgspecial.main import parse_special_command
 
+sqlparse.engine.grouping.MAX_GROUPING_DEPTH = None
+sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None
 
 Special = namedtuple("Special", [])
 Database = namedtuple("Database", [])
@@ -270,7 +272,7 @@ def suggest_special(text):
                 return (Schema(), Function(schema=None, usage="special"))
             return (Schema(), rel_type(schema=None))
 
-    if cmd in ["\\n", "\\ns", "\\nd"]:
+    if cmd in ["\\n", "\\ns", "\\nd", "\\nq"]:
         return (NamedQuery(),)
 
     return (Keyword(), Special())

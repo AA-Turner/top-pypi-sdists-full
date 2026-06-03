@@ -18,12 +18,10 @@
 //!   Bundle Adjustment", ECCV 2020: batched point-block solves and Schur
 //!   reductions as GPU kernels.
 //!
-//! See `proposals/latent_coord.md` §4 (the plumbing change) and
-//! `proposals/composition_engine.md` §7 (audit-revised complexity claim:
-//! "cost is arrow-shaped, but the REML log|H| gradient carries a shared
+//! The cost is arrow-shaped, but the REML log|H| gradient carries a shared
 //! Schur⁻¹ factor handled as one-time-per-outer-iteration setup plus N
-//! rank-≤d per-row traces"). The math-audit revisions in those proposals
-//! are the source of the explicit precondition story below.
+//! rank-≤d per-row traces; that is the source of the explicit precondition
+//! story below.
 //!
 //! ## What this module does
 //!
@@ -90,8 +88,7 @@
 //! Future maintainers: this is BA. Solver improvements should first look
 //! at Ceres/g2o/MegBA/Square-Root BA literature, not bespoke algebra. If you
 //! find yourself extending `ArrowSchurSystem` with an outer-REML gradient
-//! hook, please re-read the audit revisions in `proposals/latent_coord.md`
-//! §7 and `proposals/composition_engine.md` §7 first.
+//! hook, re-read the inner/outer cost split documented above first.
 
 use ndarray::{Array1, Array2, ArrayView1};
 use std::ops::Range;
@@ -1189,6 +1186,25 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
         d: usize,
         tolerate_ill_conditioning: bool,
     ) -> Result<Vec<Array2<f64>>, ArrowSchurError> {
+        // Multi-GPU fast path: the per-row blocks `H_tt^(i) + ridge_t·I` are
+        // independent same-size SPD systems — exactly the batch
+        // `crate::gpu::try_cholesky_batched_lower_inplace` spreads across ALL
+        // usable devices (the batched POTRF tiles over the pool). It is only
+        // valid when every row is the uniform `d×d` shape (heterogeneous rows
+        // keep the per-row CPU loop) and only succeeds when EVERY block is PD at
+        // the base ridge; a non-PD block returns `None`, so we fall back to the
+        // exact per-row CPU path that performs minimal per-block ridge
+        // escalation. After a successful batched factorization we re-apply the
+        // identical κ-conditioning rejection `factor_one_row` enforces, so the
+        // result is bit-for-bit equivalent (modulo IEEE reduction order) to the
+        // CPU loop: a barely-PD but ill-conditioned block forces the whole batch
+        // back onto the per-row path so its ridge can lift, never silently using
+        // a contaminated factor.
+        if let Some(batched) =
+            try_factor_blocks_batched(rows, ridge_t, d, tolerate_ill_conditioning)
+        {
+            return Ok(batched);
+        }
         let mut out = Vec::with_capacity(rows.len());
         for (row_idx, row) in rows.iter().enumerate() {
             out.push(factor_one_row(
@@ -1242,6 +1258,77 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
             }
         }
     }
+}
+
+/// Attempt the per-row block factorization as one device batch spread across
+/// every usable GPU.
+///
+/// The `n` per-row blocks `H_tt^(i) + ridge_t·I` are independent SPD systems of
+/// the uniform shape `d×d`; `crate::gpu::try_cholesky_batched_lower_inplace`
+/// factors the whole batch with a batched POTRF that the shared device pool
+/// tiles across all ordinals. Returns `Some(factors)` only when:
+///   * every row really is the uniform `(d, d)` shape with a length-`d` `g_t`
+///     (heterogeneous systems keep the per-row CPU loop), and
+///   * a device is available and EVERY block is positive-definite at the base
+///     ridge (a non-PD block makes the batched POTRF return `None`), and
+///   * unless `tolerate_ill_conditioning`, every resulting factor passes the
+///     same diagonal-ratio κ ceiling `factor_one_row` enforces.
+///
+/// Any of those failing returns `None`, so the caller runs the exact per-row
+/// CPU path (which performs minimal per-block ridge escalation and the κ check).
+/// The factor a device POTRF produces is the lower Cholesky of the identical
+/// SPD matrix the CPU `cholesky_lower` would, with the strict upper triangle
+/// zeroed — bit-for-bit equivalent modulo IEEE-754 reduction order.
+fn try_factor_blocks_batched(
+    rows: &[ArrowRowBlock],
+    ridge_t: f64,
+    d: usize,
+    tolerate_ill_conditioning: bool,
+) -> Option<Vec<Array2<f64>>> {
+    if d == 0 || rows.is_empty() {
+        return None;
+    }
+    // Uniform-shape gate: a heterogeneous row defeats the single batched POTRF.
+    if rows
+        .iter()
+        .any(|row| row.htt.dim() != (d, d) || row.gt.len() != d)
+    {
+        return None;
+    }
+    // No device → let the CPU path own the work (it is the exact fallback).
+    if !crate::gpu::runtime::GpuRuntime::is_available() {
+        return None;
+    }
+
+    // Assemble the damped blocks `H_tt^(i) + ridge_t·I` for the batched POTRF.
+    let mut blocks: Vec<Array2<f64>> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let mut block = row.htt.clone();
+        for a in 0..d {
+            block[[a, a]] += ridge_t;
+        }
+        blocks.push(block);
+    }
+
+    // Batched lower Cholesky over ALL usable GPUs. `None` ⇒ either no device
+    // accepted the workload or some block was not PD at the base ridge; either
+    // way the per-row CPU path must own escalation.
+    crate::gpu::try_cholesky_batched_lower_inplace(&mut blocks)?;
+
+    // Re-apply the κ-conditioning rejection so a barely-PD block forces the
+    // whole batch back to the per-row path (where its ridge lifts), matching
+    // `factor_one_row` semantics exactly. Evidence/log-det-only callers
+    // tolerate ill-conditioning and skip this, as on the CPU path.
+    if !tolerate_ill_conditioning {
+        let kappa_max = safe_spd_kappa_max(d);
+        for factor in &blocks {
+            let kappa_est = cholesky_factor_kappa_estimate(factor);
+            if !(kappa_est.is_finite() && kappa_est <= kappa_max) {
+                return None;
+            }
+        }
+    }
+    Some(blocks)
 }
 
 /// Diagonal-ratio condition-number proxy for an SPD matrix from its lower
@@ -1598,6 +1685,39 @@ fn analytic_penalty_row_hessian_fingerprint(
     Some(hasher.finish_u64())
 }
 
+/// Structural/value fingerprint for a cross-row (non-row-block-diagonal)
+/// Psi-tier analytic penalty.
+///
+/// Unlike [`analytic_penalty_row_hessian_fingerprint`], which can read a
+/// closed-form per-row diagonal, a cross-row penalty's curvature only surfaces
+/// through its Hessian-vector product. We probe the penalty's PSD majorizer
+/// against the *current latent vector itself* — a deterministic, penalty- and
+/// state-dependent probe — and hash the resulting vector together with the
+/// penalty name, target length, and local ρ. Any change to the operator that
+/// matters for the Newton solve (different ρ, different smoothing geometry,
+/// different latent linearization point) perturbs this probe, correctly
+/// invalidating any factor cache keyed on the row-Hessian fingerprint.
+fn cross_row_penalty_fingerprint(
+    penalty: &AnalyticPenaltyKind,
+    target_t: ArrayView1<'_, f64>,
+    rho_local: ArrayView1<'_, f64>,
+) -> u64 {
+    let mut hasher = Fingerprinter::new();
+    hasher.write_str("arrow-schur-analytic-cross-row-hessian-v1");
+    hasher.write_str(penalty.name());
+    hasher.write_usize(target_t.len());
+    hasher.write_usize(rho_local.len());
+    for &rho in rho_local.iter() {
+        hasher.write_f64(rho);
+    }
+    let probe = penalty.psd_majorizer_hvp(target_t, rho_local, target_t);
+    hasher.write_usize(probe.len());
+    for &value in probe.iter() {
+        hasher.write_f64(value);
+    }
+    hasher.finish_u64()
+}
+
 fn write_latent_manifold(hasher: &mut Fingerprinter, manifold: &LatentManifold) {
     match manifold {
         LatentManifold::Euclidean => {
@@ -1807,6 +1927,47 @@ pub struct ArrowSchurSystem {
     /// `DensePenaltyOp` — identical observable behaviour, no new allocation
     /// hot-path cost for callers that have not opted in.
     pub penalty_op: Option<Arc<dyn BetaPenaltyOp>>,
+    /// Registered Psi-tier analytic penalties whose Hessian couples *distinct*
+    /// latent rows (non-row-block-diagonal), captured by
+    /// [`Self::add_analytic_penalty_contributions`].
+    ///
+    /// These penalties (`TotalVariationPenalty`, `SheafConsistencyPenalty`,
+    /// block-orthogonality, …) produce off-row Hessian blocks `∂²P/∂t_i∂t_j`
+    /// (`i ≠ j`) that the arrow elimination — which assumes each `H_tt^(i)` is
+    /// independent of every other row — cannot represent. Their *gradient* is
+    /// still folded into `g_t` exactly like every other Psi penalty; only their
+    /// curvature is held here, applied during the solve as a full-latent
+    /// Hessian-vector product `P_cross · Δt` against the penalty's
+    /// `psd_majorizer_hvp`. When this vector is non-empty,
+    /// [`solve_arrow_newton_step_artifacts`] auto-selects the matrix-free
+    /// full-system PCG path (arrow block-diagonal inverse as preconditioner)
+    /// instead of the exact one-shot Schur elimination. When empty, the system
+    /// is purely row-block-diagonal and the exact Schur path is unchanged.
+    pub cross_row_penalties: Vec<CrossRowLatentPenalty>,
+}
+
+/// A captured cross-row Psi-tier analytic penalty: the penalty kind plus the
+/// global-ρ slice (`rho_local`) it was registered with.
+///
+/// Holds an owned copy of the local ρ-axes so the penalty's
+/// [`AnalyticPenaltyKind::psd_majorizer_hvp`] can be evaluated during the
+/// matrix-free full-system solve without re-deriving the ρ layout. The penalty
+/// itself is an `Arc`-backed clone (cheap), so capturing it does not copy the
+/// penalty payload.
+#[derive(Clone)]
+pub struct CrossRowLatentPenalty {
+    /// The non-row-block-diagonal Psi penalty (e.g. `TotalVariationPenalty`).
+    pub penalty: AnalyticPenaltyKind,
+    /// The penalty's local ρ-axes (its slice of the global ρ vector).
+    pub rho_local: Array1<f64>,
+    /// The flat latent vector (`N·d`, row-major) the penalty's curvature was
+    /// linearized at — i.e. the `target_t` passed to
+    /// [`ArrowSchurSystem::add_analytic_penalty_contributions`]. The Hessian of
+    /// a nonlinear penalty (the smoothed-TV curvature weights `φ''(D t)`,
+    /// etc.) depends on this point, so `psd_majorizer_hvp` must be evaluated
+    /// against it for the Newton operator to be the true Hessian at the
+    /// current iterate.
+    pub target_t: Array1<f64>,
 }
 
 impl ArrowSchurSystem {
@@ -1833,6 +1994,7 @@ impl ArrowSchurSystem {
             analytic_row_hessian_fingerprint: 0,
             block_offsets: Arc::from([] as [Range<usize>; 0]),
             penalty_op: None,
+            cross_row_penalties: Vec::new(),
         };
         sys.refresh_row_hessian_fingerprint();
         sys
@@ -1885,6 +2047,7 @@ impl ArrowSchurSystem {
             analytic_row_hessian_fingerprint: 0,
             block_offsets: Arc::from([] as [Range<usize>; 0]),
             penalty_op,
+            cross_row_penalties: Vec::new(),
         };
         sys.refresh_row_hessian_fingerprint();
         sys
@@ -1929,6 +2092,7 @@ impl ArrowSchurSystem {
             analytic_row_hessian_fingerprint: 0,
             block_offsets: Arc::from([] as [Range<usize>; 0]),
             penalty_op: None,
+            cross_row_penalties: Vec::new(),
         };
         sys.refresh_row_hessian_fingerprint();
         sys
@@ -2164,14 +2328,33 @@ impl ArrowSchurSystem {
     /// **Composition path.** Each registered [`AnalyticPenaltyKind`] is
     /// queried for `grad_target` (added to `g_t` or `g_β`) and then for
     /// `hessian_diag` first. Diagonal penalties (ARD and the shipped
-    /// sparsity kernels) are injected directly. Psi-tier penalties with
-    /// off-row Hessian blocks are rejected because the arrow representation
-    /// has no place to store them. The supported row-block-only Psi-tier
+    /// sparsity kernels) are injected directly. The row-block-only Psi-tier
     /// penalties are `ARDPenalty`, `SparsityPenalty`,
     /// `SoftmaxAssignmentSparsity`, `IBPAssignment`,
     /// `RowPrecisionPrior`, `ParametricRowPrecisionPrior`, and
-    /// `ScadMcpPenalty`. Dense Beta-tier penalties still fall back to `hvp`
-    /// probes against the canonical basis vectors for `β`.
+    /// `ScadMcpPenalty`. Their `d × d` per-row Hessian folds into
+    /// `rows[i].htt`, so the exact arrow Schur elimination (`N` independent
+    /// `d × d` row solves) represents them exactly. Dense Beta-tier penalties
+    /// still fall back to `hvp` probes against the canonical basis vectors for
+    /// `β`.
+    ///
+    /// **Cross-row Psi penalties.** Penalties whose Hessian couples *distinct*
+    /// latent rows — `TotalVariationPenalty`, `SheafConsistencyPenalty`,
+    /// block-orthogonality, … — produce off-row blocks `∂²P/∂t_i∂t_j`
+    /// (`i ≠ j`) that the arrow elimination cannot store, since it assumes each
+    /// `H_tt^(i)` is independent of every other row. These are handled without
+    /// any approximation: their **gradient** is folded into `g_t` exactly as
+    /// for every other Psi penalty (`grad_target → g_t`), and their full
+    /// **curvature** is captured into [`Self::cross_row_penalties`] as a
+    /// matrix-free operator. At solve time, `K = K0 + P_cross` where `K0` is
+    /// the block-diagonal arrow operator and `P_cross · Δt = Σ_p ρ_p ·
+    /// psd_majorizer_hvp_p(t, Δt)` is the cross-row penalty Hessian applied to
+    /// the full flat latent vector. The presence of any captured cross-row
+    /// penalty auto-routes [`Self::solve`] through the matrix-free full-system
+    /// PCG path (the exact arrow block-diagonal inverse `K0⁻¹` is the
+    /// preconditioner `M⁻¹`); a purely row-block-diagonal system keeps the
+    /// exact one-shot Schur path unchanged. No new flag is involved — the route
+    /// is selected from the captured penalty set alone (magic by default).
     ///
     /// `target_t` is the full flat latent-coordinate vector (row-major, `N·d` entries)
     /// at the current iterate; `target_beta` is the current `β`. `rho`
@@ -2186,22 +2369,35 @@ impl ArrowSchurSystem {
     ) -> Result<(), ArrowSchurError> {
         let layout = registry.rho_layout();
         let mut penalty_fingerprints = Vec::new();
-        for (penalty, (rho_slice, tier, name)) in registry.penalties.iter().zip(layout.iter()) {
+        self.cross_row_penalties.clear();
+        for (penalty, (rho_slice, tier, _name)) in registry.penalties.iter().zip(layout.iter()) {
             let rho_local = rho_global.slice(ndarray::s![rho_slice.clone()]);
             match tier {
                 PenaltyTier::Psi => {
-                    if !analytic_penalty_is_row_block_diagonal(penalty) {
-                        return Err(ArrowSchurError::SchurFactorFailed {
-                            reason: format!(
-                                "analytic penalty {name:?} couples latent rows; cross-row Hessian contributions are not yet supported on any production solver path. Consider using a row-block-only penalty (ARDPenalty, SparsityPenalty, SoftmaxAssignmentSparsity, IBPAssignment) or filing an issue requesting cross-row Hessian support."
-                            ),
+                    if analytic_penalty_is_row_block_diagonal(penalty) {
+                        // Row-block-diagonal: fold gradient + per-row d×d
+                        // curvature into rows[i].htt, exactly representable by
+                        // the arrow Schur elimination.
+                        self.add_ext_coord_penalty(penalty, target_t, rho_local);
+                        if let Some(fingerprint) =
+                            analytic_penalty_row_hessian_fingerprint(penalty, target_t, rho_local)
+                        {
+                            penalty_fingerprints.push(fingerprint);
+                        }
+                    } else {
+                        // Cross-row: fold the gradient into g_t (exact, like
+                        // every Psi penalty), but DO NOT fold any curvature into
+                        // the row blocks — its off-row coupling cannot be stored
+                        // there. Capture the penalty so the solve applies its
+                        // full Hessian-vector product P_cross·Δt over the flat
+                        // latent vector. This auto-selects the matrix-free
+                        // full-system PCG path.
+                        self.add_ext_coord_penalty_gradient_only(penalty, target_t, rho_local);
+                        self.cross_row_penalties.push(CrossRowLatentPenalty {
+                            penalty: penalty.clone(),
+                            rho_local: rho_local.to_owned(),
+                            target_t: target_t.to_owned(),
                         });
-                    }
-                    self.add_ext_coord_penalty(penalty, target_t, rho_local);
-                    if let Some(fingerprint) =
-                        analytic_penalty_row_hessian_fingerprint(penalty, target_t, rho_local)
-                    {
-                        penalty_fingerprints.push(fingerprint);
                     }
                 }
                 PenaltyTier::Beta => {
@@ -2213,6 +2409,18 @@ impl ArrowSchurSystem {
                     // outer level.
                 }
             }
+        }
+        // Cross-row penalties contribute to the Newton Hessian operator, not
+        // the stored row blocks, so they must still invalidate the row-Hessian
+        // cache when their curvature changes. Probe each captured penalty's PSD
+        // majorizer against the current latent vector (a deterministic, generic
+        // probe) and fold the resulting signature in.
+        for cross in &self.cross_row_penalties {
+            penalty_fingerprints.push(cross_row_penalty_fingerprint(
+                &cross.penalty,
+                target_t,
+                cross.rho_local.view(),
+            ));
         }
         self.analytic_row_hessian_fingerprint = if penalty_fingerprints.is_empty() {
             0
@@ -2288,6 +2496,60 @@ impl ArrowSchurSystem {
                 }
             },
         );
+    }
+
+    /// Fold ONLY the latent gradient `grad_target → g_t` of an analytic
+    /// penalty, leaving the row-block Hessian untouched.
+    ///
+    /// Used for cross-row Psi penalties: their gradient enters `g_t` exactly
+    /// like every other Psi penalty, but their curvature must NOT be scattered
+    /// into the per-row `H_tt^(i)` blocks (the diagonal piece would be
+    /// double-counted and the off-row coupling cannot be stored there). The
+    /// full curvature is instead applied as a matrix-free `P_cross · Δt`
+    /// during the solve, via [`Self::cross_row_penalties`].
+    fn add_ext_coord_penalty_gradient_only(
+        &mut self,
+        penalty: &AnalyticPenaltyKind,
+        target_t: ArrayView1<'_, f64>,
+        rho_local: ArrayView1<'_, f64>,
+    ) {
+        let d = self.d;
+        let n = self.rows.len();
+        assert_eq!(target_t.len(), n * d);
+        let grad = penalty.grad_target(target_t, rho_local);
+        for flat in 0..n * d {
+            self.rows[flat / d].gt[flat % d] += grad[flat];
+        }
+    }
+
+    /// Apply the aggregate cross-row penalty Hessian `P_cross · v` over the
+    /// full flat latent vector `v` (length `Σ_i row_dims[i]`), accumulating
+    /// into `out`.
+    ///
+    /// `P_cross = Σ_p psd_majorizer_hvp_p(target_t, ·; ρ_p)` summed over every
+    /// captured cross-row penalty. Each penalty's `psd_majorizer_hvp` is its
+    /// exact (PSD) Hessian-vector product over the `N·d` flat latent vector —
+    /// for `TotalVariationPenalty` this is `Dᵀ diag(φ''(D t)) D · v`, the
+    /// graph/forward-difference Laplacian-style coupling that links distinct
+    /// rows. The ρ scaling is already baked into each penalty's resolved
+    /// weight, so no extra factor is applied here.
+    ///
+    /// This is only valid for homogeneous systems (every row of dimension
+    /// `d`), the only shape cross-row latent penalties are defined on; the
+    /// flat-index convention `flat = i·d + j` matches every penalty's
+    /// `latent_dim`/row-major contract.
+    fn apply_cross_row_penalty_hessian(&self, v: ArrayView1<'_, f64>, out: &mut Array1<f64>) {
+        for cross in &self.cross_row_penalties {
+            assert_eq!(cross.target_t.len(), v.len());
+            let hv =
+                cross
+                    .penalty
+                    .psd_majorizer_hvp(cross.target_t.view(), cross.rho_local.view(), v);
+            assert_eq!(hv.len(), out.len());
+            for i in 0..out.len() {
+                out[i] += hv[i];
+            }
+        }
     }
 
     fn add_beta_penalty(
@@ -3341,9 +3603,8 @@ impl ArrowFactorCache {
     /// the flat `Δt` of total length `row_offsets[N]`.
     ///
     /// IFT first-order predictor for the latent field under a
-    /// shape-coefficient perturbation `Δβ`. See
-    /// `proposals/latent_coord.md` §2.2. BA analogue: back-substitution after
-    /// reduced-camera-system solve.
+    /// shape-coefficient perturbation `Δβ`. BA analogue: back-substitution
+    /// after the reduced-camera-system solve.
     pub fn predict_delta_t_from_delta_beta(&self, delta_beta: ArrayView1<'_, f64>) -> Array1<f64> {
         let n = self.undamped_factor_count();
         let total_len = self.delta_t_len();
@@ -3373,8 +3634,8 @@ impl ArrowFactorCache {
     /// Apply the *combined* IFT predictor
     /// `Δt_i = -(H_tt^(i))⁻¹ · (H_tβ^(i) Δβ + δg_t^(i))` per row.
     ///
-    /// This is the canonical single-pass form of the IFT formula from
-    /// `proposals/per_point_hessian.md` §4. Compared to the legacy split
+    /// This is the canonical single-pass form of the IFT formula. Compared to
+    /// the legacy split
     /// path (`predict_delta_t_from_delta_beta` + `predict_delta_t_from_delta_gt`),
     /// this routine performs *one* per-row Cholesky back-substitution
     /// instead of two — halving the IFT predictor cost for callers that
@@ -3657,6 +3918,67 @@ impl ArrowFactorCache {
             e_j[j] = 1.0;
             let col = cholesky_solve_vector(schur_factor, &e_j);
             out[j] = col[j];
+        }
+        Ok(out)
+    }
+
+    /// Dense principal sub-block of the β-block of the full inverse,
+    /// `(H⁻¹)_ββ[block, block] = S_β⁻¹[block, block]`, shape `(W, W)` with
+    /// `W = block.len()`.
+    ///
+    /// For the bordered arrow Hessian `H = [[A, B], [Bᵀ, H_ββ]]`, the β-block
+    /// of `H⁻¹` is exactly `S_β⁻¹` (the inverse of the Schur complement whose
+    /// Cholesky factor this cache holds). This returns the contiguous
+    /// `block × block` sub-block — e.g. one SAE atom's decoder coefficients via
+    /// [`crate::terms::sae_manifold::SaeManifoldTerm::beta_block_offsets`] — by
+    /// solving `S_β x = e_j` for each `j ∈ block` (reusing the cached factor)
+    /// and gathering the `block` rows of each solution column. `W`
+    /// back-substitutions of size `K`; the result is symmetrized to clear
+    /// back-substitution rounding asymmetry. Up to a dispersion scale `φ`, this
+    /// block is the joint posterior covariance `Cov(β_block)` of those
+    /// coefficients with the latent coordinates already marginalized out (that
+    /// is precisely what Schur-eliminating the per-row `t`-blocks does).
+    ///
+    /// Same dense-Schur requirement / error contract as
+    /// [`Self::schur_inverse_apply`]; additionally errors when `block` runs past
+    /// `K`.
+    pub fn schur_inverse_block(
+        &self,
+        block: std::ops::Range<usize>,
+    ) -> Result<Array2<f64>, ArrowSchurError> {
+        let Some(schur_factor) = self.schur_factor.as_ref() else {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: "schur_inverse_block requires a dense Schur factor; \
+                         the InexactPCG mode does not form one"
+                    .to_string(),
+            });
+        };
+        if block.end > self.k {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "schur_inverse_block: block end {} exceeds K {}",
+                    block.end, self.k
+                ),
+            });
+        }
+        let w = block.len();
+        let mut out = Array2::<f64>::zeros((w, w));
+        let mut e_j = Array1::<f64>::zeros(self.k);
+        for (jc, j) in block.clone().enumerate() {
+            e_j.fill(0.0);
+            e_j[j] = 1.0;
+            let col = cholesky_solve_vector(schur_factor, &e_j);
+            for (ic, i) in block.clone().enumerate() {
+                out[[ic, jc]] = col[i];
+            }
+        }
+        // S_β⁻¹ is symmetric; symmetrize to clear back-substitution rounding.
+        for ic in 0..w {
+            for jc in (ic + 1)..w {
+                let avg = 0.5 * (out[[ic, jc]] + out[[jc, ic]]);
+                out[[ic, jc]] = avg;
+                out[[jc, ic]] = avg;
+            }
         }
         Ok(out)
     }
@@ -4099,6 +4421,15 @@ fn solve_arrow_newton_step_artifacts(
     ridge_beta: f64,
     options: &ArrowSolveOptions,
 ) -> Result<ArrowNewtonStepArtifacts, ArrowSchurError> {
+    // Auto-select the cross-row path: when any registered Psi penalty couples
+    // distinct latent rows, the exact one-shot Schur elimination (which assumes
+    // each H_tt^(i) is independent) cannot represent the off-row Hessian blocks.
+    // Route the FULL (t, β) Newton system through matrix-free preconditioned CG
+    // with the exact arrow block-diagonal inverse as the preconditioner. No
+    // flag: the route is implied by the captured cross-row penalty set.
+    if !sys.cross_row_penalties.is_empty() {
+        return solve_arrow_newton_step_cross_row(sys, ridge_t, ridge_beta, options);
+    }
     if let Some(chunk_size) = options.streaming_chunk_size {
         let mut streaming = StreamingArrowSchur::from_system(sys, chunk_size);
         let (delta_t, delta_beta, schur_factor) = streaming.solve(ridge_t, ridge_beta, options)?;
@@ -4200,6 +4531,335 @@ fn solve_arrow_newton_step_artifacts(
     })
 }
 
+/// Exact inverse of the block-diagonal arrow operator `K0 + ridge`, used as
+/// the preconditioner for the cross-row full-system CG.
+///
+/// Holds the per-row `H_tt^(i) + ridge_t·I` Cholesky factors and the dense
+/// Schur-complement factor `S = (H_ββ + ridge_β·I) − Σ_i H_tβ^(i)ᵀ
+/// (H_tt^(i))⁻¹ H_tβ^(i)`, so applying `M⁻¹` to an arbitrary RHS is a single
+/// Schur back/forward substitution — exactly the algebra
+/// [`solve_arrow_newton_step_artifacts`] performs, generalized to a free RHS.
+struct ArrowBlockDiagInverse<'a, B: BatchedBlockSolver> {
+    sys: &'a ArrowSchurSystem,
+    backend: &'a B,
+    htt_factors: Vec<Array2<f64>>,
+    schur_factor: Array2<f64>,
+}
+
+impl<'a, B: BatchedBlockSolver> ArrowBlockDiagInverse<'a, B> {
+    fn build(
+        sys: &'a ArrowSchurSystem,
+        ridge_t: f64,
+        ridge_beta: f64,
+        tolerate_ill_conditioning: bool,
+        backend: &'a B,
+    ) -> Result<Self, ArrowSchurError>
+    where
+        B: Sync,
+    {
+        let htt_factors =
+            backend.factor_blocks(&sys.rows, ridge_t, sys.d, tolerate_ill_conditioning)?;
+        let schur = build_dense_schur_direct(sys, &htt_factors, ridge_beta, backend)?;
+        let schur_factor =
+            cholesky_lower(&schur).map_err(|e| ArrowSchurError::SchurFactorFailed { reason: e })?;
+        Ok(Self {
+            sys,
+            backend,
+            htt_factors,
+            schur_factor,
+        })
+    }
+
+    /// Solve `(K0 + ridge) · [x_t; x_β] = [r_t; r_β]` exactly.
+    ///
+    /// `r_t` is flat row-major (`Σ_i row_dims[i]`); `r_β` is length `K`. The
+    /// outputs `x_t` / `x_β` use the same layout.
+    fn apply(
+        &self,
+        r_t: ArrayView1<'_, f64>,
+        r_beta: ArrayView1<'_, f64>,
+    ) -> (Array1<f64>, Array1<f64>) {
+        let sys = self.sys;
+        let n = sys.rows.len();
+        let k = sys.k;
+        // Reduced β RHS: r_β − Σ_i H_βt^(i) (H_tt^(i))⁻¹ r_t,i.
+        let mut rhs_beta = r_beta.to_owned();
+        for i in 0..n {
+            let di = sys.row_dims[i];
+            let base = sys.row_offsets[i];
+            let r_ti = r_t.slice(ndarray::s![base..base + di]).to_owned();
+            let u_i = self.backend.solve_block_vector(&self.htt_factors[i], &r_ti);
+            let mut acc = Array1::<f64>::zeros(k);
+            sys_htbeta_accumulate_transpose(sys, i, &sys.rows[i], u_i.view(), &mut acc);
+            for a in 0..k {
+                rhs_beta[a] -= acc[a];
+            }
+        }
+        // x_β = S⁻¹ rhs_β.
+        let x_beta = cholesky_solve_lower(&self.schur_factor, &rhs_beta);
+        // x_t,i = (H_tt^(i))⁻¹ (r_t,i − H_tβ^(i) x_β).
+        let total_dt = sys.row_offsets[n];
+        let mut x_t = Array1::<f64>::zeros(total_dt);
+        let mut htbeta_xb = Array1::<f64>::zeros(sys.d);
+        for i in 0..n {
+            let di = sys.row_dims[i];
+            let base = sys.row_offsets[i];
+            for c in 0..di {
+                htbeta_xb[c] = 0.0;
+            }
+            let mut slab = htbeta_xb.slice_mut(ndarray::s![..di]).to_owned();
+            sys_htbeta_apply_row(sys, i, &sys.rows[i], x_beta.view(), &mut slab);
+            let mut rhs_i = Array1::<f64>::zeros(di);
+            for c in 0..di {
+                rhs_i[c] = r_t[base + c] - slab[c];
+            }
+            let xi = self
+                .backend
+                .solve_block_vector(&self.htt_factors[i], &rhs_i);
+            for c in 0..di {
+                x_t[base + c] = xi[c];
+            }
+        }
+        (x_t, x_beta)
+    }
+}
+
+/// Apply the full cross-row Newton operator `A = (K0 + ridge) + P_cross` to
+/// `[x_t; x_β]`, writing `[y_t; y_β]`.
+///
+/// `(K0 + ridge)` is the block-diagonal arrow operator: per row
+/// `y_t,i = (H_tt^(i) + ridge_t·I) x_t,i + H_tβ^(i) x_β`, and
+/// `y_β = Σ_i H_βt^(i) x_t,i + (H_ββ + ridge_β·I) x_β`. `P_cross` adds the
+/// captured cross-row penalty Hessian to the latent block only:
+/// `y_t += P_cross · x_t`.
+fn arrow_cross_row_matvec(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    x_t: ArrayView1<'_, f64>,
+    x_beta: ArrayView1<'_, f64>,
+) -> (Array1<f64>, Array1<f64>) {
+    let n = sys.rows.len();
+    let k = sys.k;
+    let total_dt = sys.row_offsets[n];
+    let mut y_t = Array1::<f64>::zeros(total_dt);
+    let mut y_beta = Array1::<f64>::zeros(k);
+    let mut htbeta_xb = Array1::<f64>::zeros(sys.d);
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let base = sys.row_offsets[i];
+        let row = &sys.rows[i];
+        // H_tt^(i) x_t,i + ridge_t x_t,i.
+        for a in 0..di {
+            let mut acc = ridge_t * x_t[base + a];
+            for b in 0..di {
+                acc += row.htt[[a, b]] * x_t[base + b];
+            }
+            y_t[base + a] = acc;
+        }
+        // + H_tβ^(i) x_β.
+        for c in 0..di {
+            htbeta_xb[c] = 0.0;
+        }
+        let mut slab = htbeta_xb.slice_mut(ndarray::s![..di]).to_owned();
+        sys_htbeta_apply_row(sys, i, row, x_beta, &mut slab);
+        for c in 0..di {
+            y_t[base + c] += slab[c];
+        }
+        // y_β += H_βt^(i) x_t,i.
+        let x_ti = x_t.slice(ndarray::s![base..base + di]).to_owned();
+        sys_htbeta_accumulate_transpose(sys, i, row, x_ti.view(), &mut y_beta);
+    }
+    // y_β += (H_ββ + ridge_β·I) x_β.
+    {
+        let x_beta_slice = x_beta.as_slice().expect("x_beta contiguous");
+        let y_beta_slice = y_beta.as_slice_mut().expect("y_beta contiguous");
+        sys.penalty_matvec_add(x_beta_slice, y_beta_slice);
+    }
+    for a in 0..k {
+        y_beta[a] += ridge_beta * x_beta[a];
+    }
+    // y_t += P_cross · x_t (cross-row penalty Hessian, latent block only).
+    sys.apply_cross_row_penalty_hessian(x_t, &mut y_t);
+    (y_t, y_beta)
+}
+
+/// Solve the full bordered Newton system when one or more registered Psi
+/// penalties couple distinct latent rows.
+///
+/// The operator is `A = (K0 + ridge) + P_cross`, SPD whenever the arrow
+/// block-diagonal `K0 + ridge` is PD (enforced by the per-row factor checks)
+/// and every cross-row penalty contributes a PSD `psd_majorizer_hvp`. We solve
+/// `A · [Δt; Δβ] = −[g_t; g_β]` by preconditioned conjugate gradients, using
+/// the exact arrow block-diagonal inverse `M⁻¹ = (K0 + ridge)⁻¹` as the
+/// preconditioner — the same Schur elimination the row-block-diagonal path
+/// uses, here applied to the CG residual rather than the negated gradient.
+/// Because `M⁻¹` inverts everything except the (small, structured) `P_cross`
+/// coupling, the preconditioned operator `M⁻¹ A = I + M⁻¹ P_cross` has a
+/// tightly clustered spectrum and CG converges in a handful of iterations.
+fn solve_arrow_newton_step_cross_row(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    options: &ArrowSolveOptions,
+) -> Result<ArrowNewtonStepArtifacts, ArrowSchurError> {
+    let backend = CpuBatchedBlockSolver;
+    let precond = ArrowBlockDiagInverse::build(
+        sys,
+        ridge_t,
+        ridge_beta,
+        options.tolerate_ill_conditioning,
+        &backend,
+    )?;
+
+    let n = sys.rows.len();
+    let k = sys.k;
+    let total_dt = sys.row_offsets[n];
+
+    // RHS b = −g = [−g_t; −g_β].
+    let mut b_t = Array1::<f64>::zeros(total_dt);
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let base = sys.row_offsets[i];
+        for c in 0..di {
+            b_t[base + c] = -sys.rows[i].gt[c];
+        }
+    }
+    let mut b_beta = Array1::<f64>::zeros(k);
+    for a in 0..k {
+        b_beta[a] = -sys.gb[a];
+    }
+
+    // Preconditioned CG on the full (t, β) system.
+    // x = 0; r = b − A·0 = b; z = M⁻¹ r; p = z.
+    let mut x_t = Array1::<f64>::zeros(total_dt);
+    let mut x_beta = Array1::<f64>::zeros(k);
+    let mut r_t = b_t.clone();
+    let mut r_beta = b_beta.clone();
+    let (mut z_t, mut z_beta) = precond.apply(r_t.view(), r_beta.view());
+    let mut p_t = z_t.clone();
+    let mut p_beta = z_beta.clone();
+    let mut rz = dot2(&r_t, &r_beta, &z_t, &z_beta);
+
+    let b_norm = (dot2(&b_t, &b_beta, &b_t, &b_beta)).sqrt();
+    // Solve the linear Newton system to tight relative accuracy. The cross-row
+    // path is exact-CG (no trust region), so we drive the residual to machine-
+    // scale relative tolerance; the spectrum I + M⁻¹P_cross makes this cheap.
+    let tol = 1e-12_f64.max(1e-13 * b_norm);
+    let max_iter = (total_dt + k).max(64) * 4;
+
+    let mut iters = 0usize;
+    let mut converged = b_norm == 0.0;
+    while iters < max_iter && !converged {
+        let (ap_t, ap_beta) =
+            arrow_cross_row_matvec(sys, ridge_t, ridge_beta, p_t.view(), p_beta.view());
+        let pap = dot2(&p_t, &p_beta, &ap_t, &ap_beta);
+        if !(pap.is_finite() && pap > 0.0) {
+            return Err(ArrowSchurError::PcgFailed {
+                reason: format!(
+                    "cross-row full-system CG hit non-positive curvature pᵀAp={pap:e}; \
+                     the cross-row penalty Hessian or arrow block is not PD at this iterate"
+                ),
+            });
+        }
+        let alpha = rz / pap;
+        for i in 0..total_dt {
+            x_t[i] += alpha * p_t[i];
+            r_t[i] -= alpha * ap_t[i];
+        }
+        for a in 0..k {
+            x_beta[a] += alpha * p_beta[a];
+            r_beta[a] -= alpha * ap_beta[a];
+        }
+        let r_norm = (dot2(&r_t, &r_beta, &r_t, &r_beta)).sqrt();
+        iters += 1;
+        if r_norm <= tol {
+            converged = true;
+            break;
+        }
+        let (nz_t, nz_beta) = precond.apply(r_t.view(), r_beta.view());
+        z_t = nz_t;
+        z_beta = nz_beta;
+        let rz_new = dot2(&r_t, &r_beta, &z_t, &z_beta);
+        let beta_cg = rz_new / rz;
+        for i in 0..total_dt {
+            p_t[i] = z_t[i] + beta_cg * p_t[i];
+        }
+        for a in 0..k {
+            p_beta[a] = z_beta[a] + beta_cg * p_beta[a];
+        }
+        rz = rz_new;
+    }
+
+    if !converged {
+        let r_norm = (dot2(&r_t, &r_beta, &r_t, &r_beta)).sqrt();
+        return Err(ArrowSchurError::PcgFailed {
+            reason: format!(
+                "cross-row full-system CG did not converge in {iters} iters \
+                 (‖r‖={r_norm:e}, tol={tol:e})"
+            ),
+        });
+    }
+
+    let final_residual = (dot2(&r_t, &r_beta, &r_t, &r_beta)).sqrt();
+    let diag = PcgDiagnostics {
+        iterations: iters,
+        matvec_calls: iters,
+        precond_apply_calls: iters + 1,
+        ridge_escalations: 0,
+        final_relative_residual: if b_norm > 0.0 {
+            final_residual / b_norm
+        } else {
+            0.0
+        },
+        stopping_reason: PcgStopReason::Converged,
+    };
+
+    Ok(ArrowNewtonStepArtifacts {
+        delta_t: x_t,
+        delta_beta: x_beta,
+        htt_factors: precond.htt_factors,
+        schur_factor: Some(precond.schur_factor),
+        pcg_diagnostics: diag,
+    })
+}
+
+/// `⟨[a_t; a_β], [b_t; b_β]⟩` over the stacked latent/β vector.
+fn dot2(a_t: &Array1<f64>, a_beta: &Array1<f64>, b_t: &Array1<f64>, b_beta: &Array1<f64>) -> f64 {
+    let mut acc = 0.0_f64;
+    for i in 0..a_t.len() {
+        acc += a_t[i] * b_t[i];
+    }
+    for a in 0..a_beta.len() {
+        acc += a_beta[a] * b_beta[a];
+    }
+    acc
+}
+
+/// Solve `L Lᵀ x = b` given the lower Cholesky factor `L`.
+fn cholesky_solve_lower(l: &Array2<f64>, b: &Array1<f64>) -> Array1<f64> {
+    let n = l.nrows();
+    // Forward solve L y = b.
+    let mut y = Array1::<f64>::zeros(n);
+    for i in 0..n {
+        let mut sum = b[i];
+        for j in 0..i {
+            sum -= l[[i, j]] * y[j];
+        }
+        y[i] = sum / l[[i, i]];
+    }
+    // Back solve Lᵀ x = y.
+    let mut x = Array1::<f64>::zeros(n);
+    for i in (0..n).rev() {
+        let mut sum = y[i];
+        for j in (i + 1)..n {
+            sum -= l[[j, i]] * x[j];
+        }
+        x[i] = sum / l[[i, i]];
+    }
+    x
+}
+
 fn reduced_rhs_beta<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
     htt_factors: &[Array2<f64>],
@@ -4221,7 +4881,219 @@ fn reduced_rhs_beta<B: BatchedBlockSolver>(
     rhs_beta
 }
 
-fn build_dense_schur_direct<B: BatchedBlockSolver>(
+/// Which Square-Root / direct factorization the per-row Schur contribution
+/// uses. `Direct` forms `H_tβᵀ (H_tt)⁻¹ H_tβ` via a full block solve; `SqrtBa`
+/// forms the equivalent `(L⁻¹ H_tβ)ᵀ (L⁻¹ H_tβ)` from the lower triangular
+/// solve only. The reduction `Σ_i contribution_i` is identical in both axes.
+#[derive(Clone, Copy)]
+enum SchurReductionKind {
+    Direct,
+    SqrtBa,
+}
+
+/// Form one row block's `(left, right)` Schur contribution factors so that the
+/// contribution is `leftᵀ · right` (`k×k`). `Direct` solves the full block,
+/// `SqrtBa` uses only the lower-triangular whitening; both give the same
+/// `H_tβᵀ (H_tt)⁻¹ H_tβ` because `H_tt = L Lᵀ`.
+#[inline]
+fn row_schur_contribution_factors<B: BatchedBlockSolver>(
+    sys: &ArrowSchurSystem,
+    row_idx: usize,
+    row: &ArrowRowBlock,
+    htt_factor: &Array2<f64>,
+    backend: &B,
+    kind: SchurReductionKind,
+) -> (Array2<f64>, Array2<f64>) {
+    // Materialize the (d, k) cross-block, probing via the matvec when the
+    // dense slab is absent.
+    let htbeta = sys_htbeta_materialize_row(sys, row_idx, row);
+    match kind {
+        SchurReductionKind::Direct => {
+            let solved = backend.solve_block_matrix(htt_factor, &htbeta);
+            (htbeta, solved)
+        }
+        SchurReductionKind::SqrtBa => {
+            let whitened = backend.sqrt_solve_block_matrix(htt_factor, &htbeta);
+            (whitened.clone(), whitened)
+        }
+    }
+}
+
+/// Subtract one row block's Schur contribution from `schur` using the selected
+/// reduction kind. Identical algebra to the inline loop bodies the dense
+/// builders used; factored out so the serial and multi-GPU partition paths
+/// share one definition.
+#[inline]
+fn subtract_row_schur_contribution<B: BatchedBlockSolver>(
+    sys: &ArrowSchurSystem,
+    row_idx: usize,
+    row: &ArrowRowBlock,
+    htt_factor: &Array2<f64>,
+    backend: &B,
+    kind: SchurReductionKind,
+    schur: &mut Array2<f64>,
+) {
+    let (left, right) =
+        row_schur_contribution_factors(sys, row_idx, row, htt_factor, backend, kind);
+    backend.block_gemm_subtract(schur, &left, &right);
+}
+
+/// Reduce one contiguous device tile's rows into a private `-Σ leftᵀ·right`
+/// partial (`k×k`).
+///
+/// The tile stacks its per-row `left_i` / `right_i` factors (each `d×k`) into
+/// two `(Σ_i d_i × k)` matrices and tries a single per-ordinal `AᵀB` device
+/// GEMM (`crate::gpu::try_fast_atb_on_ordinal`), which runs on the device this
+/// worker thread already bound — one big GPU GEMM per tile rather than `n` small
+/// CPU ones. When the device primitive declines (no GPU, shape below policy,
+/// transient failure) the tile reduces with the exact CPU `block_gemm_subtract`
+/// loop, so the result is unchanged. The partial is negated so the caller's
+/// `schur += partial` reproduces the serial `schur -= Σ contribution`.
+fn tile_schur_partial<B: BatchedBlockSolver>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &[Array2<f64>],
+    backend: &B,
+    kind: SchurReductionKind,
+    ordinal: usize,
+    range: Range<usize>,
+) -> Array2<f64> {
+    let k = sys.k;
+
+    // Build the per-row contribution factors once; both the GPU stacked-GEMM
+    // and the CPU fallback consume them.
+    let mut factors: Vec<(Array2<f64>, Array2<f64>)> = Vec::with_capacity(range.len());
+    let mut total_d = 0usize;
+    for i in range.clone() {
+        let (left, right) =
+            row_schur_contribution_factors(sys, i, &sys.rows[i], &htt_factors[i], backend, kind);
+        total_d += left.nrows();
+        factors.push((left, right));
+    }
+
+    // Stack into (total_d × k) left/right matrices for one device AᵀB GEMM on
+    // this tile's bound ordinal. `try_fast_atb_on_ordinal` returns leftᵀ·right
+    // (k×k); negate into the partial.
+    if total_d > 0 && k > 0 {
+        let mut left_stack = Array2::<f64>::zeros((total_d, k));
+        let mut right_stack = Array2::<f64>::zeros((total_d, k));
+        let mut base = 0usize;
+        for (left, right) in &factors {
+            let di = left.nrows();
+            left_stack
+                .slice_mut(ndarray::s![base..base + di, ..])
+                .assign(left);
+            right_stack
+                .slice_mut(ndarray::s![base..base + di, ..])
+                .assign(right);
+            base += di;
+        }
+        if let Some(product) =
+            crate::gpu::try_fast_atb_on_ordinal(ordinal, left_stack.view(), right_stack.view())
+        {
+            return product.mapv(|v| -v);
+        }
+    }
+
+    // CPU fallback: exact per-row block_gemm_subtract into a zero-seeded partial.
+    let mut partial = Array2::<f64>::zeros((k, k));
+    for (left, right) in &factors {
+        backend.block_gemm_subtract(&mut partial, left, right);
+    }
+    partial
+}
+
+/// Reduce the per-row Schur contributions `Σ_i H_tβ^(i)ᵀ (H_tt^(i))⁻¹ H_tβ^(i)`
+/// out of `schur` (seeded with `H_ββ + ρ_β·I`).
+///
+/// The per-row contributions are independent — exactly the "sum over independent
+/// arrow-tip blocks" axis the device pool partitions. When more than one GPU is
+/// usable, [`crate::gpu::pool::balanced_partition`] splits the `0..n` rows into
+/// per-device contiguous tiles; each tile is reduced on its own scoped thread
+/// (binding that ordinal's context so the per-row GEMM-subtract offloads to its
+/// device) into a private `k×k` partial, and the partials are summed back into
+/// `schur` in tile order. The tiles are contiguous, ordered to cover `0..n`, and
+/// folded back in that same order, so within each tile the per-row accumulation
+/// order is preserved and the only departure from the serial loop is the
+/// inter-tile reassociation of the reduction sum — the established
+/// reduction-order equivalence the device pool already operates under, well
+/// inside the Newton solve's tolerance.
+///
+/// With a single device (or no GPU) the row loop runs serially in place, which
+/// is bit-for-bit the original behaviour.
+fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &[Array2<f64>],
+    backend: &B,
+    kind: SchurReductionKind,
+    schur: &mut Array2<f64>,
+) {
+    let n = sys.rows.len();
+    let k = sys.k;
+
+    let tiles = crate::gpu::runtime::GpuRuntime::global()
+        .map(|rt| crate::gpu::pool::balanced_partition(rt, n))
+        .filter(|tiles| tiles.len() > 1);
+
+    let Some(tiles) = tiles else {
+        // Single-device / CPU: reduce serially in place (original order).
+        for (i, row) in sys.rows.iter().enumerate() {
+            subtract_row_schur_contribution(sys, i, row, &htt_factors[i], backend, kind, schur);
+        }
+        return;
+    };
+
+    // Multi-GPU: one private `-Σ leftᵀ·right` partial per contiguous device
+    // tile. Each tile runs on its own scoped worker thread that binds its
+    // ordinal's context and issues a single stacked AᵀB GEMM on that device, so
+    // the tiles' GEMMs overlap across the pool. Folding the partials back into
+    // the H_ββ-seeded `schur` reproduces the serial reduction (up to inter-tile
+    // reassociation).
+    let partials: Vec<Array2<f64>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = tiles
+            .iter()
+            .map(|(ordinal, range)| {
+                let ordinal = *ordinal;
+                let range = range.clone();
+                scope.spawn(move || {
+                    // Bind this ordinal's CUDA context on this worker thread so
+                    // the per-row GPU GEMM shims issued from `tile_schur_partial`
+                    // offload to that device. A missing context or bind failure
+                    // is intentionally consumed without escalation — the shims
+                    // no-op back to CPU and the math is unchanged. Off Linux
+                    // `GpuRuntime::global()` is always `None`, so this branch
+                    // is unreachable and the bind is omitted entirely.
+                    #[cfg(target_os = "linux")]
+                    {
+                        if let Some(ctx) = crate::gpu::runtime::cuda_context_for(ordinal) {
+                            if ctx.bind_to_thread().is_err() {
+                                // Fall through: this tile reduces on the CPU.
+                            }
+                        }
+                    }
+                    tile_schur_partial(sys, htt_factors, backend, kind, ordinal, range)
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().expect("schur-reduction tile thread panicked"))
+            .collect()
+    });
+
+    // Fold partials into `schur` in tile order (contiguous, covering 0..n) so
+    // the per-tile and inter-tile accumulation order is the row order; each
+    // partial holds `-Σ contribution` over its rows, so `schur += partial`
+    // reproduces `schur -= Σ contribution`.
+    for partial in &partials {
+        for a in 0..k {
+            for b in 0..k {
+                schur[[a, b]] += partial[[a, b]];
+            }
+        }
+    }
+}
+
+fn build_dense_schur_direct<B: BatchedBlockSolver + Sync>(
     sys: &ArrowSchurSystem,
     htt_factors: &[Array2<f64>],
     ridge_beta: f64,
@@ -4240,18 +5112,18 @@ fn build_dense_schur_direct<B: BatchedBlockSolver>(
     for j in 0..k {
         schur[[j, j]] += ridge_beta;
     }
-    for (i, row) in sys.rows.iter().enumerate() {
-        // Materialize the (d, k) cross-block, probing via the matvec when
-        // the dense slab is absent.
-        let htbeta = sys_htbeta_materialize_row(sys, i, row);
-        let solved = backend.solve_block_matrix(&htt_factors[i], &htbeta);
-        backend.block_gemm_subtract(&mut schur, &htbeta, &solved);
-    }
+    reduce_row_schur_contributions(
+        sys,
+        htt_factors,
+        backend,
+        SchurReductionKind::Direct,
+        &mut schur,
+    );
     symmetrize_upper_from_lower(&mut schur);
     Ok(schur)
 }
 
-fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver>(
+fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver + Sync>(
     sys: &ArrowSchurSystem,
     htt_factors: &[Array2<f64>],
     ridge_beta: f64,
@@ -4270,15 +5142,13 @@ fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver>(
     for j in 0..k {
         schur[[j, j]] += ridge_beta;
     }
-    for (i, row) in sys.rows.iter().enumerate() {
-        // Square-Root BA: H_tβ^T H_tt^-1 H_tβ =
-        // (L^-1 H_tβ)^T (L^-1 H_tβ), where H_tt = L L^T.
-        // Materialize the (d, k) cross-block, probing via the matvec when
-        // the dense slab is absent.
-        let htbeta = sys_htbeta_materialize_row(sys, i, row);
-        let whitened = backend.sqrt_solve_block_matrix(&htt_factors[i], &htbeta);
-        backend.block_gemm_subtract(&mut schur, &whitened, &whitened);
-    }
+    reduce_row_schur_contributions(
+        sys,
+        htt_factors,
+        backend,
+        SchurReductionKind::SqrtBa,
+        &mut schur,
+    );
     symmetrize_upper_from_lower(&mut schur);
     Ok(schur)
 }
@@ -6230,6 +7100,40 @@ mod tests {
             (trace - trace_dense).abs() < 1e-9,
             "Kron-block trace {trace} vs dense {trace_dense}"
         );
+
+        // schur_inverse_block must reproduce a contiguous dense sub-block of
+        // (H⁻¹)_ββ — both the full β-block and an interior single-coordinate
+        // window — and be exactly symmetric.
+        let full = cache
+            .schur_inverse_block(0..k)
+            .expect("dense Schur cache must support schur_inverse_block");
+        assert_eq!(full.dim(), (k, k));
+        for r in 0..k {
+            for c in 0..k {
+                let expected = h_inv[[beta_off + r, beta_off + c]];
+                assert!(
+                    (full[[r, c]] - expected).abs() < 1e-9,
+                    "block[{r},{c}] {} vs dense {expected}",
+                    full[[r, c]]
+                );
+                assert!(
+                    (full[[r, c]] - full[[c, r]]).abs() < 1e-12,
+                    "schur_inverse_block must be symmetric at [{r},{c}]"
+                );
+            }
+        }
+        let sub = cache
+            .schur_inverse_block(1..k)
+            .expect("interior block must be supported");
+        assert_eq!(sub.dim(), (k - 1, k - 1));
+        assert!(
+            (sub[[0, 0]] - h_inv[[beta_off + 1, beta_off + 1]]).abs() < 1e-9,
+            "interior block [1,1] {} vs dense {}",
+            sub[[0, 0]],
+            h_inv[[beta_off + 1, beta_off + 1]]
+        );
+        // Out-of-range block must error rather than panic.
+        assert!(cache.schur_inverse_block(0..(k + 1)).is_err());
     }
 
     /// Evidence/log-det mode: a per-row `H_tt` that is PD but ill-conditioned
@@ -6264,7 +7168,9 @@ mod tests {
         // barely-PD blocks fail.
         let (strict_dt, strict_db, strict_cache) =
             solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &ArrowSolveOptions::direct())
-                .expect("default direct() must CONDITION the barely-PD blocks, not reject (gam#578)");
+                .expect(
+                    "default direct() must CONDITION the barely-PD blocks, not reject (gam#578)",
+                );
         for v in strict_dt.iter().chain(strict_db.iter()) {
             assert!(v.is_finite(), "conditioned strict step must be finite: {v}");
         }

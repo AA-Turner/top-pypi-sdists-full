@@ -3,7 +3,7 @@
 from setuptools import setup
 import re
 
-SNOWBALL_VERSION = '3.1.0'
+SNOWBALL_VERSION = '3.1.1'
 
 n_stemmers = 0
 
@@ -60,6 +60,7 @@ classifiers.extend([
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Topic :: Database',

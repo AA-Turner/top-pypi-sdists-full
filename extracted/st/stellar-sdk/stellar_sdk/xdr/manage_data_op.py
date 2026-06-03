@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class ManageDataOp:
     def __init__(
         self,
         data_name: String64,
-        data_value: Optional[DataValue],
+        data_value: DataValue | None,
     ) -> None:
         self.data_name = data_name
         self.data_value = data_value
@@ -92,9 +91,9 @@ class ManageDataOp:
     def to_json_dict(self) -> dict:
         return {
             "data_name": self.data_name.to_json_dict(),
-            "data_value": (
-                self.data_value.to_json_dict() if self.data_value is not None else None
-            ),
+            "data_value": self.data_value.to_json_dict()
+            if self.data_value is not None
+            else None,
         }
 
     @classmethod

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: girder-large-image-annotation
-Version: 1.34.1
+Version: 1.34.2
 Summary: A Girder plugin to store and display annotations on large, multiresolution images.
 Home-page: https://github.com/girder/large_image
 Author: Kitware, Inc.
@@ -18,7 +18,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: jsonschema>=2.5.1
-Requires-Dist: girder-large-image>=1.34.1
+Requires-Dist: girder-large-image>=1.34.2
 Requires-Dist: orjson
 Provides-Extra: compute
 Requires-Dist: openpyxl; extra == "compute"
@@ -26,7 +26,7 @@ Requires-Dist: pandas>=2.2; extra == "compute"
 Requires-Dist: python-calamine; extra == "compute"
 Requires-Dist: umap-learn; extra == "compute"
 Provides-Extra: tasks
-Requires-Dist: girder-large-image[tasks]>=1.34.1; extra == "tasks"
+Requires-Dist: girder-large-image[tasks]>=1.34.2; extra == "tasks"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

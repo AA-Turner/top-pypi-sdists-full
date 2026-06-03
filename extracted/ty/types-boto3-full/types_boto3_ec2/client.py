@@ -325,6 +325,8 @@ from .type_defs import (
     CreateCapacityManagerDataExportResultTypeDef,
     CreateCapacityReservationBySplittingRequestTypeDef,
     CreateCapacityReservationBySplittingResultTypeDef,
+    CreateCapacityReservationCancellationQuoteRequestTypeDef,
+    CreateCapacityReservationCancellationQuoteResultTypeDef,
     CreateCapacityReservationFleetRequestTypeDef,
     CreateCapacityReservationFleetResultTypeDef,
     CreateCapacityReservationRequestTypeDef,
@@ -737,6 +739,8 @@ from .type_defs import (
     DescribeCapacityManagerDataExportsResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
+    DescribeCapacityReservationCancellationQuotesRequestTypeDef,
+    DescribeCapacityReservationCancellationQuotesResultTypeDef,
     DescribeCapacityReservationFleetsRequestTypeDef,
     DescribeCapacityReservationFleetsResultTypeDef,
     DescribeCapacityReservationsRequestTypeDef,
@@ -2440,6 +2444,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_reservation_by_splitting.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_capacity_reservation_by_splitting)
+        """
+
+    def create_capacity_reservation_cancellation_quote(
+        self, **kwargs: Unpack[CreateCapacityReservationCancellationQuoteRequestTypeDef]
+    ) -> CreateCapacityReservationCancellationQuoteResultTypeDef:
+        """
+        Generates a cancellation quote for a future-dated Capacity Reservation that is
+        within its commitment duration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_reservation_cancellation_quote.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_capacity_reservation_cancellation_quote)
         """
 
     def create_capacity_reservation_fleet(
@@ -4662,6 +4677,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_billing_requests.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_capacity_reservation_billing_requests)
+        """
+
+    def describe_capacity_reservation_cancellation_quotes(
+        self, **kwargs: Unpack[DescribeCapacityReservationCancellationQuotesRequestTypeDef]
+    ) -> DescribeCapacityReservationCancellationQuotesResultTypeDef:
+        """
+        Describes one or more Capacity Reservation cancellation quotes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_cancellation_quotes.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_capacity_reservation_cancellation_quotes)
         """
 
     def describe_capacity_reservation_fleets(

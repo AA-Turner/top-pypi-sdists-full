@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-cli
-Version: 0.1.2
+Version: 0.2.0
 Summary: Deployment tooling for Deep Agents - bundle, run, and ship agents to LangGraph Platform.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -27,25 +27,10 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: deepagents>=0.6.1
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: langchain<2.0.0,>=1.3.0
-Requires-Dist: langgraph-cli[inmem]<1.0.0,>=0.4.24
-Requires-Dist: langgraph-runtime-inmem<1.0.0,>=0.28.1
 Requires-Dist: langgraph-sdk<1.0.0,>=0.3.13
 Requires-Dist: langgraph<2.0.0,>=1.2.0
 Requires-Dist: langsmith>=0.8.0
 Requires-Dist: python-dotenv<2.0.0,>=1.2.2
-Provides-Extra: agentcore
-Requires-Dist: langchain-agentcore-codeinterpreter>=0.0.2; extra == 'agentcore'
-Provides-Extra: all-sandboxes
-Requires-Dist: langchain-agentcore-codeinterpreter>=0.0.2; extra == 'all-sandboxes'
-Requires-Dist: langchain-daytona>=0.0.5; extra == 'all-sandboxes'
-Requires-Dist: langchain-modal>=0.0.3; extra == 'all-sandboxes'
-Requires-Dist: langchain-runloop>=0.0.4; extra == 'all-sandboxes'
-Provides-Extra: daytona
-Requires-Dist: langchain-daytona>=0.0.5; extra == 'daytona'
-Provides-Extra: modal
-Requires-Dist: langchain-modal>=0.0.3; extra == 'modal'
-Provides-Extra: runloop
-Requires-Dist: langchain-runloop>=0.0.4; extra == 'runloop'
 Description-Content-Type: text/markdown
 
 # Deep Agents CLI — Deployment Tooling
@@ -56,7 +41,7 @@ Description-Content-Type: text/markdown
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain_oss.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain_oss)
 
 > [!IMPORTANT]
-> **The interactive coding agent moved.** As of `deepagents-cli==0.1.0`, this package contains only the deployment subcommands (`init`, `dev`, `deploy`). The interactive REPL — previously launched via `deepagents` — now ships as [`deepagents-code`](https://docs.langchain.com/oss/python/deepagents/code/overview) (`dcode`).
+> **The interactive coding agent moved.** As of `deepagents-cli==0.1.0`, this package contains only the deployment subcommands (`init`, `dev`, `deploy`). The interactive REPL — previously launched via `deepagents` — now ships as [`deepagents-code`](https://docs.langchain.com/deepagents-code) (`dcode`).
 >
 > ```bash
 > curl -LsSf https://langch.in/dcode | bash
@@ -69,10 +54,13 @@ Description-Content-Type: text/markdown
 uv tool install deepagents-cli
 ```
 
-Or with optional sandbox providers:
+You'll need a LangSmith API key with access to the Managed Deep Agents private
+preview ([waitlist](https://www.langchain.com/langsmith-managed-deep-agents-waitlist)).
+Export it before running any command, or put it in a repo `.env` or
+`~/.deepagents/.env`:
 
 ```bash
-uv tool install 'deepagents-cli[all-sandboxes]'
+export LANGSMITH_API_KEY="..."
 ```
 
 ## Usage
@@ -81,12 +69,63 @@ uv tool install 'deepagents-cli[all-sandboxes]'
 # Scaffold a new project folder
 deepagents init my-agent
 
-# Run a local langgraph dev server against the project
-cd my-agent && deepagents dev
+# Register any MCP servers you intend to use (one-time, per workspace)
+deepagents mcp-servers add --url https://tools.langchain.com \
+                            --header X-Api-Key=$LANGSMITH_API_KEY \
+                            --name Fleet
 
-# Bundle and ship to LangSmith Deployment
-deepagents deploy
+# init scaffolds an empty tools.json. Add tools that reference a registered
+# MCP server's URL (otherwise the agent has no tools), e.g. the Fleet server
+# registered above:
+#   { "name": "read_url_content", "mcp_server_url": "https://tools.langchain.com",
+#     "mcp_server_name": "Fleet", "display_name": "read_url_content" }
+
+# Upsert the project as a managed agent on /v1/deepagents/*
+cd my-agent && deepagents deploy
 ```
+
+`deepagents init` scaffolds an empty `tools.json`, an example skill under
+`skills/`, and an example subagent under `subagents/`; edit or remove them to
+suit your agent. `tools.json` starts empty because every tool must reference an
+MCP server that is already registered in the workspace
+(`deepagents mcp-servers add`) — so a freshly scaffolded project deploys
+without first registering a server.
+
+New agents default to the `default` backend — switch `agent.json`'s
+`backend.type` to `thread_scoped_sandbox` (or `agent_scoped_sandbox`) to opt
+into a managed sandbox. The CLI does not create or run sandboxes locally;
+sandbox lifecycle is handled by the Managed Deep Agents platform.
+
+### Project layout
+
+```text
+my-agent/
+  agent.json              # name, description, backend, runtime.model, permissions
+  AGENTS.md               # system prompt
+  tools.json              # tools the agent can call (optional)
+  skills/<name>/SKILL.md  # frontmatter-tagged skills (optional)
+  subagents/<name>/       # delegated subagent definitions (optional)
+```
+
+### Other commands
+
+```bash
+deepagents agents list                  # list workspace agents
+deepagents agents get <agent_id>        # show one agent
+deepagents agents delete <agent_id>     # delete an agent
+
+deepagents mcp-servers list                  # list workspace MCP servers
+deepagents mcp-servers add --url URL          # register a server
+deepagents mcp-servers get <id|name|url>      # show one server
+deepagents mcp-servers tools <id|name|url>    # list a server's tools
+deepagents mcp-servers update <id|name|url>   # update server URL or headers
+deepagents mcp-servers delete <id|name|url>   # remove a server
+deepagents mcp-servers connect <id|name|url>  # start OAuth for a server
+```
+
+`get`, `update`, `delete`, and `connect` accept an MCP server's id, exact name,
+or URL — a non-id value is resolved against `mcp-servers list` (URLs are matched
+ignoring case and trailing slash).
 
 ## 📖 Resources
 

@@ -21,6 +21,34 @@ class TestPhase:
         assert Phase("plan") == Phase.PLAN
         assert Phase("execute") == Phase.EXECUTE
 
+    def test_custom_phase_dynamic_creation(self):
+        """#453 — custom phase names from extensions.add_phases must not crash."""
+        custom = Phase("security_audit")
+        assert isinstance(custom, Phase)
+        assert custom.value == "security_audit"
+        assert custom == "security_audit"  # str, Enum: compares by value
+
+    def test_custom_phase_not_equal_builtin(self):
+        assert Phase("security_audit") != Phase.PLAN
+        assert Phase("security_audit") != Phase.EXECUTE
+
+    def test_custom_phase_equality(self):
+        assert Phase("security_audit") == Phase("security_audit")
+
+    def test_builtin_phases_unchanged(self):
+        assert list(Phase) == [
+            Phase.PLAN, Phase.PLAN_REVIEW, Phase.QA_SPEC, Phase.SPEC_REVIEW,
+            Phase.EXECUTE, Phase.EVALUATE, Phase.RETROSPECTIVE,
+            Phase.USER_DECISION, Phase.ARCHIVE,
+        ]
+
+    def test_custom_phase_in_task(self):
+        """Task.phase accepts custom Phase without ValueError."""
+        task = Task(id="TASK-001", title="Test", description="Desc",
+                    phase=Phase("security_audit"))
+        assert task.phase_id == "security_audit"
+        assert isinstance(task.phase, Phase)
+
 
 class TestTaskStatus:
     def test_all_statuses_defined(self):

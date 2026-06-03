@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: collect_log
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Collect logs
 description:
    - Collect logs on kaytus Server, it takes about 5 minutes.

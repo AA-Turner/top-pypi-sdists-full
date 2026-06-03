@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_virtual_media
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set virtual media
 description:
    - Set virtual media on kaytus Server.

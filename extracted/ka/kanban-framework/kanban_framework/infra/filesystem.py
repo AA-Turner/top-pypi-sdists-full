@@ -8,7 +8,11 @@ from typing import Any
 class Filesystem:
     def __init__(self, root: Path):
         self._root = Path(root)
-        self._kanban_dir = self._root / ".kanban"
+        # If root already points to .kanban, don't double-nest
+        if self._root.name == ".kanban":
+            self._kanban_dir = self._root
+        else:
+            self._kanban_dir = self._root / ".kanban"
 
     @property
     def root(self) -> Path:

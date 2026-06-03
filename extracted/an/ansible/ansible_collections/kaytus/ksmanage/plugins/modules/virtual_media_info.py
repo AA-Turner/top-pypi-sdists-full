@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: virtual_media_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get Virtual Media information
 description:
    - Get Virtual Media information on kaytus Server.

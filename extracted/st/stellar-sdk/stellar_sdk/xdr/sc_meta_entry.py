@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class SCMetaEntry:
     def __init__(
         self,
         kind: SCMetaKind,
-        v0: Optional[SCMetaV0] = None,
+        v0: SCMetaV0 | None = None,
     ) -> None:
         self.kind = kind
         self.v0 = v0

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_system_lock_mode
 version_added: "2.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set system lock mode information
 description:
    - Set system lock mode information on kaytus Server.

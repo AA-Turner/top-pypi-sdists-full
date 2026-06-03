@@ -29,7 +29,9 @@ pub mod specs_adapter_tests {
         data_store
             .mock_response(DataStoreResponse {
                 time: Some(1),
+                checksum: Some("abcd".to_string()),
                 result: Some("init_payload".to_string()),
+                has_updates: None,
             })
             .await;
 

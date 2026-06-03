@@ -34,6 +34,7 @@ class InfraEnvCreateParams(object):
         'name': 'str',
         'proxy': 'Proxy',
         'additional_ntp_sources': 'str',
+        'ntp_sources': 'str',
         'ssh_authorized_key': 'str',
         'pull_secret': 'str',
         'static_network_config': 'list[HostStaticNetworkConfig]',
@@ -52,6 +53,7 @@ class InfraEnvCreateParams(object):
         'name': 'name',
         'proxy': 'proxy',
         'additional_ntp_sources': 'additional_ntp_sources',
+        'ntp_sources': 'ntp_sources',
         'ssh_authorized_key': 'ssh_authorized_key',
         'pull_secret': 'pull_secret',
         'static_network_config': 'static_network_config',
@@ -66,12 +68,13 @@ class InfraEnvCreateParams(object):
         'network_discovery_delay_seconds': 'network_discovery_delay_seconds'
     }
 
-    def __init__(self, name=None, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, cluster_id=None, openshift_version=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None, network_discovery_delay_seconds=None):  # noqa: E501
+    def __init__(self, name=None, proxy=None, additional_ntp_sources=None, ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, cluster_id=None, openshift_version=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None, network_discovery_delay_seconds=None):  # noqa: E501
         """InfraEnvCreateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
         self._proxy = None
         self._additional_ntp_sources = None
+        self._ntp_sources = None
         self._ssh_authorized_key = None
         self._pull_secret = None
         self._static_network_config = None
@@ -91,6 +94,8 @@ class InfraEnvCreateParams(object):
             self.proxy = proxy
         if additional_ntp_sources is not None:
             self.additional_ntp_sources = additional_ntp_sources
+        if ntp_sources is not None:
+            self.ntp_sources = ntp_sources
         if ssh_authorized_key is not None:
             self.ssh_authorized_key = ssh_authorized_key
         self.pull_secret = pull_secret
@@ -183,6 +188,29 @@ class InfraEnvCreateParams(object):
         """
 
         self._additional_ntp_sources = additional_ntp_sources
+
+    @property
+    def ntp_sources(self):
+        """Gets the ntp_sources of this InfraEnvCreateParams.  # noqa: E501
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for hosts in this infra-env.  # noqa: E501
+
+        :return: The ntp_sources of this InfraEnvCreateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._ntp_sources
+
+    @ntp_sources.setter
+    def ntp_sources(self, ntp_sources):
+        """Sets the ntp_sources of this InfraEnvCreateParams.
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for hosts in this infra-env.  # noqa: E501
+
+        :param ntp_sources: The ntp_sources of this InfraEnvCreateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._ntp_sources = ntp_sources
 
     @property
     def ssh_authorized_key(self):

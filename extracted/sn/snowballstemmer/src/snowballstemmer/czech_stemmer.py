@@ -1,4 +1,4 @@
-# Generated from czech.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from czech.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class CzechStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from czech.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from czech.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "y", "á", "é", "í", "ó", "ú", "ý", "ě", "ů"}
@@ -56,9 +56,6 @@ class CzechStemmer(BaseStemmer):
         self.cursor = v_2
         return True
 
-    def __r_R1(self):
-        return self.I_p1 <= self.cursor
-
     def __r_palatalise_e(self):
         self.ket = self.cursor
         among_var = self.find_among_b(CzechStemmer.a_0)
@@ -85,7 +82,7 @@ class CzechStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.bra = self.cursor
-        if not self.__r_R1():
+        if self.I_p1 > self.cursor:
             return False
         if among_var == 1:
             self.slice_del()
@@ -123,10 +120,7 @@ class CzechStemmer(BaseStemmer):
             except lab0: pass
         elif among_var == 3:
             among_var = self.find_among_b(CzechStemmer.a_3)
-            if among_var == 1:
-                self.slice_del()
-            else:
-                self.slice_from("et")
+            self.slice_from(CzechStemmer.as_3[among_var - 1])
         elif among_var == 4:
             v_4 = self.limit - self.cursor
             if not self.out_grouping_b(CzechStemmer.g_v):
@@ -253,6 +247,7 @@ class CzechStemmer(BaseStemmer):
         Among("ř", 0, 1),
         Among("ž", 0, 1)
     ]
+    as_3 = ("", "et")
 
     a_4 = [
         Among("obl", -1, -1),

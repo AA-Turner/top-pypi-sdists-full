@@ -4,25 +4,288 @@
 # - But please, **do not** interleave utility functions and command definitions.
 
 import re
+import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import click
+import pyperclip
 from click import Context
 from confluent_kafka.admin import AdminClient
 
 from tinybird.tb.client import TinyB
 from tinybird.tb.modules.common import (
     echo_safe_humanfriendly_tables_format_smart_table,
+    get_aws_iamrole_policies,
     get_kafka_connection_name,
     validate_kafka_bootstrap_servers,
+    validate_string_connector_param,
 )
 from tinybird.tb.modules.create import generate_kafka_connection_with_secrets
 from tinybird.tb.modules.exceptions import CLIConnectionException, CLIException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.local_common import get_tinybird_local_client
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 from tinybird.tb.modules.telemetry import add_telemetry_event
+
+# SASL mechanisms that authenticate with a username/password pair (the "key" + "secret"
+# the wizard collects). OAUTHBEARER is intentionally excluded — its credentials come
+# from the AWS IAM role flow, not from a key/secret prompt.
+SASL_MECHANISMS_WITH_CREDENTIALS = ("PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512")
+
+
+def run_kafka_aws_iamrole_connection_flow(
+    config: Dict[str, Any],
+    client: TinyB,
+    connection_name: str,
+    external_id_override: Optional[str] = None,
+) -> Tuple[str, str, str, str, Optional[TinyB], Optional[TinyB]]:
+    """Interactive AWS IAM Role connection flow for Kafka (MSK).
+
+    Walks the user through creating an IAM access policy and role with the trust
+    policy that includes the AWS account IDs of the selected environments
+    (local, cloud, or both), then returns everything the caller needs to write
+    the `.connection` file and store the role ARN as a secret.
+    """
+    service = "kafka"
+
+    msk_cluster_arn = click.prompt(
+        FeedbackManager.highlight(
+            message="? MSK Cluster ARN (e.g., arn:aws:kafka:us-east-1:123456789012:cluster/my-cluster/...)"
+        ),
+        prompt_suffix="\n> ",
+    )
+    validate_string_connector_param("MSK Cluster ARN", msk_cluster_arn)
+
+    # ARN can be either ".../cluster/NAME" or ".../cluster/NAME/UUID"; cluster
+    # name is the second-to-last segment when a UUID is present, otherwise last.
+    if "/" in msk_cluster_arn:
+        arn_parts = msk_cluster_arn.split("/")
+        cluster_name = arn_parts[-2] if len(arn_parts) >= 3 else arn_parts[-1]
+    else:
+        cluster_name = "cluster"
+
+    try:
+        region = msk_cluster_arn.split(":")[3]
+    except (IndexError, AttributeError):
+        region = ""
+
+    if not region or not region.strip():
+        region = click.prompt(
+            FeedbackManager.highlight(message="? Region (the region where the MSK cluster is located)"),
+            default="us-east-1",
+            show_default=True,
+            prompt_suffix="\n> ",
+        )
+    validate_string_connector_param("Region", region)
+
+    cloud_client, local_client = _choose_environments_and_init_clients(config)
+
+    # Policy fetch can fail if the server doesn't have AWS credentials (typical for
+    # tb local) or if the role already exists out-of-band. We don't want that to
+    # abort the wizard — the user can still paste a known role ARN + external_id
+    # at the end. Show a warning and continue with placeholder text so the
+    # walkthrough steps below still display something sensible.
+    try:
+        access_policy, trust_policy, external_id = get_aws_iamrole_policies(
+            client,
+            service=service,
+            policy="read",
+            bucket=msk_cluster_arn,
+            external_id_seed=connection_name,
+            cloud_client=cloud_client,
+            local_client=local_client,
+        )
+    except Exception as e:
+        click.echo(
+            FeedbackManager.warning(
+                message=(
+                    f"⚠ Could not auto-generate IAM policies from Tinybird ({e}). "
+                    "Continuing anyway — you can still paste a pre-existing Role ARN + External ID below."
+                )
+            )
+        )
+        access_policy = "<could not generate — see your AWS admin or use an existing policy>"
+        trust_policy = "<could not generate — see your AWS admin or use an existing role>"
+        external_id = ""
+
+    click.echo(FeedbackManager.gray(message="\n» Step 1: AWS Authentication"))
+    click.echo(
+        FeedbackManager.info(
+            message="Please log into your AWS Console. We'll guide you through creating the necessary permissions: https://console.aws.amazon.com/"
+        )
+    )
+    click.echo(
+        FeedbackManager.info(
+            message="You'll be creating a single IAM Policy and Role to access your Kafka data. Using IAM Roles improves security by providing temporary credentials and following least privilege principles."
+        )
+    )
+    click.echo(FeedbackManager.click_enter_to_continue())
+    input()
+
+    access_policy_copied = False
+    try:
+        pyperclip.copy(access_policy)
+        access_policy_copied = True
+    except Exception:
+        pass
+
+    click.echo(FeedbackManager.gray(message="» Step 2: Create IAM Policy"))
+    click.echo(
+        FeedbackManager.info(
+            message=f"1. Go to AWS IAM > Create Policy: https://console.aws.amazon.com/iamv2/home?region={region}#/policies/create"
+        )
+    )
+    click.echo(FeedbackManager.info(message="2. Select the JSON tab"))
+    if access_policy_copied:
+        click.echo(FeedbackManager.info(message="3. Paste the following policy (already copied to clipboard):"))
+    else:
+        click.echo(FeedbackManager.info(message="3. Copy and paste the following policy:"))
+    click.echo(FeedbackManager.highlight(message=f"\n{access_policy}\n"))
+    click.echo(
+        FeedbackManager.info(
+            message=f"4. Name the policy something meaningful (e.g., TinybirdKafkaAccess-{cluster_name})"
+        )
+    )
+    click.echo(FeedbackManager.info(message="5. Click 'Create policy'"))
+    click.echo(FeedbackManager.click_enter_to_continue())
+    input()
+
+    trust_policy_copied = False
+    try:
+        pyperclip.copy(trust_policy)
+        trust_policy_copied = True
+    except Exception:
+        pass
+
+    click.echo(FeedbackManager.gray(message="» Step 3: Create IAM Role"))
+    click.echo(
+        FeedbackManager.info(
+            message=f"1. Go to AWS IAM > Create Role: https://console.aws.amazon.com/iamv2/home?region={region}#/roles/create"
+        )
+    )
+    click.echo(FeedbackManager.info(message='2. Choose "Custom trust policy"'))
+    if trust_policy_copied:
+        click.echo(FeedbackManager.info(message="3. Paste the following trust policy (already copied to clipboard):"))
+    else:
+        click.echo(FeedbackManager.info(message="3. Paste the following trust policy:"))
+    click.echo(FeedbackManager.highlight(message=f"\n{trust_policy}\n"))
+    click.echo(FeedbackManager.info(message="4. Click Next, search for and select the policy you just created"))
+    click.echo(
+        FeedbackManager.info(message=f"5. Name the role something meaningful (e.g., TinybirdKafkaRole-{cluster_name})")
+    )
+    click.echo(FeedbackManager.info(message="6. Click 'Create role'"))
+    click.echo(FeedbackManager.info(message="7. Copy the Role ARN from the role details page"))
+
+    role_arn = click.prompt(
+        FeedbackManager.highlight(message="? Please enter the ARN of the role you just created"),
+        show_default=False,
+    )
+    validate_string_connector_param("Role ARN", role_arn)
+
+    # Allow a pre-shared external_id (e.g. when the role's trust policy was set up
+    # out-of-band with a specific External ID agreed between the cluster owner and
+    # Tinybird). Flag wins; otherwise prompt; empty answer keeps the server-generated one.
+    if external_id_override and external_id_override.strip():
+        external_id = external_id_override.strip()
+    else:
+        provided = click.prompt(
+            FeedbackManager.highlight(
+                message="? External ID (optional, leave blank to use the Tinybird-generated one shown in the trust policy above)"
+            ),
+            default="",
+            show_default=False,
+        )
+        if provided and provided.strip():
+            external_id = provided.strip()
+
+    return role_arn, region, external_id, msk_cluster_arn, cloud_client, local_client
+
+
+def _choose_environments_and_init_clients(
+    config: Dict[str, Any],
+) -> Tuple[Optional[TinyB], Optional[TinyB]]:
+    """Ask the user which environments the connection targets and initialize the
+    corresponding clients (used to create the role-ARN secret in both)."""
+    click.echo(
+        FeedbackManager.highlight(
+            message="? Which environments will use this connection? (the role-ARN secret will be created in the selected envs)"
+        )
+    )
+    click.echo("  [1] Local only")
+    click.echo("  [2] Cloud only")
+    click.echo("  [3] Both")
+    env_choice = click.prompt("\nSelect option", default=3, type=int)
+
+    if env_choice == 1:
+        use_local, use_cloud = True, False
+    elif env_choice == 2:
+        use_local, use_cloud = False, True
+    else:
+        if env_choice != 3:
+            click.echo(FeedbackManager.warning(message="Invalid option. Defaulting to 'Both'."))
+        use_local, use_cloud = True, True
+
+    local_client: Optional[TinyB] = None
+    cloud_client: Optional[TinyB] = None
+
+    if use_local:
+        try:
+            local_client, _ = get_tinybird_local_client(config)
+        except Exception as e:
+            click.echo(FeedbackManager.warning(message=f"Failed to initialize local client: {e}"))
+
+    if use_cloud:
+        try:
+            cloud_client = TinyB(token=config.get("token", ""), host=config.get("host", ""), staging=False)
+        except Exception as e:
+            click.echo(FeedbackManager.warning(message=f"Failed to initialize cloud client: {e}"))
+
+    return cloud_client, local_client
+
+
+def run_kafka_aws_iamrole_existing_role_flow(
+    config: Dict[str, Any],
+    external_id_override: Optional[str] = None,
+) -> Tuple[str, str, str, str, Optional[TinyB], Optional[TinyB]]:
+    """Fast path for users who already have an IAM role configured for MSK.
+
+    Skips the policy fetch and the AWS Console walkthrough entirely. Collects
+    region + role ARN + external ID + env choice for secret storage.
+    """
+    region = click.prompt(
+        FeedbackManager.highlight(message="? AWS region of the MSK cluster"),
+        default="us-east-1",
+        show_default=True,
+    )
+    validate_string_connector_param("Region", region)
+
+    role_arn = click.prompt(
+        FeedbackManager.highlight(message="? IAM Role ARN to assume for MSK"),
+        show_default=False,
+    )
+    validate_string_connector_param("Role ARN", role_arn)
+
+    external_id = ""
+    if external_id_override and external_id_override.strip():
+        external_id = external_id_override.strip()
+    else:
+        provided = click.prompt(
+            FeedbackManager.highlight(
+                message="? External ID (leave blank to let Tinybird derive one from the workspace)"
+            ),
+            default="",
+            show_default=False,
+        )
+        if provided and provided.strip():
+            external_id = provided.strip()
+
+    cloud_client, local_client = _choose_environments_and_init_clients(config)
+
+    # msk_cluster_arn is never written to the .connection file — return "" since
+    # the caller ignores it on this code path.
+    return role_arn, region, external_id, "", cloud_client, local_client
 
 
 def connection_create_kafka(
@@ -36,10 +299,12 @@ def connection_create_kafka(
     sasl_mechanism: Optional[str] = None,
     security_protocol: Optional[str] = None,
     ssl_ca_pem: Optional[str] = None,
+    oauthbearer_aws_external_id: Optional[str] = None,
 ) -> dict[str, Any]:
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     click.echo(FeedbackManager.gray(message="\n» Creating Kafka connection..."))
     project: Project = ctx.ensure_object(dict)["project"]
+    client: TinyB = ctx.ensure_object(dict)["client"]
     name = get_kafka_connection_name(project.folder, connection_name)
     error: Optional[str] = None
 
@@ -81,40 +346,6 @@ def connection_create_kafka(
         except Exception as e:
             raise CLIConnectionException(FeedbackManager.error(message=str(e)))
 
-    key = click.prompt(FeedbackManager.highlight(message="? Kafka key"))
-
-    assert isinstance(key, str)
-
-    secret_required = click.confirm(
-        FeedbackManager.info(message="  ? Do you want to store the Kafka key in a .env.local file? [Y/n]"),
-        default=True,
-        show_default=False,
-    )
-
-    if secret_required:
-        tb_secret_key = str(click.prompt(FeedbackManager.info(message="    ? Secret name")))
-        try:
-            save_secret_to_env_file(project=project, name=tb_secret_key, value=key)
-        except Exception as e:
-            raise CLIConnectionException(FeedbackManager.error(message=str(e)))
-
-    secret = secret or click.prompt(FeedbackManager.highlight(message="? Kafka secret"), hide_input=True)
-
-    assert isinstance(secret, str)
-
-    secret_required = click.confirm(
-        FeedbackManager.info(message="  ? Do you want to store the Kafka secret in a .env.local file? [Y/n]"),
-        default=True,
-        show_default=False,
-    )
-
-    if secret_required:
-        tb_secret_secret = str(click.prompt(FeedbackManager.info(message="    ? Secret name")))
-        try:
-            save_secret_to_env_file(project=project, name=tb_secret_secret, value=secret)
-        except Exception as e:
-            raise CLIConnectionException(FeedbackManager.error(message=str(e)))
-
     security_protocol_options = ["SASL_SSL", "SASL_PLAINTEXT", "PLAINTEXT"]
     security_protocol = security_protocol or click.prompt(
         FeedbackManager.highlight(message="? Security Protocol (SASL_SSL, SASL_PLAINTEXT, PLAINTEXT) [SASL_SSL]"),
@@ -127,17 +358,132 @@ def connection_create_kafka(
     if security_protocol not in security_protocol_options:
         raise CLIConnectionException(FeedbackManager.error(message=f"Invalid security protocol: {security_protocol}"))
 
-    sasl_mechanism_options = ["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"]
-    sasl_mechanism = sasl_mechanism or click.prompt(
-        FeedbackManager.highlight(message="? SASL Mechanism (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512) [PLAIN]"),
-        type=click.Choice(sasl_mechanism_options),
-        show_default=False,
-        show_choices=False,
-        default="PLAIN",
-    )
+    kafka_sasl_oauthbearer_method: Optional[str] = None
+    kafka_sasl_oauthbearer_aws_region: Optional[str] = None
+    kafka_sasl_oauthbearer_aws_role_arn: Optional[str] = None
+    kafka_sasl_oauthbearer_aws_external_id: Optional[str] = None
+    tb_secret_aws_role_arn: Optional[str] = None
+    # Track if the role-ARN secret was already created in cloud during the OAUTHBEARER
+    # flow so we don't prompt the user a second time in the cloud-secrets block below.
+    aws_role_arn_secret_created_in_cloud = False
 
-    if sasl_mechanism not in sasl_mechanism_options:
-        raise CLIConnectionException(FeedbackManager.error(message=f"Invalid SASL mechanism: {sasl_mechanism}"))
+    # PLAINTEXT doesn't use SASL, so skip the mechanism prompt entirely.
+    if security_protocol == "PLAINTEXT":
+        sasl_mechanism = None
+    else:
+        sasl_mechanism_options = ["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "OAUTHBEARER"]
+        sasl_mechanism = sasl_mechanism or click.prompt(
+            FeedbackManager.highlight(
+                message="? SASL Mechanism (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, OAUTHBEARER) [PLAIN]"
+            ),
+            type=click.Choice(sasl_mechanism_options),
+            show_default=False,
+            show_choices=False,
+            default="PLAIN",
+        )
+        if sasl_mechanism not in sasl_mechanism_options:
+            raise CLIConnectionException(FeedbackManager.error(message=f"Invalid SASL mechanism: {sasl_mechanism}"))
+
+    if sasl_mechanism == "OAUTHBEARER":
+        kafka_sasl_oauthbearer_method = "AWS"
+
+        # Fast-path for users who already have the IAM role + trust policy set up
+        # (common: the role is owned by the same team as the MSK cluster and the
+        # external_id was pre-shared). Skips policy fetch + AWS Console walkthrough.
+        has_existing_role = click.confirm(
+            FeedbackManager.highlight(
+                message="? Do you already have an IAM role configured for this MSK cluster? [y/N]"
+            ),
+            default=False,
+            show_default=False,
+        )
+
+        if has_existing_role:
+            (
+                kafka_sasl_oauthbearer_aws_role_arn,
+                kafka_sasl_oauthbearer_aws_region,
+                kafka_sasl_oauthbearer_aws_external_id,
+                _,
+                cloud_client,
+                local_client,
+            ) = run_kafka_aws_iamrole_existing_role_flow(
+                config=obj["config"],
+                external_id_override=oauthbearer_aws_external_id,
+            )
+        else:
+            (
+                kafka_sasl_oauthbearer_aws_role_arn,
+                kafka_sasl_oauthbearer_aws_region,
+                kafka_sasl_oauthbearer_aws_external_id,
+                _,
+                cloud_client,
+                local_client,
+            ) = run_kafka_aws_iamrole_connection_flow(
+                config=obj["config"],
+                client=client,
+                connection_name=name,
+                external_id_override=oauthbearer_aws_external_id,
+            )
+
+        # Auto-store the role ARN as a secret (in local + cloud per the user's choice
+        # of environments) so the .connection file can reference it via tb_secret().
+        unique_suffix = uuid.uuid4().hex[:8]
+        secret_name = f"kafka_role_arn_{name}_{unique_suffix}"
+        secret_created = False
+
+        if local_client and kafka_sasl_oauthbearer_aws_role_arn:
+            try:
+                save_secret_to_env_file(project=project, name=secret_name, value=kafka_sasl_oauthbearer_aws_role_arn)
+                secret_created = True
+            except Exception as e:
+                click.echo(FeedbackManager.warning(message=f"Failed to create secret in local: {e}"))
+
+        if cloud_client and kafka_sasl_oauthbearer_aws_role_arn:
+            try:
+                cloud_client.create_secret(name=secret_name, value=kafka_sasl_oauthbearer_aws_role_arn)
+                secret_created = True
+                aws_role_arn_secret_created_in_cloud = True
+            except Exception as e:
+                click.echo(FeedbackManager.warning(message=f"Failed to create secret in cloud: {e}"))
+
+        if secret_created:
+            tb_secret_aws_role_arn = secret_name
+        else:
+            click.echo(
+                FeedbackManager.warning(
+                    message="No secrets were created. The role ARN will be stored directly in the connection file."
+                )
+            )
+
+    # PLAIN/SCRAM still need a username + password.
+    if sasl_mechanism in SASL_MECHANISMS_WITH_CREDENTIALS:
+        key = key or click.prompt(FeedbackManager.highlight(message="? Kafka key"))
+        assert isinstance(key, str)
+
+        if click.confirm(
+            FeedbackManager.info(message="  ? Do you want to store the Kafka key in a .env.local file? [Y/n]"),
+            default=True,
+            show_default=False,
+        ):
+            tb_secret_key = str(click.prompt(FeedbackManager.info(message="    ? Secret name")))
+            try:
+                save_secret_to_env_file(project=project, name=tb_secret_key, value=key)
+            except Exception as e:
+                raise CLIConnectionException(FeedbackManager.error(message=str(e)))
+
+        secret = secret or click.prompt(FeedbackManager.highlight(message="? Kafka secret"), hide_input=True)
+        assert isinstance(secret, str)
+
+        if click.confirm(
+            FeedbackManager.info(message="  ? Do you want to store the Kafka secret in a .env.local file? [Y/n]"),
+            default=True,
+            show_default=False,
+        ):
+            tb_secret_secret = str(click.prompt(FeedbackManager.info(message="    ? Secret name")))
+            try:
+                save_secret_to_env_file(project=project, name=tb_secret_secret, value=secret)
+            except Exception as e:
+                raise CLIConnectionException(FeedbackManager.error(message=str(e)))
 
     if not schema_registry_url:
         schema_registry_url = click.prompt(
@@ -168,6 +514,15 @@ def connection_create_kafka(
                 except Exception as e:
                     raise CLIConnectionException(FeedbackManager.error(message=str(e)))
 
+    # Skip the role-ARN secret in this check if it was already created in cloud
+    # by the OAUTHBEARER flow above.
+    has_secrets_needing_cloud_creation = (
+        tb_secret_bootstrap_servers
+        or tb_secret_key
+        or tb_secret_secret
+        or tb_secret_ssl_ca_pem
+        or (tb_secret_aws_role_arn and not aws_role_arn_secret_created_in_cloud)
+    )
     create_in_cloud = (
         click.confirm(
             FeedbackManager.highlight(
@@ -176,8 +531,7 @@ def connection_create_kafka(
             default=True,
             show_default=False,
         )
-        if obj["env"] == "local"
-        and (tb_secret_bootstrap_servers or tb_secret_key or tb_secret_secret or tb_secret_ssl_ca_pem)
+        if obj["env"] == "local" and has_secrets_needing_cloud_creation
         else False
     )
 
@@ -194,24 +548,36 @@ def connection_create_kafka(
         )
         if tb_secret_bootstrap_servers:
             prod_client.create_secret(name=tb_secret_bootstrap_servers, value=bootstrap_servers)
-        if tb_secret_key:
+        # tb_secret_key/tb_secret_secret are only set in the PLAIN/SCRAM branch,
+        # where key/secret are guaranteed strings.
+        if tb_secret_key and key is not None:
             prod_client.create_secret(name=tb_secret_key, value=key)
-        if tb_secret_secret:
+        if tb_secret_secret and secret is not None:
             prod_client.create_secret(name=tb_secret_secret, value=secret)
         if tb_secret_ssl_ca_pem and ssl_ca_pem:
             prod_client.create_secret(name=tb_secret_ssl_ca_pem, value=ssl_ca_pem)
+        if tb_secret_aws_role_arn and kafka_sasl_oauthbearer_aws_role_arn and not aws_role_arn_secret_created_in_cloud:
+            prod_client.create_secret(name=tb_secret_aws_role_arn, value=kafka_sasl_oauthbearer_aws_role_arn)
         click.echo(FeedbackManager.success(message="✓ Secrets created!"))
 
-    click.echo(FeedbackManager.gray(message="» Validating connection..."))
-
     topics: list[str] = []
-    try:
-        topics = list_kafka_topics(bootstrap_servers, key, secret, security_protocol, sasl_mechanism, ssl_ca_pem)
-        click.echo(FeedbackManager.success(message="✓ Connection is valid"))
-    except Exception as e:
-        error = str(e)
-        click.echo(FeedbackManager.error(message=f"Connection is not valid: {e}"))
-        add_telemetry_event("connection_error", error=error)
+    if sasl_mechanism in SASL_MECHANISMS_WITH_CREDENTIALS:
+        click.echo(FeedbackManager.gray(message="» Validating connection..."))
+        try:
+            assert key is not None and secret is not None
+            topics = list_kafka_topics(bootstrap_servers, key, secret, security_protocol, sasl_mechanism, ssl_ca_pem)
+            click.echo(FeedbackManager.success(message="✓ Connection is valid"))
+        except Exception as e:
+            error = str(e)
+            click.echo(FeedbackManager.error(message=f"Connection is not valid: {e}"))
+            add_telemetry_event("connection_error", error=error)
+    else:
+        # OAUTHBEARER (no AWS creds locally) and PLAINTEXT defer validation to deploy-time.
+        click.echo(
+            FeedbackManager.info(
+                message=f"⚠ Skipping local validation for {sasl_mechanism or 'PLAINTEXT'}. The connection will be validated on deploy."
+            )
+        )
 
     generate_kafka_connection_with_secrets(
         name=name,
@@ -226,6 +592,11 @@ def connection_create_kafka(
         ssl_ca_pem=ssl_ca_pem,
         tb_secret_ssl_ca_pem=tb_secret_ssl_ca_pem,
         schema_registry_url=schema_registry_url,
+        kafka_sasl_oauthbearer_method=kafka_sasl_oauthbearer_method,
+        kafka_sasl_oauthbearer_aws_region=kafka_sasl_oauthbearer_aws_region,
+        kafka_sasl_oauthbearer_aws_role_arn=kafka_sasl_oauthbearer_aws_role_arn,
+        kafka_sasl_oauthbearer_aws_external_id=kafka_sasl_oauthbearer_aws_external_id,
+        tb_secret_aws_role_arn=tb_secret_aws_role_arn,
         folder=project.folder,
     )
     click.echo(FeedbackManager.info_file_created(file=f"connections/{name}.connection"))

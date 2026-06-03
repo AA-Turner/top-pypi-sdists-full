@@ -180,7 +180,8 @@ class KnowledgeManager:
     def add_entry(self, *, domain, category, title, content,
                   tags=None, severity="medium", source=None, code_example="",
                   status="active", upsert=False, ttl_days=None,
-                  entry_type="knowledge", steps=None, benchmark=None):
+                  entry_type="knowledge", steps=None, benchmark=None,
+                  biz_context=None):
         if not title.strip() and not content.strip():
             raise ValueError("at least title or content is required")
         if len(content) > self.MAX_CONTENT_LENGTH:
@@ -215,32 +216,34 @@ class KnowledgeManager:
             self._conn.execute(
                 """UPDATE entries SET category=?, content=?, content_segmented=?,
                    embedding=?, code_example=?, tags=?, source=?, severity=?,
-                   status=?, updated_at=?, stale_at=?, type=?, steps=?, benchmark=?
+                   status=?, updated_at=?, stale_at=?, type=?, steps=?, benchmark=?,
+                   biz_context=?
                    WHERE id=?""",
                 (category, content, segmented, None, code_example,
                  json.dumps(tags), json.dumps(source), severity, status, now,
                  stale_at, entry_type, json.dumps(steps) if steps else None,
-                 json.dumps(benchmark) if benchmark else None, existing[0]),
+                 json.dumps(benchmark) if benchmark else None,
+                 biz_context, existing[0]),
             )
             self._conn.commit()
             entry = self.get_entry(existing[0])
-            _defer_embed_and_chroma_impl(self, existing[0], title, content, domain, category, status)
+            _defer_embed_and_chroma_impl(self, existing[0], title, content, domain, category, status, biz_context=biz_context)
             return entry
 
         eid = self._next_id()
         self._conn.execute(
             """INSERT INTO entries(id, domain, category, title, content, content_segmented,
                embedding, code_example, tags, source, severity, status,
-               created_at, updated_at, stale_at, type, steps, benchmark)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               created_at, updated_at, stale_at, type, steps, benchmark, biz_context)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (eid, domain, category, title, content, segmented, None, code_example,
              json.dumps(tags), json.dumps(source), severity, status, now, now, stale_at,
              entry_type, json.dumps(steps) if steps else None,
-             json.dumps(benchmark) if benchmark else None),
+             json.dumps(benchmark) if benchmark else None, biz_context),
         )
         self._conn.commit()
         entry = self.get_entry(eid)
-        _defer_embed_and_chroma_impl(self, eid, title, content, domain, category, status)
+        _defer_embed_and_chroma_impl(self, eid, title, content, domain, category, status, biz_context=biz_context)
         return entry
 
     def get_entry(self, entry_id):
@@ -290,7 +293,7 @@ class KnowledgeManager:
         if not entry:
             raise ValueError(f"entry {entry_id} not found")
         allowed = {"status", "severity", "domain", "category", "title", "content",
-                   "tags", "code_example", "benchmark"}
+                   "tags", "code_example", "benchmark", "biz_context", "effectiveness"}
         for key, value in kwargs.items():
             if key not in allowed:
                 raise ValueError(f"cannot update field: {key}")
@@ -303,7 +306,7 @@ class KnowledgeManager:
         self._conn.commit()
         return self.get_entry(entry_id) or {}
 
-    def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0):
+    def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0, biz_context=None):
         conditions = []
         params = []
         if domain:
@@ -315,6 +318,9 @@ class KnowledgeManager:
         if status:
             conditions.append("status = ?")
             params.append(status)
+        if biz_context:
+            conditions.append("(biz_context IS NULL OR biz_context LIKE ?)")
+            params.append(f"%{biz_context}%")
         where = " AND ".join(conditions) if conditions else "1=1"
         query = f"SELECT * FROM entries WHERE {where} ORDER BY id LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -323,10 +329,10 @@ class KnowledgeManager:
 
     # ── Public search methods ─────────────────────────────────────────────
 
-    def search(self, keyword, domain=None, limit=20):
+    def search(self, keyword, domain=None, limit=20, biz_context=None):
         if not keyword:
             return []
-        results = self._backend.search(keyword, limit=limit) if self._backend else self._search_fts(keyword, limit=limit)
+        results = self._backend.search(keyword, limit=limit, biz_context=biz_context) if self._backend else self._search_fts(keyword, limit=limit, biz_context=biz_context)
         if domain:
             results = [r for r in results if r.get("domain") == domain]
         _tag_source(results)
@@ -353,22 +359,23 @@ class KnowledgeManager:
         ).fetchall()
         return [self._row_to_dict(r) for r in rows]
 
-    def search_semantic(self, query: str, limit: int = 20) -> list[dict]:
+    def search_semantic(self, query: str, limit: int = 20, biz_context: str | None = None) -> list[dict]:
         if self._backend is not None:
-            results = self._backend.search_semantic(query, limit=limit)
+            results = self._backend.search_semantic(query, limit=limit, biz_context=biz_context)
         else:
-            results = self._search_semantic(query, limit=limit)
+            results = self._search_semantic(query, limit=limit, biz_context=biz_context)
         _tag_source(results)
         return results
 
     def search_hybrid(self, keyword: str, limit: int = 20,
-                      score_threshold: float | None = None) -> list[dict]:
+                      score_threshold: float | None = None,
+                      biz_context: str | None = None) -> list[dict]:
         if score_threshold is None:
             score_threshold = DEFAULT_SCORE_THRESHOLD
         if self._backend is not None:
-            results = self._backend.search_hybrid(keyword, limit=limit * 2)
+            results = self._backend.search_hybrid(keyword, limit=limit * 2, biz_context=biz_context)
         else:
-            results = self._search_hybrid(keyword, limit=limit * 2)
+            results = self._search_hybrid(keyword, limit=limit * 2, biz_context=biz_context)
         if score_threshold > 0:
             results = [r for r in results
                        if r.get("relevance", 0) >= score_threshold]
@@ -377,14 +384,14 @@ class KnowledgeManager:
 
     # ── Internal search delegates (called by BuiltinBackend) ──────────────
 
-    def _search_fts(self, keyword, limit=20):
-        return _search_fts_impl(self, keyword, limit=limit)
+    def _search_fts(self, keyword, limit=20, *, biz_context=None):
+        return _search_fts_impl(self, keyword, limit=limit, biz_context=biz_context)
 
-    def _search_semantic(self, query, limit=20):
-        return _search_semantic_impl(self, query, limit=limit)
+    def _search_semantic(self, query, limit=20, *, biz_context=None):
+        return _search_semantic_impl(self, query, limit=limit, biz_context=biz_context)
 
-    def _search_hybrid(self, keyword, limit=20):
-        return _search_hybrid_impl(self, keyword, limit=limit)
+    def _search_hybrid(self, keyword, limit=20, *, biz_context=None):
+        return _search_hybrid_impl(self, keyword, limit=limit, biz_context=biz_context)
 
     def _ensure_chroma(self):
         return _ensure_chroma_impl(self)
@@ -403,11 +410,11 @@ class KnowledgeManager:
 
     def _list_entries_internal(
         self, domain=None, category=None, status="active",
-        limit=50, offset=0,
+        limit=50, offset=0, biz_context=None,
     ) -> list[dict]:
         return self.list_entries(
             domain=domain, category=category, status=status,
-            limit=limit, offset=offset,
+            limit=limit, offset=offset, biz_context=biz_context,
         )
 
     def _get_entry_internal(self, entry_id: str) -> dict | None:
@@ -418,13 +425,55 @@ class KnowledgeManager:
 
     # ── Intent-based search ───────────────────────────────────────────────
 
-    def search_by_intent(self, intent: str, query: str, limit: int = 20, **context) -> list[dict]:
-        return _search_by_intent_impl(self, intent, query, limit=limit, **context)
+    def search_by_intent(self, intent: str, query: str, limit: int = 20, *, biz_context: str | None = None, **context) -> list[dict]:
+        return _search_by_intent_impl(self, intent, query, limit=limit, biz_context=biz_context, **context)
 
     # ── Management methods (thin delegates) ───────────────────────────────
 
     def record_usage(self, entry_id, task_id):
         _record_usage_impl(self, entry_id, task_id)
+
+    def update_effectiveness(self, entry_id: str, task_id: str,
+                             score: float, phase: str = "") -> None:
+        """Record a positive or negative effectiveness signal for a knowledge entry.
+
+        Stores result in the entry's effectiveness JSON field:
+        {"positive": N, "negative": M, "history": [{task_id, score, phase, ts}]}
+        """
+        entry = self.get_entry(entry_id)
+        if not entry:
+            return
+        eff = entry.get("effectiveness")
+        if isinstance(eff, str):
+            try:
+                eff = json.loads(eff)
+            except (json.JSONDecodeError, TypeError):
+                eff = None
+        if not isinstance(eff, dict):
+            eff = {"positive": 0, "negative": 0, "history": []}
+
+        PASS_THRESHOLD = 8.0
+        if score >= PASS_THRESHOLD:
+            eff["positive"] = eff.get("positive", 0) + 1
+        else:
+            eff["negative"] = eff.get("negative", 0) + 1
+
+        from datetime import datetime, timezone
+        eff["history"].append({
+            "task_id": task_id, "score": score, "phase": phase,
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
+        # Keep last 20 history entries
+        if len(eff["history"]) > 20:
+            eff["history"] = eff["history"][-20:]
+
+        total = eff["positive"] + eff["negative"]
+        eff["score"] = round(eff["positive"] / total, 3) if total > 0 else None
+        self._conn.execute(
+            "UPDATE entries SET effectiveness=? WHERE id=?",
+            (json.dumps(eff, ensure_ascii=False), entry_id),
+        )
+        self._conn.commit()
 
     def mark_stale_entries(self):
         return _mark_stale_entries_impl(self)

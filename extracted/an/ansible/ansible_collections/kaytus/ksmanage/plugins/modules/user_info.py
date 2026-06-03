@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: user_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get user information
 description:
    - Get user information on kaytus Server.

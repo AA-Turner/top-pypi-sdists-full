@@ -41,6 +41,7 @@ __all__ = (
     "AmdSevSnpSpecificationType",
     "AnalysisStatusType",
     "ApplianceModeSupportValueType",
+    "ApplyCancellationChargesType",
     "ArchitectureTypeType",
     "ArchitectureValuesType",
     "AsnAssociationStateType",
@@ -78,6 +79,7 @@ __all__ = (
     "CapacityManagerMonitoredTagKeyStatusType",
     "CapacityManagerStatusType",
     "CapacityReservationBillingRequestStatusType",
+    "CapacityReservationCancellationQuoteStateType",
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
     "CapacityReservationInstancePlatformType",
@@ -737,13 +739,14 @@ AllocationStrategyType = Literal[
     "lowestPrice",
     "priceCapacityOptimized",
 ]
-AllocationTypeType = Literal["future", "used"]
+AllocationTypeType = Literal["cancelling", "future", "used"]
 AllowedImagesSettingsDisabledStateType = Literal["disabled"]
 AllowedImagesSettingsEnabledStateType = Literal["audit-mode", "enabled"]
 AllowsMultipleInstanceTypesType = Literal["off", "on"]
 AmdSevSnpSpecificationType = Literal["disabled", "enabled"]
 AnalysisStatusType = Literal["failed", "running", "succeeded"]
 ApplianceModeSupportValueType = Literal["disable", "enable"]
+ApplyCancellationChargesType = Literal["commitment-wind-down"]
 ArchitectureTypeType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
 ArchitectureValuesType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
 AsnAssociationStateType = Literal[
@@ -838,6 +841,7 @@ CapacityManagerStatusType = Literal["disabled", "enabled"]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
 ]
+CapacityReservationCancellationQuoteStateType = Literal["active", "expired", "pending"]
 CapacityReservationDeliveryPreferenceType = Literal["fixed", "incremental"]
 CapacityReservationFleetStateType = Literal[
     "active",
@@ -875,6 +879,7 @@ CapacityReservationStateType = Literal[
     "active",
     "assessing",
     "cancelled",
+    "cancelling",
     "delayed",
     "expired",
     "failed",
@@ -3030,6 +3035,7 @@ ResourceTypeType = Literal[
     "capacity-block",
     "capacity-manager-data-export",
     "capacity-reservation",
+    "capacity-reservation-cancellation-quote",
     "capacity-reservation-fleet",
     "carrier-gateway",
     "client-vpn-endpoint",
@@ -3799,6 +3805,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -3826,6 +3833,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

@@ -58,7 +58,8 @@ def rollback_step(fs: Filesystem, task_id: str, target_step_id: str) -> dict:
     lightweight = task_data.get("lightweight", False)
     quick = task_data.get("mode") == "quick"
 
-    dag = build_step_dag(lightweight=lightweight, quick=quick)
+    dag = build_step_dag(lightweight=lightweight, quick=quick,
+                         mode=task_data.get("mode"))
     all_step_ids = [s["id"] for s in dag["steps"]]
 
     try:

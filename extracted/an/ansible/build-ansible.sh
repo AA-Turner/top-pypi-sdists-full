@@ -5,8 +5,8 @@
 
 set -e
 
-VERSION="13.7.0"
-MAJOR="13"
+VERSION="14.0.0"
+MAJOR="14"
 
 # For idempotency, remove build data or built output first
 rm -rf ansible-build-data built

@@ -31,6 +31,8 @@ from .literals import (
     ClusterModeType,
     DataTieringStatusType,
     DestinationTypeType,
+    DurabilityType,
+    EffectiveDurabilityType,
     InputAuthenticationTypeType,
     IpDiscoveryType,
     LogDeliveryConfigurationStatusType,
@@ -46,6 +48,7 @@ from .literals import (
     ServiceUpdateStatusType,
     SlaMetType,
     SourceTypeType,
+    StorageEncryptionTypeType,
     TransitEncryptionModeType,
     UpdateActionStatusType,
 )
@@ -1517,6 +1520,7 @@ class ServerlessCacheTypeDef(TypedDict):
     FullEngineVersion: NotRequired[str]
     CacheUsageLimits: NotRequired[CacheUsageLimitsTypeDef]
     KmsKeyId: NotRequired[str]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     SecurityGroupIds: NotRequired[list[str]]
     Endpoint: NotRequired[EndpointTypeDef]
     ReaderEndpoint: NotRequired[EndpointTypeDef]
@@ -1659,6 +1663,7 @@ class SnapshotTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     ARN: NotRequired[str]
     DataTiering: NotRequired[DataTieringStatusType]
+    Durability: NotRequired[DurabilityType]
 
 
 class UpdateActionTypeDef(TypedDict):
@@ -1838,6 +1843,7 @@ class CreateReplicationGroupMessageTypeDef(TypedDict):
     TransitEncryptionMode: NotRequired[TransitEncryptionModeType]
     ClusterMode: NotRequired[ClusterModeType]
     ServerlessCacheSnapshotName: NotRequired[str]
+    Durability: NotRequired[DurabilityType]
 
 
 class ModifyCacheClusterMessageTypeDef(TypedDict):
@@ -1897,6 +1903,7 @@ class ModifyReplicationGroupMessageTypeDef(TypedDict):
     TransitEncryptionEnabled: NotRequired[bool]
     TransitEncryptionMode: NotRequired[TransitEncryptionModeType]
     ClusterMode: NotRequired[ClusterModeType]
+    Durability: NotRequired[DurabilityType]
 
 
 class PendingModifiedValuesTypeDef(TypedDict):
@@ -2024,6 +2031,7 @@ class ReplicationGroupTypeDef(TypedDict):
     AtRestEncryptionEnabled: NotRequired[bool]
     MemberClustersOutpostArns: NotRequired[list[str]]
     KmsKeyId: NotRequired[str]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     ARN: NotRequired[str]
     UserGroupIds: NotRequired[list[str]]
     LogDeliveryConfigurations: NotRequired[list[LogDeliveryConfigurationTypeDef]]
@@ -2035,6 +2043,8 @@ class ReplicationGroupTypeDef(TypedDict):
     TransitEncryptionMode: NotRequired[TransitEncryptionModeType]
     ClusterMode: NotRequired[ClusterModeType]
     Engine: NotRequired[str]
+    Durability: NotRequired[DurabilityType]
+    EffectiveDurability: NotRequired[EffectiveDurabilityType]
 
 
 class CacheClusterMessageTypeDef(TypedDict):

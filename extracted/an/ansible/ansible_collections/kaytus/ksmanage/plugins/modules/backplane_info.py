@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: backplane_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get disk backplane information
 description:
    - Get disk backplane  information on kaytus Server.

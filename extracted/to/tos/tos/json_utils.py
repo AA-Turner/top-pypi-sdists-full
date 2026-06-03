@@ -673,6 +673,11 @@ def to_put_bucket_object_set_configuration_request(path_level, enable_default_ob
     return data
 
 
+def to_put_bucket_quota_request(storage_quota):
+    """构建 PutBucketQuota 请求体"""
+    return {'StorageQuota': storage_quota}
+
+
 def to_put_object_set_request(object_set_name, tag_set=None):
     """构建 PutObjectSet / PutObjectSetTagging 请求体"""
     data = {'ObjectSetName': object_set_name}

@@ -793,6 +793,20 @@ static int wsgi_hook_handler(request_rec *r)
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
+    /*
+     * Embedded execution needs a Python interpreter in this child. If
+     * one was never initialised (or initialisation failed), the
+     * per-thread state used by wsgi_execute_script() does not exist and
+     * running it would crash the process, so refuse the request.
+     */
+
+    if (!wsgi_python_initialized)
+    {
+        wsgi_log_rerror(APLOG_ERR, 0, r, WSGI_APLOGNO(0210) "Embedded mode of mod_wsgi cannot be used as Python "
+                                                            "was not initialised in this process.");
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
     return wsgi_execute_script(r);
 }
 
@@ -1035,9 +1049,11 @@ static void wsgi_hook_child_init(apr_pool_t *p, server_rec *s)
      * start until Python has been initialised in this child.
      */
 
+#if defined(MOD_WSGI_WITH_TELEMETRY)
     if (wsgi_server_config->restrict_embedded != 1 &&
         wsgi_python_initialized)
         wsgi_telemetry_start_reporter(p);
+#endif
 }
 
 APR_OPTIONAL_FN_TYPE(ap_logio_add_bytes_out) * wsgi_logio_add_bytes_out;
@@ -1230,6 +1246,7 @@ static const command_rec wsgi_commands[] =
         AP_INIT_TAKE1("WSGIServerMetrics", wsgi_set_server_metrics,
                       NULL, RSRC_CONF, "Enabled/Disable access to server metrics."),
 
+#if defined(MOD_WSGI_WITH_TELEMETRY)
         AP_INIT_TAKE12("WSGITelemetryService", wsgi_set_telemetry_service,
                        NULL, RSRC_CONF, "Push telemetry to a metrics service. "
                                         "Args: unix:/path [interval=N]"),
@@ -1241,6 +1258,7 @@ static const command_rec wsgi_commands[] =
                          "Toggle metrics capture options. "
                          "Args: [+|-]Flag... | None | All. "
                          "Flags: CaptureUserAgent."),
+#endif
 
         {NULL}};
 
@@ -1255,29 +1273,6 @@ module AP_MODULE_DECLARE_DATA wsgi_module = {
     wsgi_commands,             /* table of config file commands       */
     wsgi_register_hooks        /* register hooks                      */
 };
-
-/* ------------------------------------------------------------------------- */
-
-#if defined(_WIN32)
-PyMODINIT_FUNC PyInit_mod_wsgi(void)
-{
-    /* The 'mod_wsgi' Python module is created at runtime by the Apache
-     * module when it sets up each interpreter; it is not a regular
-     * Python extension and cannot be imported from a standalone Python
-     * process. This stub exists only to satisfy the Windows linker and
-     * is not expected to be reached. Set an explicit ImportError so the
-     * importer reports the actual situation instead of the generic
-     * "initialization of mod_wsgi failed without raising an exception"
-     * SystemError. */
-
-    PyErr_SetString(PyExc_ImportError,
-                    "mod_wsgi cannot be imported as a regular Python "
-                    "module; it is provided by the Apache mod_wsgi "
-                    "module and is only available inside an Apache "
-                    "process running mod_wsgi.");
-    return NULL;
-}
-#endif
 
 /* ------------------------------------------------------------------------- */
 

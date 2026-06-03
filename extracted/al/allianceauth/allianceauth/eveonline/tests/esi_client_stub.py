@@ -8,6 +8,7 @@ class OpenAPIOperationStub:
     """Stub to simulate aiopenapi3 EsiOperation behavior used in tests."""
 
     DEFAULT_HEADERS = {
+        "Date": "Tue, 20 May 2025 13:24:00 GMT",
         "Last-Modified": "Tue, 20 May 2025 13:24:00 GMT",
         "x-pages": 1,
     }
@@ -179,10 +180,30 @@ class EsiClientStub:
         @staticmethod
         def PostCharactersAffiliation(body: list) -> OpenAPIOperationStub:
             data = [
-                {'character_id': 1001, 'corporation_id': 2001, 'alliance_id': 3001},
-                {'character_id': 1002, 'corporation_id': 2001, 'alliance_id': 3001},
-                {'character_id': 1011, 'corporation_id': 2011},
-                {'character_id': 1666, 'corporation_id': 1000001},
+                {
+                    'character_id': 1001,
+                    'corporation_id': 2001,
+                    'alliance_id': 3001,
+                    'faction_id': None,
+                },
+                {
+                    'character_id': 1002,
+                    'corporation_id': 2001,
+                    'alliance_id': 3001,
+                    'faction_id': None,
+                },
+                {
+                    'character_id': 1011,
+                    'corporation_id': 2011,
+                    'alliance_id': None,
+                    'faction_id': None,
+                },
+                {
+                    'character_id': 1666,
+                    'corporation_id': 1000001,
+                    'alliance_id': None,
+                    'faction_id': None,
+                },
             ]
             return EsiClientStub._operation(
                 [x for x in data if x['character_id'] in body]

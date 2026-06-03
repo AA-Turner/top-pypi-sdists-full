@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire
-Version: 4.34.0
+Version: 4.35.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -33,9 +33,9 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: executing>=2.0.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.42.0,>=1.39.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.43.0,>=1.39.0
 Requires-Dist: opentelemetry-instrumentation>=0.41b0
-Requires-Dist: opentelemetry-sdk<1.42.0,>=1.39.0
+Requires-Dist: opentelemetry-sdk<1.43.0,>=1.39.0
 Requires-Dist: protobuf>=4.23.4
 Requires-Dist: rich>=13.4.2
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'

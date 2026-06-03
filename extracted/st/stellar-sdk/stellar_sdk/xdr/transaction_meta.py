@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List, Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -40,11 +39,11 @@ class TransactionMeta:
     def __init__(
         self,
         v: int,
-        operations: Optional[List[OperationMeta]] = None,
-        v1: Optional[TransactionMetaV1] = None,
-        v2: Optional[TransactionMetaV2] = None,
-        v3: Optional[TransactionMetaV3] = None,
-        v4: Optional[TransactionMetaV4] = None,
+        operations: list[OperationMeta] | None = None,
+        v1: TransactionMetaV1 | None = None,
+        v2: TransactionMetaV2 | None = None,
+        v3: TransactionMetaV3 | None = None,
+        v4: TransactionMetaV4 | None = None,
     ) -> None:
         _expect_max_length = 4294967295
         if operations and len(operations) > _expect_max_length:

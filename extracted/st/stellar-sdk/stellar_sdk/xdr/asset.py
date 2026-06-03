@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -38,8 +37,8 @@ class Asset:
     def __init__(
         self,
         type: AssetType,
-        alpha_num4: Optional[AlphaNum4] = None,
-        alpha_num12: Optional[AlphaNum12] = None,
+        alpha_num4: AlphaNum4 | None = None,
+        alpha_num12: AlphaNum12 | None = None,
     ) -> None:
         self.type = type
         self.alpha_num4 = alpha_num4

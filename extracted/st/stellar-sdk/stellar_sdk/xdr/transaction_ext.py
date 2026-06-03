@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -30,7 +29,7 @@ class TransactionExt:
     def __init__(
         self,
         v: int,
-        soroban_data: Optional[SorobanTransactionData] = None,
+        soroban_data: SorobanTransactionData | None = None,
     ) -> None:
         self.v = v
         self.soroban_data = soroban_data

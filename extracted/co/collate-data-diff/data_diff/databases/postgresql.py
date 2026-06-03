@@ -105,14 +105,14 @@ class PostgresqlDialect(BaseDialect):
         return super().type_repr(t)
 
     def md5_as_int(self, s: str) -> str:
-        return f"('x' || substring(md5({s}), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS}))::bit({_CHECKSUM_BITSIZE})::bigint - {CHECKSUM_OFFSET}"
+        return f"('x' || substring(md5({s}), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS}))::bit({_CHECKSUM_BITSIZE})::bigint - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"md5({s})"
 
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
         def _add_padding(coltype: TemporalType, timestamp6: str):
-            return f"RPAD(LEFT({timestamp6}, {TIMESTAMP_PRECISION_POS+coltype.precision}), {TIMESTAMP_PRECISION_POS+6}, '0')"
+            return f"RPAD(LEFT({timestamp6}, {TIMESTAMP_PRECISION_POS + coltype.precision}), {TIMESTAMP_PRECISION_POS + 6}, '0')"
 
         try:
             is_date = coltype.is_date
@@ -143,7 +143,7 @@ class PostgresqlDialect(BaseDialect):
             timestamp = f"least('{max_timestamp}'::timestamp(6), {value}::timestamp(6))"
             timestamp = f"greatest('{min_timestamp}'::timestamp(6), {timestamp})"
 
-            interval = format((0.5 * (10 ** (-coltype.precision))), f".{coltype.precision+1}f")
+            interval = format((0.5 * (10 ** (-coltype.precision))), f".{coltype.precision + 1}f")
 
             rounded_timestamp = (
                 f"left(to_char(least('{max_timestamp}'::timestamp, {timestamp})"
@@ -223,7 +223,7 @@ class PostgreSQL(ThreadedDatabase):
                             THEN coalesce(numeric_scale, {self.dialect.DEFAULT_NUMERIC_PRECISION})
                         ELSE numeric_scale
                     END AS numeric_scale
-                    FROM {'.'.join(info_schema_path)}
+                    FROM {".".join(info_schema_path)}
                     WHERE table_name = '{table}' AND table_schema = '{schema}'
             """
 

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_media_instance
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set Virtual Media Instance
 description:
    - Set Virtual Media Instance on kaytus Server.

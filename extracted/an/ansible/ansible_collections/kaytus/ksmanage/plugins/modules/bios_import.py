@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: bios_import
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Import BIOS config
 description:
    - Import BIOS config on kaytus Server.

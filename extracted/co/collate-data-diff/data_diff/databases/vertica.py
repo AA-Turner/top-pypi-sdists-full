@@ -114,9 +114,7 @@ class Dialect(BaseDialect):
             return f"TO_CHAR({value}::TIMESTAMP({coltype.precision}), 'YYYY-MM-DD HH24:MI:SS.US')"
 
         timestamp6 = f"TO_CHAR({value}::TIMESTAMP(6), 'YYYY-MM-DD HH24:MI:SS.US')"
-        return (
-            f"RPAD(LEFT({timestamp6}, {TIMESTAMP_PRECISION_POS+coltype.precision}), {TIMESTAMP_PRECISION_POS+6}, '0')"
-        )
+        return f"RPAD(LEFT({timestamp6}, {TIMESTAMP_PRECISION_POS + coltype.precision}), {TIMESTAMP_PRECISION_POS + 6}, '0')"
 
     def normalize_number(self, value: str, coltype: FractionalType) -> str:
         return self.to_string(f"CAST({value} AS NUMERIC(38, {coltype.precision}))")
@@ -127,6 +125,17 @@ class Dialect(BaseDialect):
 
     def normalize_boolean(self, value: str, _coltype: Boolean) -> str:
         return self.to_string(f"cast ({value} as int)")
+
+    def timestamp_value(self, t) -> str:
+        # In the UNION ALL SELECT path emitted by constant_values, Vertica
+        # refuses to implicitly cast a varchar to TIMESTAMP. Emit a typed
+        # literal so the value is unambiguously a TIMESTAMP everywhere.
+        return f"TIMESTAMP '{t.isoformat()}'"
+
+    def constant_values(self, rows) -> str:
+        # Vertica before 11.0 does not accept multi-row INSERT ... VALUES (a), (b), (c).
+        # Emit UNION ALL SELECT instead, which is accepted by every Vertica version.
+        return " UNION ALL ".join("SELECT " + ", ".join(self._constant_value(v) for v in row) for row in rows)
 
 
 @attrs.define(frozen=False, init=False, kw_only=True)

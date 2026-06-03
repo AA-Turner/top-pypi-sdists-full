@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: download_auto_screenshot
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Download auto screenshots
 description:
    - Download auto screenshots on kaytus Server.

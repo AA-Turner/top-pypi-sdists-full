@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: network_link_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get network link information
 description:
    - Get network link information on kaytus Server.

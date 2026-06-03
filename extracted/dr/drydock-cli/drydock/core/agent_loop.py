@@ -1607,6 +1607,51 @@ class AgentLoop:
                     and not last_message.tool_calls
                 )
 
+                # 2026-06-02: programmatic-mode premature-exit fix.
+                # Observed in tbench probe v2938: pypi-server trial
+                # made 1 tool call (read_file), got the result, emitted
+                # a text-only assistant response, and drydock exited
+                # at 25 min out of a 2h budget. Verifier reward=0
+                # because no actual work was done.
+                #
+                # In interactive TUI use, text-only response means "I'm
+                # explaining/asking, user reads next." Correct to break.
+                # In programmatic/harness use, text-only response means
+                # "I gave up before completing the task." Wrong to break;
+                # we should inject a continuation nudge and keep going.
+                #
+                # Heuristic: in programmatic mode AND if we've made
+                # very few tool calls (<5), inject a nudge and continue.
+                # Cap nudges at 2 per session so we don't loop forever
+                # on a genuinely-stuck model.
+                if should_break_loop:
+                    is_programmatic = (
+                        self.entrypoint_metadata is not None
+                        and self.entrypoint_metadata.agent_entrypoint == "programmatic"
+                    )
+                    nudges = getattr(self, "_premature_exit_nudges", 0)
+                    if is_programmatic and nudges < 2 and tool_turns < 5:
+                        self._premature_exit_nudges = nudges + 1
+                        self._inject_system_note(
+                            "You emitted a text-only response after only "
+                            f"{tool_turns} tool call(s). In programmatic mode, "
+                            "a text-only response ENDS the session — but the "
+                            "task isn't finished yet (the verifier check "
+                            "hasn't passed). Don't stop. Emit the next "
+                            "concrete tool call NOW to make progress on the "
+                            "original task. If you're stuck, write a real "
+                            "best-attempt file with write_file/search_replace "
+                            "even if you're not confident — partial credit "
+                            "beats zero."
+                        )
+                        should_break_loop = False
+                        logger.warning(
+                            "[PREMATURE-EXIT] text-only response at turn %d "
+                            "in programmatic mode — injected continuation "
+                            "nudge (#%d/2), continuing loop",
+                            tool_turns, self._premature_exit_nudges,
+                        )
+
                 # 2026-05-25: AUTO-GOAL loop. If a rename goal was
                 # activated by _maybe_set_rename_goal and the model
                 # tried to end its turn, mechanically verify the goal

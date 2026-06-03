@@ -31,7 +31,6 @@ from esi.decorators import token_required
 from esi.models import Token
 
 # Alliance Auth AFAT
-from afat import __title__
 from afat.constants import RegexPattern
 from afat.forms import (
     AFatClickFatForm,
@@ -40,7 +39,6 @@ from afat.forms import (
     FatLinkEditForm,
     FleetSnapshot,
 )
-from afat.handler import esi_handler
 from afat.helper.fatlinks import get_doctrines, get_esi_fleet_information_by_user
 from afat.helper.time import get_time_delta
 from afat.helper.views import convert_fats_to_dict
@@ -53,11 +51,12 @@ from afat.models import (
     Setting,
     get_hash_on_save,
 )
-from afat.providers import AppLogger, esi
+from afat.providers.applogger import AppLogger
+from afat.providers.esi import ESIHandler, esi
 from afat.tasks import process_fats
 from afat.utils import get_or_create_character, write_log
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 
 @login_required()
@@ -252,7 +251,7 @@ def create_esi_fatlink_callback(  # pylint: disable=too-many-locals
 
     try:
 
-        fleet_from_esi = esi_handler.result(operation=operation, use_etag=False)
+        fleet_from_esi = ESIHandler.result(operation=operation, use_etag=False)
     except Exception:  # pylint: disable=broad-exception-caught
         # Not in a fleet
         messages.warning(
@@ -344,7 +343,7 @@ def create_esi_fatlink_callback(  # pylint: disable=too-many-locals
         fleet_id=fleet_from_esi.fleet_id, token=token
     )
     try:
-        esi_fleet_member = esi_handler.result(operation=operation, use_etag=False)
+        esi_fleet_member = ESIHandler.result(operation=operation, use_etag=False)
     except Exception:  # pylint: disable=broad-exception-caught
         messages.warning(
             request=request,
@@ -526,7 +525,7 @@ def add_fat(
         character_id=token.character_id, token=token
     )
 
-    if not esi_handler.result(operation=operation, use_etag=False).online:
+    if not ESIHandler.result(operation=operation, use_etag=False).online:
         messages.warning(
             request,
             mark_safe(
@@ -543,7 +542,7 @@ def add_fat(
 
         return redirect("afat:dashboard")
 
-    location = esi_handler.result(
+    location = ESIHandler.result(
         operation=esi.client.Location.GetCharactersCharacterIdLocation(
             character_id=token.character_id, token=token
         ),
@@ -551,7 +550,7 @@ def add_fat(
     )
     solar_system = SolarSystem.objects.get(id=location.solar_system_id)
 
-    current_ship = esi_handler.result(
+    current_ship = ESIHandler.result(
         operation=esi.client.Location.GetCharactersCharacterIdShip(
             character_id=token.character_id, token=token
         ),

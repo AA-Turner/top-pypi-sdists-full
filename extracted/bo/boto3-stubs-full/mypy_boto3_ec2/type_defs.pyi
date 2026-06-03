@@ -75,6 +75,7 @@ from .literals import (
     CapacityManagerMonitoredTagKeyStatusType,
     CapacityManagerStatusType,
     CapacityReservationBillingRequestStatusType,
+    CapacityReservationCancellationQuoteStateType,
     CapacityReservationDeliveryPreferenceType,
     CapacityReservationFleetStateType,
     CapacityReservationInstancePlatformType,
@@ -627,6 +628,7 @@ __all__ = (
     "CancelSpotFleetRequestsSuccessItemTypeDef",
     "CancelSpotInstanceRequestsRequestTypeDef",
     "CancelSpotInstanceRequestsResultTypeDef",
+    "CancellationTermsTypeDef",
     "CancelledSpotInstanceRequestTypeDef",
     "CapacityAllocationMetadataEntryTypeDef",
     "CapacityAllocationTypeDef",
@@ -641,7 +643,9 @@ __all__ = (
     "CapacityManagerMonitoredTagKeyTypeDef",
     "CapacityManagerTagDimensionTypeDef",
     "CapacityReservationBillingRequestTypeDef",
+    "CapacityReservationCancellationQuoteTypeDef",
     "CapacityReservationCommitmentInfoTypeDef",
+    "CapacityReservationConfigurationTypeDef",
     "CapacityReservationFleetCancellationStateTypeDef",
     "CapacityReservationFleetTypeDef",
     "CapacityReservationGroupTypeDef",
@@ -719,6 +723,8 @@ __all__ = (
     "CreateCapacityManagerDataExportResultTypeDef",
     "CreateCapacityReservationBySplittingRequestTypeDef",
     "CreateCapacityReservationBySplittingResultTypeDef",
+    "CreateCapacityReservationCancellationQuoteRequestTypeDef",
+    "CreateCapacityReservationCancellationQuoteResultTypeDef",
     "CreateCapacityReservationFleetRequestTypeDef",
     "CreateCapacityReservationFleetResultTypeDef",
     "CreateCapacityReservationRequestTypeDef",
@@ -1220,6 +1226,8 @@ __all__ = (
     "DescribeCapacityReservationBillingRequestsRequestPaginateTypeDef",
     "DescribeCapacityReservationBillingRequestsRequestTypeDef",
     "DescribeCapacityReservationBillingRequestsResultTypeDef",
+    "DescribeCapacityReservationCancellationQuotesRequestTypeDef",
+    "DescribeCapacityReservationCancellationQuotesResultTypeDef",
     "DescribeCapacityReservationFleetsRequestPaginateTypeDef",
     "DescribeCapacityReservationFleetsRequestTypeDef",
     "DescribeCapacityReservationFleetsResultTypeDef",
@@ -3793,6 +3801,8 @@ class CapacityReservationFleetCancellationStateTypeDef(TypedDict):
 class CancelCapacityReservationRequestTypeDef(TypedDict):
     CapacityReservationId: str
     DryRun: NotRequired[bool]
+    ApplyCancellationCharges: NotRequired[Literal["commitment-wind-down"]]
+    QuoteId: NotRequired[str]
 
 class CancelConversionRequestTypeDef(TypedDict):
     ConversionTaskId: str
@@ -3839,6 +3849,13 @@ class CancelSpotInstanceRequestsRequestTypeDef(TypedDict):
 class CancelledSpotInstanceRequestTypeDef(TypedDict):
     SpotInstanceRequestId: NotRequired[str]
     State: NotRequired[CancelSpotInstanceRequestStateType]
+
+class CancellationTermsTypeDef(TypedDict):
+    CancellationType: NotRequired[Literal["commitment-wind-down"]]
+    ReservationState: NotRequired[str]
+    CommittedInstanceCount: NotRequired[int]
+    ChargeCommitmentDurationHours: NotRequired[int]
+    ChargeEndDate: NotRequired[datetime]
 
 class CapacityAllocationMetadataEntryTypeDef(TypedDict):
     Key: NotRequired[str]
@@ -3918,6 +3935,10 @@ class CapacityReservationInfoTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
     Tenancy: NotRequired[CapacityReservationTenancyType]
     AvailabilityZoneId: NotRequired[str]
+
+class CapacityReservationConfigurationTypeDef(TypedDict):
+    InstanceCount: NotRequired[int]
+    ReservationState: NotRequired[str]
 
 class CapacityReservationCommitmentInfoTypeDef(TypedDict):
     CommittedInstanceCount: NotRequired[int]
@@ -10412,6 +10433,16 @@ class CapacityReservationBillingRequestTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     CapacityReservationInfo: NotRequired[CapacityReservationInfoTypeDef]
 
+class CapacityReservationCancellationQuoteTypeDef(TypedDict):
+    CapacityReservationCancellationQuoteId: NotRequired[str]
+    CapacityReservationId: NotRequired[str]
+    CreateTime: NotRequired[datetime]
+    ExpirationTime: NotRequired[datetime]
+    QuoteState: NotRequired[CapacityReservationCancellationQuoteStateType]
+    CurrentConfiguration: NotRequired[CapacityReservationConfigurationTypeDef]
+    CancellationTerms: NotRequired[list[CancellationTermsTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+
 class CapacityReservationFleetTypeDef(TypedDict):
     CapacityReservationFleetId: NotRequired[str]
     CapacityReservationFleetArn: NotRequired[str]
@@ -11136,6 +11167,13 @@ class DescribeCapacityReservationBillingRequestsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     DryRun: NotRequired[bool]
+
+class DescribeCapacityReservationCancellationQuotesRequestTypeDef(TypedDict):
+    CapacityReservationCancellationQuoteIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
 
 class DescribeCapacityReservationFleetsRequestPaginateTypeDef(TypedDict):
     CapacityReservationFleetIds: NotRequired[Sequence[str]]
@@ -16450,6 +16488,15 @@ class DescribeCapacityReservationBillingRequestsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class CreateCapacityReservationCancellationQuoteResultTypeDef(TypedDict):
+    CapacityReservationCancellationQuote: CapacityReservationCancellationQuoteTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCapacityReservationCancellationQuotesResultTypeDef(TypedDict):
+    CapacityReservationCancellationQuotes: list[CapacityReservationCancellationQuoteTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DescribeCapacityReservationFleetsResultTypeDef(TypedDict):
     CapacityReservationFleets: list[CapacityReservationFleetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -18302,6 +18349,12 @@ class CreateCapacityReservationBySplittingRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     ClientToken: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+
+class CreateCapacityReservationCancellationQuoteRequestTypeDef(TypedDict):
+    CapacityReservationId: str
+    ClientToken: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    DryRun: NotRequired[bool]
 
 class CreateCapacityReservationFleetRequestTypeDef(TypedDict):
     InstanceTypeSpecifications: Sequence[ReservationFleetInstanceSpecificationTypeDef]

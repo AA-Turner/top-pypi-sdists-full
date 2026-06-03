@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: self_test_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get self test information
 description:
    - Get self test information on kaytus Server.

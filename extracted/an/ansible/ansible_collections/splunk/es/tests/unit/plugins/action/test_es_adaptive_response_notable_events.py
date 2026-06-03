@@ -16,17 +16,7 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, division, print_function
-
-
-__metaclass__ = type
-
-from ansible.module_utils.six import PY2
-
-
 builtin_import = "builtins.__import__"
-if PY2:
-    builtin_import = "__builtin__.__import__"
 
 import tempfile
 
@@ -447,3 +437,150 @@ class TestSplunkEsAdaptiveResponseNotableEvents:
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is False
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_adaptive_response_notable_events_merged_check_mode(
+        self,
+        connection,
+        monkeypatch,
+    ):
+        """Test that merged state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        metadata = {
+            "search": '| tstats summariesonly=true values("Authentication.tag") as "tag",dc("Authentication.user") as "user_count",dc("Authent'
+            'ication.dest") as "dest_count",count from datamodel="Authentication"."Authentication" where nodename="Authentication.Fai'
+            'led_Authentication" by "Authentication.app","Authentication.src" | rename "Authentication.app" as "app","Authenticatio'
+            'n.src" as "src" | where "count">=6',
+            "actions": "",
+        }
+        self._plugin.api_response = RESPONSE_PAYLOAD[0]
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = {}, metadata
+
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD[0]
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD[0]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_adaptive_response_notable_events_merged_check_mode_existing(
+        self,
+        connection,
+        monkeypatch,
+    ):
+        """Test that merged state with existing config in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin.api_response = RESPONSE_PAYLOAD[0]
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = (
+            RESPONSE_PAYLOAD[0],
+            self.metadata,
+        )
+
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD[1]
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD[1]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_adaptive_response_notable_events_replaced_check_mode(
+        self,
+        conn,
+        monkeypatch,
+    ):
+        """Test that replaced state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = (
+            RESPONSE_PAYLOAD[0],
+            self.metadata,
+        )
+
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD[0]
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD[0]
+
+        def delete_by_path(self, path):
+            return {}
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REQUEST_PAYLOAD[1]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_adaptive_response_notable_events_deleted_check_mode(
+        self,
+        conn,
+        monkeypatch,
+    ):
+        """Test that deleted state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = (
+            RESPONSE_PAYLOAD[0],
+            self.metadata,
+        )
+
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD[0]
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [
+                {
+                    "correlation_search_name": "Ansible Test",
+                },
+            ],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"

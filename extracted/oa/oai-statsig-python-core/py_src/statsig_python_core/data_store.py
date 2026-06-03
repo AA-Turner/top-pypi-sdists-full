@@ -6,12 +6,22 @@ from dataclasses import dataclass
 class DataStoreResponse:
     result: Optional[str]
     time: Optional[int]
+    has_updates: Optional[bool] = None
+    checksum: Optional[str] = None
+
+
+@dataclass
+class DataStoreGetBytesRequest:
+    since_time: Optional[int] = None
+    checksum: Optional[str] = None
 
 
 @dataclass
 class DataStoreBytesResponse:
     result: Optional[bytes]
     time: Optional[int]
+    checksum: Optional[str] = None
+    has_updates: Optional[bool] = None
 
 
 class DataStore(DataStoreBase):
@@ -45,13 +55,21 @@ class DataStore(DataStoreBase):
     def get(self, key: str) -> Optional[DataStoreResponse]:
         pass
 
-    def get_bytes(self, key: str) -> Optional[DataStoreBytesResponse]:
+    def get_bytes(
+        self, key: str, request: Optional[DataStoreGetBytesRequest] = None
+    ) -> Optional[DataStoreBytesResponse]:
         pass
 
     def set(self, key: str, value: str, time: Optional[int] = None):
         pass
 
-    def set_bytes(self, key: str, value: bytes, time: Optional[int] = None):
+    def set_bytes(
+        self,
+        key: str,
+        value: bytes,
+        time: Optional[int] = None,
+        checksum: Optional[str] = None,
+    ):
         pass
 
     def support_polling_updates_for(self, key: str) -> bool:

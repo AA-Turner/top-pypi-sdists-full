@@ -164,72 +164,61 @@ __global__ void relative_difference_potential_kernel(
     }
 }
 
-/**
- * Kernel: tv_potential
- * Purpose: Compute Total Variation potential (anisotropic)
- */
 __global__ void tv_potential_kernel(
     float* __restrict__ grad_U,
     float* __restrict__ U_value,
     const float* __restrict__ U,
-    float alpha,
+    float beta,
     int Z,
     int X
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int total_pixels = Z * X;
-    
     if (idx >= total_pixels) return;
-    
-    // Initialize gradient
-    if (idx == 0) {
-        for (int i = 0; i < total_pixels; i++) {
-            grad_U[i] = 0.0f;
-        }
-        U_value[0] = 0.0f;
-    }
-    __syncthreads();
-    
+
     int z = idx / X;
     int x = idx % X;
-    
-    // Right neighbor difference
-    if (x < X - 1) {
-        int right_idx = idx + 1;
-        float diff_x = U[right_idx] - U[idx];
-        float abs_diff_x = fabsf(diff_x);
-        
-        // TV energy
-        atomicAdd(&U_value[0], alpha * abs_diff_x);
-        
-        // Subgradient for x component
-        if (diff_x > 0) {
-            atomicAdd(&grad_U[idx], -alpha);
-            atomicAdd(&grad_U[right_idx], alpha);
-        } else if (diff_x < 0) {
-            atomicAdd(&grad_U[idx], alpha);
-            atomicAdd(&grad_U[right_idx], -alpha);
-        }
-    }
-    
-    // Down neighbor difference
+    float eps = 1e-6f;
+
+    // Forward differences
+    float df_z = 0.0f;
+    float df_x = 0.0f;
+    if (z < Z - 1) df_z = U[idx + X] - U[idx];
+    if (x < X - 1) df_x = U[idx + 1] - U[idx];
+
+    // Norm of the forward gradient
+    float norm = sqrtf(df_z * df_z + df_x * df_x + eps);
+
+    // Contribution to the divergence (backward differences)
+    float div = 0.0f;
+
+    // Forward contribution (current pixel)
     if (z < Z - 1) {
-        int down_idx = idx + X;
-        float diff_z = U[down_idx] - U[idx];
-        float abs_diff_z = fabsf(diff_z);
-        
-        // TV energy
-        atomicAdd(&U_value[0], alpha * abs_diff_z);
-        
-        // Subgradient for z component
-        if (diff_z > 0) {
-            atomicAdd(&grad_U[idx], -alpha);
-            atomicAdd(&grad_U[down_idx], alpha);
-        } else if (diff_z < 0) {
-            atomicAdd(&grad_U[idx], alpha);
-            atomicAdd(&grad_U[down_idx], -alpha);
-        }
+        float norm_forward_z = sqrtf(df_z * df_z + (x < X - 1 ? powf(U[idx + X + 1] - U[idx + X], 2) : 0.0f) + eps);
+        div += df_z / norm_forward_z;
     }
+    if (x < X - 1) {
+        float norm_forward_x = sqrtf(powf(z < Z - 1 ? U[idx + X + 1] - U[idx + 1] : 0.0f, 2) + df_x * df_x + eps);
+        div += df_x / norm_forward_x;
+    }
+
+    // Backward contribution (neighboring pixels)
+    if (z > 0) {
+        float df_z_back = U[idx] - U[idx - X];
+        float norm_back_z = sqrtf(df_z_back * df_z_back + (x < X - 1 ? powf(U[idx - X + 1] - U[idx - X], 2) : 0.0f) + eps);
+        div -= df_z_back / norm_back_z;
+    }
+    if (x > 0) {
+        float df_x_back = U[idx] - U[idx - 1];
+        float norm_back_x = sqrtf(powf(z < Z - 1 ? U[idx + X - 1] - U[idx - 1] : 0.0f, 2) + df_x_back * df_x_back + eps);
+        div -= df_x_back / norm_back_x;
+    }
+
+    // Final gradient (with negative sign to match CPU version)
+    grad_U[idx] = -beta * div;
+
+    // Accumulate energy (TV norm)
+    atomicAdd(U_value, beta * sqrtf(df_z * df_z + df_x * df_x + eps));
 }
 
 // ============================================================================
@@ -248,24 +237,24 @@ __global__ void fill_dense_matrix_kernel(
     int N,
     int Z,
     int X,
-    int field_size
+    int n
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= T * N * Z * X) return;
-    
-    // Calculate position in output matrix
-    int t = idx / (N * Z * X);
-    int remaining = idx % (N * Z * X);
-    int n = remaining / (Z * X);
-    int zx = remaining % (Z * X);
+    if (idx >= T * Z * X) return;
+
+    int t = idx / (Z * X);
+    int zx = idx % (Z * X);
     int z = zx / X;
     int x = zx % X;
-    
-    // Calculate position in input field data
-    int field_idx = n * T * Z * X + t * Z * X + z * X + x;
-    
-    if (field_idx < T * N * Z * X) {
-        dense_matrix[idx] = field_data[field_idx];
+
+    // Position in dense_matrix: [t, n, z, x]
+    int dense_idx = t * (N * Z * X) + n * (Z * X) + z * X + x;
+
+    // Position in field_data: [t, z, x] (1D array of size T * Z * X)
+    int field_idx = t * (Z * X) + z * X + x;
+
+    if (dense_idx < T * N * Z * X && field_idx < T * Z * X) {
+        dense_matrix[dense_idx] = field_data[field_idx];
     }
 }
 
@@ -305,8 +294,9 @@ __global__ void compute_norm_factor_dense_kernel(
 }
 
 /**
- * Kernel: forward_projection_dense
+ * Kernel: forward_projection_kernel__DENSE
  * Purpose: Forward projection using DENSE format: q = A * theta
+ * Layout expectation: row = n * T + t
  */
 __global__ void forward_projection_kernel__DENSE(
     float* __restrict__ q_out,
@@ -318,19 +308,27 @@ __global__ void forward_projection_kernel__DENSE(
     int X
 ) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
-    if (row >= T * N) return;
-    
+    if (row >= N * T) return;
+
+    int n = row / T;
+    int t = row % T;
+
     float sum = 0.0f;
-    for (int col = 0; col < Z * X; col++) {
-        int pos = row * Z * X + col;
-        sum += dense_matrix[pos] * theta[col];
+    for (int z = 0; z < Z; z++) {
+        for (int x = 0; x < X; x++) {
+            long long pos = (((long long)t * N + n) * Z + z) * X + x;
+            long long theta_idx = (long long)z * X + x;
+            
+            sum += dense_matrix[pos] * theta[theta_idx];
+        }
     }
     q_out[row] = sum;
 }
 
 /**
- * Kernel: backward_projection_dense
- * Purpose: backward_projection using DENSE format: c += A^T * e
+ * Kernel: backward_projection_kernel__DENSE
+ * Purpose: Backward projection using DENSE format: c = A^T * e
+ * Layout expectation: col = z * X + x
  */
 __global__ void backward_projection_kernel__DENSE(
     float* __restrict__ c_out,
@@ -343,11 +341,18 @@ __global__ void backward_projection_kernel__DENSE(
 ) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (col >= Z * X) return;
-    
+
+    int z = col / X;
+    int x = col % X;
+
     float sum = 0.0f;
-    for (int row = 0; row < T * N; row++) {
-        int pos = row * Z * X + col;
-        sum += dense_matrix[pos] * e[row];
+    for (int n = 0; n < N; n++) {
+        for (int t = 0; t < T; t++) {
+            long long e_idx = (long long)n * T + t;
+            long long pos = (((long long)t * N + n) * Z + z) * X + x;
+            
+            sum += dense_matrix[pos] * e[e_idx];
+        }
     }
     c_out[col] = sum;
 }
@@ -895,30 +900,27 @@ __global__ void divergence_kernel(
 }
 
 /**
- * Kernel: proj_tv
- * Purpose: Project onto TV constraint set (L2 ball with radius alpha)
+ * Kernel: proj_tv_kernel
+ * Purpose: Project vector field p = (p_x, p_z) onto the L_infinity ball of radius alpha.
+ *       
  */
 __global__ void proj_tv_kernel(
-    float* __restrict__ p_in_out,
-    float alpha,
-    int ZX
+    float* __restrict__ p,
+    float alpha,            
+    int ZX                  
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= ZX) return;
-    
-    float px = p_in_out[idx];
-    float pz = p_in_out[ZX + idx];
-    float norm_p = sqrtf(px * px + pz * pz);
-    
-    float scale_factor = 1.0f;
-    if (alpha > 1e-8f) {
-        float ratio = norm_p / alpha;
-        if (ratio > 1.0f) scale_factor = ratio;
+    if (idx >= ZX) return;  
+
+    float px = p[idx];          // p_x[idx]
+    float pz = p[ZX + idx];    // p_z[idx]
+
+    float norm = sqrtf(px * px + pz * pz + 1e-12); 
+    if (norm > alpha) {
+        float scale = alpha / norm; 
+        p[idx] = px * scale;         // p_x[idx] = p_x[idx] * (alpha / norm)
+        p[ZX + idx] = pz * scale;    // p_z[idx] = p_z[idx] * (alpha / norm)
     }
-    
-    float inv_scale = 1.0f / scale_factor;
-    p_in_out[idx] *= inv_scale;
-    p_in_out[ZX + idx] *= inv_scale;
 }
 
 /**

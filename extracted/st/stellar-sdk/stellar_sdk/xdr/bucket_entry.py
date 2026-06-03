@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -37,9 +36,9 @@ class BucketEntry:
     def __init__(
         self,
         type: BucketEntryType,
-        live_entry: Optional[LedgerEntry] = None,
-        dead_entry: Optional[LedgerKey] = None,
-        meta_entry: Optional[BucketMetadata] = None,
+        live_entry: LedgerEntry | None = None,
+        dead_entry: LedgerKey | None = None,
+        meta_entry: BucketMetadata | None = None,
     ) -> None:
         self.type = type
         self.live_entry = live_entry

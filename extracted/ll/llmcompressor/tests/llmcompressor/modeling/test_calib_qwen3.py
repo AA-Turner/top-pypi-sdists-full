@@ -13,7 +13,9 @@ from llmcompressor.modeling.moe_context import moe_calibration_context
 from llmcompressor.modeling.qwen3_moe import CalibrationQwen3MoeSparseMoeBlock
 from llmcompressor.utils.dev import skip_weights_download
 from llmcompressor.utils.helpers import DisableQuantization, calibration_forward_context
-from tests.testing_utils import requires_cadence, requires_gpu
+from tests.testing_utils import requires_cadence, requires_gpu, requires_transformers_v4
+
+pytestmark = requires_transformers_v4
 
 
 @requires_cadence("weekly")
@@ -68,6 +70,8 @@ def test_calib_qwen3_moe_module():
     config = Qwen3MoeConfig()
     with torch.device("cuda"):
         original = OriginalQwen3MoeSparseMoeBlock(config).eval()
+        for param in original.parameters():
+            param.data.normal_(mean=0.0, std=0.02)
 
     # Create dummy input tensor that simulates hidden_states
     hidden_dim = config.hidden_size

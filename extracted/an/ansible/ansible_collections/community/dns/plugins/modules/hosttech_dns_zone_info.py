@@ -1,14 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-#
 # Copyright (c) 2021 Felix Fontein
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
-
-__metaclass__ = type
-
+from __future__ import annotations
 
 DOCUMENTATION = r"""
 module: hosttech_dns_zone_info
@@ -20,13 +15,13 @@ version_added: 0.2.0
 description:
   - Retrieves zone information in Hosttech DNS service.
 extends_documentation_fragment:
-  - community.dns.hosttech
-  - community.dns.hosttech.zone_id_type
-  - community.dns.module_zone_info
-  - community.dns.attributes
-  - community.dns.attributes.actiongroup_hosttech
-  - community.dns.attributes.info_module
-  - community.dns.attributes.idempotent_not_modify_state
+  - community.dns._hosttech
+  - community.dns._hosttech.zone_id_type
+  - community.dns._module_zone_info
+  - community.dns._attributes
+  - community.dns._attributes.actiongroup_hosttech
+  - community.dns._attributes.info_module
+  - community.dns._attributes.idempotent_not_modify_state
 
 attributes:
   action_group:
@@ -154,28 +149,38 @@ zone_info:
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.community.dns.plugins.module_utils.argspec import (
+from ansible_collections.community.dns.plugins.module_utils._argspec import (
     ModuleOptionProvider,
 )
-from ansible_collections.community.dns.plugins.module_utils.hosttech.api import (
+from ansible_collections.community.dns.plugins.module_utils._hosttech.api import (
     create_hosttech_api,
     create_hosttech_argument_spec,
     create_hosttech_provider_information,
 )
-from ansible_collections.community.dns.plugins.module_utils.http import ModuleHTTPHelper
-from ansible_collections.community.dns.plugins.module_utils.module.zone_info import (
+from ansible_collections.community.dns.plugins.module_utils._http import (
+    ModuleHTTPHelper,
+)
+from ansible_collections.community.dns.plugins.module_utils._module.zone_info import (
     create_module_argument_spec,
     run_module,
 )
 
 
-def main():
+def main() -> None:
     provider_information = create_hosttech_provider_information()
     argument_spec = create_hosttech_argument_spec()
-    argument_spec.merge(create_module_argument_spec(provider_information=provider_information))
+    argument_spec.merge(
+        create_module_argument_spec(provider_information=provider_information)
+    )
     module = AnsibleModule(supports_check_mode=True, **argument_spec.to_kwargs())
-    run_module(module, lambda: create_hosttech_api(ModuleOptionProvider(module), ModuleHTTPHelper(module)), provider_information=provider_information)
+    run_module(
+        module,
+        lambda: create_hosttech_api(
+            ModuleOptionProvider(module), ModuleHTTPHelper(module)
+        ),
+        provider_information=provider_information,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

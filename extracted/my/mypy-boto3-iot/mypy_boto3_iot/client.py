@@ -2844,7 +2844,7 @@ class IoTClient(BaseClient):
         self, **kwargs: Unpack[SearchIndexRequestTypeDef]
     ) -> SearchIndexResponseTypeDef:
         """
-        The query search index.
+        Searches the specified index.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/search_index.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot/client/#search_index)

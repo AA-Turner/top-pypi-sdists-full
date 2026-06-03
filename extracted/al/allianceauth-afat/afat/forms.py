@@ -16,12 +16,11 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
-from afat import __title__
 from afat.models import Doctrine, Setting
-from afat.providers import AppLogger
+from afat.providers.applogger import AppLogger
 
 # Initialize a logger with a custom tag for the AA SRP application
-logger = AppLogger(my_logger=get_extension_logger(__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(__name__))
 
 
 def get_mandatory_form_label_text(text):

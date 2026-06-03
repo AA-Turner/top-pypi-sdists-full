@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: bios_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get BIOS setup
 description:
    - Get BIOS setup on kaytus Server.

@@ -70,6 +70,11 @@ class SkipAffineSmooth(nn.Module):
         plain transcoder).
     jumprelu_threshold:
         Base threshold tau_k for JumpReLU gating (scalar broadcast to F).
+    lambda_sparse:
+        Weight on the JumpReLU sparsity penalty. This is the actual knob that
+        trades fidelity against sparsity in the user's training loss
+        (``loss += jumprelu.penalty(z_pre)``), so it must travel with the
+        module — not just live in the outer-loop scoring metadata. Must be > 0.
     learnable_threshold:
         If True, REML can shift the threshold via ``log_threshold`` parameter.
     smoothing_eps:
@@ -83,6 +88,7 @@ class SkipAffineSmooth(nn.Module):
         n_atoms: int,
         rank_skip: int,
         jumprelu_threshold: float = 0.05,
+        lambda_sparse: float = 1.0,
         *,
         learnable_threshold: bool = False,
         smoothing_eps: float = 1e-3,
@@ -98,6 +104,8 @@ class SkipAffineSmooth(nn.Module):
             raise ValueError(f"rank_skip must be in [0, min(in, out)], got {rank_skip}")
         if jumprelu_threshold <= 0.0:
             raise ValueError("jumprelu_threshold must be > 0")
+        if lambda_sparse <= 0.0:
+            raise ValueError("lambda_sparse must be > 0")
 
         self.in_dim = int(in_dim)
         self.out_dim = int(out_dim)
@@ -126,7 +134,7 @@ class SkipAffineSmooth(nn.Module):
         thresholds = torch.full((n_atoms,), float(jumprelu_threshold), dtype=torch.float64)
         self.jumprelu = JumpReLUPenalty(
             thresholds=thresholds,
-            weight=1.0,
+            weight=float(lambda_sparse),
             smoothing_eps=float(smoothing_eps),
             learnable_threshold=learnable_threshold,
         )
@@ -188,6 +196,30 @@ class SkipAffineSmooth(nn.Module):
         z = self.code(x_in)
         y_hat = z @ self.W_dec + self.skip_term(x_in) + self.b_out
         return y_hat, z
+
+    def sparsity_penalty(self, x_in: torch.Tensor) -> torch.Tensor:
+        """JumpReLU sparsity penalty on the pre-activation latents.
+
+        Evaluates ``JumpReLUPenalty`` (weight ``= lambda_sparse``) on the
+        pre-gate code ``z_pre = encode(x_in)``. This is the term that trades
+        fidelity against sparsity in :meth:`loss`; its scale IS the module's
+        ``lambda_sparse`` so different ``lambda_sparse`` give different values.
+        """
+        z_pre = self.encode(x_in)
+        return self.jumprelu(z_pre)
+
+    def loss(self, x_in: torch.Tensor, y_out: torch.Tensor) -> torch.Tensor:
+        """Canonical training objective: reconstruction MSE + sparsity penalty.
+
+        ``loss = mean((y_hat - y_out) ** 2) + jumprelu_penalty(z_pre)`` where the
+        JumpReLU penalty already carries ``weight = lambda_sparse`` (set in
+        ``__init__``). The sparse weight is therefore genuinely in the objective:
+        two modules built with different ``lambda_sparse`` produce different
+        ``loss`` on the same ``(x_in, y_out)``.
+        """
+        y_hat, _ = self.forward(x_in)
+        recon = torch.mean((y_hat - y_out) ** 2)
+        return recon + self.sparsity_penalty(x_in)
 
     # --------------------------------------------------------------
     # Convenience: attribution-graph edge weights at JumpReLU-active points
@@ -299,6 +331,7 @@ def skip_transcoder(
             n_atoms=n_atoms,
             rank_skip=int(rank_list[0]),
             jumprelu_threshold=float(thr_list[0]),
+            lambda_sparse=float(lam_list[0]),
             learnable_threshold=learnable_threshold,
             smoothing_eps=smoothing_eps,
             device=device,
@@ -309,12 +342,16 @@ def skip_transcoder(
     for r in rank_list:
         for tau in thr_list:
             for lam in lam_list:
+                # Each candidate carries its own lambda_sparse so the module
+                # the user trains uses the same sparsity weight it is scored
+                # under (SkipTranscoderResult.lambda_sparse below).
                 s = SkipAffineSmooth(
                     in_dim=in_dim,
                     out_dim=out_dim,
                     n_atoms=n_atoms,
                     rank_skip=int(r),
                     jumprelu_threshold=float(tau),
+                    lambda_sparse=float(lam),
                     learnable_threshold=learnable_threshold,
                     smoothing_eps=smoothing_eps,
                     device=device,

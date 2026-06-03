@@ -26,10 +26,10 @@ class TestMinimalVersionTestSuite:
     # Prepare some data for use in our testing
     # ========================================================
     def setup_method(self):
-        self.MINIMAL_BOTO3 = "1.34.0"
-        self.MINIMAL_BOTOCORE = "1.34.0"
-        self.OLD_BOTO3 = "1.33.999"
-        self.OLD_BOTOCORE = "1.33.999"
+        self.MINIMAL_BOTO3 = "1.35.0"
+        self.MINIMAL_BOTOCORE = "1.35.0"
+        self.OLD_BOTO3 = "1.34.999"
+        self.OLD_BOTOCORE = "1.34.999"
 
     # ========================================================
     #   Test we don't warn when using valid versions
@@ -49,7 +49,6 @@ class TestMinimalVersionTestSuite:
         return_val = json.loads(out)
 
         assert return_val.get("exception") is None
-        assert return_val.get("invocation") is not None
         assert return_val.get("failed") is None
         assert return_val.get("error") is None
         assert return_val.get("warnings") is None
@@ -72,7 +71,6 @@ class TestMinimalVersionTestSuite:
         return_val = json.loads(out)
 
         assert return_val.get("exception") is None
-        assert return_val.get("invocation") is not None
         assert return_val.get("failed") is None
         assert return_val.get("error") is None
         assert return_val.get("warnings") is None
@@ -99,7 +97,6 @@ class TestMinimalVersionTestSuite:
         pprint(return_val)
 
         assert return_val.get("exception") is None
-        assert return_val.get("invocation") is not None
         assert return_val.get("failed") is None
         assert return_val.get("error") is None
         assert return_val.get("warnings") is not None
@@ -133,7 +130,6 @@ class TestMinimalVersionTestSuite:
         pprint(return_val)
 
         assert return_val.get("exception") is None
-        assert return_val.get("invocation") is not None
         assert return_val.get("failed") is None
         assert return_val.get("error") is None
         assert return_val.get("warnings") is not None
@@ -167,7 +163,6 @@ class TestMinimalVersionTestSuite:
         pprint(return_val)
 
         assert return_val.get("exception") is None
-        assert return_val.get("invocation") is not None
         assert return_val.get("failed") is None
         assert return_val.get("error") is None
         assert return_val.get("warnings") is not None

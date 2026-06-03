@@ -43,6 +43,7 @@ def handle_add(km: KnowledgeManager, args: list[str]) -> dict:
     ttl_days = None
     verify = False
     benchmark_raw = None
+    biz = None
     i = 0
     while i < len(args):
         if args[i] == "--verify":
@@ -55,6 +56,8 @@ def handle_add(km: KnowledgeManager, args: list[str]) -> dict:
             except ValueError:
                 pass
             i += 2
+        elif args[i] == "--biz" and i + 1 < len(args):
+            biz = args[i + 1]; i += 2
         elif args[i] in ("--domain", "--category", "--title", "--severity", "--status"):
             key = args[i][2:]
             kwargs[key] = args[i + 1]; i += 2
@@ -92,6 +95,8 @@ def handle_add(km: KnowledgeManager, args: list[str]) -> dict:
             kwargs["benchmark"] = json.loads(benchmark_raw)
         except json.JSONDecodeError:
             return {"error": f"--benchmark must be valid JSON: {benchmark_raw[:80]}"}
+    if biz is not None:
+        kwargs["biz_context"] = biz
     scope_err = _check_scope(km)
     if scope_err:
         return scope_err
@@ -134,12 +139,15 @@ def handle_import(km: KnowledgeManager, args: list[str]) -> dict:
         entries = []
     added = []
     for e in entries:
-        entry = km.add_entry(
+        add_kwargs: dict = dict(
             domain=e.get("domain", "infra"), category=e.get("category", "工具"),
             title=e["title"], content=e["content"],
             tags=e.get("tags", []), severity=e.get("severity", "medium"),
             source=e.get("source", {}),
         )
+        if e.get("biz_context"):
+            add_kwargs["biz_context"] = e["biz_context"]
+        entry = km.add_entry(**add_kwargs)
         added.append(entry["id"])
     return {"imported": len(added), "ids": added}
 
@@ -350,6 +358,7 @@ def handle_teach(km: KnowledgeManager, args: list[str]) -> dict:
     steps = []
     domain = "infra"
     category = "流程"
+    biz = None
     i = 0
     while i < len(args):
         if args[i] == "--domain" and i + 1 < len(args):
@@ -360,6 +369,8 @@ def handle_teach(km: KnowledgeManager, args: list[str]) -> dict:
             title = args[i + 1]; i += 2
         elif args[i] == "--step" and i + 1 < len(args):
             steps.append(args[i + 1]); i += 2
+        elif args[i] == "--biz" and i + 1 < len(args):
+            biz = args[i + 1]; i += 2
         elif not title:
             title = args[i]; i += 1
         else:
@@ -378,11 +389,14 @@ def handle_teach(km: KnowledgeManager, args: list[str]) -> dict:
         content_lines.append(f"{j}. {clean}")
     content = "\n".join(content_lines)
 
-    entry = km.add_entry(
+    add_kwargs: dict = dict(
         domain=domain, category=category, title=title,
         content=content, severity="medium", status="active",
         entry_type="procedure", steps=steps,
     )
+    if biz is not None:
+        add_kwargs["biz_context"] = biz
+    entry = km.add_entry(**add_kwargs)
     return {"taught": entry["id"], "title": title, "steps": len(steps)}
 
 

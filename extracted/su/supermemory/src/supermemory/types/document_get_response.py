@@ -94,6 +94,7 @@ class DocumentGetResponse(BaseModel):
         "webpage",
         "onedrive",
         "github_markdown",
+        "granola",
     ]
     """Type of the document"""
 

@@ -44,7 +44,7 @@ def parse_time_atom(count, unit):
     except KeyError:
         most_similar = max(TIME_UNITS, key=lambda k: string_similarity(k, unit))
         raise ParseError(
-            f"'{unit}' is not a recognized time unit. Did you mean '{most_similar}'?" f"\nSupported units: {UNITS_STR}"
+            f"'{unit}' is not a recognized time unit. Did you mean '{most_similar}'?\nSupported units: {UNITS_STR}"
         )
 
     if unit in EXTRAPOLATED:

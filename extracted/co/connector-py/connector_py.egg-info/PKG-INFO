@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-py
-Version: 4.226.0
+Version: 4.227.0
 Summary: An Abstract Tool to Perform Actions on Integrations.
 Author-email: teamlumos <security@lumos.com>
 License-Expression: Apache-2.0
@@ -25,7 +25,7 @@ Requires-Dist: botocore~=1.40.61
 Requires-Dist: PyJWT~=2.10.1
 Requires-Dist: datadog~=0.49.1
 Requires-Dist: pip-system-certs~=5.2.0; platform_system == "Windows"
-Requires-Dist: tomli~=2.3.1
+Requires-Dist: tomli~=2.4.1
 Provides-Extra: fastapi
 Requires-Dist: fastapi-slim~=0.115.2; extra == "fastapi"
 Requires-Dist: uvicorn~=0.38.0; extra == "fastapi"

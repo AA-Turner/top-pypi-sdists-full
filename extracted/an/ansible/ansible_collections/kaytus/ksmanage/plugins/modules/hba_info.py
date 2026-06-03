@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: hba_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get CPU information
 description:
    - Get HBA information on kaytus Server.

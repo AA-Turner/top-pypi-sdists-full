@@ -165,12 +165,41 @@ def compute_metrics(
         head_spec_std = entropy_heads.std(correction=0).item() if entropy_heads.numel() > 0 else float("nan")
         attn_sink = last_attn._last_P.float()[:, :, 0].mean().item()
 
+    # §4.3 hybrid-score balance alpha = σ(alpha_w), per head per layer. It is a
+    # selection-only buffer (not trained), so this confirms it stays at its init
+    # (≈0.6); we still log min/mean/max across all heads×layers for the paper.
     alpha_per_head = []
+    alpha_vals = []
     for li, layer in enumerate(m.layers):
         attn = layer.attn
         if hasattr(attn, "alpha_w"):
             av = torch.sigmoid(attn.alpha_w).detach().cpu().tolist()
             alpha_per_head.append(av)
+            alpha_vals.extend(av)
+    if alpha_vals:
+        at = torch.tensor(alpha_vals)
+        alpha_min, alpha_mean, alpha_max = at.min().item(), at.mean().item(), at.max().item()
+    else:
+        alpha_min = alpha_mean = alpha_max = float("nan")
+
+    # §4.2 adaptive local window w(i) = n_min + σ(f(x_i))·(n_max-n_min). Unlike
+    # alpha this is genuinely content-dependent (f(x_i) varies per token), so the
+    # spread min<mean<max across positions is the real evidence the window adapts.
+    # We recompute it from the same per-layer hidden states fed to each attn (the
+    # block input is layer_hiddens[li]); inference floor matches forward (eval).
+    win_min = win_mean = win_max = float("nan")
+    win_per_layer = []
+    win_vals_all = []
+    for li, layer in enumerate(m.layers):
+        attn = layer.attn
+        if hasattr(attn, "_window_sizes"):
+            w = attn._window_sizes(layer_hiddens[li], floor=True)  # [T], int-valued
+            wmin, wmean, wmax = w.min().item(), w.mean().item(), w.max().item()
+            win_per_layer.append([wmin, wmean, wmax])
+            win_vals_all.append(w)
+    if win_vals_all:
+        w_all   = torch.cat(win_vals_all)
+        win_min, win_mean, win_max = w_all.min().item(), w_all.mean().item(), w_all.max().item()
 
     oow_mass_per_layer = []
     for li, layer in enumerate(m.layers):
@@ -204,6 +233,13 @@ def compute_metrics(
         "res_per_layer": res_per_layer,
         "token_dist_per_layer": token_dist_per_layer,
         "alpha_per_head": alpha_per_head,
+        "alpha_min": alpha_min,
+        "alpha_mean": alpha_mean,
+        "alpha_max": alpha_max,
+        "win_min": win_min,
+        "win_mean": win_mean,
+        "win_max": win_max,
+        "win_per_layer": win_per_layer,
         "oow_mass_per_layer": oow_mass_per_layer,
     }
 
@@ -315,7 +351,9 @@ class DSALTTrainer:
             "noise_norm", "token_dist", "head_spec_std", "attn_sink",
             "sigma2_per_layer", "entropy_per_layer", "noise_per_layer",
             "eff_rank_per_layer", "res_per_layer", "token_dist_per_layer",
-            "alpha_per_head", "oow_mass_per_layer",
+            "alpha_per_head", "alpha_min", "alpha_mean", "alpha_max",
+            "win_min", "win_mean", "win_max", "win_per_layer",
+            "oow_mass_per_layer",
             "val_ppl", "val_steps", "gpu_mem_gb", "it_s", "tok_s",
         ]}
         #print(f"--- [trainer] DSALTTrainer init DONE")
@@ -340,14 +378,14 @@ class DSALTTrainer:
         base = _unwrap_model(self.model)
         decay, nodecay, dsalt_params = [], [], []
 
+        # win_gate (§4.2) and alpha_w (§4.3) ARE trained: the gradient reaches them
+        # through the soft window edge and the σ(s/τ) landmark re-weight in the
+        # forward. That gradient is weaker than the dense projections', so we route
+        # them to a dedicated group with lr×2 and no weight decay (they are gates,
+        # not feature weights), matching the reference setup.
         for name, p in base.named_parameters():
             if not p.requires_grad:
                 continue
-            # alpha_w (§4.3) and win_gate (§4.2) are selection parameters used only
-            # inside non-differentiable ops (top-k / window mask): they receive no
-            # gradient and stay at init, exactly as in the reference setup. They are
-            # still routed to a no-decay group so a future trainable variant would
-            # be handled sensibly; AdamW simply skips params whose grad is None.
             if "alpha_w" in name or "win_gate" in name:
                 dsalt_params.append(p)
             elif p.ndim < 2 or any(k in name for k in ("norm", "bias", "embed")):
@@ -355,11 +393,10 @@ class DSALTTrainer:
             else:
                 decay.append(p)
 
-        n_decay    = sum(p.numel() for p in decay)
-        n_nodecay  = sum(p.numel() for p in nodecay)
-        n_dsalt    = sum(p.numel() for p in dsalt_params)
-        #print(f"--- [trainer] _build_optimizer | decay={n_decay:,} nodecay={n_nodecay:,} dsalt_special={n_dsalt:,}")
-        #print(f"--- [trainer] _build_optimizer | lr={self.lr:.2e} dsalt_lr={self.lr*2:.2e} wd={self.weight_decay}")
+        n_decay   = sum(p.numel() for p in decay)
+        n_nodecay = sum(p.numel() for p in nodecay)
+        n_dsalt   = sum(p.numel() for p in dsalt_params)
+        #print(f"--- [trainer] _build_optimizer | decay={n_decay:,} nodecay={n_nodecay:,} dsalt={n_dsalt:,}")
 
         opt = torch.optim.AdamW(
             [
@@ -527,7 +564,9 @@ class DSALTTrainer:
             f"H={_fs(metrics['attn_entropy'])} | "
             f"noise={_fs(metrics['noise_norm'])} | "
             f"sink={_fs(metrics['attn_sink'])} | "
-            f"head_std={_fs(metrics['head_spec_std'])}"
+            f"head_std={_fs(metrics['head_spec_std'])} | "
+            f"win={metrics['win_min']:.0f}/{metrics['win_mean']:.1f}/{metrics['win_max']:.0f} | "
+            f"alpha={metrics['alpha_min']:.3f}/{metrics['alpha_mean']:.3f}/{metrics['alpha_max']:.3f}"
         )
         #print(f"--- [trainer] _log_step | {msg}")
 
@@ -545,7 +584,9 @@ class DSALTTrainer:
                   "token_dist", "head_spec_std", "attn_sink",
                   "sigma2_per_layer", "entropy_per_layer", "noise_per_layer",
                   "eff_rank_per_layer", "res_per_layer", "token_dist_per_layer",
-                  "alpha_per_head", "oow_mass_per_layer"]:
+                  "alpha_per_head", "alpha_min", "alpha_mean", "alpha_max",
+                  "win_min", "win_mean", "win_max", "win_per_layer",
+                  "oow_mass_per_layer"]:
             self.history[k].append(metrics[k])
 
     def train(self):

@@ -1,22 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xopen
-Version: 2.0.2
+Version: 2.1.0
 Summary: Open compressed files transparently
 Author-email: Marcel Martin <marcel.martin@scilifelab.se>, Ruben Vorderman <r.h.p.vorderman@lumc.nl>
-License: MIT
+License-Expression: MIT
 Project-URL: homepage, https://github.com/pycompression/xopen/
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: isal>=1.6.1; platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "aarch64"
 Requires-Dist: zlib-ng>=0.4.1; platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "aarch64"
+Requires-Dist: backports.zstd; python_version < "3.14"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Provides-Extra: zstd
-Requires-Dist: zstandard<1; extra == "zstd"
+Dynamic: license-file
 
 .. image:: https://github.com/pycompression/xopen/workflows/CI/badge.svg
   :target: https://github.com/pycompression/xopen
@@ -46,9 +46,7 @@ Supported compression formats are:
 - gzip (``.gz``)
 - bzip2 (``.bz2``)
 - xz (``.xz``)
-- Zstandard (``.zst``) (optional)
-
-``xopen`` is compatible with Python versions 3.8 and later.
+- Zstandard (``.zst``)
 
 
 Example usage
@@ -158,7 +156,7 @@ Opening of gzip files is delegated to one of these programs or libraries:
 For xz files, a pipe to the ``xz`` program is used because it has
 built-in support for multithreaded compression.
 
-For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is used.
+For bz2 files, `pbzip2 (parallel bzip2) <http://compression.great-site.net/pbzip2/>`_ is used.
 
 ``xopen`` falls back to Python’s built-in functions
 (``gzip.open``, ``lzma.open``, ``bz2.open``)
@@ -186,27 +184,39 @@ bzip2 and xz compression methods do not store timestamps in the file headers,
 so output from them is also reproducible.
 
 
-Optional Zstandard support
---------------------------
+Zstandard support
+-----------------
 
-For reading and writing Zstandard (``.zst``) files, either the ``zstd`` command-line
-program or the Python ``zstandard`` package needs to be installed.
+For reading and writing Zstandard (``.zst``) files,
+either the ``zstd`` command-line program,
+the ``backports.zstd`` package or (on Python 3.14+),
+the ``compression.zstd`` module in the standard library is used.
 
 * If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
   ``xopen`` uses an external ``zstd`` process.
 * If the above fails (because no ``zstd`` program is available) or if ``threads`` is 0,
-  the ``zstandard`` package is used.
-
-To ensure that you get the correct ``zstandard`` version, you can specify the ``zstd`` extra for
-``xopen``, that is, install it using ``pip install xopen[zstd]``.
+  the ``backports.zstd`` or ``compression.zstd`` package is used.
 
 
 Changelog
 ---------
 
+v2.1.0 (2026-06-03)
+~~~~~~~~~~~~~~~~~~~
+
+* Zstandard is now supported by using ``compression.zstd``, which is part of the
+  Python standard library since Python 3.14.
+  On Python versions before 3.14, ``backports.zstd`` is used instead.
+* Zstandard support is no longer optional.
+  That is, it is no longer necessary to install ``xopen`` with the ``zstd`` extra.
+  The reason Zstandard was optional was that ``python-zstandard`` wheels
+  are quite large, but ``backports.zstd`` wheels are much smaller.
+* Dropped support for Python 3.8 and 3.9
+* Started supporting Python 3.13 and 3.14 (including free-threaded)
+
 v2.0.2 (2024-06-12)
 ~~~~~~~~~~~~~~~~~~~
-* #161: Fix a bug that was triggered when reading large compressed files with
+* #161: Fixed a bug that was triggered when reading large compressed files with
   an external program.
 
 v2.0.1 (2024-03-28)
@@ -301,7 +311,7 @@ v1.3.0 (2022-01-10)
 v1.2.0 (2021-09-21)
 ~~~~~~~~~~~~~~~~~~~
 
-* `pbzip2 <http://compression.ca/pbzip2/>`_ is now used to open ``.bz2`` files if
+* `pbzip2 <http://compression.great-site.net/pbzip2/>`_ is now used to open ``.bz2`` files if
   ``threads`` is greater than zero (contributed by @DriesSchaumont).
 
 v1.1.0 (2021-01-20)

@@ -147,6 +147,7 @@ def _handle_search(km: KnowledgeManager, args: list[str]) -> dict:
     tag = None
     task_id = None
     intent = None
+    biz = None
     i = 0
     while i < len(args):
         if args[i] == "--domain" and i + 1 < len(args):
@@ -157,6 +158,8 @@ def _handle_search(km: KnowledgeManager, args: list[str]) -> dict:
             task_id = args[i + 1]; i += 2
         elif args[i] == "--intent" and i + 1 < len(args):
             intent = args[i + 1]; i += 2
+        elif args[i] == "--biz" and i + 1 < len(args):
+            biz = args[i + 1]; i += 2
         else:
             keyword_parts.append(args[i]); i += 1
 
@@ -167,18 +170,18 @@ def _handle_search(km: KnowledgeManager, args: list[str]) -> dict:
     elif tag:
         results = km.search_by_tag(tag)
     elif intent and keyword:
-        results = km.search_by_intent(intent, keyword, domain=domain)
+        results = km.search_by_intent(intent, keyword, domain=domain, biz_context=biz)
     elif keyword:
-        results = km.search_hybrid(keyword)
+        results = km.search_hybrid(keyword, biz_context=biz)
     else:
-        results = km.list_entries(limit=20)
+        results = km.list_entries(limit=20, biz_context=biz)
 
     if domain and not task_id:
         results = [r for r in results if r.get("domain") == domain]
 
     return {
         "keyword": keyword, "domain": domain, "tag": tag,
-        "task_id": task_id, "intent": intent,
+        "task_id": task_id, "intent": intent, "biz": biz,
         "results": _strip_heavy_fields(results) if summary_only else results,
         "count": len(results), "summary": _build_summary(results),
         "summary_only": summary_only,
@@ -187,23 +190,39 @@ def _handle_search(km: KnowledgeManager, args: list[str]) -> dict:
 
 def _handle_semantic(km: KnowledgeManager, args: list[str]) -> dict:
     args, summary_only = _summary_only(args)
-    query = " ".join(args) if args else ""
+    query_parts = []
+    biz = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--biz" and i + 1 < len(args):
+            biz = args[i + 1]; i += 2
+        else:
+            query_parts.append(args[i]); i += 1
+    query = " ".join(query_parts) if query_parts else ""
     if not query:
         return {"error": "semantic search requires a query"}
-    results = km.search_semantic(query)
-    return {"query": query, "count": len(results),
+    results = km.search_semantic(query, biz_context=biz)
+    return {"query": query, "biz": biz, "count": len(results),
             "results": _strip_heavy_fields(results) if summary_only else results,
             "summary": _build_summary(results), "summary_only": summary_only}
 
 
 def _handle_hybrid(km: KnowledgeManager, args: list[str]) -> dict:
     args, summary_only = _summary_only(args)
-    query = " ".join(args) if args else ""
+    query_parts = []
+    biz = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--biz" and i + 1 < len(args):
+            biz = args[i + 1]; i += 2
+        else:
+            query_parts.append(args[i]); i += 1
+    query = " ".join(query_parts) if query_parts else ""
     if not query:
         return {"error": "hybrid search requires a query"}
-    results = km.search_hybrid(query)
+    results = km.search_hybrid(query, biz_context=biz)
     results = [r for r in results if float(r.get("relevance") or r.get("score", 0)) >= 0.1]
-    return {"query": query, "count": len(results),
+    return {"query": query, "biz": biz, "count": len(results),
             "results": _strip_heavy_fields(results) if summary_only else results,
             "summary": _build_summary(results), "summary_only": summary_only}
 
@@ -226,6 +245,7 @@ def _handle_list(km: KnowledgeManager, args: list[str]) -> dict:
     domain = None
     category = None
     status = "active"
+    biz = None
     i = 0
     while i < len(args):
         if args[i] == "--domain" and i + 1 < len(args):
@@ -234,11 +254,13 @@ def _handle_list(km: KnowledgeManager, args: list[str]) -> dict:
             category = args[i + 1]; i += 2
         elif args[i] == "--status" and i + 1 < len(args):
             status = args[i + 1]; i += 2
+        elif args[i] == "--biz" and i + 1 < len(args):
+            biz = args[i + 1]; i += 2
         else:
             i += 1
-    results = km.list_entries(domain=domain, category=category, status=status)
+    results = km.list_entries(domain=domain, category=category, status=status, biz_context=biz)
     return {
-        "domain": domain, "category": category, "status": status,
+        "domain": domain, "category": category, "status": status, "biz": biz,
         "results": _strip_heavy_fields(results) if summary_only else results,
         "count": len(results), "summary": _build_summary(results),
         "summary_only": summary_only,
@@ -386,6 +408,24 @@ def _handle_health(km: KnowledgeManager) -> dict:
     benchmark_count = sum(1 for e in entries if e.get("benchmark"))
     benchmark_coverage = f"{benchmark_count / total * 100:.1f}%" if total else "0.0%"
 
+    # Effectiveness stats
+    eff_entries = [e for e in entries if e.get("effectiveness")]
+    eff_avg = 0.0
+    if eff_entries:
+        import json as _json
+        scores = []
+        for e in eff_entries:
+            eff = e["effectiveness"]
+            if isinstance(eff, str):
+                try:
+                    eff = _json.loads(eff)
+                except Exception:
+                    continue
+            if isinstance(eff, dict) and eff.get("score") is not None:
+                scores.append(eff["score"])
+        if scores:
+            eff_avg = round(sum(scores) / len(scores), 3)
+
     return {
         "total_entries": total,
         "category_distribution": dict(cat_counts.most_common()),
@@ -394,6 +434,10 @@ def _handle_health(km: KnowledgeManager) -> dict:
         "duplicates": duplicates, "low_quality": low_quality,
         "stale_count": len(stale_ids), "knowledge_gaps": gaps,
         "benchmark": {"total": benchmark_count, "coverage": benchmark_coverage},
+        "effectiveness": {
+            "tracked": len(eff_entries),
+            "avg_score": eff_avg,
+        },
     }
 
 

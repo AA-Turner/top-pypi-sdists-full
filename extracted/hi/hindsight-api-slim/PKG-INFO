@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hindsight-api-slim
-Version: 0.7.1
+Version: 0.7.2
 Summary: Hindsight: Agent Memory That Works Like Human Memory
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.13.3
@@ -9,7 +9,7 @@ Requires-Dist: anthropic>=0.40.0
 Requires-Dist: asyncpg>=0.29.0
 Requires-Dist: authlib>=1.6.9
 Requires-Dist: boto3>=1.42.74
-Requires-Dist: claude-agent-sdk>=0.1.27
+Requires-Dist: claude-agent-sdk>=0.2.82
 Requires-Dist: cohere>=5.0.0
 Requires-Dist: cryptography<47,>=46.0.6
 Requires-Dist: dateparser>=1.2.2
@@ -47,7 +47,7 @@ Requires-Dist: python-dateutil>=2.8.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: python-multipart>=0.0.22
 Requires-Dist: rich>=13.0.0
-Requires-Dist: sqlalchemy>=2.0.44
+Requires-Dist: sqlalchemy<2.1,>=2.0.44
 Requires-Dist: tiktoken>=0.12.0
 Requires-Dist: tornado>=6.5.5
 Requires-Dist: typer>=0.9.0
@@ -61,13 +61,13 @@ Requires-Dist: einops>=0.8.2; extra == 'all'
 Requires-Dist: flashrank>=0.2.0; extra == 'all'
 Requires-Dist: mlx-lm>=0.31.1; (sys_platform != 'win32') and extra == 'all'
 Requires-Dist: mlx>=0.31.0; (sys_platform != 'win32') and extra == 'all'
-Requires-Dist: pg0-embedded>=0.14.0; extra == 'all'
+Requires-Dist: pg0-embedded>=0.14.2; extra == 'all'
 Requires-Dist: safetensors>=0.6.2; extra == 'all'
 Requires-Dist: sentence-transformers>=3.3.0; extra == 'all'
 Requires-Dist: torch>=2.6.0; extra == 'all'
 Requires-Dist: transformers>=4.53.0; extra == 'all'
 Provides-Extra: embedded-db
-Requires-Dist: pg0-embedded>=0.14.0; extra == 'embedded-db'
+Requires-Dist: pg0-embedded>=0.14.2; extra == 'embedded-db'
 Provides-Extra: local-llm
 Requires-Dist: huggingface-hub>=0.20.0; extra == 'local-llm'
 Requires-Dist: llama-cpp-python[server]>=0.3.0; extra == 'local-llm'
@@ -192,7 +192,7 @@ hindsight-api
 ## Docker
 
 ```bash
-docker run --rm -it -p 8888:8888 \
+docker run -it --name hindsight --restart unless-stopped -p 8888:8888 \
   -e HINDSIGHT_API_LLM_API_KEY=$OPENAI_API_KEY \
   -v $HOME/.hindsight-docker:/home/hindsight/.pg0 \
   ghcr.io/vectorize-io/hindsight:latest

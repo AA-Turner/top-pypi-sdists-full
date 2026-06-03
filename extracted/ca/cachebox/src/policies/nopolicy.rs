@@ -1,360 +1,297 @@
-use crate::common::Entry;
-use crate::common::Observed;
-use crate::common::PreHashObject;
-use crate::common::TryFindMethods;
+use crate::hashbrown;
+use crate::internal::alias;
+use crate::internal::pickle::Builder;
+use crate::internal::utils;
+use crate::policies::traits;
+use crate::policies::traits::HandleExt;
+use crate::policies::traits::PolicyExt;
+use crate::policies::traits::SharedExt;
+
+pub use super::common::Handle;
+pub use super::common::Shared;
+
+/// A view into an occupied entry in [`NoPolicy`].
+pub struct Occupied<'a> {
+    /// The parent storage that owns the hash table.
+    policy: &'a mut NoPolicy,
+    /// The shared configuration
+    shared: &'a Shared,
+    /// Raw bucket pointing to the occupied slot within the hash table.
+    bucket: hashbrown::raw::Bucket<Handle>,
+}
+
+impl traits::OccupiedExt for Occupied<'_> {
+    type Shared = Shared;
+    type Handle = Handle;
+
+    fn remove(self) -> Self::Handle {
+        self.shared.generation_version().increment();
+
+        let (h, _) = unsafe { self.policy.table.remove(self.bucket) };
+        self.policy.currsize = self.policy.currsize.saturating_sub(h.size());
+        h
+    }
+
+    fn replace(self, new: Self::Handle) -> Self::Handle {
+        self.policy.currsize = self.policy.currsize.saturating_add(new.size());
+        let old = unsafe { std::mem::replace(self.bucket.as_mut(), new) };
+        self.policy.currsize = self.policy.currsize.saturating_sub(old.size());
+
+        old
+    }
+}
+
+/// A view into a vacant slot in [`NoPolicy`].
+pub struct Vacant<'a> {
+    /// The parent policy that owns the hash table.
+    policy: &'a mut NoPolicy,
+    /// The shared configuration
+    shared: &'a Shared,
+    /// If true, means we used `.evict()` method, and empty slots are available
+    /// in table; so we don't need to reserve a new one.
+    space_available: bool,
+}
+
+impl traits::VacantExt for Vacant<'_> {
+    type Shared = Shared;
+    type Handle = Handle;
+
+    #[inline]
+    fn would_exceed(&self, extra_size: usize) -> bool {
+        self.policy.currsize.saturating_add(extra_size) > self.shared.maxsize()
+    }
+
+    #[inline(always)]
+    fn evict(&mut self) -> pyo3::PyResult<()> {
+        self.policy.evict(self.shared)?;
+        Ok(())
+    }
+
+    fn insert(self, handle: Self::Handle) {
+        self.shared.generation_version().increment();
+        self.policy.currsize = self.policy.currsize.saturating_add(handle.size());
+
+        if !self.space_available {
+            self.policy.table.reserve(1, |x| x.key().hash());
+        }
+        unsafe {
+            self.policy
+                .table
+                .insert_no_grow(handle.key().hash(), handle);
+        }
+    }
+}
 
 pub struct NoPolicy {
-    table: hashbrown::raw::RawTable<(PreHashObject, pyo3::Py<pyo3::PyAny>, usize)>,
-    maxsize: std::num::NonZeroUsize,
-    maxmemory: std::num::NonZeroUsize,
-    memory: usize,
-    pub observed: Observed,
-}
-
-pub struct NoPolicyOccupied<'a> {
-    instance: &'a mut NoPolicy,
-    bucket: hashbrown::raw::Bucket<(PreHashObject, pyo3::Py<pyo3::PyAny>, usize)>,
-}
-
-pub struct NoPolicyAbsent<'a> {
-    instance: &'a mut NoPolicy,
-    insert_slot: Option<hashbrown::raw::InsertSlot>,
+    /// The raw hash table storing all live [`Handle`] entries.
+    table: hashbrown::raw::RawTable<Handle>,
+    /// Running total of all stored handles' sizes, maintained incrementally.
+    currsize: usize,
 }
 
 impl NoPolicy {
-    pub fn new(maxsize: usize, mut capacity: usize, maxmemory: usize) -> pyo3::PyResult<Self> {
-        let maxsize = non_zero_or!(maxsize, isize::MAX as usize);
-        let maxmemory = non_zero_or!(maxmemory, isize::MAX as usize);
-        capacity = capacity.min(maxsize.get());
-
-        Ok(Self {
-            table: new_table!(capacity)?,
-            maxsize,
-            maxmemory,
-            memory: 0,
-            observed: Observed::new(),
-        })
+    /// Creates a new [`NoPolicy`].
+    ///
+    /// The underlying hash table is pre-allocated to hold at least `capacity` entries
+    /// without reallocation.
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            table: hashbrown::raw::RawTable::with_capacity(capacity),
+            currsize: 0,
+        }
     }
 
-    pub fn maxsize(&self) -> usize {
-        self.maxsize.get()
+    /// Returns a reference to the underlying raw hash table.
+    #[inline(always)]
+    pub fn table(&self) -> &hashbrown::raw::RawTable<Handle> {
+        &self.table
     }
+}
 
-    pub fn maxmemory(&self) -> usize {
-        self.maxmemory.get()
-    }
+impl traits::PolicyExt for NoPolicy {
+    type Shared = Shared;
+    type Handle = Handle;
 
-    pub fn memory(&self) -> usize {
-        self.memory
+    type Occupied<'a>
+        = Occupied<'a>
+    where
+        Self: 'a;
+
+    type Vacant<'a>
+        = Vacant<'a>
+    where
+        Self: 'a;
+
+    const PICKLE_SIZE: usize = 1;
+
+    #[inline]
+    fn current_size(&self) -> usize {
+        self.currsize
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.table.len()
+    fn get(
+        &mut self,
+        py: pyo3::Python,
+        key: &<Self::Handle as traits::HandleExt>::Key,
+    ) -> pyo3::PyResult<Option<&Self::Handle>> {
+        let bucket = self.table.find(key.hash(), |x| key.py_eq(py, x.key()))?;
+        Ok(bucket.map(|x| unsafe { x.as_ref() }))
     }
 
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.table.is_empty()
-    }
-
-    pub fn is_full(&self) -> bool {
-        self.table.len() == self.maxsize.get() || self.memory >= self.maxmemory.get()
-    }
-
-    pub fn capacity(&self) -> usize {
-        self.table.capacity()
-    }
-
-    pub fn iter(&self) -> hashbrown::raw::RawIter<(PreHashObject, pyo3::Py<pyo3::PyAny>, usize)> {
-        unsafe { self.table.iter() }
-    }
-
-    #[inline]
-    #[rustfmt::skip]
-    pub fn entry(
-        &'_ mut self,
-        py: pyo3::Python<'_>,
-        key: &PreHashObject,
-    ) -> pyo3::PyResult<Entry<NoPolicyOccupied<'_>, NoPolicyAbsent<'_>>> {
-        match self.table.try_find(key.hash, |(x, _, _)| x.equal(py, key))? {
+    fn entry<'a>(
+        &'a mut self,
+        py: pyo3::Python,
+        key: &<Self::Handle as traits::HandleExt>::Key,
+        shared: &'a Self::Shared,
+    ) -> pyo3::PyResult<traits::PolicyEntry<Self::Occupied<'a>, Self::Vacant<'a>>> {
+        match self.table.find(key.hash(), |x| key.py_eq(py, x.key()))? {
             Some(bucket) => {
-                Ok(
-                    Entry::Occupied(NoPolicyOccupied { instance: self, bucket })
-                )
-            },
+                let result = Occupied {
+                    policy: self,
+                    shared,
+                    bucket,
+                };
+                Ok(traits::PolicyEntry::Occupied(result))
+            }
             None => {
-                Ok(
-                    Entry::Absent(NoPolicyAbsent { instance: self, insert_slot: None })
-                )
+                let result = Vacant {
+                    policy: self,
+                    shared,
+                    space_available: false,
+                };
+                Ok(traits::PolicyEntry::Vacant(result))
             }
         }
     }
 
     #[inline]
-    #[rustfmt::skip]
-    pub fn entry_with_slot(
-        &'_ mut self,
-        py: pyo3::Python<'_>,
-        key: &PreHashObject,
-    ) -> pyo3::PyResult<Entry<NoPolicyOccupied<'_>, NoPolicyAbsent<'_>>> {
-        match self.table.try_find_or_find_insert_slot(
-            key.hash,
-            |(x, _, _)| x.equal(py, key),
-            |(x, _, _)| x.hash,
-        )? {
-            Ok(bucket) => Ok(
-                Entry::Occupied(NoPolicyOccupied { instance: self, bucket })
-            ),
-            Err(insert_slot) => Ok(
-                Entry::Absent(NoPolicyAbsent { instance: self, insert_slot: Some(insert_slot) })
-            ),
-        }
+    fn evict(&mut self, _shared: &Self::Shared) -> pyo3::PyResult<Self::Handle> {
+        Err(new_py_error!(
+            PyOverflowError,
+            "The cache has no algorithm to evict items"
+        ))
     }
 
     #[inline]
-    pub fn lookup(
-        &self,
-        py: pyo3::Python<'_>,
-        key: &PreHashObject,
-    ) -> pyo3::PyResult<Option<&pyo3::Py<pyo3::PyAny>>> {
-        match self
-            .table
-            .try_find(key.hash, |(x, _, _)| x.equal(py, key))?
-        {
-            Some(x) => Ok(Some(unsafe { &x.as_ref().1 })),
-            None => Ok(None),
-        }
+    fn shrink_to_fit(&mut self, shared: &Self::Shared) {
+        shared.generation_version().increment();
+        self.table.shrink_to(0, |x| x.key().hash());
     }
 
-    pub fn equal(&self, py: pyo3::Python<'_>, other: &Self) -> pyo3::PyResult<bool> {
-        if self.maxsize != other.maxsize {
-            return Ok(false);
+    #[inline]
+    fn clear(&mut self, shared: &Self::Shared) {
+        if self.table.is_empty() {
+            return;
         }
+        self.table.clear();
+        shared.generation_version().increment();
+        self.currsize = 0;
+    }
 
-        if self.maxmemory != other.maxmemory {
-            return Ok(false);
-        }
-
-        if self.table.len() != other.table.len() {
+    fn py_eq(
+        &self,
+        py: pyo3::Python,
+        shared: &Self::Shared,
+        other: &Self,
+        other_shared: &Self::Shared,
+    ) -> pyo3::PyResult<bool> {
+        if shared.maxsize() != other_shared.maxsize() || self.table.len() != other.table.len() {
             return Ok(false);
         }
 
         let mut error = None;
 
         let result = unsafe {
-            self.table.iter().all(|bucket| {
-                let (key, val, _) = bucket.as_ref();
+            self.table.iter().map(|x| x.as_ref()).all(|h1| {
+                let key = h1.key();
 
-                match other.table.try_find(key.hash, |(x, _, _)| x.equal(py, key)) {
+                match other.table.get(key.hash(), |x| key.py_eq(py, x.key())) {
                     Err(e) => {
                         error = Some(e);
-                        true
+                        false
                     }
-                    Ok(Some(bucket)) => {
-                        let (_, val2, _) = bucket.as_ref();
-
-                        match crate::common::pyobject_equal(py, val.as_ptr(), val2.as_ptr()) {
-                            Ok(result) => result,
+                    Ok(None) => false,
+                    Ok(Some(h2)) => {
+                        match utils::pyobject_equal(py, h1.value().as_ptr(), h2.value().as_ptr()) {
+                            Ok(eq) => eq,
                             Err(e) => {
                                 error = Some(e);
-                                true
+                                false
                             }
                         }
                     }
-                    Ok(None) => false,
                 }
             })
         };
 
-        if let Some(error) = error {
-            return Err(error);
-        }
-
-        Ok(result)
+        error.map_or(Ok(result), Err)
     }
 
-    pub fn clear(&mut self) {
-        self.table.clear();
-        self.memory = 0;
-        self.observed.change();
-    }
+    fn clone_ref(&mut self, py: pyo3::Python<'_>) -> Self {
+        let mut table = hashbrown::raw::RawTable::with_capacity(self.table.capacity());
 
-    pub fn shrink_to_fit(&mut self) {
-        self.table.shrink_to(self.table.len(), |(x, _, _)| x.hash);
-        self.observed.change();
-    }
-
-    #[inline]
-    pub fn extend(
-        &mut self,
-        py: pyo3::Python<'_>,
-        iterable: pyo3::Py<pyo3::PyAny>,
-    ) -> pyo3::PyResult<()> {
-        use pyo3::types::{PyAnyMethods, PyDictMethods};
-
-        if unsafe { pyo3::ffi::PyDict_CheckExact(iterable.as_ptr()) == 1 } {
-            let dict = unsafe { iterable.cast_bound_unchecked::<pyo3::types::PyDict>(py) };
-
-            for (key, value) in dict.iter() {
-                let hk =
-                    unsafe { PreHashObject::from_pyobject(py, key.unbind()).unwrap_unchecked() };
-
-                match self.entry_with_slot(py, &hk)? {
-                    Entry::Occupied(entry) => {
-                        entry.update(py, value.unbind())?;
-                    }
-                    Entry::Absent(entry) => {
-                        entry.insert(py, hk, value.unbind())?;
-                    }
-                }
-            }
-        } else {
-            for pair in iterable.bind(py).try_iter()? {
-                let (key, value) =
-                    pair?.extract::<(pyo3::Py<pyo3::PyAny>, pyo3::Py<pyo3::PyAny>)>()?;
-
-                let hk = PreHashObject::from_pyobject(py, key)?;
-
-                match self.entry_with_slot(py, &hk)? {
-                    Entry::Occupied(entry) => {
-                        entry.update(py, value)?;
-                    }
-                    Entry::Absent(entry) => {
-                        entry.insert(py, hk, value)?;
-                    }
-                }
+        unsafe {
+            for handle in self.table.iter().map(|x| x.as_ref()) {
+                table.insert_no_grow(handle.key().hash(), handle.clone_ref(py));
             }
         }
 
-        Ok(())
+        Self {
+            table,
+            currsize: self.currsize,
+        }
     }
 
-    #[allow(clippy::wrong_self_convention)]
-    pub fn from_pickle(
-        &mut self,
-        py: pyo3::Python<'_>,
-        state: *mut pyo3::ffi::PyObject,
+    fn build_pickle(
+        &self,
+        tuple: &mut crate::internal::pickle::TupleBuilder<
+            '_,
+            crate::internal::pickle::PickleBuilder,
+        >,
     ) -> pyo3::PyResult<()> {
+        let mut dict = tuple.begin_dict()?;
+
+        unsafe {
+            for handle in self.table.iter().map(|x| x.as_ref()) {
+                dict.entry(handle.key().as_ref(), handle.value())?;
+            }
+        }
+
+        dict.end()
+    }
+
+    fn from_pickle(
+        maxsize: usize,
+        getsizeof: Option<alias::PyObject>,
+        _global_ttl: Option<std::time::Duration>,
+        builded: pyo3::Bound<'_, pyo3::types::PyTuple>,
+    ) -> pyo3::PyResult<(Self::Shared, Self)> {
         use pyo3::types::PyDictMethods;
+        use pyo3::types::PyTupleMethods;
 
-        let (maxsize, iterable, capacity, maxmemory) =
-            unsafe { extract_pickle_tuple!(py, state => dict) };
+        let dict = builded.get_item(0)?.cast_into::<pyo3::types::PyDict>()?;
+        let dict_length = dict.len();
 
-        let mut new = Self::new(maxsize, capacity, maxmemory)?;
-
-        // SAFETY: we checked that the iterable is a dict in extract_pickle_tuple! macro
-        let dict = unsafe { iterable.cast_bound_unchecked::<pyo3::types::PyDict>(py) };
-
-        unsafe {
-            for (key, value) in dict.iter() {
-                let hk = PreHashObject::from_pyobject(py, key.unbind()).unwrap_unchecked();
-
-                match new.entry_with_slot(py, &hk)? {
-                    Entry::Absent(entry) => {
-                        entry.insert(py, hk, value.unbind())?;
-                    }
-                    _ => std::hint::unreachable_unchecked(),
-                }
-            }
-        }
-
-        *self = new;
-        Ok(())
-    }
-}
-
-impl<'a> NoPolicyOccupied<'a> {
-    #[inline]
-    pub fn update(
-        self,
-        py: pyo3::Python<'_>,
-        value: pyo3::Py<pyo3::PyAny>,
-    ) -> pyo3::PyResult<pyo3::Py<pyo3::PyAny>> {
-        unsafe {
-            let item = self.bucket.as_mut();
-            let new_size = crate::common::entry_size(py, &item.0, &value)?;
-
-            if new_size > self.instance.maxmemory.get() {
-                return Err(pyo3::PyErr::new::<pyo3::exceptions::PyOverflowError, _>(
-                    "The cache has reached the bound",
-                ));
-            }
-
-            let next_memory = self
-                .instance
-                .memory
-                .saturating_sub(item.2)
-                .saturating_add(new_size);
-            if next_memory > self.instance.maxmemory.get() {
-                return Err(pyo3::PyErr::new::<pyo3::exceptions::PyOverflowError, _>(
-                    "The cache has reached the bound",
-                ));
-            }
-
-            // In update we don't need to change this; because this does not change the memory address ranges
-            // self.instance.observed.change();
-
-            let old_value = std::mem::replace(&mut item.1, value);
-            item.2 = new_size;
-            self.instance.memory = next_memory;
-            Ok(old_value)
-        }
-    }
-
-    #[inline]
-    pub fn remove(self) -> (PreHashObject, pyo3::Py<pyo3::PyAny>, usize) {
-        let (x, _) = unsafe { self.instance.table.remove(self.bucket) };
-        self.instance.memory = self.instance.memory.saturating_sub(x.2);
-        self.instance.observed.change();
-        x
-    }
-
-    pub fn into_value(self) -> &'a mut (PreHashObject, pyo3::Py<pyo3::PyAny>, usize) {
-        unsafe { self.bucket.as_mut() }
-    }
-}
-
-impl NoPolicyAbsent<'_> {
-    #[inline]
-    pub fn insert(
-        self,
-        py: pyo3::Python<'_>,
-        key: PreHashObject,
-        value: pyo3::Py<pyo3::PyAny>,
-    ) -> pyo3::PyResult<()> {
-        let entry_size = crate::common::entry_size(py, &key, &value)?;
-
-        if entry_size > self.instance.maxmemory.get()
-            || self.instance.memory.saturating_add(entry_size) > self.instance.maxmemory.get()
-        {
-            return Err(pyo3::PyErr::new::<pyo3::exceptions::PyOverflowError, _>(
-                "The cache has reached the bound",
+        if dict_length > maxsize {
+            return Err(new_py_error!(
+                PyValueError,
+                "dict size is incompatible with maxsize"
             ));
         }
 
-        if self.instance.table.len() >= self.instance.maxsize.get() {
-            // There's no algorithm for removing a key-value pair, so we raise PyOverflowError.
-            return Err(pyo3::PyErr::new::<pyo3::exceptions::PyOverflowError, _>(
-                "The cache has reached the bound",
-            ));
-        }
+        let shared = Shared::new(maxsize, getsizeof);
+        let mut slf = Self::new(dict.len());
 
-        match self.insert_slot {
-            Some(slot) => unsafe {
-                self.instance
-                    .table
-                    .insert_in_slot(key.hash, slot, (key, value, entry_size));
-            },
-            None => {
-                self.instance
-                    .table
-                    .insert(key.hash, (key, value, entry_size), |(x, _, _)| x.hash);
+        for (key, value) in dict.iter() {
+            let handle = Handle::new(key.py(), shared.getsizeof(), key.unbind(), value.unbind())?;
+
+            slf.currsize = slf.currsize.saturating_add(handle.size());
+            unsafe {
+                slf.table.insert_no_grow(handle.key().hash(), handle);
             }
         }
 
-        self.instance.memory = self.instance.memory.saturating_add(entry_size);
-        self.instance.observed.change();
-        Ok(())
+        Ok((shared, slf))
     }
 }

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
 from esi.exceptions import HTTPNotModified
@@ -45,7 +44,9 @@ class EveFactionInfo(models.Model):
     station_count = models.PositiveIntegerField(blank=True, null=True, default=None)
     station_system_count = models.PositiveIntegerField(blank=True, null=True, default=None)
 
-    last_updated = models.DateTimeField(default=now)  # auto_now_add=True doesn't allow override from Last_Modified header
+    last_updated = models.DateTimeField(
+        default=None, blank=True, null=True,
+        help_text="Last time the faction's details were updated, (GetUniverseFactions), 24 hr Cache")
 
     objects: ClassVar[EveFactionManager] = EveFactionManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
@@ -145,7 +146,9 @@ class EveAllianceInfo(models.Model):
         help_text="Alliance's ticker",
         max_length=254)
 
-    last_updated = models.DateTimeField(default=now)  # auto_now_add=True doesn't allow override from Last_Modified header
+    last_updated = models.DateTimeField(
+        default=None, blank=True, null=True,
+        help_text="Last time the alliance's details were updated, (GetAlliancesAllianceId), 1 hr Cache")
 
     objects: ClassVar[EveAllianceManager] = EveAllianceManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
@@ -225,9 +228,12 @@ class EveAllianceInfo(models.Model):
         """Return executor corporation of this alliance or None if not found."""
         return self.executor_corp_id if self.executor_corp_id else None
 
-    def populate_alliance(self) -> "EveAllianceInfo":
+    def populate_alliance(self, force_refresh: bool = False) -> "EveAllianceInfo":
         try:
-            corp_ids = open_api_provider.get_alliance_corps(self.alliance_id)
+            corp_ids = open_api_provider.get_alliance_corps(
+                self.alliance_id,
+                use_etag=not force_refresh,
+                force_refresh=force_refresh)
         except HTTPNotModified:
             # nothing to update
             return self
@@ -248,9 +254,13 @@ class EveAllianceInfo(models.Model):
 
         return self
 
-    def update_alliance(self) -> "EveAllianceInfo":
+    def update_alliance(self, force_refresh: bool = False) -> "EveAllianceInfo":
         try:
-            alliance, response = open_api_provider.get_alliance(alliance_id=self.alliance_id, last_modified=self.last_updated, use_etag=True)
+            alliance, response = open_api_provider.get_alliance(
+                alliance_id=self.alliance_id,
+                last_modified=self.last_updated if not force_refresh else None,
+                use_etag=not force_refresh,
+                force_refresh=force_refresh)
         except HTTPNotModified:
             # nothing to update
             return self
@@ -324,7 +334,9 @@ class EveCorporationInfo(models.Model):
         help_text="Corporation's war eligibility",
         blank=True, null=True, default=None)
 
-    last_updated = models.DateTimeField(default=now)  # auto_now_add=True doesn't allow override from Last_Modified header
+    last_updated = models.DateTimeField(
+        default=None, blank=True, null=True,
+        help_text="Last time the corporation's details were updated, (GetCorporationsCorporationId), 1 hr Cache")
 
     objects: ClassVar[EveCorporationManager] = EveCorporationManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
@@ -378,9 +390,13 @@ class EveCorporationInfo(models.Model):
     def ticker(self) -> str:  # This is the literal ESI field
         return self.corporation_ticker
 
-    def update_corporation(self) -> "EveCorporationInfo":
+    def update_corporation(self, force_refresh: bool = False) -> "EveCorporationInfo":
         try:
-            corporation, response = open_api_provider.get_corporation(corporation_id=self.corporation_id, last_modified=self.last_updated, use_etag=True)
+            corporation, response = open_api_provider.get_corporation(
+                corporation_id=self.corporation_id,
+                last_modified=self.last_updated if not force_refresh else None,
+                use_etag=not force_refresh,
+                force_refresh=force_refresh)
         except HTTPNotModified:
             # nothing to update
             return self
@@ -470,7 +486,12 @@ class EveCharacter(models.Model):
     alliance_ticker = models.CharField(max_length=5, blank=True, default="")
     faction_name = models.CharField(max_length=254, blank=True, default="")
 
-    last_updated = models.DateTimeField(default=now)  # auto_now_add=True doesn't allow override from Last_Modified header
+    last_updated_affiliations = models.DateTimeField(
+        default=None, blank=True, null=True,
+        help_text="Last time the character's affiliations were updated (PostCharactersAffiliation, 1 hr Cache)")
+    last_updated_other = models.DateTimeField(
+        default=None, blank=True, null=True,
+        help_text="Last time the character's details were updated, (GetCharactersCharacterId), 24 hr Cache")
 
     objects: ClassVar[EveCharacterManager] = EveCharacterManager()  # pyright: ignore[reportIncompatibleVariableOverride]
     character_ownership: models.OneToOneField["CharacterOwnership"]
@@ -527,51 +548,79 @@ class EveCharacter(models.Model):
         return EveFactionInfo.objects.get(faction_id=self.faction_id)
 
     def update_character(self) -> "EveCharacter":
+        """Update only character's affiliation (alliance, corporation, faction)"""
+
+        affiliation, response = open_api_provider.get_affiliations(character_ids=[self.character_id])
+        affiliation = affiliation[0]
+
+        # This is the important affiliation data, update this first to ensure we dont fail on any of the less important models.
+        self.corporation_id = affiliation.corporation_id
+        self.alliance_id = getattr(affiliation, "alliance_id", None)
+        self.faction_id = getattr(affiliation, "faction_id", None)
+        self.last_updated_affiliations = datetime.strptime(response.headers.get("Date"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
+
+        self.save(update_fields=["corporation_id", "alliance_id", "faction_id", "last_updated_affiliations"])
+        if self.is_biomassed:
+            self._remove_tokens_of_biomassed_character()
+
+        # Attempt to populate the Corporation, Alliance, Faction models
+        try:
+            corporation_obj = EveCorporationInfo.objects.get(corporation_id=affiliation.corporation_id)
+        except EveCorporationInfo.DoesNotExist:
+            corporation_obj = EveCorporationInfo.objects.create_corporation(corporation_id=affiliation.corporation_id)
+
+        if affiliation.alliance_id:
+            try:
+                alliance_obj = EveAllianceInfo.objects.get(alliance_id=affiliation.alliance_id)
+            except EveAllianceInfo.DoesNotExist:
+                alliance_obj = EveAllianceInfo.objects.create_alliance(alliance_id=affiliation.alliance_id)
+        else:
+            alliance_obj = None
+
+        if affiliation.faction_id:
+            try:
+                faction_obj = EveFactionInfo.objects.get(faction_id=affiliation.faction_id)
+            except EveFactionInfo.DoesNotExist:
+                faction_obj = EveFactionInfo.objects.create_faction(faction_id=affiliation.faction_id)
+        else:
+            faction_obj = None
+
+        # populate cached name/ticker fields, legacy AA kinda
+        self.alliance_name = alliance_obj.alliance_name if alliance_obj else ""
+        self.alliance_ticker = alliance_obj.alliance_ticker if alliance_obj else ""
+        self.corporation_name = corporation_obj.corporation_name
+        self.corporation_ticker = corporation_obj.corporation_ticker
+        self.faction_name = faction_obj.faction_name if faction_obj else ""
+
+        self.save(update_fields=["alliance_name", "alliance_ticker", "corporation_name", "corporation_ticker", "faction_name"])
+        return self
+
+    def update_character_other(self, force_refresh: bool = False) -> "EveCharacter":
+        '''
+        Update a characters full data from ESI, with GetCharactersCharacterId, 24 hour cache.
+
+        This function doesnt touch Affiliations as thats on a 1hr cache. _we could compare caches_ but i think thats fraught with danger
+        '''
 
         try:
-            character, response = open_api_provider.get_character(character_id=self.character_id, last_modified=self.last_updated, use_etag=True)
+            character, response = open_api_provider.get_character(
+                character_id=self.character_id,
+                last_modified=self.last_updated_other if not force_refresh else None,
+                use_etag=not force_refresh,
+                force_refresh=force_refresh)
         except HTTPNotModified:
             # nothing to update
             return self
 
-        try:
-            corporation_obj = EveCorporationInfo.objects.get(corporation_id=character.corporation_id)
-        except EveCorporationInfo.DoesNotExist:
-            corporation_obj = EveCorporationInfo.objects.create_corporation(corporation_id=character.corporation_id)
-
-        if character.alliance_id:
-            try:
-                alliance_obj = EveAllianceInfo.objects.get(alliance_id=character.alliance_id)
-            except EveAllianceInfo.DoesNotExist:
-                alliance_obj = EveAllianceInfo.objects.create_alliance(alliance_id=character.alliance_id)
-        else:
-            alliance_obj = None
-
-        if character.faction_id:
-            try:
-                faction_obj = EveFactionInfo.objects.get(faction_id=character.faction_id)
-            except EveFactionInfo.DoesNotExist:
-                faction_obj = EveFactionInfo.objects.create_faction(faction_id=character.faction_id)
-        else:
-            faction_obj = None
-
-        self.alliance_id = character.alliance_id if character.alliance_id else None
         self.birthday = character.birthday
         self.bloodline_id = character.bloodline_id
-        self.corporation_id = character.corporation_id
         self.description = character.description if character.description else ""
-        self.faction_id = character.faction_id if character.faction_id else None
         self.gender = character.gender
         self.character_name = character.name
         self.race_id = character.race_id
         self.security_status = character.security_status if character.security_status else 0.0
         self.title = character.title if character.title else ""
-        self.corporation_name = corporation_obj.corporation_name
-        self.corporation_ticker = corporation_obj.corporation_ticker
-        self.alliance_name = alliance_obj.alliance_name if alliance_obj else ""
-        self.alliance_ticker = alliance_obj.alliance_ticker if alliance_obj else ""
-        self.faction_name = faction_obj.faction_name if faction_obj else ""
-        self.last_updated = datetime.strptime(response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
+        self.last_updated_other = datetime.strptime(response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
         self.save()
         if self.is_biomassed:
             self._remove_tokens_of_biomassed_character()

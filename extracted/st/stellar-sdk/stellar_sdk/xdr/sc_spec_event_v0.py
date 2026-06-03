@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
 from .base import DEFAULT_XDR_MAX_DEPTH, String
-from .constants import *
+from .constants import SC_SPEC_DOC_LIMIT
 from .sc_spec_event_data_format import SCSpecEventDataFormat
 from .sc_spec_event_param_v0 import SCSpecEventParamV0
 from .sc_symbol import SCSymbol
@@ -37,8 +36,8 @@ class SCSpecEventV0:
         doc: bytes,
         lib: bytes,
         name: SCSymbol,
-        prefix_topics: List[SCSymbol],
-        params: List[SCSpecEventParamV0],
+        prefix_topics: list[SCSymbol],
+        params: list[SCSpecEventParamV0],
         data_format: SCSpecEventDataFormat,
     ) -> None:
         _expect_max_length = SC_SPEC_DOC_LIMIT

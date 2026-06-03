@@ -1,4 +1,4 @@
-# Generated from polish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from polish.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class PolishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from polish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from polish.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "y", "ó", "ą", "ę"}
@@ -77,10 +77,7 @@ class PolishStemmer(BaseStemmer):
                     self.cursor = self.limit - v_5
                     raise lab0()
                 self.bra = self.cursor
-                if among_var == 1:
-                    self.slice_del()
-                else:
-                    self.slice_from("s")
+                self.slice_from(PolishStemmer.as_1[among_var - 1])
             except lab0: pass
         v_6 = self.limit - self.cursor
         try:
@@ -100,11 +97,8 @@ class PolishStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.bra = self.cursor
-        try:
-            if self.cursor > self.limit_backward:
-                raise lab0()
+        if self.cursor <= self.limit_backward:
             return False
-        except lab0: pass
         self.slice_from(PolishStemmer.as_3[among_var - 1])
         return True
 
@@ -149,6 +143,7 @@ class PolishStemmer(BaseStemmer):
         Among("sz", -1, 1),
         Among("iejsz", 3, 1)
     ]
+    as_1 = ("", "s")
 
     a_2 = [
         Among("a", -1, 1, __r_R1),

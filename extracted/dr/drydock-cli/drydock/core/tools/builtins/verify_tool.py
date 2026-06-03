@@ -298,6 +298,19 @@ class Verify(
             return
 
         if args.expect_mode == "contains":
+            # Auto-route "exit_code N" written in the expect field instead of
+            # using expect_mode="exit_code". Observed in opus+gemma4 sessions:
+            # model writes expect="exit_code 0" with default contains mode.
+            _ec_match = re.match(r'^exit[_\s]code\s+(\d+)$', args.expect.strip(), re.IGNORECASE)
+            if _ec_match:
+                want = int(_ec_match.group(1))
+                passed = rc == want
+                yield VerifyResult(
+                    ok=True, criterion=args.criterion, expect_mode="exit_code",
+                    passed=passed, exit_code=rc, output=truncated,
+                    reason=f"exit_code={rc} (wanted {want})",
+                )
+                return
             passed = args.expect in combined
             reason = f"{'found' if passed else 'NOT found'}: {args.expect[:60]}"
         elif args.expect_mode == "not_contains":

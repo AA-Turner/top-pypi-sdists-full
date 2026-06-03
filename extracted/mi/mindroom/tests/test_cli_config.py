@@ -23,6 +23,7 @@ from typer.testing import CliRunner
 import mindroom.constants as constants_module
 from mindroom.agents import ensure_default_agent_workspaces
 from mindroom.cli import config as config_cli
+from mindroom.cli import migrate as migrate_cli
 from mindroom.cli.config import _format_config_search_locations, activate_cli_runtime
 from mindroom.cli.main import _load_active_config_or_exit, app
 from mindroom.constants import OWNER_MATRIX_USER_ID_ENV, OWNER_MATRIX_USER_ID_PLACEHOLDER
@@ -199,10 +200,11 @@ class TestConfigInit:
             "TOOLS.md",
             "HEARTBEAT.md",
         ]
-        assert mind["knowledge_bases"] == ["mind_memory"]
+        assert "knowledge_bases" not in mind
         assert mind["tools"] == [
             "shell",
             "coding",
+            "memory",
             "duckduckgo",
             "website",
             "browser",
@@ -212,14 +214,16 @@ class TestConfigInit:
             "thread_tags",
         ]
         assert mind["skills"] == ["mindroom-docs"]
-        assert config["knowledge_bases"]["mind_memory"]["path"] == (
-            "${MINDROOM_STORAGE_PATH}/agents/mind/workspace/memory"
-        )
-        assert config["knowledge_bases"]["mind_memory"]["watch"] is True
+        assert "knowledge_bases" not in config
         assert config["memory"]["backend"] == "file"
         assert config["memory"]["embedder"]["provider"] == "sentence_transformers"
         assert config["memory"]["embedder"]["config"]["model"] == "sentence-transformers/all-MiniLM-L6-v2"
         assert config["memory"]["file"]["max_entrypoint_lines"] == 200
+        assert config["memory"]["search"] == {
+            "mode": "semantic",
+            "include": ["memory/**/*.md"],
+            "include_entrypoint": False,
+        }
         assert config["memory"]["auto_flush"]["enabled"] is True
         assert "openclaw_compat" not in target.read_text()
 
@@ -263,14 +267,12 @@ class TestConfigInit:
         assert (workspace / "memory").exists()
         assert (workspace / "SOUL.md").exists()
         assert (workspace / "MEMORY.md").exists()
-        assert config["knowledge_bases"]["mind_memory"]["path"] == (
-            "${MINDROOM_STORAGE_PATH}/agents/mind/workspace/memory"
-        )
+        assert "knowledge_bases" not in config
 
         env_content = (tmp_path / ".env").read_text()
         assert f"MINDROOM_STORAGE_PATH={storage_root.resolve()}" in env_content
 
-    def test_init_runtime_storage_override_keeps_mind_workspace_and_kb_in_sync(
+    def test_init_runtime_storage_override_keeps_mind_workspace_in_sync(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -284,12 +286,7 @@ class TestConfigInit:
         monkeypatch.setenv("MINDROOM_STORAGE_PATH", str(runtime_storage))
 
         config = load_config_yaml(target)
-        runtime_paths = constants_module.resolve_runtime_paths(config_path=target)
-        resolved_knowledge_path = constants_module.resolve_config_relative_path(
-            config.knowledge_bases["mind_memory"].path,
-            runtime_paths,
-        )
-        assert resolved_knowledge_path == runtime_storage.resolve() / "agents" / "mind" / "workspace" / "memory"
+        assert "mind_memory" not in config.knowledge_bases
 
         ensure_default_agent_workspaces(config, runtime_storage)
         runtime_workspace = runtime_storage / "agents" / "mind" / "workspace"
@@ -341,7 +338,7 @@ class TestConfigInit:
 
         assert result.exit_code == 0
         config = yaml.safe_load(target.read_text())
-        assert config["knowledge_bases"]["mind_memory"]["path"] == ("./mindroom_data/agents/mind/workspace/memory")
+        assert "knowledge_bases" not in config
         assert "${MINDROOM_STORAGE_PATH}" not in target.read_text()
         assert (tmp_path / "mindroom_data" / "agents" / "mind" / "workspace").exists()
         assert env_path.read_text() == "ANTHROPIC_API_KEY=sk-existing\n"
@@ -831,14 +828,10 @@ class TestConfigInit:
         workspace = tmp_path / "mindroom_data" / "agents" / "mind" / "workspace"
         assert (workspace / "SOUL.md").exists()
         config = yaml.safe_load(target.read_text(encoding="utf-8"))
-        runtime_paths = constants_module.resolve_runtime_paths(config_path=target)
-        resolved_kb_path = constants_module.resolve_config_relative_path(
-            config["knowledge_bases"]["mind_memory"]["path"],
-            runtime_paths,
-        )
-        assert resolved_kb_path == workspace / "memory"
+        assert "knowledge_bases" not in config
+        assert (workspace / "memory").exists()
 
-    def test_init_keeps_existing_env_storage_root_for_workspace_and_knowledge_base(
+    def test_init_keeps_existing_env_storage_root_for_workspace(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -863,12 +856,8 @@ class TestConfigInit:
         workspace = custom_root / "agents" / "mind" / "workspace"
         assert (workspace / "SOUL.md").exists()
         config = yaml.safe_load(target.read_text(encoding="utf-8"))
-        runtime_paths = constants_module.resolve_runtime_paths(config_path=target)
-        resolved_kb_path = constants_module.resolve_config_relative_path(
-            config["knowledge_bases"]["mind_memory"]["path"],
-            runtime_paths,
-        )
-        assert resolved_kb_path == workspace / "memory"
+        assert "knowledge_bases" not in config
+        assert (workspace / "memory").exists()
         assert env_path.read_text(encoding="utf-8").startswith(f"MINDROOM_STORAGE_PATH={custom_root}\n")
 
     def test_init_overwrites_env_when_confirmed(self, tmp_path: Path) -> None:
@@ -1046,6 +1035,276 @@ class TestConfigInit:
         env_content = (tmp_path / ".env").read_text()
         assert "ANTHROPIC_VERTEX_PROJECT_ID=your-gcp-project-id" in env_content
         assert "CLOUD_ML_REGION=us-central1" in env_content
+
+
+# ---------------------------------------------------------------------------
+# mindroom config migrate
+# ---------------------------------------------------------------------------
+
+
+def _old_config_init_mind_memory_config(knowledge_path: str) -> str:
+    return f"""\
+# MindRoom Configuration
+# Generated by: mindroom config init
+# Keep this hand-written comment.
+
+models:
+  default:
+    provider: openai
+    id: gpt-5.5
+
+agents:
+  assistant:
+    display_name: Assistant
+    role: A helpful general-purpose assistant
+    model: default
+    rooms:
+      - lobby
+    accept_invites: true
+    tools: []
+    instructions:
+      - Be helpful and conversational
+  mind:
+    display_name: Mind
+    role: Personal assistant with persistent file-based identity and memory
+    model: default
+    include_default_tools: false
+    learning: false
+    memory_backend: file
+    rooms:
+      - personal
+    accept_invites: true
+    context_files:
+      - SOUL.md
+      - AGENTS.md
+      - USER.md
+      - IDENTITY.md
+      - TOOLS.md
+      - HEARTBEAT.md
+    knowledge_bases:
+      - mind_memory
+    tools:
+      - shell
+      - coding
+      - duckduckgo
+      - website
+      - browser
+      - scheduler
+      - subagents
+      - matrix_message
+      - thread_tags
+    skills:
+      - mindroom-docs
+    instructions:
+      - You wake up fresh each session with no memory of previous conversations. Your context files are already loaded into your system prompt.
+      - Important long-term context is persisted by the configured MindRoom memory backend. If something must be preserved exactly, write or update the relevant file directly.
+      - MEMORY.md is curated long-term memory; daily files are short-lived notes and logs.
+      - Ask before external or destructive actions.
+      - Before answering prior-history questions, search memory files first when a knowledge base is configured.
+
+router:
+  model: default
+  accept_invites: true
+
+matrix_room_access:
+  mode: single_user_private
+
+knowledge_bases:
+  mind_memory:
+    path: {knowledge_path}
+    watch: true
+
+# File-based memory requires no external LLM, and starter configs use a local embedder for knowledge indexing.
+memory:
+  backend: file
+  embedder:
+    provider: sentence_transformers
+    config:
+      model: sentence-transformers/all-MiniLM-L6-v2
+  file:
+    max_entrypoint_lines: 200
+  auto_flush:
+    enabled: true
+
+defaults:
+  tools:
+    - scheduler
+  markdown: true
+"""
+
+
+def _migrated_config_init_mind_memory_config() -> str:
+    return """\
+# MindRoom Configuration
+# Generated by: mindroom config init
+# Keep this hand-written comment.
+
+models:
+  default:
+    provider: openai
+    id: gpt-5.5
+
+agents:
+  assistant:
+    display_name: Assistant
+    role: A helpful general-purpose assistant
+    model: default
+    rooms:
+      - lobby
+    accept_invites: true
+    tools: []
+    instructions:
+      - Be helpful and conversational
+  mind:
+    display_name: Mind
+    role: Personal assistant with persistent file-based identity and memory
+    model: default
+    include_default_tools: false
+    learning: false
+    memory_backend: file
+    rooms:
+      - personal
+    accept_invites: true
+    context_files:
+      - SOUL.md
+      - AGENTS.md
+      - USER.md
+      - IDENTITY.md
+      - TOOLS.md
+      - HEARTBEAT.md
+    tools:
+      - shell
+      - coding
+      - memory
+      - duckduckgo
+      - website
+      - browser
+      - scheduler
+      - subagents
+      - matrix_message
+      - thread_tags
+    skills:
+      - mindroom-docs
+    instructions:
+      - You wake up fresh each session with no memory of previous conversations. Your context files are already loaded into your system prompt.
+      - Important long-term context is persisted by the configured MindRoom memory backend. If something must be preserved exactly, write or update the relevant file directly.
+      - MEMORY.md is curated long-term memory; daily files are short-lived notes and logs.
+      - Ask before external or destructive actions.
+      - Before answering prior-history questions, use search_memories first.
+
+router:
+  model: default
+  accept_invites: true
+
+matrix_room_access:
+  mode: single_user_private
+
+# File-based memory requires no external LLM.
+memory:
+  backend: file
+  embedder:
+    provider: sentence_transformers
+    config:
+      model: sentence-transformers/all-MiniLM-L6-v2
+  file:
+    max_entrypoint_lines: 200
+  search:
+    mode: semantic
+    include:
+      - memory/**/*.md
+    include_entrypoint: false
+  auto_flush:
+    enabled: true
+
+defaults:
+  tools:
+    - scheduler
+  markdown: true
+"""
+
+
+class TestConfigMigrate:
+    """Tests for `mindroom config migrate`."""
+
+    @pytest.mark.parametrize(
+        "knowledge_path",
+        [
+            "${MINDROOM_STORAGE_PATH}/agents/mind/workspace/memory",
+            "./mindroom_data/agents/mind/workspace/memory",
+        ],
+    )
+    def test_migrate_updates_old_config_init_mind_memory_without_reformatting(
+        self,
+        tmp_path: Path,
+        knowledge_path: str,
+    ) -> None:
+        """Old starter mind_memory config should be text-patched to memory search."""
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text(_old_config_init_mind_memory_config(knowledge_path), encoding="utf-8")
+
+        result = runner.invoke(app, ["config", "migrate", "--path", str(cfg)])
+
+        assert result.exit_code == 0
+        assert "Applied migration" in normalize_console_output(result.output)
+        assert cfg.read_text(encoding="utf-8") == _migrated_config_init_mind_memory_config()
+
+        config = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+        mind = config["agents"]["mind"]
+        assert "knowledge_bases" not in mind
+        assert mind["tools"] == [
+            "shell",
+            "coding",
+            "memory",
+            "duckduckgo",
+            "website",
+            "browser",
+            "scheduler",
+            "subagents",
+            "matrix_message",
+            "thread_tags",
+        ]
+        assert "knowledge_bases" not in config
+        assert config["memory"]["search"] == {
+            "mode": "semantic",
+            "include": ["memory/**/*.md"],
+            "include_entrypoint": False,
+        }
+
+    def test_migrate_leaves_custom_mind_memory_config_unchanged(self, tmp_path: Path) -> None:
+        """Customized old memory knowledge path should not be silently rewritten."""
+        cfg = tmp_path / "config.yaml"
+        original = _old_config_init_mind_memory_config("./custom-memory")
+        cfg.write_text(original, encoding="utf-8")
+
+        result = runner.invoke(app, ["config", "migrate", "--path", str(cfg)])
+
+        assert result.exit_code == 0
+        assert "No migrations applied" in normalize_console_output(result.output)
+        assert cfg.read_text(encoding="utf-8") == original
+
+    def test_migrate_missing_config_exits_with_error(self, tmp_path: Path) -> None:
+        """Config migrate should fail cleanly when no config exists."""
+        missing = tmp_path / "config.yaml"
+
+        result = runner.invoke(app, ["config", "migrate", "--path", str(missing)])
+
+        assert result.exit_code == 1
+        assert "No config file found" in normalize_console_output(result.output)
+
+    def test_migrate_write_failure_reports_write_error(self, tmp_path: Path) -> None:
+        """Write failures should not be reported as config validation failures."""
+        cfg = tmp_path / "config.yaml"
+        original = _old_config_init_mind_memory_config("${MINDROOM_STORAGE_PATH}/agents/mind/workspace/memory")
+        cfg.write_text(original, encoding="utf-8")
+
+        with patch.object(migrate_cli, "_write_text_atomic", side_effect=OSError("disk full")):
+            result = runner.invoke(app, ["config", "migrate", "--path", str(cfg)])
+
+        output = normalize_console_output(result.output)
+        assert result.exit_code == 1
+        assert "Could not write migrated configuration" in output
+        assert "Invalid configuration" not in output
+        assert cfg.read_text(encoding="utf-8") == original
 
 
 # ---------------------------------------------------------------------------

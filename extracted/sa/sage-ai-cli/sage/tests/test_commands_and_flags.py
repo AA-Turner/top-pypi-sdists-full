@@ -43,8 +43,9 @@ def test_repl_slash_exit_commands(runner, monkeypatch):
                 self.layout = DummyLayout()
             async def prompt_async(self, *args, **kwargs):
                 return cmd
-        
         monkeypatch.setattr(prompt_toolkit, "PromptSession", DummyPromptSession)
+        import sage.core.repl
+        monkeypatch.setattr(sage.core.repl, "PromptSession", DummyPromptSession)
         result = runner.invoke(sage_app, ["run"])
         assert result.exit_code == 0
 

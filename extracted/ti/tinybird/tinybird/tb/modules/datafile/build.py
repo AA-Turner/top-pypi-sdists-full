@@ -816,6 +816,10 @@ def process_file(
 
         if not skip_connectors:
             try:
+                is_oauthbearer = params.get("kafka_sasl_mechanism") == "OAUTHBEARER"
+                # PLAINTEXT brokers have no SASL at all, so a key/secret pair is
+                # neither produced by the wizard nor expected on the wire.
+                is_plaintext = params.get("kafka_security_protocol") == "PLAINTEXT"
                 connector_params = {
                     "kafka_bootstrap_servers": params.get("kafka_bootstrap_servers", None),
                     "kafka_key": params.get("kafka_key", None),
@@ -825,6 +829,16 @@ def process_file(
                     "kafka_schema_registry_url": params.get("kafka_schema_registry_url", None),
                     "kafka_ssl_ca_pem": get_ca_pem_content(params.get("kafka_ssl_ca_pem", None), filename),
                     "kafka_sasl_mechanism": params.get("kafka_sasl_mechanism", None),
+                    # Explicit default — None would be dropped by the client's
+                    # `if value is not None` filter, leaving the server to pick
+                    # its own protocol instead of the SASL_SSL we want.
+                    "kafka_security_protocol": params.get("kafka_security_protocol", "SASL_SSL"),
+                    "kafka_sasl_oauthbearer_method": params.get("kafka_sasl_oauthbearer_method", None),
+                    "kafka_sasl_oauthbearer_aws_region": params.get("kafka_sasl_oauthbearer_aws_region", None),
+                    "kafka_sasl_oauthbearer_aws_role_arn": params.get("kafka_sasl_oauthbearer_aws_role_arn", None),
+                    "kafka_sasl_oauthbearer_aws_external_id": params.get(
+                        "kafka_sasl_oauthbearer_aws_external_id", None
+                    ),
                 }
 
                 connector = tb_client.get_connection(**connector_params)
@@ -832,11 +846,24 @@ def process_file(
                     click.echo(
                         FeedbackManager.info_creating_kafka_connection(connection_name=params["kafka_connection_name"])
                     )
-                    required_params = [
-                        connector_params["kafka_bootstrap_servers"],
-                        connector_params["kafka_key"],
-                        connector_params["kafka_secret"],
-                    ]
+                    if is_oauthbearer:
+                        required_params = [
+                            connector_params["kafka_bootstrap_servers"],
+                            connector_params["kafka_sasl_oauthbearer_method"],
+                            connector_params["kafka_sasl_oauthbearer_aws_region"],
+                            connector_params["kafka_sasl_oauthbearer_aws_role_arn"],
+                        ]
+                    elif is_plaintext:
+                        # No SASL, no credentials — only the broker address matters.
+                        required_params = [
+                            connector_params["kafka_bootstrap_servers"],
+                        ]
+                    else:
+                        required_params = [
+                            connector_params["kafka_bootstrap_servers"],
+                            connector_params["kafka_key"],
+                            connector_params["kafka_secret"],
+                        ]
 
                     if not all(required_params):
                         raise click.ClickException(

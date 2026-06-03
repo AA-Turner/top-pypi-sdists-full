@@ -23,6 +23,22 @@
 exclude = ["**/*__pycache__", "**/*egg-info", "**/docs", "**/tests", "**/venv"]
 source_roots = ["src"]
 
+[[modules]]
+path = "mindroom.chunking"
+depends_on = []
+
+[[modules]]
+path = "mindroom.embedding_factory"
+depends_on = [
+    "mindroom.credentials_sync",
+    "mindroom.embeddings",
+    "mindroom.model_defaults",
+]
+
+[[modules]]
+path = "mindroom.path_globs"
+depends_on = []
+
 # Keep memory consumers explicit so imports are enforced rather than merely
 # interface-checked.
 [[modules]]
@@ -931,6 +947,7 @@ depends_on = [
     "mindroom.streaming",
     "mindroom.teams",
     "mindroom.thread_summary",
+    "mindroom.tool_system.dynamic_toolkits",
     "mindroom.tool_system.runtime_context",
     "mindroom.tool_system.worker_routing",
 ]
@@ -1028,7 +1045,7 @@ visibility = [
 # ARCH-B memory enforcement slice: keep public memory config types owned by config.
 [[modules]]
 path = "mindroom.config.memory"
-depends_on = []
+depends_on = ["mindroom.path_globs"]
 
 [[modules]]
 path = "mindroom.config.main"
@@ -1114,6 +1131,7 @@ visibility = [
     "mindroom.memory._mem0_backend",
     "mindroom.memory._policy",
     "mindroom.memory._prompting",
+    "mindroom.memory._semantic_file_search",
     "mindroom.memory.functions",
 ]
 
@@ -1136,9 +1154,21 @@ depends_on = [
     "mindroom.logging_config",
     "mindroom.memory._policy",
     "mindroom.memory._shared",
+    "mindroom.memory._semantic_file_search",
     "mindroom.timing",
 ]
 visibility = ["mindroom.memory.functions"]
+
+[[modules]]
+path = "mindroom.memory._semantic_file_search"
+depends_on = [
+    "mindroom.chunking",
+    "mindroom.embedding_factory",
+    "mindroom.logging_config",
+    "mindroom.memory._shared",
+    "mindroom.path_globs",
+]
+visibility = ["mindroom.memory._file_backend"]
 
 [[modules]]
 path = "mindroom.memory._mem0_backend"
@@ -1189,6 +1219,7 @@ path = "mindroom.mcp.manager"
 depends_on = [
     "mindroom.mcp.registry",
     "mindroom.tool_system.catalog",
+    "mindroom.tool_system.dynamic_toolkits",
 ]
 
 [[modules]]
@@ -1684,6 +1715,7 @@ depends_on = [
     "mindroom.response_runner",
     "mindroom.scheduling",
     "mindroom.teams",
+    "mindroom.tool_system.dynamic_toolkits",
     "mindroom.tool_system.runtime_context",
     "mindroom.tool_system.worker_routing",
     "mindroom.tool_approval",
@@ -1755,6 +1787,14 @@ depends_on = [
 ]
 
 [[modules]]
+path = "mindroom.cli.migrate"
+depends_on = [
+    "mindroom.cli.config",
+    "mindroom.constants",
+]
+visibility = ["mindroom.cli.main"]
+
+[[modules]]
 path = "mindroom.cli.service"
 depends_on = [
     "mindroom.services.config",
@@ -1771,6 +1811,7 @@ depends_on = [
     "mindroom.cli.connect",
     "mindroom.cli.doctor",
     "mindroom.cli.local_stack",
+    "mindroom.cli.migrate",
     "mindroom.cli.service",
     "mindroom.config.main",
     "mindroom.constants",
@@ -2214,10 +2255,6 @@ path = "mindroom.knowledge.availability"
 depends_on = []
 
 [[modules]]
-path = "mindroom.knowledge.chunking"
-depends_on = []
-
-[[modules]]
 path = "mindroom.knowledge.index_metadata"
 depends_on = []
 visibility = [
@@ -2232,15 +2269,18 @@ depends_on = [
     "mindroom.knowledge.index_metadata",
     "mindroom.knowledge.manager",
     "mindroom.runtime_resolution",
+    "mindroom.tool_system.worker_routing",
 ]
 
 [[modules]]
 path = "mindroom.knowledge.manager"
 depends_on = [
+    "mindroom.chunking",
     "mindroom.constants",
-    "mindroom.knowledge.chunking",
+    "mindroom.embedding_factory",
     "mindroom.knowledge.index_metadata",
     "mindroom.knowledge.redaction",
+    "mindroom.path_globs",
 ]
 
 [[modules]]
@@ -2377,6 +2417,7 @@ expose = [
     "resolve_agent_execution",
     "resolve_agent_runtime",
     "resolve_knowledge_binding",
+    "resolve_knowledge_owner_bindings",
 ]
 from = ["mindroom.runtime_resolution"]
 
@@ -2422,6 +2463,8 @@ expose = [
     "MemoryAutoFlushConfig",
     "MemoryBackend",
     "MemoryConfig",
+    "MemorySearchConfig",
+    "AgentMemorySearchConfig",
 ]
 from = ["mindroom.config.memory"]
 
@@ -3133,13 +3176,17 @@ from = ["mindroom.tool_system.skills"]
 
 [[interfaces]]
 expose = [
-    "DynamicToolkitConflictError",
-    "DynamicToolkitSelection",
-    "get_loaded_toolkits_for_session",
-    "merge_runtime_tool_configs",
-    "resolve_dynamic_toolkit_selection",
-    "resolve_special_tool_names",
-    "save_loaded_toolkits_for_session",
+    "LoadToolResult",
+    "LoadToolValidationFailure",
+    "VisibleToolSurface",
+    "deferred_tool_catalog_entries",
+    "get_loaded_tools_for_session",
+    "has_deferred_tools",
+    "load_tool_for_session",
+    "resolve_dynamic_tool_selection",
+    "save_loaded_tools_for_session",
+    "unload_tool_for_session",
+    "visible_tool_surface",
 ]
 from = ["mindroom.tool_system.dynamic_toolkits"]
 

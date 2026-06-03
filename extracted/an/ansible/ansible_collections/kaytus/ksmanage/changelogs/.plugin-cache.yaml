@@ -388,6 +388,11 @@ plugins:
       name: fw_version_info
       namespace: ''
       version_added: 1.0.0
+    generate_ssl:
+      description: Generate SSL certificate
+      name: generate_ssl
+      namespace: ''
+      version_added: 3.0.0
     gpu_info:
       description: Get GPU information
       name: gpu_info
@@ -583,6 +588,11 @@ plugins:
       name: snmp_trap_info
       namespace: ''
       version_added: 1.0.0
+    ssl_info:
+      description: Get SSL certificate information
+      name: ssl_info
+      namespace: ''
+      version_added: 3.0.0
     support_info:
       description: Get support information
       name: support_info
@@ -628,6 +638,11 @@ plugins:
       name: update_psu
       namespace: ''
       version_added: 1.0.0
+    upload_ssl:
+      description: Upload SSL certificate
+      name: upload_ssl
+      namespace: ''
+      version_added: 3.0.0
     user:
       description: Manage user
       name: user
@@ -662,4 +677,4 @@ plugins:
   shell: {}
   strategy: {}
   vars: {}
-version: 2.0.0
+version: 4.0.0

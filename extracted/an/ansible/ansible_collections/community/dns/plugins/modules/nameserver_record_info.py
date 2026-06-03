@@ -1,14 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2022, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
-
-__metaclass__ = type
-
+from __future__ import annotations
 
 DOCUMENTATION = r"""
 module: nameserver_record_info
@@ -18,9 +13,9 @@ description:
   - Given a DNS name and a record type, will retrieve all nameservers that are responsible for this DNS name, and from them
     all records for this name of the given type.
 extends_documentation_fragment:
-  - community.dns.attributes
-  - community.dns.attributes.info_module
-  - community.dns.attributes.idempotent_not_modify_state
+  - community.dns._attributes
+  - community.dns._attributes.info_module
+  - community.dns._attributes.idempotent_not_modify_state
 author:
   - Felix Fontein (@felixfontein)
 options:
@@ -94,11 +89,7 @@ options:
     elements: str
     version_added: 2.7.0
 requirements:
-  - dnspython >= 1.15.0 (maybe older versions also work)
-notes:
-  - Dnspython before 2.0.0 does not correctly support (un-)escaping UTF-8 in TXT-like records. This can result in wrongly
-    decoded TXT records. Please use dnspython 2.0.0 or later to fix this issue; see also U(https://github.com/rthalley/dnspython/issues/321).
-    Unfortunately dnspython 2.0.0 requires Python 3.6 or newer.
+  - dnspython >= 2.0.0
 """
 
 EXAMPLES = r"""
@@ -521,111 +512,106 @@ results:
             - address: 127.0.0.1
 """
 
+import typing as t
+
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
+from ansible_collections.community.dns.plugins.module_utils._dnspython_records import (
     NAME_TO_RDTYPE,
     NAME_TO_REQUIRED_VERSION,
     convert_rdata_to_dict,
 )
-from ansible_collections.community.dns.plugins.module_utils.resolver import (
+from ansible_collections.community.dns.plugins.module_utils._resolver import (
     ResolveDirectlyFromNameServers,
     assert_requirements_present,
     guarded_run,
 )
 
 
-def main():
+def main() -> None:
     module = AnsibleModule(
         argument_spec={
-            'name': {'required': True, 'type': 'list', 'elements': 'str'},
-            'type': {
-                'required': True,
-                'type': 'str',
-                'choices': [
-                    'A',
-                    'AAAA',
-                    'CAA',
-                    'CNAME',
-                    'DNAME',
-                    'DNSKEY',
-                    'DS',
-                    'HINFO',
-                    'HTTPS',
-                    'LOC',
-                    'MX',
-                    'NAPTR',
-                    'NS',
-                    'NSEC',
-                    'NSEC3',
-                    'NSEC3PARAM',
-                    'PTR',
-                    'RP',
-                    'RRSIG',
-                    'SOA',
-                    'SPF',
-                    'SRV',
-                    'SSHFP',
-                    'SVCB',
-                    'TLSA',
-                    'TXT',
+            "name": {"required": True, "type": "list", "elements": "str"},
+            "type": {
+                "required": True,
+                "type": "str",
+                "choices": [
+                    "A",
+                    "AAAA",
+                    "CAA",
+                    "CNAME",
+                    "DNAME",
+                    "DNSKEY",
+                    "DS",
+                    "HINFO",
+                    "HTTPS",
+                    "LOC",
+                    "MX",
+                    "NAPTR",
+                    "NS",
+                    "NSEC",
+                    "NSEC3",
+                    "NSEC3PARAM",
+                    "PTR",
+                    "RP",
+                    "RRSIG",
+                    "SOA",
+                    "SPF",
+                    "SRV",
+                    "SSHFP",
+                    "SVCB",
+                    "TLSA",
+                    "TXT",
                 ],
             },
-            'query_retry': {'type': 'int', 'default': 3},
-            'query_timeout': {'type': 'float', 'default': 10},
-            'always_ask_default_resolver': {'type': 'bool', 'default': True},
-            'servfail_retries': {'type': 'int', 'default': 0},
-            'server': {'type': 'list', 'elements': 'str'},
+            "query_retry": {"type": "int", "default": 3},
+            "query_timeout": {"type": "float", "default": 10},
+            "always_ask_default_resolver": {"type": "bool", "default": True},
+            "servfail_retries": {"type": "int", "default": 0},
+            "server": {"type": "list", "elements": "str"},
         },
         supports_check_mode=True,
     )
     assert_requirements_present(module)
 
-    names = module.params['name']
-    record_type = module.params['type']
+    names = module.params["name"]
+    record_type = module.params["type"]
 
     resolver = ResolveDirectlyFromNameServers(
-        timeout=module.params['query_timeout'],
-        timeout_retries=module.params['query_retry'],
-        servfail_retries=module.params['servfail_retries'],
-        always_ask_default_resolver=module.params['always_ask_default_resolver'],
-        server_addresses=module.params['server'],
+        timeout=module.params["query_timeout"],
+        timeout_retries=module.params["query_retry"],
+        servfail_retries=module.params["servfail_retries"],
+        always_ask_default_resolver=module.params["always_ask_default_resolver"],
+        server_addresses=module.params["server"],
     )
-    results = [None] * len(names)
-    for index, name in enumerate(names):
-        results[index] = {
-            'name': name,
-        }
+    results: list[dict[str, t.Any]] = [{"name": name} for name in names]
 
     if record_type not in NAME_TO_RDTYPE:
         min_version = NAME_TO_REQUIRED_VERSION[record_type]
         module.fail_json(
-            msg="Your dnspython version does not support {record_type} records. You need version {min_version} or newer.".format(
-                record_type=record_type,
-                min_version=min_version,
-            )
+            msg=f"Your dnspython version does not support {record_type} records. You need version {min_version} or newer."
         )
     rdtype = NAME_TO_RDTYPE[record_type]
 
     def f():
         for index, name in enumerate(names):
             result = []
-            results[index]['result'] = result
+            results[index]["result"] = result
             records_for_nameservers = resolver.resolve(name, rdtype=rdtype)
             for nameserver, records in records_for_nameservers.items():
                 ns_result = {
-                    'nameserver': nameserver,
+                    "nameserver": nameserver,
                 }
                 result.append(ns_result)
                 values = []
                 if records is not None:
                     for data in records:
                         values.append(convert_rdata_to_dict(data))
-                ns_result['values'] = values
-                ns_result['entries'] = values
-            result.sort(key=lambda v: v['nameserver'])
+                ns_result["values"] = values
+                ns_result["entries"] = values
+            result.sort(key=lambda v: v["nameserver"])
 
-    guarded_run(f, module, generate_additional_results=lambda: {'results': results})
+    guarded_run(f, module, generate_additional_results=lambda: {"results": results})
     module.exit_json(results=results)
 
 

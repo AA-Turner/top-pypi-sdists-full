@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2023, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -16,7 +15,7 @@ from ansible_collections.community.internal_test_tools.tests.unit.compat.unittes
     TestCase,
 )
 
-from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
+from ansible_collections.community.dns.plugins.module_utils._dnspython_records import (
     NAME_TO_RDTYPE,
     NAME_TO_REQUIRED_VERSION,
 )

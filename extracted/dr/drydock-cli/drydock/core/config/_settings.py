@@ -494,10 +494,29 @@ class DrydockConfig(BaseSettings):
         prompt_id = self.system_prompt_id
         try:
             active = self.get_active_model()
-            if "gemma" in active.name.lower() and prompt_id not in ("gemma4",):
+            if "gemma" in active.name.lower() and prompt_id not in ("gemma4", "gemma4_slim"):
                 prompt_id = "gemma4"
         except (ValueError, AttributeError):
             pass
+
+        # DRYDOCK_SLIM_PROMPT=1 → use gemma4_slim. 2.4K tokens vs 20K.
+        # Cuts the system prompt enough that 32K-context backends have
+        # room for tools spec + user task + tool results. Drops the
+        # HLE-specific niche guidance (irrelevant for coding) but keeps
+        # every coding/tool rule.
+        #
+        # IMPORTANT: when DRYDOCK_SLIM_PROMPT=1 is explicitly set, apply
+        # the slim prompt REGARDLESS of detected model name. Harbor's
+        # /v1/models probe sometimes returns no name → ModelConfig.name
+        # ends up as "local" → the gemma-name check above wouldn't fire
+        # → full 30K prompt would load → 32K backends overflow on the
+        # first LLM call → silent trial death. Observed 2026-06-02 in
+        # the v2.9.41 overnight run: 6/12 early trials had "model=local"
+        # banner instead of "model=gemma4" and all silent-exited.
+        if os.environ.get("DRYDOCK_SLIM_PROMPT", "").strip().lower() in (
+            "1", "true", "yes"
+        ):
+            prompt_id = "gemma4_slim"
 
         try:
             return SystemPrompt[prompt_id.upper()].read()

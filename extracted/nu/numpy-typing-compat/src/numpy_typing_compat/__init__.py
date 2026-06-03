@@ -4,39 +4,31 @@ from typing import (
     Final,
     Literal,
     Protocol,
-    TypeAlias,
     TypeVar,
 )
 
 if TYPE_CHECKING:
     import numpy as np
-    import numpy as array_api
-    from numpy import long, ulong
     from numpy.dtypes import StringDType
     from numpy.polynomial._polybase import ABCPolyBase
 
 
-__version__: Final[Literal["20251206.2.4"]] = "20251206.2.4"
+__version__: Final = "20260602.2.5"
 
 __all__ = (
-    "NUMPY_GE_1_22",
-    "NUMPY_GE_1_23",
-    "NUMPY_GE_1_25",
     "NUMPY_GE_2_0",
     "NUMPY_GE_2_1",
     "NUMPY_GE_2_2",
     "NUMPY_GE_2_3",
     "NUMPY_GE_2_4",
+    "NUMPY_GE_2_5",
     "ABCPolyBase",
     "CanArray",
     "LiteralFalse",
     "LiteralTrue",
     "StringDType",
-    "array_api",
-    "long",
-    "ulong",
-    "_check_version",
     "__version__",
+    "_check_version",
 )
 
 
@@ -48,26 +40,10 @@ __ALL_SET = frozenset(__all__)
 
 
 def __getattr__(name: str, /) -> object:
-
     if name == "StringDType":
         from numpy.dtypes import StringDType
 
         return StringDType
-
-    if name == "array_api":
-        import numpy as array_api
-
-        return array_api
-
-    if name == "long":
-        from numpy import long
-
-        return long
-
-    if name == "ulong":
-        from numpy import ulong
-
-        return ulong
 
     if name == "ABCPolyBase":
         from numpy.polynomial._polybase import ABCPolyBase
@@ -80,18 +56,16 @@ def __getattr__(name: str, /) -> object:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-NUMPY_GE_1_22: Final[Literal[True]] = True
-NUMPY_GE_1_23: Final[Literal[True]] = True
-NUMPY_GE_1_25: Final[Literal[True]] = True
-NUMPY_GE_2_0: Final[Literal[True]] = True
-NUMPY_GE_2_1: Final[Literal[True]] = True
-NUMPY_GE_2_2: Final[Literal[True]] = True
-NUMPY_GE_2_3: Final[Literal[True]] = True
-NUMPY_GE_2_4: Final[Literal[True]] = True
+NUMPY_GE_2_0: Final = True
+NUMPY_GE_2_1: Final = True
+NUMPY_GE_2_2: Final = True
+NUMPY_GE_2_3: Final = True
+NUMPY_GE_2_4: Final = True
+NUMPY_GE_2_5: Final = True
 
 
-LiteralTrue: TypeAlias = "Literal[True] | np.bool[Literal[True]]"
-LiteralFalse: TypeAlias = "Literal[False] | np.bool[Literal[False]]"
+type LiteralTrue = Literal[True] | np.bool[Literal[True]]
+type LiteralFalse = Literal[False] | np.bool[Literal[False]]
 
 
 ShapeT_co = TypeVar("ShapeT_co", bound=tuple[int, ...], covariant=True)
@@ -107,4 +81,4 @@ def _check_version() -> bool:
     import numpy as np
 
     np_version = tuple(map(int, np.__version__.split(".", 2)[:2]))
-    return (2, 4) <= np_version < (2, 5)
+    return (2, 5) <= np_version < (2, 6)

@@ -18,7 +18,8 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
+from rapidata.api_client.models.i_faucet_output import IFaucetOutput
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
 from typing import Optional, Set
@@ -31,7 +32,8 @@ class GetParticipantByIdEndpointOutput(LazyValidatedModel):
     id: StrictStr = Field(description="The unique identifier of the participant.")
     name: StrictStr = Field(description="The name of the participant.")
     benchmark_id: StrictStr = Field(description="The id of the benchmark the participant belongs to.", alias="benchmarkId")
-    __properties: ClassVar[List[str]] = ["id", "name", "benchmarkId"]
+    faucet: Optional[IFaucetOutput] = Field(default=None, description="The faucet configured to auto-generate samples, or null if none is set.")
+    __properties: ClassVar[List[str]] = ["id", "name", "benchmarkId", "faucet"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -68,6 +70,9 @@ class GetParticipantByIdEndpointOutput(LazyValidatedModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of faucet
+        if self.faucet:
+            _dict['faucet'] = self.faucet.to_dict()
         return _dict
 
     @classmethod
@@ -82,7 +87,8 @@ class GetParticipantByIdEndpointOutput(LazyValidatedModel):
         _data = {
             "id": obj.get("id"),
             "name": obj.get("name"),
-            "benchmarkId": obj.get("benchmarkId")
+            "benchmarkId": obj.get("benchmarkId"),
+            "faucet": IFaucetOutput.from_dict(obj["faucet"]) if obj.get("faucet") is not None else None
         }
         try:
             _obj = cls.model_validate(_data)

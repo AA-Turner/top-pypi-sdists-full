@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -28,7 +27,7 @@ class SCContractInstance:
     def __init__(
         self,
         executable: ContractExecutable,
-        storage: Optional[SCMap],
+        storage: SCMap | None,
     ) -> None:
         self.executable = executable
         self.storage = storage
@@ -89,9 +88,9 @@ class SCContractInstance:
     def to_json_dict(self) -> dict:
         return {
             "executable": self.executable.to_json_dict(),
-            "storage": (
-                self.storage.to_json_dict() if self.storage is not None else None
-            ),
+            "storage": self.storage.to_json_dict()
+            if self.storage is not None
+            else None,
         }
 
     @classmethod

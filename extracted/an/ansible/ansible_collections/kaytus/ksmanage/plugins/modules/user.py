@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: user
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Manage user
 description:
    - Manage user on kaytus Server.
@@ -84,7 +84,7 @@ EXAMPLES = '''
       upass: "admin"
       role_id: "Administrator"
       priv: "kvm, sol"
-      email: "wbs@ieisystem.com"
+      email: "wbs@KSManageOSS.com"
       provider: "{{ ksmanage }}"
 
   - name: "Set user"

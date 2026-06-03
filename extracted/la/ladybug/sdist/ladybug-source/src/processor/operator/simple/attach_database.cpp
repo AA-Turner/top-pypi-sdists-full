@@ -37,6 +37,7 @@ void AttachDatabase::executeInternal(ExecutionContext* context) {
             attachInfo.dbAlias, common::ATTACHED_LBUG_DB_TYPE, client);
         client->setDefaultDatabase(db.get());
         databaseManager->registerAttachedDatabase(std::move(db));
+        client->addDBDirToFileSearchPath(attachInfo.dbPath);
         appendMessage(attachMessage(), memoryManager);
         return;
     }
@@ -45,6 +46,7 @@ void AttachDatabase::executeInternal(ExecutionContext* context) {
             auto db = storageExtension->attach(attachInfo.dbAlias, attachInfo.dbPath, client,
                 attachInfo.options);
             databaseManager->registerAttachedDatabase(std::move(db));
+            client->addDBDirToFileSearchPath(attachInfo.dbPath);
             appendMessage(attachMessage(), memoryManager);
             return;
         }

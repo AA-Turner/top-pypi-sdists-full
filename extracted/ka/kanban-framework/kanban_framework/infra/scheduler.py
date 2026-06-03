@@ -65,7 +65,7 @@ class Scheduler:
     ]
 
     LIGHTWEIGHT_EVAL_ROLES = [
-        {"name": "qa", "agent_type": "general-purpose"},
+        {"name": "review", "agent_type": "general-purpose"},
     ]
 
     _BUILTIN_MODES: dict[str, list[Phase]] = {
@@ -73,6 +73,8 @@ class Scheduler:
         "lightweight": [Phase.PLAN, Phase.EXECUTE, Phase.EVALUATE, Phase.USER_DECISION, Phase.ARCHIVE],
         "quick":       [Phase.EXECUTE, Phase.USER_DECISION, Phase.ARCHIVE],
     }
+
+    BUILTIN_MODE_NAMES = frozenset(("full", "lightweight", "quick"))
 
     @classmethod
     def get_modes(cls, workflow: dict | None = None,
@@ -84,7 +86,7 @@ class Scheduler:
         from pathlib import Path as _Path
         # Start with builtin base
         result: dict[str, list[Phase | str]] = {}
-        for name in ("full", "lightweight", "quick"):
+        for name in cls.BUILTIN_MODE_NAMES:
             result[name] = list(cls._BUILTIN_MODES.get(name, cls.PHASE_ORDER))
 
         # Scan .kanban/workflows/ directory
@@ -119,10 +121,48 @@ class Scheduler:
         return result if result else dict(cls._BUILTIN_MODES)
 
     @classmethod
-    def eval_roles(cls, lightweight: bool = False) -> list[dict]:
+    def eval_roles(cls, lightweight: bool = False, mode: str | None = None,
+                   kanban_dir: Path | None = None) -> list[dict]:
         if lightweight:
             return list(cls.LIGHTWEIGHT_EVAL_ROLES)
+        if mode == "quick":
+            return []  # quick mode has no evaluate phase
+        if mode == "lightweight":
+            return list(cls.LIGHTWEIGHT_EVAL_ROLES)
+        if mode and mode != "full":
+            return cls._derive_eval_roles(mode, kanban_dir)
         return list(cls.EVAL_ROLES)
+
+    @classmethod
+    def _derive_eval_roles(cls, mode: str, kanban_dir: Path | None = None) -> list[dict]:
+        """Derive eval roles from mode's evaluate phase step definitions.
+
+        Scans the evaluate phase for agent steps (with spawn_prompt/agent_type)
+        and generates a role entry for each. Falls back to EVAL_ROLES if no
+        evaluate phase found.
+        """
+        from kanban_framework.domain.steps import _get_steps
+        mode_steps = _get_steps(mode)
+        evaluate_steps = mode_steps.get("evaluate", [])
+        if not evaluate_steps:
+            return list(cls.EVAL_ROLES)
+
+        roles = []
+        for s in evaluate_steps:
+            if s.id.endswith((".complete", ".collect_score", ".collect_scores",
+                              ".check_score", ".commit", ".e2e_run")):
+                continue
+            # Agent steps: have spawn_prompt or agent_type
+            if s.spawn_prompt or s.agent_type:
+                # Derive role name from step id (e.g. evaluate.spawn_qa → qa)
+                step_name = s.id.split(".")[-1] if "." in s.id else s.id
+                # Map common prefixes to standard role names
+                role = step_name.replace("spawn_", "").replace("evaluate_", "")
+                if not role or role == "spawn":
+                    role = step_name
+                roles.append({"name": role, "agent_type": s.agent_type or "general-purpose"})
+
+        return roles if roles else list(cls.EVAL_ROLES)
 
     @classmethod
     def plan_review_dimensions(cls) -> list[dict]:
@@ -142,15 +182,25 @@ class Scheduler:
                        mode: str | None = None) -> list[Phase | str]:
         if custom_order is not None:
             return list(custom_order)
-        if mode and mode not in ("full", "lightweight", "quick"):
+        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
             modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
             if mode in modes:
                 return list(modes[mode])
-        mode = mode if mode in ("full", "lightweight", "quick") else ("quick" if quick else ("lightweight" if lightweight else "full"))
+        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else ("lightweight" if lightweight else "full"))
         modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
         if mode in modes:
-            return list(modes[mode])
-        return [p for p in cls._BUILTIN_MODES.get(mode, cls.PHASE_ORDER)]
+            order = list(modes[mode])
+        else:
+            order = list(cls._BUILTIN_MODES.get(mode, cls.PHASE_ORDER))
+        # Apply extensions if present
+        if workflow and isinstance(workflow, dict) and workflow.get("extensions"):
+            from kanban_framework.domain.workflow_extensions import WorkflowExtension
+            ext = WorkflowExtension(workflow)
+            if ext.is_active_for_mode(mode):
+                str_order = [p.value if isinstance(p, Phase) else str(p) for p in order]
+                str_order = ext.build_phase_order(str_order, mode=mode)
+                return [Phase(p) for p in str_order]
+        return order
 
     @classmethod
     def next_phase(cls, current, lightweight: bool = False, quick: bool = False,
@@ -181,15 +231,25 @@ class Scheduler:
     def _base_order(cls, lightweight: bool, quick: bool, workflow: dict | None = None,
                     mode: str | None = None,
                     kanban_dir: Path | None = None) -> list[Phase | str]:
-        if mode and mode not in ("full", "lightweight", "quick"):
+        if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
             modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
             if mode in modes:
                 return list(modes[mode])
-        mode = mode if mode in ("full", "lightweight", "quick") else ("quick" if quick else ("lightweight" if lightweight else "full"))
+        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else ("lightweight" if lightweight else "full"))
         modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
         if mode in modes:
-            return list(modes[mode])
-        return [p for p in cls._BUILTIN_MODES.get(mode, cls.PHASE_ORDER)]
+            order = list(modes[mode])
+        else:
+            order = [p for p in cls._BUILTIN_MODES.get(mode, cls.PHASE_ORDER)]
+        # Apply extensions for builtin modes too
+        if workflow and isinstance(workflow, dict) and workflow.get("extensions"):
+            from kanban_framework.domain.workflow_extensions import WorkflowExtension
+            ext = WorkflowExtension(workflow)
+            if ext.is_active_for_mode(mode):
+                str_order = [p.value if isinstance(p, Phase) else str(p) for p in order]
+                str_order = ext.build_phase_order(str_order, mode=mode)
+                return [Phase(p) for p in str_order]
+        return order
 
     @classmethod
     def _dispatch_from_mode(cls, lightweight: bool, quick: bool, workflow: dict | None = None,

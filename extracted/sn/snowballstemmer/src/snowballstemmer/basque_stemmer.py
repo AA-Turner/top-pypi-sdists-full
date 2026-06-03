@@ -1,4 +1,4 @@
-# Generated from basque.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from basque.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class BasqueStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from basque.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from basque.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u"}
@@ -96,9 +96,6 @@ class BasqueStemmer(BaseStemmer):
     def __r_R2(self):
         return self.I_p2 <= self.cursor
 
-    def __r_R1(self):
-        return self.I_p1 <= self.cursor
-
     def __r_aditzak(self):
         self.ket = self.cursor
         among_var = self.find_among_b(BasqueStemmer.a_0)
@@ -132,7 +129,7 @@ class BasqueStemmer(BaseStemmer):
         elif among_var == 3:
             self.slice_from("jok")
         elif among_var == 4:
-            if not self.__r_R1():
+            if self.I_p1 > self.cursor:
                 return False
             self.slice_del()
         elif among_var == 5:

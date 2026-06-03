@@ -13,7 +13,12 @@ from ..models import (
 
 
 def response_stub() -> SimpleNamespace:
-    return SimpleNamespace(headers={"Last-Modified": "Tue, 20 May 2025 13:24:00 GMT"})
+    return SimpleNamespace(
+        headers={
+            "Date": "Tue, 20 May 2025 13:24:00 GMT",
+            "Last-Modified": "Tue, 20 May 2025 13:24:00 GMT",
+        }
+    )
 
 
 class EveCharacterManagerTestCase(TestCase):
@@ -39,9 +44,10 @@ class EveCharacterManagerTestCase(TestCase):
             transform=lambda obj: obj,
         )
 
+    @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_affiliations")
     @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_character")
     def test_create_character_1_with_existing_alliance_and_without_faction(
-        self, provider_get_character
+        self, provider_get_character, provider_get_affiliations
     ) -> None:
         alliance = EveAllianceInfo.objects.create(
             alliance_id=3001,
@@ -77,6 +83,17 @@ class EveCharacterManagerTestCase(TestCase):
             ),
             response_stub(),
         )
+        provider_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=1234,
+                    corporation_id=2001,
+                    alliance_id=3001,
+                    faction_id=None,
+                )
+            ],
+            response_stub(),
+        )
 
         with mock.patch.object(
             EveCharacter.objects,
@@ -95,9 +112,10 @@ class EveCharacterManagerTestCase(TestCase):
         self.assertIsNone(result.faction_id)
         self.assertEqual(result.faction_name, "")
 
+    @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_affiliations")
     @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_character")
     def test_create_character_2_with_existing_faction_birthday_bloodline_and_race(
-        self, provider_get_character
+        self, provider_get_character, provider_get_affiliations
     ) -> None:
         birthday = datetime(2023, 7, 14, 8, 30, tzinfo=timezone.utc)
         faction = EveFactionInfo.objects.create(
@@ -127,6 +145,17 @@ class EveCharacterManagerTestCase(TestCase):
             ),
             response_stub(),
         )
+        provider_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=4323,
+                    corporation_id=2009,
+                    alliance_id=None,
+                    faction_id=4009,
+                )
+            ],
+            response_stub(),
+        )
 
         with mock.patch.object(
             EveCharacter.objects,
@@ -141,9 +170,10 @@ class EveCharacterManagerTestCase(TestCase):
         self.assertEqual(result.bloodline_id, 12)
         self.assertEqual(result.race_id, 8)
 
+    @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_affiliations")
     @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_character")
     def test_create_character_3_without_alliance_sets_empty_cached_alliance(
-        self, provider_get_character
+        self, provider_get_character, provider_get_affiliations
     ) -> None:
         faction = EveFactionInfo.objects.create(
             faction_id=4009,
@@ -171,6 +201,17 @@ class EveCharacterManagerTestCase(TestCase):
             ),
             response_stub(),
         )
+        provider_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=4322,
+                    corporation_id=2009,
+                    alliance_id=None,
+                    faction_id=4009,
+                )
+            ],
+            response_stub(),
+        )
 
         with mock.patch.object(
             EveCharacter.objects,
@@ -185,9 +226,10 @@ class EveCharacterManagerTestCase(TestCase):
         self.assertEqual(result.faction_id, faction.faction_id)
         self.assertEqual(result.faction_name, faction.faction_name)
 
+    @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_affiliations")
     @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_character")
     def test_create_character_4_creates_missing_related_objects(
-        self, provider_get_character
+        self, provider_get_character, provider_get_affiliations
     ) -> None:
         provider_get_character.return_value = (
             SimpleNamespace(
@@ -203,6 +245,17 @@ class EveCharacterManagerTestCase(TestCase):
                 security_status=1.5,
                 title="CEO",
             ),
+            response_stub(),
+        )
+        provider_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=4321,
+                    corporation_id=2009,
+                    alliance_id=3009,
+                    faction_id=4009,
+                )
+            ],
             response_stub(),
         )
 
@@ -241,8 +294,8 @@ class EveCharacterManagerTestCase(TestCase):
         self.assertEqual(result.faction_id, 4009)
         self.assertEqual(result.faction_name, "Created Faction")
 
-    @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_character")
-    def test_update_character(self, provider_get_character) -> None:
+    @mock.patch("allianceauth.eveonline.models.open_api_provider.get_affiliations")
+    def test_update_character(self, provider_get_affiliations) -> None:
         alliance = EveAllianceInfo.objects.create(
             alliance_id=3001,
             alliance_name="Test Alliance",
@@ -273,26 +326,21 @@ class EveCharacterManagerTestCase(TestCase):
             faction_id=1337,
             faction_name="Old Faction",
         )
-        provider_get_character.return_value = (
-            SimpleNamespace(
-                corporation_id=2001,
-                alliance_id=None,
-                faction_id=None,
-                birthday=None,
-                bloodline_id=None,
-                description="",
-                gender="",
-                name="Updated Character",
-                race_id=None,
-                security_status=0.0,
-                title="",
-            ),
+        provider_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=1234,
+                    corporation_id=2001,
+                    alliance_id=None,
+                    faction_id=None,
+                )
+            ],
             response_stub(),
         )
 
         result = EveCharacter.objects.update_character(1234)
 
-        self.assertEqual(result.character_name, "Updated Character")
+        self.assertEqual(result.character_name, "Old Character")
         self.assertEqual(result.corporation_name, "Test Corp")
         self.assertIsNone(result.alliance_id)
         self.assertIsNone(result.faction_id)

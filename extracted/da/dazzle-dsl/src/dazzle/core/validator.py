@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from . import ir
+from .access import workspace_allowed_personas
 
 # =============================================================================
 # Validation Constants
@@ -1015,6 +1016,211 @@ def validate_persona_nav_refs(appspec: ir.AppSpec) -> tuple[list[str], list[str]
     return errors, warnings
 
 
+def validate_workspace_primary_actions(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
+    """Validate that each workspace `primary_actions:` target resolves (#1324 FR-5).
+
+    An authored heading-CTA action references a declared SURFACE or WORKSPACE
+    by name (parsed into ``WorkspaceSpec.primary_actions``). When
+    ``target_kind == "surface"`` the target MUST match a declared surface
+    name (``appspec.surfaces``); when ``"workspace"``, a declared workspace
+    name (``appspec.workspaces``). An unresolved target is a validation ERROR.
+
+    Returns:
+        Tuple of (errors, warnings)
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    declared_surfaces = {s.name for s in appspec.surfaces}
+    declared_workspaces = {ws.name for ws in appspec.workspaces}
+
+    for ws in appspec.workspaces:
+        for action in ws.primary_actions:
+            if action.target_kind == "surface":
+                if action.target not in declared_surfaces:
+                    errors.append(
+                        f"workspace '{ws.name}' primary action \"{action.label}\" "
+                        f"targets surface '{action.target}', but no such surface "
+                        f"is declared"
+                    )
+            elif action.target_kind == "workspace":
+                if action.target not in declared_workspaces:
+                    errors.append(
+                        f"workspace '{ws.name}' primary action \"{action.label}\" "
+                        f"targets workspace '{action.target}', but no such workspace "
+                        f"is declared"
+                    )
+
+    return errors, warnings
+
+
+_TENANT_CONFIG_PREFIX = "tenant_config."
+
+
+def _collect_tenant_config_refs(condition: ir.ConditionExpr | None) -> list[str]:
+    """Walk a ConditionExpr and collect the ``<key>`` of every
+    ``tenant_config.<key>`` field reference (#1324 FR-4).
+
+    Recurses through compound (AND/OR/NOT) nodes and reads the LHS ``field``
+    of each leaf comparison. A bare flag (``tenant_config.mis_connected``)
+    parses to an implicit ``= true`` comparison whose ``field`` carries the
+    full dotted path, so reading ``comparison.field`` covers both the bare and
+    the explicit (``tenant_config.tier = "pro"``) forms. Role/grant/via leaves
+    have no ``tenant_config`` field and contribute nothing.
+    """
+    if condition is None:
+        return []
+    keys: list[str] = []
+    # Compound node: recurse both sides.
+    if condition.left is not None:
+        keys.extend(_collect_tenant_config_refs(condition.left))
+    if condition.right is not None:
+        keys.extend(_collect_tenant_config_refs(condition.right))
+    # Leaf comparison.
+    if condition.comparison is not None and condition.comparison.field:
+        field = condition.comparison.field
+        if field.startswith(_TENANT_CONFIG_PREFIX):
+            keys.append(field[len(_TENANT_CONFIG_PREFIX) :])
+    return keys
+
+
+def validate_nav_curation(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
+    """Lint per-persona-global navigation curation (#1324 FR-6).
+
+    All three diagnostics are WARNINGS (the errors list is always empty):
+
+    1. **Auto-discovery reliance** — a persona with no ``uses nav`` binding
+       gets an auto-discovered sidebar; warn so the author can make it
+       explicit.
+    2. **Dead curated nav item** — a ``nav`` lists an entity/workspace that
+       NO persona bound to that nav can reach (entity: matrix LIST denied for
+       all bound personas; workspace: not allowed for any bound persona), so
+       the runtime access-filter drops it (dead link). Also warns when an
+       item resolves to neither an entity nor a workspace, and once when a
+       declared nav has no bound persona at all (then skips its item checks).
+    3. **Ignored workspace nav_groups** — author-declared (non ``_``-prefixed)
+       workspace ``nav_groups`` are framework-internal now and ignored for the
+       author-facing sidebar.
+
+    Returns:
+        Tuple of (errors, warnings) — errors is always empty.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # --- Diagnostic 1: auto-discovery reliance -------------------------------
+    for persona in appspec.personas:
+        if persona.nav_ref is None:
+            warnings.append(
+                f"persona '{persona.id}' has no explicit nav (uses nav) — its "
+                f"sidebar is auto-discovered; bind one with `uses nav <name>` "
+                f"to make navigation explicit."
+            )
+
+    # --- Diagnostic 2: dead curated nav item ---------------------------------
+    # Compute the RBAC matrix once (reused exactly as the other validators do).
+    matrix = None
+    try:
+        from dazzle.rbac.matrix import PolicyDecision, generate_access_matrix
+
+        matrix = generate_access_matrix(appspec)
+    except ImportError:
+        matrix = None
+    except Exception:
+        # Matrix generation can fail on incomplete AppSpecs during early
+        # development; degrade gracefully rather than blocking lint.
+        matrix = None
+
+    entity_names = {e.name for e in appspec.domain.entities}
+    workspaces_by_name = {ws.name: ws for ws in appspec.workspaces}
+
+    for nav in appspec.navs:
+        bound = [p for p in appspec.personas if p.nav_ref == nav.name]
+        if not bound:
+            warnings.append(
+                f"nav '{nav.name}' is not used by any persona (no `uses nav {nav.name}`)."
+            )
+            continue
+
+        bound_ids = ", ".join(p.id for p in bound)
+        for group in nav.groups:
+            for item in group.items:
+                target = item.entity
+                if target in entity_names:
+                    # Dead if NO bound persona can LIST the entity.
+                    if matrix is not None and all(
+                        matrix.get(p.effective_role, target, "list") == PolicyDecision.DENY
+                        for p in bound
+                    ):
+                        warnings.append(
+                            f"nav '{nav.name}' lists entity '{target}', but no "
+                            f"persona using it ({bound_ids}) can LIST it — it "
+                            f"will be filtered out (dead link)."
+                        )
+                elif target in workspaces_by_name:
+                    ws = workspaces_by_name[target]
+                    allowed = workspace_allowed_personas(ws, appspec.personas)
+                    # None means "everyone allowed". Dead if no bound persona
+                    # is in the allowed set.
+                    if allowed is not None and not any(p.id in allowed for p in bound):
+                        warnings.append(
+                            f"nav '{nav.name}' lists workspace '{target}', but no "
+                            f"persona using it ({bound_ids}) can reach it — it "
+                            f"will be filtered out (dead link)."
+                        )
+                else:
+                    warnings.append(
+                        f"nav '{nav.name}' item '{target}' does not match any entity or workspace."
+                    )
+
+    # --- Diagnostic 4: nav `when` references undeclared tenant_config (#1324 FR-4) ---
+    # A nav group/item may carry a render-time VISIBILITY `when` condition. When
+    # that condition references `tenant_config.<key>`, the key must be declared
+    # in `tenancy.per_tenant_config` (a key→type map); otherwise the runtime has
+    # nothing to resolve and the group/item silently never shows. WARN per
+    # undeclared key. Only tenant_config refs are checked here — role/grant refs
+    # are validated by the access-control validators, not nav curation.
+    declared_config_keys: set[str] = set()
+    if appspec.tenancy is not None:
+        declared_config_keys = set(appspec.tenancy.per_tenant_config.keys())
+
+    for nav in appspec.navs:
+        for group in nav.groups:
+            for key in _collect_tenant_config_refs(group.when):
+                if key not in declared_config_keys:
+                    warnings.append(
+                        f"nav '{nav.name}' group '{group.label}' `when` condition "
+                        f"references tenant_config.{key!r}, which is not declared in "
+                        f"tenancy.per_tenant_config."
+                    )
+            for item in group.items:
+                for key in _collect_tenant_config_refs(item.when):
+                    if key not in declared_config_keys:
+                        warnings.append(
+                            f"nav '{nav.name}' item '{item.entity}' `when` condition "
+                            f"references tenant_config.{key!r}, which is not declared in "
+                            f"tenancy.per_tenant_config."
+                        )
+
+    # --- Diagnostic 3: ignored author-declared workspace nav_groups ----------
+    # Discriminator: framework admin-platform workspaces are named with a
+    # leading underscore (`_platform_admin`, `_tenant_admin` — built by
+    # core/admin_builder._build_admin_workspaces). This is the same #824
+    # reserved-name convention every other workspace lint rule uses, so reuse
+    # `_is_framework_synthetic_name`. Author workspaces have no such prefix;
+    # their nav_groups are framework-internal now and ignored for the sidebar.
+    for ws in appspec.workspaces:
+        if ws.nav_groups and not _is_framework_synthetic_name(ws.name):
+            warnings.append(
+                f"workspace '{ws.name}' declares nav_groups, but author-facing "
+                f"navigation is per-persona now (`persona X: uses nav Y`); these "
+                f"nav_groups are ignored for the sidebar. (Workspace nav_groups "
+                f"are framework-internal.)"
+            )
+
+    return errors, warnings
+
+
 def _validate_condition_fields(
     condition: ir.ConditionExpr,
     entity: ir.EntitySpec | None,
@@ -1437,6 +1643,15 @@ def _detect_dead_constructs(appspec: ir.AppSpec) -> list[str]:
     platform_entities = {
         e.name for e in appspec.domain.entities if getattr(e, "domain", None) == "platform"
     }
+    # Entities whose lifecycle is owned outside the nav graph (#1333):
+    # `managed_by: route|pipeline|wizard|external`. They are reachable only
+    # via a custom route/pipeline/wizard/external system, so they (and their
+    # CRUD surfaces) are intentionally absent from workspace/nav references —
+    # not dead code. Orthogonal to `domain: platform`: the entity keeps its
+    # real business domain and is NOT framework-injected.
+    managed_entities = {
+        e.name for e in appspec.domain.entities if getattr(e, "managed_by", None) is not None
+    }
     all_surfaces = {s.name for s in appspec.surfaces}
     surface_locs = {s.name: s.source for s in appspec.surfaces}
     # --- Collect all entity references ---
@@ -1470,7 +1685,16 @@ def _detect_dead_constructs(appspec: ir.AppSpec) -> list[str]:
             if mapping.entity_ref:
                 used_entities.add(mapping.entity_ref)
 
-    unused_entities = all_entities - used_entities - platform_entities
+    # Entities referenced by per-persona nav defs (#1324, #1332). A `nav <name>:`
+    # block bound via `persona X: uses nav Y` links to entity nav routes exactly
+    # like workspace nav_groups, so an entity living only in a nav def is reachable.
+    for nav in appspec.navs:
+        for group in nav.groups:
+            for nav_item in group.items:
+                if nav_item.entity in all_entities:
+                    used_entities.add(nav_item.entity)
+
+    unused_entities = all_entities - used_entities - platform_entities - managed_entities
     if unused_entities:
         for name in sorted(unused_entities):
             loc = entity_locs.get(name)
@@ -1518,6 +1742,20 @@ def _detect_dead_constructs(appspec: ir.AppSpec) -> list[str]:
             for nav_item in nav_group.items:
                 if nav_item.entity in all_entities:
                     workspace_entities.add(nav_item.entity)
+    # Per-persona nav defs (#1324, #1332): entities living only in a top-level
+    # `nav <name>:` block (bound via `persona X: uses nav Y`) are navigable via
+    # their entity nav routes exactly like workspace nav_groups items. Without
+    # this, migrating workspace nav_groups → nav defs (which the nav-curation
+    # lint recommends) flags every such entity's CRUD surfaces as dead.
+    for nav in appspec.navs:
+        for nav_group in nav.groups:
+            for nav_item in nav_group.items:
+                if nav_item.entity in all_entities:
+                    workspace_entities.add(nav_item.entity)
+    # Lifecycle-owned-outside-the-graph entities (#1333): their CRUD surfaces
+    # are reached via the custom route/pipeline/wizard/external mechanism, so
+    # they are alive even without a workspace/nav reference.
+    workspace_entities |= managed_entities
     for surface in appspec.surfaces:
         if surface.entity_ref and surface.entity_ref in workspace_entities:
             used_surfaces.add(surface.name)

@@ -59,7 +59,16 @@ LLAMA_SWAP_TTL = int(get_env_value("LLAMA_SWAP_TTL") or 600)   # on-demand unloa
 
 DEFAULT_LLAMA_CTX = int(get_env_value("DEFAULT_LLAMA_CTX") or 4096)
 DEFAULT_LLAMA_THREADS = int(get_env_value("DEFAULT_LLAMA_THREADS") or 6)
+# GPU offload for llama-server. -1 = put every layer on the GPU (the right
+# default for a CUDA-built llama-server); 0 = CPU only; N = first N layers.
+# Without this flag llama-server defaults to CPU — the usual "GPU sits idle".
+DEFAULT_LLAMA_NGL = int(get_env_value("DEFAULT_LLAMA_NGL") or -1)
 DEFAULT_SERVE_MODE = get_env_value("DEFAULT_SERVE_MODE") or "systemd"
+
+# Deterministic auto-port range for systemd units when a model has no explicit
+# port. Wide span keeps hash collisions rare; an explicit cfg.port always wins.
+LLAMA_PORT_BASE = int(get_env_value("LLAMA_PORT_BASE") or 7001)
+LLAMA_PORT_SPAN = int(get_env_value("LLAMA_PORT_SPAN") or 4000)
 
 
 class ServeMode(str, Enum):
@@ -86,8 +95,19 @@ def _bare_host(value):
     return value.split("/", 1)[0] or "127.0.0.1"
 
 
-def _ctx_for(cfg, model_key):
-    extra = getattr(cfg, "extra", {}) or {}
+def _effective_extra(model_key, cfg) -> dict:
+    """cfg.extra with the persisted per-model UI override merged on top."""
+    extra = dict(getattr(cfg, "extra", {}) or {})
+    try:
+        from .overrides import get_override
+        extra.update(get_override(model_key))
+    except Exception:  # overrides are optional; never break spec resolution
+        pass
+    return extra
+
+
+def _ctx_for(cfg, model_key, extra=None):
+    extra = extra if extra is not None else _effective_extra(model_key, cfg)
     if extra.get("llama_ctx"):
         return int(extra["llama_ctx"])
     mml = getattr(cfg, "model_max_length", None) or DEFAULT_LLAMA_CTX
@@ -112,16 +132,35 @@ def _model_file_for(model_key, cfg):
     return ""
 
 
-def _resolve_mode(cfg) -> ServeMode:
+def _auto_port(model_key: str) -> int:
+    """Deterministic per-model port so a GGUF model can get a systemd unit
+    without hand-assigning one. Stable across runs and identical whether
+    resolved for a single model (the HTTP runner) or the whole batch (install),
+    so the endpoint and the unit always agree. Explicit cfg.port still wins.
+    """
+    import hashlib
+    h = int(hashlib.sha1(model_key.encode("utf-8")).hexdigest(), 16)
+    return LLAMA_PORT_BASE + (h % LLAMA_PORT_SPAN)
+
+
+def _resolve_port(model_key, cfg) -> int:
+    p = getattr(cfg, "port", None)
+    try:
+        if p is not None and int(p) > 0:
+            return int(p)
+    except (TypeError, ValueError):
+        pass
+    return _auto_port(model_key)
+
+
+def _resolve_mode(cfg, extra=None) -> ServeMode:
     if getattr(cfg, "framework", None) != "llama_cpp":
         return ServeMode.OFF
-    explicit = (getattr(cfg, "extra", {}) or {}).get("serve_mode")
-    mode = ServeMode(explicit) if explicit else ServeMode(DEFAULT_SERVE_MODE)
-    if mode is ServeMode.SYSTEMD and not getattr(cfg, "port", None):
-        # a dedicated unit needs its own port; without one it can't be systemd
-        logger.info("%s: systemd mode but no port; falling back to off", cfg.model_key)
-        return ServeMode.OFF
-    return mode
+    extra = extra if extra is not None else (getattr(cfg, "extra", {}) or {})
+    explicit = extra.get("serve_mode")
+    # systemd no longer falls back to off for a missing port — _resolve_port
+    # auto-assigns a deterministic one.
+    return ServeMode(explicit) if explicit else ServeMode(DEFAULT_SERVE_MODE)
 
 
 # --------------------------------------------------------------------------- #
@@ -137,6 +176,7 @@ class ServeSpec:
     port: Optional[int] = None
     ctx_size: int = DEFAULT_LLAMA_CTX
     threads: int = DEFAULT_LLAMA_THREADS
+    n_gpu_layers: int = DEFAULT_LLAMA_NGL
     always_on: bool = True
     ttl_seconds: Optional[int] = None
     user: str = LLAMA_SERVICE_USER
@@ -170,13 +210,13 @@ class ServeSpec:
 def serve_spec_for(model_key=None, *, cfg=None) -> ServeSpec:
     cfg = cfg if cfg is not None else get_model_config(model_key)
     model_key = model_key or cfg.model_key or cfg.name
-    mode = _resolve_mode(cfg)
-    extra = getattr(cfg, "extra", {}) or {}
+    extra = _effective_extra(model_key, cfg)   # cfg.extra + persisted UI override
+    mode = _resolve_mode(cfg, extra)
 
     if mode is ServeMode.SWAP:
         host, port = LLAMA_SWAP_HOST, LLAMA_SWAP_PORT
     elif mode is ServeMode.SYSTEMD:
-        host, port = _bare_host(getattr(cfg, "host", None)), int(cfg.port)
+        host, port = _bare_host(getattr(cfg, "host", None)), _resolve_port(model_key, cfg)
     else:
         host = _bare_host(getattr(cfg, "host", None))
         port = int(cfg.port) if getattr(cfg, "port", None) else None
@@ -187,8 +227,9 @@ def serve_spec_for(model_key=None, *, cfg=None) -> ServeSpec:
         model_file=_model_file_for(model_key, cfg),
         host=host,
         port=port,
-        ctx_size=_ctx_for(cfg, model_key),
+        ctx_size=_ctx_for(cfg, model_key, extra),
         threads=int(extra.get("threads") or DEFAULT_LLAMA_THREADS),
+        n_gpu_layers=int(extra.get("n_gpu_layers", DEFAULT_LLAMA_NGL)),
         always_on=bool(extra.get("always_on", True)),
         ttl_seconds=extra.get("ttl_seconds") or (None if extra.get("always_on", True) else LLAMA_SWAP_TTL),
         extra_args=tuple(extra.get("llama_extra_args") or ()),
@@ -204,7 +245,6 @@ def build_serve_specs(registry=None, *, only=None):
             continue
         spec = serve_spec_for(key, cfg=cfg)
         specs[key] = spec
-    _assert_no_port_collisions([s for s in specs.values() if s.mode is ServeMode.SYSTEMD])
     return specs
 
 
@@ -316,12 +356,19 @@ class SystemdDriver:
             f"--port {spec.port}",
             f"-c {spec.ctx_size}",
             f"-t {spec.threads}",
+            # GPU offload — without this llama-server runs CPU-only.
+            f"--n-gpu-layers {spec.n_gpu_layers}",
             *spec.extra_args,
         ))
         return "\n".join((
             "[Unit]",
             f"Description=llama.cpp server for {spec.model_key}",
             "After=network.target",
+            # Restart-loop limiter lives in [Unit] (systemd ignores it in
+            # [Service] — 'Unknown key name StartLimitIntervalSec in section
+            # Service'). Caps thrash on a bad GGUF.
+            "StartLimitIntervalSec=120",
+            "StartLimitBurst=5",
             "",
             "[Service]",
             "Type=simple",
@@ -331,10 +378,6 @@ class SystemdDriver:
             f"ExecStart={exec_start}",
             "Restart=always",
             "RestartSec=5",
-            # cap restart loops so a bad GGUF can't thrash while the app
-            # silently double-loads it in-process via the fallback
-            "StartLimitIntervalSec=120",
-            "StartLimitBurst=5",
             "TimeoutStartSec=300",
             "TimeoutStopSec=30",
             "",
@@ -391,6 +434,7 @@ class SwapDriver:
                 spec.server_bin, "-m", spec.model_file,
                 "--host", "127.0.0.1", "--port", "${PORT}",
                 "-c", str(spec.ctx_size), "-t", str(spec.threads),
+                "--n-gpu-layers", str(spec.n_gpu_layers),
                 *spec.extra_args,
             ))
             entry = {"cmd": cmd}
@@ -472,6 +516,8 @@ def install_serving(*, only=None, registry=None) -> ServePlan:
     """One plan that stands up everything. Batches by mode so all swap models
     land in one config write, each systemd model in its own unit."""
     specs = build_serve_specs(registry=registry, only=only)
+    # Only the units we're about to write must not clash on a port.
+    _assert_no_port_collisions([s for s in specs.values() if s.mode is ServeMode.SYSTEMD])
     by_mode = {}
     for spec in specs.values():
         by_mode.setdefault(spec.mode, []).append(spec)
@@ -498,12 +544,22 @@ def serving_overview(registry=None):
     rows = []
     for key, spec in specs.items():
         driver = get_serve_driver(spec.mode)
-        rows.append({
-            "key": key,
-            "mode": spec.mode.value,
-            "always_on": spec.always_on,
-            "endpoint": driver.endpoint(spec),
-            "model_name": driver.model_name(spec),
-            "ttl_seconds": spec.ttl_seconds,
-        })
+        rows.append(spec_row(spec, driver))
     return rows
+
+
+def spec_row(spec, driver=None) -> dict:
+    """One serving row for the console — the editable knobs + resolved endpoint."""
+    driver = driver or get_serve_driver(spec.mode)
+    return {
+        "key": spec.model_key,
+        "mode": spec.mode.value,
+        "always_on": spec.always_on,
+        "endpoint": driver.endpoint(spec),
+        "model_name": driver.model_name(spec),
+        "port": spec.port,
+        "n_gpu_layers": spec.n_gpu_layers,
+        "threads": spec.threads,
+        "ctx_size": spec.ctx_size,
+        "ttl_seconds": spec.ttl_seconds,
+    }

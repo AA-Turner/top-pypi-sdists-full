@@ -67,7 +67,12 @@ impl DataStoreTrait for StringOnlyDataStore {
         *self.get_calls.lock().unwrap() += 1;
         let result = self.values.lock().unwrap().get(key).cloned();
         let time = result.as_ref().map(|_| 1);
-        Ok(DataStoreResponse { result, time })
+        Ok(DataStoreResponse {
+            result,
+            time,
+            checksum: None,
+            has_updates: None,
+        })
     }
 
     async fn set(&self, key: &str, value: &str, _time: Option<u64>) -> Result<(), StatsigErr> {

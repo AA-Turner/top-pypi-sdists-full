@@ -5,7 +5,7 @@ import warnings
 
 from openfeature.schemas.protobuf.flagd.evaluation.v2 import evaluation_pb2 as openfeature_dot_schemas_dot_protobuf_dot_flagd_dot_evaluation_dot_v2_dot_evaluation__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class ServiceStub(object):
+class ServiceStub:
     """Service defines the exposed rpcs of flagd
     """
 
@@ -67,7 +67,7 @@ class ServiceStub(object):
                 _registered_method=True)
 
 
-class ServiceServicer(object):
+class ServiceServicer:
     """Service defines the exposed rpcs of flagd
     """
 
@@ -148,7 +148,7 @@ def add_ServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Service(object):
+class Service:
     """Service defines the exposed rpcs of flagd
     """
 

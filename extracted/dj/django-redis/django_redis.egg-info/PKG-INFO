@@ -1,39 +1,44 @@
 Metadata-Version: 2.4
 Name: django-redis
-Version: 6.0.0
+Version: 7.0.0
 Summary: Full featured redis cache backend for Django.
-Home-page: https://github.com/jazzband/django-redis
-Author: Andrei Antoukh
-Author-email: niwi@niwi.nz
-License: BSD-3-Clause
+Author-email: Andrei Antoukh <niwi@niwi.nz>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/jazzband/django-redis
+Project-URL: Source, https://github.com/jazzband/django-redis
+Project-URL: Issues, https://github.com/jazzband/django-redis/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: Django>=4.2
+Requires-Dist: Django<7.0,>=5.2
 Requires-Dist: redis>=4.0.2
+Requires-Dist: typing_extensions>=4.12; python_version <= "3.12"
 Provides-Extra: hiredis
 Requires-Dist: redis[hiredis]>=4.0.2; extra == "hiredis"
+Provides-Extra: lz4
+Requires-Dist: lz4>=0.15; extra == "lz4"
+Provides-Extra: msgpack
+Requires-Dist: msgpack>=0.6.0; extra == "msgpack"
+Provides-Extra: pyzstd
+Requires-Dist: pyzstd>=0.15; extra == "pyzstd"
 Dynamic: license-file
 
 ==============================
@@ -84,8 +89,8 @@ Why use django-redis?
 Requirements
 ~~~~~~~~~~~~
 
-- `Python`_ 3.9+
-- `Django`_ 4.2+
+- `Python`_ 3.10+
+- `Django`_ 5.2+
 - `redis-py`_ 4.0.2+
 - `Redis server`_ 2.8+
 
@@ -118,9 +123,6 @@ something like:
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
             "LOCATION": "redis://127.0.0.1:6379/1",
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            }
         }
     }
 
@@ -144,8 +146,11 @@ There are several ways to specify a database number:
 - If using the ``redis://`` scheme, the path argument of the URL, e.g.
   ``redis://localhost/0``
 
-When using `Redis' ACLs <https://redis.io/topics/acl>`_, you will need to add the
-username to the URL (and provide the password with the Cache ``OPTIONS``).
+When using `Redis' ACLs <https://redis.io/topics/acl>`_, you will need to add
+the username and the password in the connection string or in ``OPTIONS`` with
+the keys ``USERNAME`` and ``PASSWORD``. *NOTE: Values in the connection string
+have precedence!*
+
 The login for the user ``django`` would look like this:
 
 .. code-block:: python
@@ -153,47 +158,38 @@ The login for the user ``django`` would look like this:
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://django@localhost:6379/0",
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "PASSWORD": "mysecret"
-            }
-        }
-    }
-
-An alternative would be write both username and password into the URL:
-
-.. code-block:: python
-
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
             "LOCATION": "redis://django:mysecret@localhost:6379/0",
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            }
         }
     }
 
-In some circumstances the password you should use to connect Redis
-is not URL-safe, in this case you can escape it or just use the
-convenience option in ``OPTIONS`` dict:
+Instead you may specify both of these values in ``OPTIONS``:
 
 .. code-block:: python
 
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://127.0.0.1:6379/1",
+            "LOCATION": "redis://localhost:6379/0",
             "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "PASSWORD": "mysecret"
+                "USERNAME": "django",
+                "PASSWORD": "mysecret",
             }
         }
     }
 
-Take care, that this option does not overwrites the password in the uri, so if
-you have set the password in the uri, this settings will be ignored.
+And, finally you may mix the two as follows (be sure not to include a password,
+even if blank in the connection string):
+
+.. code-block:: python
+
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://django@localhost:6379/0",
+            "OPTIONS": {"PASSWORD": "mysecret"}
+        }
+    }
+
 
 Configure as session backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -746,8 +742,11 @@ In order to enable this functionality you should add the following:
                 # Sentinels which are passed directly to redis Sentinel.
                 "SENTINELS": SENTINELS,
 
-                # kwargs for redis Sentinel (optional).
-                "SENTINEL_KWARGS": {},
+                # kwargs for redis Sentinel (optional). Example with auth on sentinels
+                "SENTINEL_KWARGS": {
+                    "username": "sentinel-user",
+                    "password": "sentinel-pass",
+                },
 
                 # You can still override the connection pool (optional).
                 "CONNECTION_POOL_CLASS": "redis.sentinel.SentinelConnectionPool",
@@ -823,20 +822,20 @@ It is also possible to set some caches as sentinels and some as not:
 Pluggable parsers
 ~~~~~~~~~~~~~~~~~
 
-redis-py (the Python Redis client used by django-redis) comes with a pure
-Python Redis parser that works very well for most common task, but if you want
-some performance boost, you can use hiredis.
+`redis-py`_, the Python Redis client used by django-redis, will automatically
+use a C-based parser if the `hiredis`_ package is installed in your environment.
+This can provide a significant performance boost for parsing Redis replies.
 
-hiredis is a Redis client written in C and it has its own parser that can be
-used with django-redis.
+To take advantage of this, simply install the `hiredis` package with pip:
 
-.. code-block:: python
+.. code-block:: console
 
-    "OPTIONS": {
-        "PARSER_CLASS": "redis.connection.HiredisParser",
-    }
+    $ python -m pip install hiredis
 
-Note: if using version 5 of redis-py, use ``"redis.connection._HiredisParser"`` for the ``PARSER_CLASS`` due to an internal rename of classes within that package.
+No additional configuration in your Django settings is required. django-redis
+will use the faster parser automatically.
+
+.. _hiredis: https://pypi.org/project/hiredis/
 
 Pluggable clients
 ~~~~~~~~~~~~~~~~~

@@ -90,7 +90,8 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     # Checkpoint step guard (#v0.84)
     from kanban_framework.domain.step_registry import build_step_dag
     quick = getattr(task, 'mode', '') == 'quick'
-    dag = build_step_dag(lightweight=task.lightweight, quick=quick)
+    dag = build_step_dag(lightweight=task.lightweight, quick=quick,
+                         mode=getattr(task, 'mode', None), kanban_dir=fs.kanban_dir)
     for step in dag["steps"]:
         if step["phase"] == task.phase.value and step["type"] == "checkpoint":
             step_guard = guard.check_step(task, step)
@@ -115,10 +116,9 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
 
     _track_phase_time(task.id, task.phase.value, "end")
     from kanban_framework.domain.state_machine import mark_step, _get_steps
-    steps_map = _get_steps(
-        "quick" if getattr(task, 'mode', '') == 'quick'
-        else ("lightweight" if task.lightweight else "full")
-    )
+    task_mode = getattr(task, 'mode', '')
+    steps_map = _get_steps(task_mode) if task_mode else _get_steps(
+        "lightweight" if task.lightweight else "full")
     for step_def in steps_map.get(task.phase.value, []):
         mark_step(fs, task.id, step_def.id, "completed")
     updated = we.complete_phase(task)
@@ -222,8 +222,9 @@ def handle_next_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     if len(args) < 2:
         return {"error": "task_id required"}
     task = tm.show(args[1])
-    quick = getattr(task, 'mode', '') == 'quick'
-    next_p = we.next_phase(task.phase, lightweight=task.lightweight, quick=quick)
+    mode = getattr(task, 'mode', 'full')
+    quick = mode == 'quick'
+    next_p = we.next_phase(task.phase, lightweight=task.lightweight, quick=quick, mode=mode)
     return {
         "task_id": task.id,
         "current": task.phase.value,

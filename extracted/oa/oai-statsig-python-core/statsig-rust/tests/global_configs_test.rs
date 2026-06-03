@@ -28,6 +28,7 @@ fn test_set_values_and_get_config_num_value() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     };
 
     match spec_store.set_values(specs_update) {
@@ -72,6 +73,7 @@ fn test_set_values_and_get_config_str_value() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     };
 
     spec_store.set_values(specs_update).unwrap();
@@ -120,6 +122,7 @@ fn test_set_and_get_sampling_rate() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     };
 
     match spec_store.set_values(specs_update) {
@@ -153,6 +156,7 @@ fn test_set_and_get_sdk_flag() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     };
 
     match spec_store.set_values(specs_update) {
@@ -178,6 +182,7 @@ fn test_set_and_get_sdk_flag_when_dcs_has_no_sdk_flags() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     };
 
     match spec_store.set_values(specs_update) {

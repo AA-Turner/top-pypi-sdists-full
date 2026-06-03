@@ -1178,7 +1178,7 @@ function switchTab(name) {
   if (name === 'models') loadModelAttribution();
   if (name === 'nemoclaw') { loadNemoClaw(); _startNcApprovalsAutoRefresh(); }
   if (name !== 'nemoclaw') _stopNcApprovalsAutoRefresh();
-  if (name === 'subagents') { loadRunLedger(); loadSubagents(); if (!_subagentsTimer) _subagentsTimer = visibilitySetInterval(function(){ loadRunLedger(); loadSubagents(); }, 5000); }
+  if (name === 'subagents') { loadOrchestration(); loadRunLedger(); loadSubagents(); if (!_subagentsTimer) _subagentsTimer = visibilitySetInterval(function(){ loadOrchestration(); loadRunLedger(); loadSubagents(); }, 5000); }
   if (name !== 'subagents' && _subagentsTimer) { clearInterval(_subagentsTimer); _subagentsTimer = null; }
   if (name === 'swimlane') { loadSwimlane(); if (!_swimlaneTimer) _swimlaneTimer = visibilitySetInterval(loadSwimlane, 3000); }
   if (name !== 'swimlane' && _swimlaneTimer) { clearInterval(_swimlaneTimer); _swimlaneTimer = null; }
@@ -2779,6 +2779,119 @@ var _LOADALL_COALESCE_MS = 2000;
 // transcript loadActivityStream already pulled (window._cmLastAgentSay), model
 // + session count from the cached /api/overview, cost from the rendered stat.
 // Idempotent + self-healing: called after each overview/active-tasks refresh.
+function _renderWasteSummary() {
+  // Overview "recoverable spend" card — the fleet roll-up of the per-session
+  // cost-intel waste signals (the productivity-gains framework as a live number).
+  var page = document.getElementById('page-overview');
+  if (!page) return;
+  fetch('/api/waste-summary').then(function(r){ return r.json(); }).then(function(w){
+    var ex = document.getElementById('cm-waste-summary');
+    if (!w || typeof w !== 'object') { if (ex) ex.remove(); return; }
+    var rows = [];
+    if (Number(w.reasoning_cost_usd) > 0) rows.push(['🧠', '$' + Number(w.reasoning_cost_usd).toFixed(2) + ' on reasoning', '(' + (w.reasoning_pct_of_cost || 0) + '% of spend — billed, no deliverable)']);
+    if (Number(w.low_cache_sessions) > 0) rows.push(['⚡', w.low_cache_sessions + ' session' + (w.low_cache_sessions == 1 ? '' : 's'), 'with low cache hit (context re-sent at full price)']);
+    if (Number(w.reread_tax_usd) > 0) rows.push(['⏱', '$' + Number(w.reread_tax_usd).toFixed(2) + ' re-read tax', 'rebuilding the prompt cache after its 5-min TTL expired (' + w.reread_tax_sessions + ' session' + (w.reread_tax_sessions == 1 ? '' : 's') + ')']);
+    if (Number(w.tool_failing_sessions) > 0) rows.push(['⚠', w.tool_failing_sessions + ' session' + (w.tool_failing_sessions == 1 ? '' : 's'), 'with a tool failing (tokens burned on retries)']);
+    if (Number(w.compaction_heavy_sessions) > 0) rows.push(['♻', w.compaction_heavy_sessions + ' session' + (w.compaction_heavy_sessions == 1 ? '' : 's'), 'thrashing context (re-summarised repeatedly)']);
+    if (Number(w.model_fallback_sessions) > 0) rows.push(['🔀', w.model_fallback_sessions + ' session' + (w.model_fallback_sessions == 1 ? '' : 's'), 'on a silent model fallback']);
+    if (!rows.length || !Number(w.flagged_session_count)) { if (ex) ex.remove(); return; }
+    var inner = rows.map(function(r){
+      return '<div style="display:flex;gap:8px;align-items:baseline;font-size:13px;color:var(--text-secondary);padding:4px 0;">'
+        + '<span>' + r[0] + '</span><strong style="color:var(--text-primary);">' + escHtml(r[1]) + '</strong>'
+        + '<span style="color:var(--text-muted);">' + escHtml(r[2]) + '</span></div>';
+    }).join('');
+    // "Start here" — the single highest-leverage fix, picked from the fields
+    // (works the same in cloud + self-hosted; no backend needed).
+    var _opps = [];
+    if (Number(w.reasoning_cost_usd) > 0 && Number(w.total_cost_usd) > 0 && (w.reasoning_cost_usd / w.total_cost_usd) > 0.15)
+      _opps.push([w.reasoning_cost_usd * 2, 'Reasoning is $' + Number(w.reasoning_cost_usd).toFixed(2) + ' of your spend — lower the reasoning effort, or use a cheaper model for routine work.']);
+    if (Number(w.tool_failing_sessions) > 0)
+      _opps.push([Number(w.tool_failing_sessions) * 1.5, 'Fix the failing tool in ' + w.tool_failing_sessions + ' session' + (w.tool_failing_sessions == 1 ? '' : 's') + ' — you\'re paying tokens on the retries.']);
+    if (Number(w.low_cache_sessions) > 0)
+      _opps.push([Number(w.low_cache_sessions), w.low_cache_sessions + ' session' + (w.low_cache_sessions == 1 ? '' : 's') + ' re-send context at full price — keep the prompt stable to warm the cache.']);
+    if (Number(w.reread_tax_usd) > 0)
+      _opps.push([Number(w.reread_tax_usd) * 2, '$' + Number(w.reread_tax_usd).toFixed(2) + ' went to rebuilding the prompt cache after its 5-min TTL expired — keep sessions warm (a heartbeat or batched turns) so context is read at ~0.1x instead of re-written at full price.']);
+    if (Number(w.compaction_heavy_sessions) > 0)
+      _opps.push([Number(w.compaction_heavy_sessions) * 0.8, w.compaction_heavy_sessions + ' session' + (w.compaction_heavy_sessions == 1 ? '' : 's') + ' thrash context with repeated compaction — work in a smaller window.']);
+    _opps.sort(function(a, b){ return b[0] - a[0]; });
+    var startHere = _opps.length ? ('<div style="font-size:12px;color:#22c55e;background:rgba(34,197,94,0.08);border-radius:6px;padding:7px 10px;margin-top:10px;"><strong>Start here:</strong> ' + escHtml(_opps[0][1]) + '</div>') : '';
+    var html = '<div id="cm-waste-summary" style="background:var(--bg-secondary,#161b22);border:1px solid var(--border-primary,#30363d);border-left:3px solid #E5443A;border-radius:10px;padding:14px 18px;margin:0 0 16px;">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--text-primary,#e6edf3);margin-bottom:8px;">💡 Recoverable spend '
+      + '<span style="font-weight:500;color:var(--text-muted,#6b7280);">— ' + w.flagged_session_count + ' of ' + w.session_count + ' recent sessions show a waste signal</span></div>'
+      + inner
+      + startHere
+      + '<div style="font-size:12px;color:var(--text-muted,#6b7280);margin-top:8px;">Drill into each on the Cost tab. <a href="https://clawmetry.com/blog/estimating-productivity-gains" target="_blank" rel="noopener" style="color:#E5443A;">How to estimate what this is worth →</a></div>'
+      + '</div>';
+    var heroEl = document.getElementById('overview-hero');
+    if (ex) { ex.outerHTML = html; }
+    else if (heroEl && heroEl.parentNode) { heroEl.insertAdjacentHTML('afterend', html); }
+    else { page.insertAdjacentHTML('afterbegin', html); }
+  }).catch(function(){});
+}
+
+function _renderOutLoopSources() {
+  // Overview "out-loop sources" card — surfaces named sources reported by
+  // clawmetry.track.set_source()/CLAWMETRY_SOURCE from production agents built
+  // on any SDK (OpenAI Agents, LangChain, Vercel AI SDK, E2B, …). Self-removing
+  // when no source is tagged, so it is invisible for users who don't use it.
+  var page = document.getElementById('page-overview');
+  if (!page) return;
+  fetch('/api/local/external-calls?limit=2000').then(function(r){ return r.json(); }).then(function(d){
+    var ex = document.getElementById('cm-outloop-sources');
+    var rows = (d && Array.isArray(d.rows)) ? d.rows : (Array.isArray(d) ? d : []);
+    var named = rows.filter(function(c){ return c && c.source; });
+    if (!named.length) { if (ex) ex.remove(); return; }
+    var by = {};
+    named.forEach(function(c){
+      var k = String(c.source);
+      var g = by[k] || (by[k] = { calls: 0, errors: 0, lat: 0, cost: 0, tokens: 0, hosts: {}, models: {} });
+      g.calls += 1;
+      if (Number(c.status_code) >= 400) g.errors += 1;
+      g.lat += Number(c.latency_ms) || 0;
+      g.cost += Number(c.cost_usd) || 0;
+      g.tokens += (Number(c.input_tokens) || 0) + (Number(c.output_tokens) || 0);
+      if (c.host) g.hosts[c.host] = 1;
+      if (c.model) g.models[c.model] = 1;
+    });
+    var keys = Object.keys(by).sort(function(a, b){ return by[b].cost - by[a].cost || by[b].calls - by[a].calls; });
+    var fleetCost = keys.reduce(function(s, k){ return s + by[k].cost; }, 0);
+    function _fmtCost(v){ return v >= 1 ? ('$' + v.toFixed(2)) : ('$' + v.toFixed(4)); }
+    function _fmtTok(n){ return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
+    var inner = keys.map(function(k){
+      var g = by[k];
+      var hosts = Object.keys(g.hosts);
+      var models = Object.keys(g.models);
+      var avg = g.calls ? Math.round(g.lat / g.calls) : 0;
+      var errPct = g.calls ? Math.round((g.errors / g.calls) * 100) : 0;
+      var meta = g.calls + ' call' + (g.calls == 1 ? '' : 's')
+        + (g.tokens ? ' · ' + _fmtTok(g.tokens) + ' tok' : '')
+        + ' · ' + (models.length === 1 ? models[0] : hosts.length + ' provider' + (hosts.length == 1 ? '' : 's'))
+        + ' · ~' + avg + 'ms'
+        + (g.errors ? ' · ' + errPct + '% errors' : '');
+      var costStr = g.cost > 0 ? _fmtCost(g.cost) : '';
+      return '<div style="display:flex;gap:8px;align-items:baseline;font-size:13px;color:var(--text-secondary);padding:4px 0;">'
+        + '<span>🔌</span><strong style="color:var(--text-primary);">' + escHtml(k) + '</strong>'
+        + (costStr ? '<strong style="color:#8b5cf6;">' + escHtml(costStr) + '</strong>' : '')
+        + '<span style="color:var(--text-muted);">' + escHtml(meta) + '</span></div>';
+    }).join('');
+    var fleetStr = fleetCost > 0 ? (' · ' + _fmtCost(fleetCost) + ' total') : '';
+    var html = '<div id="cm-outloop-sources" style="background:var(--bg-secondary,#161b22);border:1px solid var(--border-primary,#30363d);border-left:3px solid #8b5cf6;border-radius:10px;padding:14px 18px;margin:0 0 16px;">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--text-primary,#e6edf3);margin-bottom:8px;">🔌 Out-loop sources '
+      + '<span style="font-weight:500;color:var(--text-muted,#6b7280);">— ' + keys.length + ' production agent' + (keys.length == 1 ? '' : 's') + ' reporting via the SDK' + fleetStr + '</span></div>'
+      + inner
+      + '<div style="font-size:12px;color:var(--text-muted,#6b7280);margin-top:8px;">Tag any SDK agent with <code style="background:rgba(139,92,246,0.12);padding:1px 5px;border-radius:4px;">clawmetry.track.set_source("name")</code> to attribute its cost here.</div>'
+      + '</div>';
+    var anchor = document.getElementById('cm-waste-summary');
+    if (ex) { ex.outerHTML = html; }
+    else if (anchor && anchor.parentNode) { anchor.insertAdjacentHTML('afterend', html); }
+    else {
+      var heroEl = document.getElementById('overview-hero');
+      if (heroEl && heroEl.parentNode) { heroEl.insertAdjacentHTML('afterend', html); }
+      else { page.insertAdjacentHTML('afterbegin', html); }
+    }
+  }).catch(function(){});
+}
+
 function _renderOverviewHero() {
   var hero = document.getElementById('overview-hero');
   if (!hero) return;
@@ -2804,6 +2917,16 @@ function _renderOverviewHero() {
   if (sessions != null) stats.push('💬 <strong style="color:var(--text-primary);">' + sessions + (sessions === 1 ? ' session' : ' sessions') + '</strong> today');
   stats.push('💸 <strong style="color:var(--text-primary);">' + escHtml(cost) + '</strong>' + (free ? ' <span style="color:#22c55e;">free on your plan</span>' : ''));
   stats.push('🧠 running <strong style="color:var(--text-primary);">' + escHtml(model) + '</strong>');
+  // Live throughput (⚡ tok/s) from the today-token delta between renders —
+  // matches `clawmetry status --live`. Shown only while the agent is producing.
+  try {
+    var _nowMs = Date.now(), _tt = Number(window._cmTodayTokensRaw || 0), _prevT = window._cmHeroTpsPrev;
+    if (busy && _prevT && _nowMs > _prevT.t) {
+      var _tps = (_tt - _prevT.k) / ((_nowMs - _prevT.t) / 1000);
+      if (_tps > 0.5) stats.push('⚡ <strong style="color:var(--text-primary);">' + Math.round(_tps) + '</strong> tok/s');
+    }
+    window._cmHeroTpsPrev = { k: _tt, t: _nowMs };
+  } catch (_e) {}
 
   hero.innerHTML =
     '<div style="display:flex;align-items:center;gap:11px;">'
@@ -2974,6 +3097,8 @@ async function loadMiniWidgets(overview, usage) {
   function fmtTokens(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); }
   document.getElementById('token-rate').textContent = fmtTokens(usage.month || 0);
   document.getElementById('tokens-today').textContent = fmtTokens(usage.today || 0);
+  // Raw today-token total (unformatted) so the hero can compute live tokens/sec.
+  window._cmTodayTokensRaw = Number(usage.today || 0);
   
   // SESSIONS card — show "sessions today" (overview.sessionCount), the SAME
   // definition as the Overview hero. Previously this card showed the LENGTH of
@@ -3419,7 +3544,9 @@ async function loadActivityStream() {
               break;
             }
           }
-          try { if (typeof _renderOverviewHero === 'function') _renderOverviewHero(); } catch (_e2) {}
+          try { if (typeof _renderOverviewHero === 'function') _renderOverviewHero(); } catch (_e_hero) {}
+          try { if (typeof _renderWasteSummary === 'function') _renderWasteSummary(); } catch (_e2) {}
+          try { if (typeof _renderOutLoopSources === 'function') _renderOutLoopSources(); } catch (_e3) {}
         } catch (_e) {}
 
         recentMessages.forEach(function(msg) {
@@ -4496,6 +4623,13 @@ function renderBrainStream(events) {
             _altContainerId = 'toolalt-' + ((te.eventId || (te.time || '') + (te.source || '')) + '').replace(/[^a-z0-9-]/gi, '').slice(0, 24);
             turnTimeline += '<button onclick="event.stopPropagation();toggleToolAlternatives(this,\'' + escHtml(_altContainerId) + '\')" data-ta=\'' + escHtml(JSON.stringify(te.tool_alternatives || null)) + '\' style="flex-shrink:0;padding:1px 7px;border-radius:10px;border:1px solid #a78bfa;background:transparent;color:#a78bfa;font-size:10px;cursor:pointer;white-space:nowrap;" title="What other tools did the model consider before picking this one?">&#9879; Alternatives</button>';
           }
+          // Issue #1414: "Why did this happen?" — LLM-narrated explanation for AGENT turns.
+          var _whyContainerId = null;
+          if (te.type === 'AGENT' && te.eventId) {
+            var _whySid = te.sessionId || '';
+            _whyContainerId = 'why-' + te.eventId.replace(/[^a-z0-9-]/gi, '').slice(0, 24);
+            turnTimeline += '<button onclick="event.stopPropagation();loadBrainWhy(\'' + escHtml(_whySid) + '\',\'' + escHtml(te.eventId) + '\',\'' + escHtml(_whyContainerId) + '\')" style="flex-shrink:0;padding:1px 7px;border-radius:10px;border:1px solid #f43f5e;background:transparent;color:#fb7185;font-size:10px;cursor:pointer;white-space:nowrap;" title="Why did this happen? (AI narration)">&#128269; Why?</button>';
+          }
           turnTimeline += '</div>';
           if (_rcContainerId) {
             turnTimeline += '<div id="' + escHtml(_rcContainerId) + '" style="margin:2px 0 4px 56px;"></div>';
@@ -4508,6 +4642,9 @@ function renderBrainStream(events) {
           }
           if (_altContainerId) {
             turnTimeline += '<div id="' + escHtml(_altContainerId) + '" class="tool-alternatives-host" style="margin:2px 0 4px 56px;"></div>';
+          }
+          if (_whyContainerId) {
+            turnTimeline += '<div id="' + escHtml(_whyContainerId) + '" class="brain-why-host" style="margin:2px 0 4px 56px;"></div>';
           }
         });
         if (currentSubagent) turnTimeline += '</div>'; // close last sub-agent group
@@ -4676,6 +4813,39 @@ function loadReasoningChain(sessionId, containerId) {
     })
     .catch(function(err) {
       container.innerHTML = '<span style="color:#ef4444;font-size:10px;">' + t("app.error_loading_reasoning_chain", null, "Error loading reasoning chain.") + '</span>';
+    });
+}
+
+// Issue #1414: "Why did this happen?" — fetch LLM narration for one AGENT turn.
+function loadBrainWhy(sessionId, eventId, containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  // Toggle: second click clears the panel.
+  if (container.dataset.loaded === '1') {
+    container.innerHTML = '';
+    container.dataset.loaded = '0';
+    return;
+  }
+  container.innerHTML = '<span style="color:var(--text-muted);font-size:10px;">Asking AI…</span>';
+  fetch('/api/brain/why/' + encodeURIComponent(sessionId) + '/' + encodeURIComponent(eventId))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      container.dataset.loaded = '1';
+      var narration = data.narration || '(no narration)';
+      var anomaly = data.anomaly || false;
+      var html = '<div style="padding:6px 10px;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2);border-radius:6px;font-size:11px;line-height:1.5;">';
+      if (anomaly) {
+        html += '<div style="color:#f43f5e;font-weight:700;margin-bottom:4px;">⚠ Anomaly detected</div>';
+      }
+      html += '<div style="color:var(--text-secondary);">🔍 ' + escHtml(narration) + '</div>';
+      if (data.model && data.model !== 'none') {
+        html += '<div style="color:var(--text-faint);font-size:9px;margin-top:4px;">via ' + escHtml(data.model) + '</div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    })
+    .catch(function() {
+      container.innerHTML = '<span style="color:#ef4444;font-size:10px;">Error loading explanation.</span>';
     });
 }
 
@@ -7798,6 +7968,39 @@ async function loadSessions() {
     if (s.channel !== 'unknown') html += '<span><span class="badge channel">' + s.channel + '</span></span>';
     if (sessCost && sessCost.cost_usd > 0) {
       html += '<span style="font-size:11px;color:var(--text-success);font-weight:600;">💰 $' + Number(sessCost.cost_usd||0).toFixed(4) + ' total</span>';
+    }
+    // Cost-intelligence chips (foundation): reasoning-tax $ + cache-hit %, shown
+    // only for runtimes whose adapter reports the field (others omit it).
+    if (sessCost && sessCost.reasoning_cost_usd != null && Number(sessCost.reasoning_cost_usd) > 0) {
+      html += '<span title="Reasoning tokens billed at the output rate — spend that produces no visible deliverable" style="font-size:11px;color:#a78bfa;font-weight:600;">🧠 $' + Number(sessCost.reasoning_cost_usd).toFixed(4) + ' reasoning</span>';
+    }
+    if (sessCost && sessCost.cache_hit_pct != null) {
+      var _chp = Number(sessCost.cache_hit_pct);
+      var _chc = _chp >= 70 ? '#22c55e' : (_chp >= 40 ? '#f59e0b' : '#ef4444');
+      html += '<span title="Share of input context served from prompt cache (far cheaper). Low = re-sending context at full price every turn." style="font-size:11px;color:' + _chc + ';font-weight:600;">⚡ ' + _chp.toFixed(0) + '% cache</span>';
+    }
+    if (sessCost && sessCost.model_mix) {
+      var _mmt = 'This session silently ran on more than one model — a fallback/downgrade you did not choose';
+      if (sessCost.primary_model) _mmt += ' (' + escHtml(sessCost.primary_model) + (sessCost.secondary_model ? ' + ' + escHtml(sessCost.secondary_model) : '') + ')';
+      html += '<span title="' + _mmt + '" style="font-size:11px;color:#f59e0b;font-weight:600;">🔀 model fallback</span>';
+    }
+    if (sessCost && sessCost.tool_error_pct != null && Number(sessCost.tool_error_pct) > 0) {
+      var _tep = Number(sessCost.tool_error_pct);
+      var _tec = _tep >= 30 ? '#ef4444' : '#f59e0b';
+      html += '<span title="Share of this session\'s tool calls that came back a real (non-benign) error — a failing tool you only ever see as the agent \'thinking\'." style="font-size:11px;color:' + _tec + ';font-weight:600;">⚠ ' + _tep.toFixed(0) + '% tools failing</span>';
+    }
+    if (sessCost && sessCost.compaction_count != null && Number(sessCost.compaction_count) > 0) {
+      var _cc = Number(sessCost.compaction_count);
+      html += '<span title="Times this session auto-compacted — each one silently re-summarises (and re-bills) the context window. Frequent compaction = context thrash / wasted tokens." style="font-size:11px;color:#f59e0b;font-weight:600;">♻ compacted ' + _cc + '×</span>';
+    }
+    if (sessCost && sessCost.downstream_cost_usd != null && Number(sessCost.downstream_cost_usd) > 0) {
+      var _dc = Number(sessCost.downstream_cost_usd), _sa = Number(sessCost.subagent_count || 0);
+      html += '<span title="The TRUE cost of this ask: it spawned ' + _sa + ' sub-agent(s) that spent this much downstream — billed under their own keys but caused by this session. (Context graph)" style="font-size:11px;color:#60a5fa;font-weight:600;">&#8627; +$' + _dc.toFixed(4) + (_sa ? ' · ' + _sa + ' agents' : '') + '</span>';
+    }
+    if (sessCost && Number(sessCost.governance_count) > 0) {
+      var _gn = Number(sessCost.governance_count), _gd = Number(sessCost.governance_denied || 0);
+      var _gc = _gd > 0 ? '#ef4444' : '#22c55e';
+      html += '<span title="Tool calls this session put through governance (NeMo guardrails + the approval queue): ' + _gn + ' gated, ' + _gd + ' denied/blocked. (Context graph)" style="font-size:11px;color:' + _gc + ';font-weight:600;">&#128737; ' + _gn + ' gated' + (_gd ? ' · ' + _gd + ' denied' : '') + '</span>';
     }
     // Issue #1619 Phase 1 — Score pill. Color band matches the overview
     // tile (4+ green, 3-4 yellow, <3 red). Hover shows the judge's reason.
@@ -13180,6 +13383,59 @@ function _saToggle(sid) {
   loadSubagents();
 }
 
+async function loadOrchestration() {
+  var el = document.getElementById('orchestration-board');
+  if (!el) return;
+  try {
+    var data = await fetch('/api/orchestration').then(function(r) { return r.json(); });
+    var agents = data.agents || [];
+    var summary = data.summary || {};
+    if (agents.length === 0) { el.innerHTML = ''; return; }
+    var statusColors = {
+      active: '#16a34a', running: '#16a34a', idle: '#d97706',
+      stale: '#6b7280', failed: '#ef4444', paused: '#7c3aed', completed: '#3b82f6'
+    };
+    var html = '<div style="border:1px solid var(--border-primary);border-radius:10px;overflow:hidden;margin-bottom:4px;">';
+    html += '<div style="display:flex;align-items:center;gap:16px;padding:8px 14px;background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);font-size:12px;flex-wrap:wrap;">';
+    html += '<span style="font-weight:700;color:var(--text-primary);font-size:13px;">🤖 Orchestration</span>';
+    html += '<span style="color:var(--text-muted);"><strong style="color:var(--text-primary);">' + (summary.total || 0) + '</strong> agents</span>';
+    if (summary.active) html += '<span style="color:#16a34a;"><strong>' + summary.active + '</strong> active</span>';
+    if (summary.total_cost_usd) {
+      html += '<span style="color:var(--text-muted);">$<strong style="color:var(--text-primary);">' + summary.total_cost_usd.toFixed(4) + '</strong> total cost</span>';
+    }
+    html += '</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';
+    agents.forEach(function(a) {
+      var color = statusColors[a.status] || '#6b7280';
+      var glow = (a.status === 'active' || a.status === 'running') ? 'box-shadow:0 0 0 1px ' + color + '40;' : '';
+      var costStr = (a.costUsd > 0) ? '$' + a.costUsd.toFixed(4) : '';
+      var tokens = a.totalTokens >= 1000 ? (a.totalTokens / 1000).toFixed(1) + 'K tok' : (a.totalTokens > 0 ? a.totalTokens + ' tok' : '');
+      var depthBadge = (a.depth > 1) ? '<span style="font-size:9px;background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:3px;padding:0 4px;color:var(--text-muted);margin-left:4px;">d' + a.depth + '</span>' : '';
+      html += '<div style="flex:0 0 auto;min-width:155px;max-width:215px;border:1px solid var(--border-primary);border-radius:8px;padding:8px 10px;background:var(--bg-card);' + glow + '">';
+      html += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">';
+      html += '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';display:inline-block;flex-shrink:0;"></span>';
+      html += '<span style="font-size:12px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="' + escHtml(a.displayName) + '">' + escHtml(a.displayName) + '</span>';
+      html += depthBadge;
+      html += '</div>';
+      if (a.model && a.model !== 'unknown') {
+        html += '<div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(a.model) + '</div>';
+      }
+      if (costStr || tokens) {
+        html += '<div style="display:flex;gap:8px;font-size:10px;color:var(--text-faint);">';
+        if (costStr) html += '<span style="color:#16a34a;">' + escHtml(costStr) + '</span>';
+        if (tokens) html += '<span>' + escHtml(tokens) + '</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div></div>';
+    el.innerHTML = html;
+  } catch(e) {
+    var board = document.getElementById('orchestration-board');
+    if (board) board.innerHTML = '';
+  }
+}
+
 async function controlAgent(key, action) {
   if (action === 'stop') {
     if (!confirm('Stop agent ' + key + '? This will attempt to terminate it via the gateway and cannot be undone.')) return;
@@ -16009,7 +16265,9 @@ async function loadOverviewTasks() {
     // Alive-state for the Overview hero: working when something is actively
     // running, otherwise idle. Re-render the hero so it reflects the change.
     window._cmAgentBusy = running.length > 0;
-    try { if (typeof _renderOverviewHero === 'function') _renderOverviewHero(); } catch (_e) {}
+    try { if (typeof _renderOverviewHero === 'function') _renderOverviewHero(); } catch (_e_hero) {}
+          try { if (typeof _renderWasteSummary === 'function') _renderWasteSummary(); } catch (_e) {}
+          try { if (typeof _renderOutLoopSources === 'function') _renderOutLoopSources(); } catch (_e4) {}
     // "Recently Completed/Failed" must mean RECENT — bound by how long ago the
     // task FINISHED, not its run duration. The old `runtimeMs < 2h` check used
     // duration, so a 5-minute task that finished 6 days ago still passed and

@@ -3,7 +3,8 @@ use super::response_format::get_specs_response_format;
 use super::statsig_http_specs_adapter::DEFAULT_SYNC_INTERVAL_MS;
 use super::{SpecsSource, SpecsUpdate};
 use crate::data_store_interface::{
-    DataStoreBytesResponse, DataStoreCacheKeys, DataStoreResponse, DataStoreTrait, RequestPath,
+    DataStoreBytesResponse, DataStoreCacheKeys, DataStoreGetBytesRequest, DataStoreResponse,
+    DataStoreTrait, RequestPath,
 };
 use crate::networking::ResponseData;
 use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
@@ -34,6 +35,9 @@ pub struct StatsigDataStoreSpecsAdapter {
 struct CachedSpecs {
     result: Option<Vec<u8>>,
     is_protobuf: bool,
+    time: Option<u64>,
+    checksum: Option<String>,
+    has_updates: Option<bool>,
 }
 
 impl StatsigDataStoreSpecsAdapter {
@@ -70,8 +74,8 @@ impl SpecsAdapter for StatsigDataStoreSpecsAdapter {
         let sync_start_ms = Utc::now().timestamp_millis() as u64;
         self.data_store.initialize().await?;
 
-        let update = self.load_cached_specs().await?;
-        if update.result.is_none() {
+        let update = self.load_cached_specs(None, None).await?;
+        if update.result.is_none() && update.has_updates != Some(false) {
             return Err(StatsigErr::DataStoreFailure("Empty result".to_string()));
         }
 
@@ -152,17 +156,28 @@ impl SpecsAdapter for StatsigDataStoreSpecsAdapter {
 }
 
 impl StatsigDataStoreSpecsAdapter {
-    async fn load_cached_specs(&self) -> Result<CachedSpecs, StatsigErr> {
-        if let Some(update) = self.load_statsig_br_cache().await? {
+    async fn load_cached_specs(
+        &self,
+        since_time: Option<u64>,
+        checksum: Option<String>,
+    ) -> Result<CachedSpecs, StatsigErr> {
+        if let Some(update) = self
+            .load_statsig_br_cache(since_time, checksum.clone())
+            .await?
+        {
             return Ok(update);
         }
 
-        self.load_plain_text_cache().await
+        self.load_plain_text_cache(since_time, checksum).await
     }
 
-    async fn load_statsig_br_cache(&self) -> Result<Option<CachedSpecs>, StatsigErr> {
+    async fn load_statsig_br_cache(
+        &self,
+        since_time: Option<u64>,
+        checksum: Option<String>,
+    ) -> Result<Option<CachedSpecs>, StatsigErr> {
         match self
-            .load_cached_specs_bytes(&self.cache_keys.statsig_br, true)
+            .load_cached_specs_bytes(&self.cache_keys.statsig_br, true, since_time, checksum)
             .await
         {
             Ok(update) => Ok(update),
@@ -180,15 +195,22 @@ impl StatsigDataStoreSpecsAdapter {
         }
     }
 
-    async fn load_plain_text_cache(&self) -> Result<CachedSpecs, StatsigErr> {
+    async fn load_plain_text_cache(
+        &self,
+        since_time: Option<u64>,
+        checksum: Option<String>,
+    ) -> Result<CachedSpecs, StatsigErr> {
         match self
-            .load_cached_specs_bytes(&self.cache_keys.plain_text, false)
+            .load_cached_specs_bytes(&self.cache_keys.plain_text, false, since_time, checksum)
             .await
         {
             Ok(Some(update)) => Ok(update),
             Ok(None) => Ok(CachedSpecs {
                 result: None,
                 is_protobuf: false,
+                time: None,
+                checksum: None,
+                has_updates: None,
             }),
             Err(e @ StatsigErr::BytesNotImplemented) => {
                 self.load_cached_specs_string(Some(e)).await
@@ -201,8 +223,19 @@ impl StatsigDataStoreSpecsAdapter {
         &self,
         key: &str,
         is_protobuf: bool,
+        since_time: Option<u64>,
+        checksum: Option<String>,
     ) -> Result<Option<CachedSpecs>, StatsigErr> {
-        let response = self.data_store.get_bytes(key).await?;
+        let response = self
+            .data_store
+            .get_bytes(
+                key,
+                DataStoreGetBytesRequest {
+                    since_time,
+                    checksum,
+                },
+            )
+            .await?;
         Ok(cached_specs_from_bytes_response(response, is_protobuf))
     }
 
@@ -253,6 +286,8 @@ impl StatsigDataStoreSpecsAdapter {
         listener: &Arc<dyn SpecsUpdateListener>,
         cached_specs: CachedSpecs,
     ) -> (Result<(), StatsigErr>, String) {
+        let _ = (&cached_specs.time, &cached_specs.checksum);
+
         let data = Self::specs_response_data_from_cache(
             cached_specs.result.unwrap_or_default(),
             cached_specs.is_protobuf,
@@ -264,6 +299,7 @@ impl StatsigDataStoreSpecsAdapter {
             source: SpecsSource::Adapter("DataStore".to_string()),
             received_at: Utc::now().timestamp_millis() as u64,
             source_api: Some("datastore".to_string()),
+            has_updates: cached_specs.has_updates,
         });
 
         (result, response_format.as_str().to_string())
@@ -308,7 +344,20 @@ impl StatsigDataStoreSpecsAdapter {
 
     async fn execute_background_sync_impl(&self) {
         let sync_start_ms = Utc::now().timestamp_millis() as u64;
-        let update = match self.load_cached_specs().await {
+        let listener = {
+            let read_lock = read_lock_or_else!(self.listener, {
+                log_w!(TAG, "Unable to acquire read lock on listener");
+                return;
+            });
+
+            unwrap_or_else!(read_lock.as_ref(), {
+                log_w!(TAG, "Listener not set");
+                return;
+            })
+            .clone()
+        };
+
+        let update = match self.load_cached_specs_from_listener(&listener).await {
             Ok(update) => update,
             Err(e) => {
                 log_w!(TAG, "Failed to read for data store: {e}");
@@ -316,22 +365,21 @@ impl StatsigDataStoreSpecsAdapter {
             }
         };
 
-        let read_lock = read_lock_or_else!(self.listener, {
-            log_w!(TAG, "Unable to acquire read lock on listener");
-            return;
-        });
-
-        let listener = unwrap_or_else!(read_lock.as_ref(), {
-            log_w!(TAG, "Listener not set");
-            return;
-        });
-
-        let (result, response_format) = self.send_specs_update_to_listener(listener, update);
+        let (result, response_format) = self.send_specs_update_to_listener(&listener, update);
         self.log_data_store_sync_result(sync_start_ms, &response_format, &result);
 
         if let Err(e) = result {
             log_w!(TAG, "Failed to send specs update to listener: {e}");
         }
+    }
+
+    async fn load_cached_specs_from_listener(
+        &self,
+        listener: &Arc<dyn SpecsUpdateListener>,
+    ) -> Result<CachedSpecs, StatsigErr> {
+        let spec_info = listener.get_current_specs_info();
+        self.load_cached_specs(spec_info.lcut, spec_info.checksum)
+            .await
     }
 }
 
@@ -339,9 +387,16 @@ fn cached_specs_from_bytes_response(
     response: DataStoreBytesResponse,
     is_protobuf: bool,
 ) -> Option<CachedSpecs> {
-    response.result.map(|result| CachedSpecs {
-        result: Some(result),
+    if response.result.is_none() && response.has_updates != Some(false) {
+        return None;
+    }
+
+    Some(CachedSpecs {
+        result: response.result,
         is_protobuf,
+        time: response.time,
+        checksum: response.checksum,
+        has_updates: response.has_updates,
     })
 }
 
@@ -349,5 +404,8 @@ fn cached_specs_from_string_response(response: DataStoreResponse) -> CachedSpecs
     CachedSpecs {
         result: response.result.map(String::into_bytes),
         is_protobuf: false,
+        time: response.time,
+        checksum: response.checksum,
+        has_updates: response.has_updates,
     }
 }

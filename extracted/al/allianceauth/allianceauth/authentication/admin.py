@@ -1,15 +1,19 @@
+from collections import OrderedDict
+from typing import Any
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import (
     Group, Permission as BasePermission, User as BaseUser,
 )
-from django.db.models import Count, Q
+from django.db.models import Count, Q, QuerySet
 from django.db.models.functions import Lower
 from django.db.models.signals import (
     m2m_changed, post_delete, post_save, pre_delete, pre_save,
 )
 from django.dispatch import receiver
 from django.forms import ModelMultipleChoiceField
+from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.text import slugify
@@ -256,8 +260,8 @@ class MainFactionFilter(admin.SimpleListFilter):
         )
 
 
-@admin.display(description="Update main character model from ESI")
-def update_main_character_model(modeladmin, request, queryset):
+@admin.action(description="Update Main Character from ESI (Celery)")
+def update_main_character_model(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
     tasks_count = 0
     for obj in queryset:
         if obj.profile.main_character:
@@ -265,7 +269,35 @@ def update_main_character_model(modeladmin, request, queryset):
             tasks_count += 1
 
     modeladmin.message_user(
-        request, f'Update from ESI started for {tasks_count} characters'
+        request, f'Update from ESI Celery Task queued for {tasks_count} characters'
+    )
+
+
+@admin.action(description="Update Main Character from ESI (Browser)")
+def update_main_character_model_blocking(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+    tasks_count = 0
+    for obj in queryset:
+        if obj.profile.main_character:
+            EveCharacter.objects.update_character(obj.profile.main_character.character_id)
+            EveCharacter.objects.update_character_other(obj.profile.main_character.character_id)
+            tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} characters'
+    )
+
+
+@admin.action(description="Update Main Character from ESI (Browser) - Clear ETag/Cache")
+def update_main_character_model_blocking_forcerefresh(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+    tasks_count = 0
+    for obj in queryset:
+        if obj.profile.main_character:
+            EveCharacter.objects.update_character(obj.profile.main_character.character_id)
+            EveCharacter.objects.update_character_other(obj.profile.main_character.character_id, force_refresh=True)
+            tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} characters, clearing their ETags and Cache, please use responsibly'
     )
 
 
@@ -329,13 +361,13 @@ class UserAdmin(BaseUserAdmin):
             return MyFormInjected
         return MyForm
 
-    def get_actions(self, request):
+    def get_actions(self, request) -> OrderedDict[Any, Any]:
         actions = super().get_actions(request)
-        actions[update_main_character_model.__name__] = (
-            update_main_character_model,
-            update_main_character_model.__name__,
-            update_main_character_model.short_description
-        )
+        actions.update({  # Add this files defined actions to the default ones, in bulk
+            'update_main_character_model': (update_main_character_model, 'update_main_character_model', update_main_character_model.short_description),
+            'update_main_character_model_blocking': (update_main_character_model_blocking, 'update_main_character_model_blocking', update_main_character_model_blocking.short_description),
+            "update_main_character_model_blocking_forcerefresh": (update_main_character_model_blocking_forcerefresh, "update_main_character_model_blocking_forcerefresh", update_main_character_model_blocking_forcerefresh.short_description)
+        })
 
         for hook in get_hooks('services_hook'):
             svc = hook()

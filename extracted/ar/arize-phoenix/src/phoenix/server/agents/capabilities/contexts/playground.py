@@ -23,8 +23,9 @@ class PlaygroundContextCapability(AbstractDynamicCapability[AgentDependencies]):
             if playground is None:
                 return None
             return instructions.render(
-                playground=playground,
-                instance_labels=ascii_uppercase,
+                playground=playground.model_dump(by_alias=False),
+                dataset=ctx.deps.contexts.dataset,
+                labels=ascii_uppercase,
             )
 
         return _instructions

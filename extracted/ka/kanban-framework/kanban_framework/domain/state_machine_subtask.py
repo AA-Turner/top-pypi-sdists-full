@@ -125,7 +125,7 @@ _step_depends_on: dict[str, list[str]] = {
     "plan.plan_B": ["spec.md"],
     "execute.spawn": ["task_breakdown.json", "plan/index.md"],
     "evaluate.spawn": ["execution_summary.md"],
-    "evaluate.spawn_qa": ["execution_summary.md"],
+    "evaluate.spawn_review": ["execution_summary.md"],
 }
 
 _interactive_prompts: dict[str, str] = {

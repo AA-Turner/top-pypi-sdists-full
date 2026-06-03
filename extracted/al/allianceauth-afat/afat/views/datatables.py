@@ -13,11 +13,10 @@ from allianceauth.framework.datatables import DataTablesView
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
-from afat import __title__
 from afat.models import FatLink, Log
-from afat.providers import AppLogger
+from afat.providers.applogger import AppLogger
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 
 class FatLinksTableView(PermissionRequiredMixin, DataTablesView):

@@ -41,6 +41,24 @@ def test_mindroom_runtime_images_run_under_tini() -> None:
         assert 'CMD ["/app/.venv/bin/mindroom", "run"]' in text
 
 
+def test_mindroom_runtime_images_opt_into_dashboard_asset_build() -> None:
+    """The runtime image should ship dashboard assets without runtime Bun."""
+    for dockerfile in _MINDROOM_DOCKERFILES:
+        text = dockerfile.read_text(encoding="utf-8")
+        frontend_copy_index = text.index("COPY frontend /app/frontend")
+        final_stage_index = text.index(" AS final")
+        builder_after_frontend = text[frontend_copy_index:final_stage_index]
+        frontend_build_env_index = builder_after_frontend.index("ENV MINDROOM_BUILD_FRONTEND=1")
+        project_install_index = builder_after_frontend.index("uv sync --locked --no-dev")
+
+        assert frontend_build_env_index < project_install_index
+        assert "MINDROOM_BUILD_FRONTEND=1" in builder_after_frontend
+        assert "PUPPETEER_SKIP_DOWNLOAD=true" in builder_after_frontend
+        assert "--reinstall-package mindroom" in builder_after_frontend
+        assert "rm -rf frontend/node_modules" in builder_after_frontend
+        assert "bun install --frozen-lockfile" not in text
+
+
 def test_kubernetes_command_overrides_run_under_tini() -> None:
     """Kubernetes command overrides bypass image entrypoints, so add tini explicitly."""
     runtime_template = _RUNTIME_DEPLOYMENT_TEMPLATE.read_text(encoding="utf-8")

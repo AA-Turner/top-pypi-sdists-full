@@ -1,4 +1,4 @@
-# Generated from russian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from russian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class RussianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from russian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from russian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"а", "е", "и", "о", "у", "ы", "э", "ю", "я"}
@@ -37,9 +37,6 @@ class RussianStemmer(BaseStemmer):
         except lab0: pass
         self.cursor = v_1
         return True
-
-    def __r_R2(self):
-        return self.I_p2 <= self.cursor
 
     def __r_perfective_gerund(self):
         self.ket = self.cursor
@@ -146,7 +143,7 @@ class RussianStemmer(BaseStemmer):
         if self.find_among_b(RussianStemmer.a_6) == 0:
             return False
         self.bra = self.cursor
-        if not self.__r_R2():
+        if self.I_p2 > self.cursor:
             return False
         self.slice_del()
         return True

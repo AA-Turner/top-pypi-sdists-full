@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp-slim
-Version: 3.3.1
+Version: 3.4.0
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -38,7 +38,7 @@ Requires-Dist: mcp<2.0,>=1.24.0; extra == 'client'
 Requires-Dist: opentelemetry-api>=1.20.0; extra == 'client'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'client'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty==0.0.16; extra == 'code-mode'
+Requires-Dist: pydantic-monty==0.0.17; extra == 'code-mode'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Requires-Dist: jsonref>=1.1.0; extra == 'gemini'
@@ -55,6 +55,7 @@ Requires-Dist: cyclopts>=4.0.0; extra == 'server'
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'server'
 Requires-Dist: griffelib>=2.0.0; extra == 'server'
 Requires-Dist: httpx<1.0,>=0.28.1; extra == 'server'
+Requires-Dist: joserfc>=1.1.0; extra == 'server'
 Requires-Dist: jsonref>=1.1.0; extra == 'server'
 Requires-Dist: jsonschema-path>=0.3.4; extra == 'server'
 Requires-Dist: mcp<2.0,>=1.24.0; extra == 'server'

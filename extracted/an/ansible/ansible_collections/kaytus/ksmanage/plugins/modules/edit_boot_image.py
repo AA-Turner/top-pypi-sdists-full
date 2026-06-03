@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_boot_image
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set bmc boot image
 description:
    - Set bmc boot image on kaytus Server.

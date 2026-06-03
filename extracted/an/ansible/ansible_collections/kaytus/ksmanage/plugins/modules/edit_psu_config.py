@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_psu_config
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set psu config information
 description:
    - Set psu config information on kaytus Server.

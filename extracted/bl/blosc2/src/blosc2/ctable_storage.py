@@ -66,6 +66,15 @@ class TableStorage:
     ) -> blosc2.NDArray:
         raise NotImplementedError
 
+    def install_column(self, name: str, ndarray: blosc2.NDArray) -> blosc2.NDArray:
+        """Store a pre-built NDArray as column *name*, preserving its storage config.
+
+        Faster than create_column + fill when the caller already has the fully
+        compressed array (e.g. from NDArray.copy with new block settings).
+        Subclasses should override with a path that avoids double recompression.
+        """
+        raise NotImplementedError
+
     def open_column(self, name: str) -> blosc2.NDArray:
         raise NotImplementedError
 
@@ -77,6 +86,15 @@ class TableStorage:
         cparams: dict[str, Any] | None,
         dparams: dict[str, Any] | None,
     ) -> ListArray:
+        raise NotImplementedError
+
+    def install_list_column(self, name: str, list_array: ListArray) -> ListArray:
+        """Store a pre-built ListArray as column *name*.
+
+        Faster than create_list_column + extend when the caller already has the
+        fully populated array (e.g. from ListArray.copy with chunk_copy).
+        Subclasses should override with a path that skips element-wise iteration.
+        """
         raise NotImplementedError
 
     def open_list_column(self, name: str) -> ListArray:
@@ -158,6 +176,13 @@ class TableStorage:
         """Persist *catalog* (column_name → descriptor dict)."""
         raise NotImplementedError
 
+    def index_catalog_revision(self) -> int:
+        """Return a process-local revision for cache invalidation."""
+        return int(getattr(self, "_index_catalog_revision", 0))
+
+    def _bump_index_catalog_revision(self) -> None:
+        self._index_catalog_revision = self.index_catalog_revision() + 1
+
     def get_epoch_counters(self) -> tuple[int, int]:
         """Return ``(value_epoch, visibility_epoch)``."""
         raise NotImplementedError
@@ -200,6 +225,10 @@ class InMemoryTableStorage(TableStorage):
             kwargs["dparams"] = dparams
         return blosc2.zeros(shape, dtype=dtype, **kwargs)
 
+    def install_column(self, name, ndarray: blosc2.NDArray) -> blosc2.NDArray:
+        """Store a pre-built NDArray as column *name* (skips the zeros+fill pattern)."""
+        return ndarray
+
     def open_column(self, name):
         raise RuntimeError("In-memory tables have no on-disk representation to open.")
 
@@ -211,6 +240,10 @@ class InMemoryTableStorage(TableStorage):
             kwargs["dparams"] = dparams
         return ListArray(spec=spec, **kwargs)
 
+    def install_list_column(self, name, list_array: ListArray) -> ListArray:
+        """Store a pre-built ListArray (in-memory: chunk_copy without urlpath)."""
+        return list_array.copy()
+
     def open_list_column(self, name):
         raise RuntimeError("In-memory tables have no on-disk representation to open.")
 
@@ -220,11 +253,20 @@ class InMemoryTableStorage(TableStorage):
     def open_varlen_scalar_column(self, name, spec):
         raise RuntimeError("In-memory tables have no on-disk representation to open.")
 
-    def create_dictionary_column(self, name, *, spec, cparams=None, dparams=None):
+    def create_dictionary_column(
+        self,
+        name,
+        *,
+        spec,
+        cparams=None,
+        dparams=None,
+        codes_shape=(4096,),
+        codes_chunks=(4096,),
+        codes_blocks=(256,),
+    ):
         from blosc2.schema import VLStringSpec
 
-        chunks, blocks = (4096,), (256,)
-        codes = blosc2.zeros((4096,), dtype=np.int32, chunks=chunks, blocks=blocks)
+        codes = blosc2.zeros(codes_shape, dtype=np.int32, chunks=codes_chunks, blocks=codes_blocks)
         dict_store = _ScalarVarLenArray(VLStringSpec(nullable=False))
         return DictionaryColumn(spec, codes, dict_store)
 
@@ -268,6 +310,7 @@ class InMemoryTableStorage(TableStorage):
 
     def save_index_catalog(self, catalog: dict) -> None:
         self._index_catalog = copy.deepcopy(catalog)
+        self._bump_index_catalog_revision()
 
     def get_epoch_counters(self) -> tuple[int, int]:
         return self._value_epoch, self._visibility_epoch
@@ -291,6 +334,7 @@ class InMemoryTableStorage(TableStorage):
 _META_KEY = "/_meta"
 _VALID_ROWS_KEY = "/_valid_rows"
 _COLS_DIR = "_cols"
+_VLMETA_KEY = "/_vlmeta"
 
 
 def split_field_path(path: str) -> tuple[str, ...]:
@@ -369,7 +413,15 @@ class FileTableStorage(TableStorage):
         self._root = urlpath
         self._mode = mode
         self._meta: blosc2.SChunk | None = None
+        self._vlmeta: blosc2.SChunk | None = None
+        # CTable internals must always use external-file storage (never the
+        # embed store) so that small SChunk overwrites (e.g. _meta with
+        # nbytes=0) are reliably persisted.  Normalise a pre-existing store
+        # that was opened by generic dispatch without this setting.
+        if store is not None and store.threshold != 0:
+            store.threshold = 0
         self._store: blosc2.TreeStore | None = store
+        self._registered_sidecar_paths: list[str] = []
 
     # ------------------------------------------------------------------
     # Key helpers
@@ -382,6 +434,10 @@ class FileTableStorage(TableStorage):
     @property
     def _valid_rows_path(self) -> str:
         return self._key_to_path(_VALID_ROWS_KEY)
+
+    @property
+    def _vlmeta_path(self) -> str:
+        return self._key_to_path(_VLMETA_KEY)
 
     def _col_path(self, name: str) -> str:
         return self._key_to_path(self._col_key(name))
@@ -402,7 +458,7 @@ class FileTableStorage(TableStorage):
 
     def _key_to_path(self, key: str) -> str:
         rel_key = key.lstrip("/")
-        suffix = ".b2f" if key == _META_KEY else ".b2nd"
+        suffix = ".b2f" if key in (_META_KEY, _VLMETA_KEY) else ".b2nd"
         if self._root.endswith(".b2d"):
             return os.path.join(self._root, rel_key + suffix)
         return os.path.join(self._root, rel_key + suffix)
@@ -444,6 +500,12 @@ class FileTableStorage(TableStorage):
         store[self._col_key(name)] = col
         return store[self._col_key(name)]
 
+    def install_column(self, name, ndarray: blosc2.NDArray) -> blosc2.NDArray:
+        """Store a pre-built NDArray as column *name* (skips the zeros+fill pattern)."""
+        store = self._open_store()
+        store[self._col_key(name)] = ndarray
+        return store[self._col_key(name)]
+
     def open_column(self, name: str) -> blosc2.NDArray:
         return self._open_store()[self._col_key(name)]
 
@@ -455,6 +517,14 @@ class FileTableStorage(TableStorage):
             kwargs["dparams"] = dparams
         os.makedirs(os.path.dirname(self._list_col_path(name)), exist_ok=True)
         return ListArray(spec=spec, **kwargs)
+
+    def install_list_column(self, name, list_array: ListArray) -> ListArray:
+        """Bulk-copy a pre-built ListArray to the column path (chunk-level transfer)."""
+        dest_path = self._list_col_path(name)
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        result = list_array.copy(urlpath=dest_path, mode="w", contiguous=True)
+        result.flush()
+        return result
 
     def open_list_column(self, name: str) -> ListArray:
         store = self._open_store()
@@ -489,16 +559,26 @@ class FileTableStorage(TableStorage):
         _validate_role_metadata(backend, spec)
         return _ScalarVarLenArray(spec, backend)
 
-    def create_dictionary_column(self, name, *, spec, cparams=None, dparams=None) -> DictionaryColumn:
+    def create_dictionary_column(
+        self,
+        name,
+        *,
+        spec,
+        cparams=None,
+        dparams=None,
+        codes_shape=(4096,),
+        codes_chunks=(4096,),
+        codes_blocks=(256,),
+    ) -> DictionaryColumn:
         from blosc2.schema import VLStringSpec
 
         # Codes: stored as a regular NDArray under _cols/name
         codes = self.create_column(
             name,
             dtype=np.int32,
-            shape=(4096,),
-            chunks=(4096,),
-            blocks=(256,),
+            shape=codes_shape,
+            chunks=codes_chunks,
+            blocks=codes_blocks,
             cparams=cparams,
             dparams=dparams,
         )
@@ -556,6 +636,40 @@ class FileTableStorage(TableStorage):
         if not isinstance(opened, blosc2.SChunk):
             raise ValueError("CTable manifest '/_meta' must materialize as an SChunk.")
         self._meta = opened
+
+    def save_vlmeta(self, schunk: blosc2.SChunk) -> None:
+        """Persist the user vlmeta SChunk to the storage."""
+        if self._mode == "r":
+            return
+        self._vlmeta = schunk
+        if self._store is not None:
+            self._store[_VLMETA_KEY] = schunk
+
+    def _open_vlmeta(self) -> blosc2.SChunk | None:
+        """Open (or return cached) the ``/_vlmeta`` SChunk.
+
+        Returns ``None`` if the file does not exist (read-only open of a
+        table that never had user vlmeta written).
+        """
+        uv = getattr(self, "_vlmeta", None)
+        if uv is not None:
+            return uv
+        # Try TreeStore first
+        try:
+            opened = self._open_store()[_VLMETA_KEY]
+            if isinstance(opened, blosc2.SChunk):
+                self._vlmeta = opened
+                return opened
+        except (KeyError, FileNotFoundError):
+            pass
+        # Fallback: try opening the filesystem path directly
+        uv_path = self._vlmeta_path
+        if os.path.exists(uv_path):
+            opened = blosc2.open(uv_path, mode="r")
+            if isinstance(opened, blosc2.SChunk):
+                self._vlmeta = opened
+                return opened
+        return None
 
     def _open_meta(self) -> blosc2.SChunk:
         """Open (or return cached) the ``/_meta`` SChunk."""
@@ -616,6 +730,7 @@ class FileTableStorage(TableStorage):
         raise KeyError(old)
 
     def close(self) -> None:
+        self._unregister_sidecar_zip_paths()
         if self._store is not None:
             self._store.close()
             self._store = None
@@ -623,10 +738,20 @@ class FileTableStorage(TableStorage):
 
     def discard(self) -> None:
         """Clean up without repacking the .b2z archive."""
+        self._unregister_sidecar_zip_paths()
         if self._store is not None:
             self._store.discard()
             self._store = None
         self._meta = None
+
+    def _unregister_sidecar_zip_paths(self) -> None:
+        if not self._registered_sidecar_paths:
+            return
+        from blosc2.indexing import _SIDECAR_ZIP_REGISTRY
+
+        for path in self._registered_sidecar_paths:
+            _SIDECAR_ZIP_REGISTRY.pop(path, None)
+        self._registered_sidecar_paths.clear()
 
     # -- Index catalog and epoch helpers -------------------------------------
 
@@ -670,20 +795,25 @@ class FileTableStorage(TableStorage):
                 obj[key] = os.path.abspath(v) if os.path.exists(v) else os.path.join(working_dir, v)
         return d
 
-    def _ensure_index_files_extracted(self, store, rel_paths: list[str]) -> None:
-        """Extract *rel_paths* from the zip into the working_dir (read mode only)."""
-        import zipfile
+    def _register_index_zip_paths(self, store, descriptor: dict) -> None:
+        """Register sidecar paths from *descriptor* in the zip-offset registry.
 
-        for rel in rel_paths:
-            dest = os.path.join(store.working_dir, rel)
-            if os.path.exists(dest):
+        This lets indexing code open sidecar arrays directly at their byte offset
+        inside the .b2z archive, avoiding the need to extract them to disk first.
+        """
+        from blosc2.indexing import _SIDECAR_ZIP_REGISTRY
+
+        working_dir = store.working_dir
+        for obj, key in self._walk_descriptor_paths(descriptor):
+            abs_path = obj[key]
+            if abs_path in _SIDECAR_ZIP_REGISTRY:
                 continue
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            rel = os.path.relpath(abs_path, working_dir).replace(os.sep, "/")
             info = store.offsets.get(rel)
             if info is None:
                 continue
-            with zipfile.ZipFile(store.b2z_path, "r") as zf, zf.open(rel) as src, open(dest, "wb") as dst:
-                dst.write(src.read())
+            _SIDECAR_ZIP_REGISTRY[abs_path] = (store.b2z_path, info["offset"])
+            self._registered_sidecar_paths.append(abs_path)
 
     def load_index_catalog(self) -> dict:
         meta = self._open_meta()
@@ -693,18 +823,12 @@ class FileTableStorage(TableStorage):
         catalog = copy.deepcopy(raw)
         store = self._open_store()
         working_dir = store.working_dir
-        # Expand relative paths and, for b2z read mode, extract sidecar files.
-        rel_paths_needed = []
+        # Expand relative paths and, for b2z read mode, register sidecars in the
+        # zip-offset registry so indexing code can open them without extraction.
         for col_name, descriptor in catalog.items():
             catalog[col_name] = self._absolutize_descriptor(descriptor, working_dir)
             if store.is_zip_store and self._mode == "r":
-                for obj, key in self._walk_descriptor_paths(catalog[col_name]):
-                    v = obj[key]
-                    rel = os.path.relpath(v, working_dir)
-                    if not os.path.exists(v):
-                        rel_paths_needed.append(rel.replace(os.sep, "/"))
-        if rel_paths_needed and store.is_zip_store and self._mode == "r":
-            self._ensure_index_files_extracted(store, rel_paths_needed)
+                self._register_index_zip_paths(store, catalog[col_name])
         return catalog
 
     def save_index_catalog(self, catalog: dict) -> None:
@@ -712,6 +836,7 @@ class FileTableStorage(TableStorage):
         working_dir = self._open_store().working_dir
         relativized = {col: self._relativize_descriptor(desc, working_dir) for col, desc in catalog.items()}
         meta.vlmeta["index_catalog"] = relativized
+        self._bump_index_catalog_revision()
 
     def get_epoch_counters(self) -> tuple[int, int]:
         meta = self._open_meta()
@@ -773,6 +898,8 @@ class TreeStoreTableStorage(TableStorage):
         self._mode = mode
         self._owns_store = owns_store
         self._meta: blosc2.SChunk | None = None
+        self._vlmeta: blosc2.SChunk | None = None
+        self._registered_sidecar_paths: list[str] = []
 
     # ------------------------------------------------------------------
     # Key / path helpers
@@ -838,16 +965,27 @@ class TreeStoreTableStorage(TableStorage):
         return self._mode
 
     def close(self) -> None:
+        self._unregister_sidecar_zip_paths()
         if self._owns_store and self._store is not None:
             self._store.close()
             self._store = None
         self._meta = None
 
     def discard(self) -> None:
+        self._unregister_sidecar_zip_paths()
         if self._owns_store and self._store is not None:
             self._store.discard()
             self._store = None
         self._meta = None
+
+    def _unregister_sidecar_zip_paths(self) -> None:
+        if not self._registered_sidecar_paths:
+            return
+        from blosc2.indexing import _SIDECAR_ZIP_REGISTRY
+
+        for path in self._registered_sidecar_paths:
+            _SIDECAR_ZIP_REGISTRY.pop(path, None)
+        self._registered_sidecar_paths.clear()
 
     # ------------------------------------------------------------------
     # TableStorage interface — columns and valid_rows
@@ -877,6 +1015,15 @@ class TreeStoreTableStorage(TableStorage):
         self._store._modified = True
         return col
 
+    def install_column(self, name: str, ndarray: blosc2.NDArray) -> blosc2.NDArray:
+        dest_path = self._dest_path(self._col_logical_key(name), ".b2nd")
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        saved = ndarray.copy(urlpath=dest_path)
+        rel_path = os.path.relpath(dest_path, self._working_dir()).replace(os.sep, "/")
+        self._store.map_tree[self._table_key(self._col_logical_key(name))] = rel_path
+        self._store._modified = True
+        return saved
+
     def open_column(self, name: str) -> blosc2.NDArray:
         return self._open_leaf(self._col_logical_key(name))
 
@@ -899,6 +1046,14 @@ class TreeStoreTableStorage(TableStorage):
             kwargs["dparams"] = dparams
         os.makedirs(os.path.dirname(self._list_col_path(name)), exist_ok=True)
         return ListArray(spec=spec, **kwargs)
+
+    def install_list_column(self, name: str, list_array: ListArray) -> ListArray:
+        """Bulk-copy a pre-built ListArray to the column path (chunk-level transfer)."""
+        dest_path = self._list_col_path(name)
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        result = list_array.copy(urlpath=dest_path, mode="w", contiguous=True)
+        result.flush()
+        return result
 
     def open_list_column(self, name: str) -> ListArray:
         if self._store.is_zip_store and self._mode == "r":
@@ -953,15 +1108,18 @@ class TreeStoreTableStorage(TableStorage):
         spec,
         cparams=None,
         dparams=None,
+        codes_shape=(4096,),
+        codes_chunks=(4096,),
+        codes_blocks=(256,),
     ) -> DictionaryColumn:
         from blosc2.schema import VLStringSpec
 
         codes = self.create_column(
             name,
             dtype=np.int32,
-            shape=(4096,),
-            chunks=(4096,),
-            blocks=(256,),
+            shape=codes_shape,
+            chunks=codes_chunks,
+            blocks=codes_blocks,
             cparams=cparams,
             dparams=dparams,
         )
@@ -1059,6 +1217,31 @@ class TreeStoreTableStorage(TableStorage):
         if kind != "ctable":
             raise ValueError(f"Object at {self._root_key!r} is not a CTable (kind={kind!r})")
 
+    def save_vlmeta(self, schunk: blosc2.SChunk) -> None:
+        """Persist the user vlmeta SChunk to the outer TreeStore."""
+        if self._mode == "r":
+            return
+        self._vlmeta = schunk
+        self._write_leaf("/_vlmeta", schunk, ".b2f")
+
+    def _open_vlmeta(self) -> blosc2.SChunk | None:
+        """Open (or return cached) the ``/_vlmeta`` SChunk.
+
+        Returns ``None`` if the leaf does not exist (read-only open of a
+        table that never had user vlmeta written).
+        """
+        uv = getattr(self, "_vlmeta", None)
+        if uv is not None:
+            return uv
+        try:
+            opened = self._open_leaf("/_vlmeta")
+        except (KeyError, FileNotFoundError):
+            return None
+        if not isinstance(opened, blosc2.SChunk):
+            return None
+        self._vlmeta = opened
+        return opened
+
     def column_names_from_schema(self) -> list[str]:
         return [c["name"] for c in self.load_schema()["columns"]]
 
@@ -1110,33 +1293,28 @@ class TreeStoreTableStorage(TableStorage):
         catalog = copy.deepcopy(raw)
         working_dir = self._working_dir()
         store = self._store
-        rel_paths_needed = []
         for col_name, descriptor in catalog.items():
             catalog[col_name] = FileTableStorage._absolutize_descriptor(descriptor, working_dir)
             if store.is_zip_store and self._mode == "r":
-                for obj, key in FileTableStorage._walk_descriptor_paths(catalog[col_name]):
-                    v = obj[key]
-                    if not os.path.exists(v):
-                        rel_paths_needed.append(os.path.relpath(v, working_dir).replace(os.sep, "/"))
-        if rel_paths_needed:
-            self._ensure_index_files_extracted(rel_paths_needed)
+                self._register_index_zip_paths(catalog[col_name])
         return catalog
 
-    def _ensure_index_files_extracted(self, rel_paths: list[str]) -> None:
-        import zipfile
+    def _register_index_zip_paths(self, descriptor: dict) -> None:
+        """Register sidecar paths from *descriptor* in the zip-offset registry."""
+        from blosc2.indexing import _SIDECAR_ZIP_REGISTRY
 
         store = self._store
-        for rel in rel_paths:
-            dest = os.path.join(self._working_dir(), rel)
-            if os.path.exists(dest):
+        working_dir = self._working_dir()
+        for obj, key in FileTableStorage._walk_descriptor_paths(descriptor):
+            abs_path = obj[key]
+            if abs_path in _SIDECAR_ZIP_REGISTRY:
                 continue
+            rel = os.path.relpath(abs_path, working_dir).replace(os.sep, "/")
             info = store.offsets.get(rel)
             if info is None:
                 continue
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            with zipfile.ZipFile(store.b2z_path, "r") as zf:
-                with zf.open(rel) as src, open(dest, "wb") as dst:
-                    dst.write(src.read())
+            _SIDECAR_ZIP_REGISTRY[abs_path] = (store.b2z_path, info["offset"])
+            self._registered_sidecar_paths.append(abs_path)
 
     def save_index_catalog(self, catalog: dict) -> None:
         meta = self._open_meta()
@@ -1145,6 +1323,7 @@ class TreeStoreTableStorage(TableStorage):
             col: FileTableStorage._relativize_descriptor(desc, working_dir) for col, desc in catalog.items()
         }
         meta.vlmeta["index_catalog"] = relativized
+        self._bump_index_catalog_revision()
 
     def get_epoch_counters(self) -> tuple[int, int]:
         meta = self._open_meta()

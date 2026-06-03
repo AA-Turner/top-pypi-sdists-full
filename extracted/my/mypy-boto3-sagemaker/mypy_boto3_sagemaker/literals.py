@@ -195,6 +195,9 @@ __all__ = (
     "InstanceGroupStatusType",
     "InstanceTypeType",
     "IsTrackingServerActiveType",
+    "JobCategoryType",
+    "JobSecondaryStatusType",
+    "JobStatusType",
     "JobTypeType",
     "JoinSourceType",
     "LabelingJobStatusType",
@@ -248,6 +251,8 @@ __all__ = (
     "ListInferenceRecommendationsJobStepsPaginatorName",
     "ListInferenceRecommendationsJobsPaginatorName",
     "ListInferenceRecommendationsJobsSortByType",
+    "ListJobSchemaVersionsPaginatorName",
+    "ListJobsPaginatorName",
     "ListLabelingJobsForWorkteamPaginatorName",
     "ListLabelingJobsForWorkteamSortByOptionsType",
     "ListLabelingJobsPaginatorName",
@@ -1407,6 +1412,27 @@ InstanceTypeType = Literal[
     "ml.trn1n.32xlarge",
 ]
 IsTrackingServerActiveType = Literal["Active", "Inactive"]
+JobCategoryType = Literal["AgentRFT", "AgentRFTEvaluation"]
+JobSecondaryStatusType = Literal[
+    "Completed",
+    "DeleteFailed",
+    "Deleting",
+    "Downloading",
+    "Evaluating",
+    "Failed",
+    "Interrupted",
+    "MaxRuntimeExceeded",
+    "Pending",
+    "Restarting",
+    "Starting",
+    "Stopped",
+    "Stopping",
+    "Training",
+    "Uploading",
+]
+JobStatusType = Literal[
+    "Completed", "DeleteFailed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
+]
 JobTypeType = Literal["INFERENCE", "NOTEBOOK_KERNEL", "TRAINING"]
 JoinSourceType = Literal["Input", "None"]
 LabelingJobStatusType = Literal[
@@ -1468,6 +1494,8 @@ ListInferenceRecommendationsJobStepsPaginatorName = Literal[
 ]
 ListInferenceRecommendationsJobsPaginatorName = Literal["list_inference_recommendations_jobs"]
 ListInferenceRecommendationsJobsSortByType = Literal["CreationTime", "Name", "Status"]
+ListJobSchemaVersionsPaginatorName = Literal["list_job_schema_versions"]
+ListJobsPaginatorName = Literal["list_jobs"]
 ListLabelingJobsForWorkteamPaginatorName = Literal["list_labeling_jobs_for_workteam"]
 ListLabelingJobsForWorkteamSortByOptionsType = Literal["CreationTime"]
 ListLabelingJobsPaginatorName = Literal["list_labeling_jobs"]
@@ -3004,6 +3032,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -3031,6 +3060,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -3150,6 +3180,8 @@ PaginatorName = Literal[
     "list_inference_experiments",
     "list_inference_recommendations_job_steps",
     "list_inference_recommendations_jobs",
+    "list_job_schema_versions",
+    "list_jobs",
     "list_labeling_jobs",
     "list_labeling_jobs_for_workteam",
     "list_lineage_groups",

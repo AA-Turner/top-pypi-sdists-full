@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: mem_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get memory information
 description:
    - Get memory information on kaytus Server.

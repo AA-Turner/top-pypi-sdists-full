@@ -83,7 +83,7 @@ def LBFGS(
 
     tumor_str = "WITH" if withTumor else "WITHOUT"
     device = SMatrix.device
-    matrix_type = SMatrix.matrix_type
+    matrix_type = SMatrix.matrix_type.name
     Z = SMatrix.Z
     X = SMatrix.X
     ZX = Z * X

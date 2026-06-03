@@ -1,5 +1,6 @@
 use super::*;
 
+use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::gateway::admin::trace::{AgentContext, TraceContext};
@@ -290,6 +291,8 @@ pub async fn handle_v1_readyz(State(gs): State<GatewayState>) -> impl IntoRespon
                     .and_then(|diag| diag.get("readiness"))
                     .cloned()
                     .unwrap_or(Value::Null),
+                "dispatch": row["dispatch"].clone(),
+                "gateway": row["gateway"].clone(),
                 "lifecycle": row["lifecycle"].clone(),
             })
         })
@@ -298,6 +301,22 @@ pub async fn handle_v1_readyz(State(gs): State<GatewayState>) -> impl IntoRespon
         .iter()
         .filter(|instance| readiness_value_is_ready(&instance["readiness"]))
         .count();
+    let dispatch_reported_instance_count = instances
+        .iter()
+        .filter(|instance| dispatch_value_is_reported(&instance["dispatch"]))
+        .count();
+    let dispatch_ready_instance_count = instances
+        .iter()
+        .filter(|instance| dispatch_value_is_ready(&instance["dispatch"]))
+        .count();
+    let gateway_recovery_driver_counts =
+        gateway_string_counts(&instances, "gateway", "recovery_driver");
+    let registration_refresh_mode_counts =
+        gateway_string_counts(&instances, "gateway", "registration_refresh_mode");
+    let gateway_daemon_guardian_instance_count = gateway_recovery_driver_counts
+        .get("daemon_guardian")
+        .copied()
+        .unwrap_or(0);
     (
         StatusCode::OK,
         Json(json!({
@@ -306,6 +325,14 @@ pub async fn handle_v1_readyz(State(gs): State<GatewayState>) -> impl IntoRespon
             "live_instance_count": instances.len(),
             "ready_instance_count": ready_instance_count,
             "not_ready_instance_count": instances.len().saturating_sub(ready_instance_count),
+            "dispatch_reported_instance_count": dispatch_reported_instance_count,
+            "dispatch_ready_instance_count": dispatch_ready_instance_count,
+            "dispatch_not_ready_instance_count": dispatch_reported_instance_count
+                .saturating_sub(dispatch_ready_instance_count),
+            "gateway_recovery_driver_counts": gateway_recovery_driver_counts,
+            "registration_refresh_mode_counts": registration_refresh_mode_counts,
+            "gateway_daemon_guardian_instance_count": gateway_daemon_guardian_instance_count,
+            "gateway_daemon_guardian_ready": gateway_daemon_guardian_instance_count > 0,
             "instances": instances,
         })),
     )
@@ -316,6 +343,32 @@ fn readiness_value_is_ready(readiness: &Value) -> bool {
         && readiness.get("dcc").and_then(Value::as_bool) == Some(true)
         && readiness.get("skill_catalog").and_then(Value::as_bool) == Some(true)
         && readiness.get("dispatcher").and_then(Value::as_bool) == Some(true)
+}
+
+fn dispatch_value_is_reported(dispatch: &Value) -> bool {
+    dispatch.get("reported").and_then(Value::as_bool) == Some(true)
+}
+
+fn dispatch_value_is_ready(dispatch: &Value) -> bool {
+    dispatch.get("ready").and_then(Value::as_bool) == Some(true)
+}
+
+fn gateway_string_counts(
+    instances: &[Value],
+    object_key: &str,
+    field_key: &str,
+) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for instance in instances {
+        if let Some(value) = instance
+            .get(object_key)
+            .and_then(|object| object.get(field_key))
+            .and_then(Value::as_str)
+        {
+            *counts.entry(value.to_string()).or_insert(0) += 1;
+        }
+    }
+    counts
 }
 
 /// `GET /v1/openapi.json` — gateway REST contract.

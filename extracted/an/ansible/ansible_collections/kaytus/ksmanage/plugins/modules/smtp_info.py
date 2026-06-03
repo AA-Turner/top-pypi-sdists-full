@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: smtp_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get SMTP information
 description:
    - Get SMTP information on kaytus Server.

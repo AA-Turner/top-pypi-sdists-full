@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -31,7 +30,7 @@ class SorobanCredentials:
     def __init__(
         self,
         type: SorobanCredentialsType,
-        address: Optional[SorobanAddressCredentials] = None,
+        address: SorobanAddressCredentials | None = None,
     ) -> None:
         self.type = type
         self.address = address

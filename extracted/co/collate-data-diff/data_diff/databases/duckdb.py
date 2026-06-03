@@ -97,7 +97,7 @@ class Dialect(BaseDialect):
         return "current_timestamp"
 
     def md5_as_int(self, s: str) -> str:
-        return f"('0x' || SUBSTRING(md5({s}), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS},{CHECKSUM_HEXDIGITS}))::BIGINT - {CHECKSUM_OFFSET}"
+        return f"('0x' || SUBSTRING(md5({s}), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS},{CHECKSUM_HEXDIGITS}))::BIGINT - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"md5({s})"
@@ -105,15 +105,20 @@ class Dialect(BaseDialect):
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
         # It's precision 6 by default. If precision is less than 6 -> we remove the trailing numbers.
         if coltype.rounds and coltype.precision > 0:
-            return f"CONCAT(SUBSTRING(STRFTIME({value}::TIMESTAMP, '%Y-%m-%d %H:%M:%S.'),1,23), LPAD(((ROUND(strftime({value}::timestamp, '%f')::DECIMAL(15,7)/100000,{coltype.precision-1})*100000)::INT)::VARCHAR,6,'0'))"
+            return f"CONCAT(SUBSTRING(STRFTIME({value}::TIMESTAMP, '%Y-%m-%d %H:%M:%S.'),1,23), LPAD(((ROUND(strftime({value}::timestamp, '%f')::DECIMAL(15,7)/100000,{coltype.precision - 1})*100000)::INT)::VARCHAR,6,'0'))"
 
-        return f"rpad(substring(strftime({value}::timestamp, '%Y-%m-%d %H:%M:%S.%f'),1,{TIMESTAMP_PRECISION_POS+coltype.precision}),26,'0')"
+        return f"rpad(substring(strftime({value}::timestamp, '%Y-%m-%d %H:%M:%S.%f'),1,{TIMESTAMP_PRECISION_POS + coltype.precision}),26,'0')"
 
     def normalize_number(self, value: str, coltype: FractionalType) -> str:
         return self.to_string(f"{value}::DECIMAL(38, {coltype.precision})")
 
     def normalize_boolean(self, value: str, _coltype: Boolean) -> str:
         return self.to_string(f"{value}::INTEGER")
+
+    def type_repr(self, t) -> str:
+        if isinstance(t, TimestampTZ):
+            return "TIMESTAMP WITH TIME ZONE"
+        return super().type_repr(t)
 
 
 @attrs.define(frozen=False, init=False, kw_only=True)
@@ -166,16 +171,15 @@ class DuckDB(Database):
     def select_table_schema(self, path: DbPath) -> str:
         database, schema, table = self._normalize_table_path(path)
 
-        info_schema_path = ["information_schema", "columns"]
-
-        if database:
-            info_schema_path.insert(0, database)
-            dynamic_database_clause = f"'{database}'"
-        else:
-            dynamic_database_clause = "current_catalog()"
+        # Newer DuckDB rejects the <catalog>.information_schema.columns three
+        # part form that older versions accepted. Query the unqualified
+        # information_schema.columns view which already returns rows for every
+        # attached catalog and scope it with table_catalog.
+        dynamic_database_clause = f"'{database}'" if database else "current_catalog()"
 
         return (
-            f"SELECT column_name, data_type, datetime_precision, numeric_precision, numeric_scale FROM {'.'.join(info_schema_path)} "
+            "SELECT column_name, data_type, datetime_precision, numeric_precision, numeric_scale "
+            "FROM information_schema.columns "
             f"WHERE table_name = '{table}' AND table_schema = '{schema}' and table_catalog = {dynamic_database_clause}"
         )
 

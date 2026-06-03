@@ -44,6 +44,36 @@ function isDjIfComment(text) {
 }
 
 /**
+ * Single source of truth for "does this child node count toward VDOM child
+ * indices" (#1655). Both the path walker (``getNodeByPath``) and the index
+ * resolver (``getSignificantChildren``) MUST agree, or index-based patches
+ * (InsertChild/RemoveChild/MoveChild) land on the wrong node — the #1640 bug,
+ * which existed because the two had independently-written copies of this rule
+ * that drifted. Mirrors `crates/djust_vdom/src/parser.rs`:
+ *   - elements always count;
+ *   - text nodes count unless ASCII-whitespace-only (NBSP   is
+ *     significant), except inside whitespace-preserving elements
+ *     (<pre>/<code>/<textarea>) where ALL text counts (preserveWhitespace=true);
+ *   - ONLY dj-if-family boundary comments count; the Rust parser drops every
+ *     other HTML comment, so a plain <!-- comment --> must NOT shift indices.
+ *
+ * @param {Node} child
+ * @param {boolean} [preserveWhitespace=false] — true inside pre/code/textarea.
+ * @returns {boolean}
+ */
+function isSignificantChild(child, preserveWhitespace = false) {
+    if (child.nodeType === Node.ELEMENT_NODE) return true;
+    if (child.nodeType === Node.TEXT_NODE) {
+        if (preserveWhitespace) return true;
+        return (/[^ \t\n\r\f]/.test(child.textContent));
+    }
+    if (child.nodeType === Node.COMMENT_NODE) {
+        return isDjIfComment(child.textContent);
+    }
+    return false;
+}
+
+/**
  * Save the current focus state (active element, selection, scroll position).
  * Call before DOM mutations that may destroy focus. Pairs with restoreFocusState().
  *
@@ -198,25 +228,12 @@ function getNodeByPath(path, djustId = null, rootEl = null) {
 
     for (let i = 0; i < path.length; i++) {
         const index = path[i]; // eslint-disable-line security/detect-object-injection -- path is a server-provided integer array
-        const children = Array.from(node.childNodes).filter(child => {
-            if (child.nodeType === Node.ELEMENT_NODE) return true;
-            if (child.nodeType === Node.TEXT_NODE) {
-                // Preserve non-breaking spaces (\u00A0) as significant, matching Rust VDOM parser.
-                // Only filter out ASCII whitespace-only text nodes (space, tab, newline, CR).
-                // JS \s includes \u00A0, so we use an explicit ASCII whitespace pattern instead.
-                return (/[^ \t\n\r\f]/.test(child.textContent));
-            }
-            // Only include `dj-if`-family comments — the Rust VDOM
-            // parser preserves these for diffing stability (#559) and for
-            // boundary markers (#1358 Iter 1) but drops all other HTML
-            // comments. Regular comments (<!-- Hero Section --> etc.) must
-            // be excluded to keep path indices aligned. The predicate
-            // mirrors `crates/djust_vdom/src/parser.rs:494-499`.
-            if (child.nodeType === Node.COMMENT_NODE) {
-                return isDjIfComment(child.textContent);
-            }
-            return false;
-        });
+        // Shared significant-child predicate (#1655) — MUST match
+        // getSignificantChildren so path-based and index-based patch resolution
+        // agree (the #1640 drift). Path traversal never preserves whitespace.
+        const children = Array.from(node.childNodes).filter((child) =>
+            isSignificantChild(child)
+        );
 
         if (index >= children.length) {
             if (globalThis.djustDebug || window.DEBUG_MODE) {
@@ -1131,20 +1148,11 @@ function getSignificantChildren(node) {
     // Check if we're inside a whitespace-preserving element
     const preserveWhitespace = isWhitespacePreserving(node);
 
-    return Array.from(node.childNodes).filter(child => {
-        if (child.nodeType === Node.ELEMENT_NODE) return true;
-        if (child.nodeType === Node.TEXT_NODE) {
-            // Preserve all text nodes inside pre/code/textarea
-            if (preserveWhitespace) return true;
-            // Preserve non-breaking spaces (\u00A0) as significant, matching Rust VDOM parser.
-            // Only filter out ASCII whitespace-only text nodes.
-            return (/[^ \t\n\r\f]/.test(child.textContent));
-        }
-        // Include comment nodes — the Rust VDOM parser preserves <!--dj-if-->
-        // placeholders and counts them in child indices (#559).
-        if (child.nodeType === Node.COMMENT_NODE) return true;
-        return false;
-    });
+    // Shared significant-child predicate (#1655) — see getNodeByPath; passing
+    // preserveWhitespace keeps the pre/code/textarea behavior.
+    return Array.from(node.childNodes).filter((child) =>
+        isSignificantChild(child, preserveWhitespace)
+    );
 }
 
 /**
@@ -1413,15 +1421,92 @@ function applyInsertSubtree(patch, rootEl = null) {
     return true;
 }
 
+/**
+ * Apply a `MoveSubtree` patch: locate the dj-if marker pair by id, detach the
+ * whole `<!--dj-if id="X"-->...<!--/dj-if-->` range, and re-insert it at
+ * `index` among the parent's significant children (#1666).
+ *
+ * The "move" verb for boundary spans — the markers are id-less `#comment`
+ * nodes, so a plain `MoveChild` can't target them. Unlike Remove+Insert, this
+ * preserves the inner nodes' identity (and any state/focus tied to inner
+ * dj-ids). Applied AFTER the path/index child ops so the surrounding siblings
+ * are in their final positions and `index` resolves against the new-frame.
+ *
+ * Patch shape: `{type: 'MoveSubtree', id, path: [parent path], d: <parent
+ * dj-id?>, index: N}`.
+ *
+ * @param {Object} patch
+ * @param {HTMLElement|null} rootEl — optional scoping root.
+ * @returns {boolean}
+ */
+function applyMoveSubtree(patch, rootEl = null) {
+    const targetId = String(patch.id || '');
+    if (!targetId) {
+        console.warn('[LiveView] MoveSubtree patch missing id, skipping');
+        return false;
+    }
+    const open = _findDjIfOpenMarker(targetId, rootEl);
+    if (!open) {
+        // Marker absent — nothing to move. Idempotent no-op (a prior patch in
+        // the batch may have torn it down); returning false would trigger the
+        // recovery-HTML fallback for a semantically-fine state.
+        if (globalThis.djustDebug) {
+            console.log(
+                '[LiveView] MoveSubtree: marker absent id=%s (idempotent no-op)',
+                sanitizeIdForLog(targetId)
+            );
+        }
+        return true;
+    }
+    const close = _findDjIfCloseMarker(open);
+    if (!close) {
+        console.warn('[LiveView] MoveSubtree: close marker not found id=%s', sanitizeIdForLog(targetId));
+        return false;
+    }
+    const parent = getNodeByPath(patch.path, patch.d, rootEl);
+    if (!parent || parent.nodeType !== 1) {
+        console.warn('[LiveView] MoveSubtree: parent not found path=%s id=%s',
+            Array.isArray(patch.path) ? patch.path.map(Number).join('/') : 'invalid',
+            sanitizeIdForLog(targetId));
+        return false;
+    }
+    // Collect the marker range (open..close inclusive, sibling order).
+    const range = [];
+    let cursor = open;
+    while (cursor) {
+        range.push(cursor);
+        if (cursor === close) break;
+        cursor = cursor.nextSibling;
+    }
+    // Detach from the current parent, then re-insert at the target index among
+    // the parent's significant children (computed AFTER detachment).
+    const curParent = open.parentNode;
+    for (const node of range) {
+        if (node.parentNode === curParent) curParent.removeChild(node);
+    }
+    const children = getSignificantChildren(parent);
+    const refChild = (typeof patch.index === 'number' ? children[patch.index] : null) || null;
+    const fragment = document.createDocumentFragment();
+    for (const node of range) fragment.appendChild(node);
+    if (refChild) {
+        parent.insertBefore(fragment, refChild);
+    } else {
+        parent.appendChild(fragment);
+    }
+    return true;
+}
+
 // Export for testing
 window.djust._applyRemoveSubtree = applyRemoveSubtree;
 window.djust._applyInsertSubtree = applyInsertSubtree;
+window.djust._applyMoveSubtree = applyMoveSubtree;
 window.djust._findDjIfOpenMarker = _findDjIfOpenMarker;
 window.djust._findDjIfCloseMarker = _findDjIfCloseMarker;
 window.djust._extractDjIfMarkerId = _extractDjIfMarkerId;
 
 // Export for testing
 window.djust.getSignificantChildren = getSignificantChildren;
+window.djust.isSignificantChild = isSignificantChild;
 window.djust._applySinglePatch = applySinglePatch;
 window.djust._stampDjIds = _stampDjIds;
 window.djust._getNodeByPath = getNodeByPath;
@@ -1515,21 +1600,41 @@ window.djust._groupConsecutiveInserts = groupConsecutiveInserts;
  *
  * Phases:
  *   -2: RemoveSubtree (tear down keyed subtrees first)
- *   -1: InsertSubtree (add keyed subtrees before any path indices apply)
  *    0: RemoveChild (descending index within same parent)
  *    1: MoveChild
  *    2: InsertChild
- *    3: SetText, SetAttribute, other node-targeting patches
+ *    3: MoveSubtree + InsertSubtree (boundary-span ops, INTERLEAVED by
+ *       ascending target index — see below)
+ *    4: SetText, SetAttribute, other node-targeting patches
+ *
+ * Boundary-span ordering (#1678): InsertSubtree was historically phase -1
+ * (before path ops), but its `index` is a FINAL-structure index. When a tab
+ * activates whose body is a NESTED conditional (e.g. `{% if ideas %}{% if
+ * has_cards %}{% kanban %}{% else %}{% empty_state %}{% endif %}{% endif %}`),
+ * the differ emits MoveSubtree(outer boundary) + InsertSubtree(inner boundary)
+ * where the inner index assumes the outer is already at its final position.
+ * Running InsertSubtree before MoveSubtree inserted the inner span as a
+ * SIBLING of the outer boundary instead of NESTED inside it — the client's
+ * flat marker tree then diverged from the server's by one significant child,
+ * so a later positional `SetText` landed on a dj-if comment marker →
+ * html_recovery (#1678). With flat indices there is no linear phase order that
+ * satisfies #1370 (Insert-before-path), #1666 (Move-after-path) AND #1678
+ * (Insert-after-Move) simultaneously. The break: keep the boundary-span ops
+ * (Move + Insert) in a single phase AFTER the child ops (#1666), and apply
+ * them in ASCENDING target-index order so each lower-index op builds the
+ * correct prefix before a higher-index op resolves against it (the outer
+ * boundary is repositioned before the nested insert lands inside it).
  */
 function _sortPatches(patches) {
     function patchPhase(p) {
         switch (p.type) {
             case 'RemoveSubtree': return -2;
-            case 'InsertSubtree': return -1;
             case 'RemoveChild':   return 0;
             case 'MoveChild':     return 1;
             case 'InsertChild':   return 2;
-            default:              return 3;
+            case 'MoveSubtree':   return 3;
+            case 'InsertSubtree': return 3;
+            default:              return 4;
         }
     }
     patches.sort(function(a, b) {
@@ -1541,6 +1646,15 @@ function _sortPatches(patches) {
             const pA = JSON.stringify(a.path);
             const pB = JSON.stringify(b.path);
             if (pA === pB) return b.index - a.index;
+        }
+        // Within the boundary-span phase, apply by ASCENDING target index so a
+        // moved outer boundary is positioned before a nested insert lands
+        // inside it (#1678). Indices are parent-absolute significant-child
+        // positions in the final tree.
+        if (phaseA === 3) {
+            const ai = typeof a.index === 'number' ? a.index : 0;
+            const bi = typeof b.index === 'number' ? b.index : 0;
+            return ai - bi;
         }
         return 0;
     });
@@ -1560,10 +1674,13 @@ function applySinglePatch(patch, rootEl = null) {
     // marker id, not by path/d resolution. Short-circuit before the
     // generic `getNodeByPath` call so the dispatcher doesn't try to
     // resolve a non-applicable path.
-    if (patch && (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree')) {
+    if (patch && (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree' || patch.type === 'MoveSubtree')) {
         try {
             if (patch.type === 'RemoveSubtree') {
                 return applyRemoveSubtree(patch, rootEl);
+            }
+            if (patch.type === 'MoveSubtree') {
+                return applyMoveSubtree(patch, rootEl);
             }
             return applyInsertSubtree(patch, rootEl);
         } catch (error) {
@@ -2010,15 +2127,24 @@ function _applyPatchesInner(patches, rootEl = null) {
     let failedCount = 0;
     let successCount = 0;
 
-    // id-based patches (RemoveSubtree, InsertSubtree) don't have a `path`
-    // field — they locate their target by marker id. Apply them directly
-    // before the path-grouped batching pass; they must not enter
-    // groupPatchesByParent which assumes patch.path exists.
+    // id-based patches don't have a `path` field — they locate their target by
+    // marker id. RemoveSubtree (phase -2) tears down keyed subtrees up front.
+    // InsertSubtree + MoveSubtree (phase 3) are DEFERRED together and applied
+    // by ascending target index AFTER the path/index child ops settle — so a
+    // moved outer boundary is repositioned before a nested insert lands inside
+    // it (#1678; see _sortPatches phase doc). They must not enter
+    // groupPatchesByParent, which assumes patch.path exists.
     const pathPatches = [];
+    const boundarySpanPatches = [];
     for (const patch of patches) {
-        if (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree') {
+        if (patch.type === 'RemoveSubtree') {
+            // Phase -2: tear down keyed subtrees first.
             const ok = applySinglePatch(patch, rootEl);
             if (ok) { successCount++; } else { failedCount++; }
+        } else if (patch.type === 'InsertSubtree' || patch.type === 'MoveSubtree') {
+            // Phase 3: defer — boundary-span ops apply after child ops, by
+            // ascending index (#1666 + #1678).
+            boundarySpanPatches.push(patch);
         } else {
             pathPatches.push(patch);
         }
@@ -2116,6 +2242,20 @@ function _applyPatchesInner(patches, rootEl = null) {
                 failedCount++;
             }
         }
+    }
+
+    // Phase 3 (#1666 + #1678): apply boundary-span ops (MoveSubtree +
+    // InsertSubtree) AFTER all path/index child ops above have settled the
+    // surrounding siblings, in ASCENDING target index so a moved outer
+    // boundary is repositioned before a nested insert lands inside it. Each
+    // op's `index` then resolves against the new-frame significant children.
+    boundarySpanPatches.sort(function (a, b) {
+        const ai = typeof a.index === 'number' ? a.index : 0;
+        const bi = typeof b.index === 'number' ? b.index : 0;
+        return ai - bi;
+    });
+    for (const patch of boundarySpanPatches) {
+        if (applySinglePatch(patch, rootEl)) { successCount++; } else { failedCount++; }
     }
 
     if (failedCount > 0) {

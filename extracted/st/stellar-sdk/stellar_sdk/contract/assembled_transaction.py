@@ -1,7 +1,8 @@
 import copy
 import dataclasses
 import time
-from typing import Callable, Generic, TypeVar, cast
+from collections.abc import Callable
+from typing import Generic, TypeVar, cast
 
 from .. import Address, AddressType, Keypair, SorobanDataBuilder, xdr
 from ..auth import (
@@ -332,10 +333,13 @@ class AssembledTransaction(Generic[T]):
         address: Address | str | Keypair | AuthorizationSigner | None,
         signer: Keypair | AuthorizationSigner | None,
     ) -> tuple[Address | str | None, Keypair | AuthorizationSigner]:
-        if signer is None and address is not None:
-            if isinstance(address, Keypair) or callable(address):
-                signer = cast(Keypair | AuthorizationSigner, address)
-                address = None
+        if (
+            signer is None
+            and address is not None
+            and (isinstance(address, Keypair) or callable(address))
+        ):
+            signer = cast(Keypair | AuthorizationSigner, address)
+            address = None
 
         if signer is None:
             raise ValueError("`signer` is required.")
@@ -499,7 +503,7 @@ class AssembledTransaction(Generic[T]):
                 self,
             )
         elif self.get_transaction_response.status == GetTransactionStatus.FAILED:
-            raise TransactionFailedError(f"Transaction failed.", self)
+            raise TransactionFailedError("Transaction failed.", self)
         else:
             raise ValueError("Unexpected transaction status.")
 

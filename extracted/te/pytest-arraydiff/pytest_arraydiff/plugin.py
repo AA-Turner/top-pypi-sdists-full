@@ -43,7 +43,7 @@ abstractstaticmethod = abc.abstractstaticmethod
 abstractclassmethod = abc.abstractclassmethod
 
 
-class BaseDiff(object, metaclass=abc.ABCMeta):
+class BaseDiff(metaclass=abc.ABCMeta):
 
     @abstractstaticmethod
     def read(filename):
@@ -83,8 +83,8 @@ class SimpleArrayDiff(BaseDiff):
         try:
             np.testing.assert_allclose(array_ref, array_new, atol=atol, rtol=rtol)
         except AssertionError as exc:
-            message = "\n\na: {0}".format(test_file) + '\n'
-            message += "b: {0}".format(reference_file) + '\n'
+            message = f"\n\na: {test_file}" + '\n'
+            message += f"b: {reference_file}" + '\n'
             message += exc.args[0]
             return False, message
         else:
@@ -160,8 +160,8 @@ class PDHDFDiff(BaseDiff):
         try:
             pdt.assert_frame_equal(ref_data, test_data)
         except AssertionError as exc:
-            message = "\n\na: {0}".format(test_file) + '\n'
-            message += "b: {0}".format(reference_file) + '\n'
+            message = f"\n\na: {test_file}" + '\n'
+            message += f"b: {reference_file}" + '\n'
             message += exc.args[0]
             return False, message
         else:
@@ -240,18 +240,24 @@ def wrap_array_interceptor(plugin, item):
     # Only intercept array on marked array tests
     if item.get_closest_marker('array_compare') is not None:
 
+        # Guard against wrapping more than once (e.g. when pytest-run-parallel
+        # runs the same item multiple times).
+        if getattr(item.obj, '_arraydiff_wrapped', False):
+            return
+
         # Use the full test name as a key to ensure correct array is being retrieved
         test_name = generate_test_name(item)
 
         def array_interceptor(store, obj):
             def wrapper(*args, **kwargs):
                 store.return_value[test_name] = obj(*args, **kwargs)
+            wrapper._arraydiff_wrapped = True
             return wrapper
 
         item.obj = array_interceptor(plugin, item.obj)
 
 
-class ArrayComparison(object):
+class ArrayComparison:
 
     def __init__(self, config, reference_dir=None, generate_dir=None, default_format='text'):
         self.config = config
@@ -259,6 +265,10 @@ class ArrayComparison(object):
         self.generate_dir = generate_dir
         self.default_format = default_format
         self.return_value = {}
+
+    def pytest_collection_modifyitems(self, items):
+        for item in items:
+            wrap_array_interceptor(self, item)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_call(self, item):
@@ -272,7 +282,7 @@ class ArrayComparison(object):
         file_format = compare.kwargs.get('file_format', self.default_format)
 
         if file_format not in FORMATS:
-            raise ValueError("Unknown format: {0}".format(file_format))
+            raise ValueError(f"Unknown format: {file_format}")
 
         if 'extension' in compare.kwargs:
             extension = compare.kwargs['extension']
@@ -298,8 +308,6 @@ class ArrayComparison(object):
 
         baseline_remote = reference_dir.startswith('http')
 
-        # Run test and get array object
-        wrap_array_interceptor(self, item)
         yield
         test_name = generate_test_name(item)
         if test_name not in self.return_value:
@@ -372,11 +380,6 @@ class ArrayInterceptor:
         self.config = config
         self.return_value = {}
 
-    @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_call(self, item):
-
-        if item.get_closest_marker('array_compare') is not None:
+    def pytest_collection_modifyitems(self, items):
+        for item in items:
             wrap_array_interceptor(self, item)
-
-        yield
-        return

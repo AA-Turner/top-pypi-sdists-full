@@ -5,7 +5,7 @@ import warnings
 
 from openfeature.schemas.protobuf.sync.v1 import sync_service_pb2 as openfeature_dot_schemas_dot_protobuf_dot_sync_dot_v1_dot_sync__service__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class FlagSyncServiceStub(object):
+class FlagSyncServiceStub:
     """FlagService implements a server streaming to provide realtime flag configurations
     """
 
@@ -47,7 +47,7 @@ class FlagSyncServiceStub(object):
                 _registered_method=True)
 
 
-class FlagSyncServiceServicer(object):
+class FlagSyncServiceServicer:
     """FlagService implements a server streaming to provide realtime flag configurations
     """
 
@@ -84,7 +84,7 @@ def add_FlagSyncServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class FlagSyncService(object):
+class FlagSyncService:
     """FlagService implements a server streaming to provide realtime flag configurations
     """
 

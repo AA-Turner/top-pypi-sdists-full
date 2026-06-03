@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: ldap_group_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get ldap group information
 description:
    - Get ldap group information on kaytus Server.

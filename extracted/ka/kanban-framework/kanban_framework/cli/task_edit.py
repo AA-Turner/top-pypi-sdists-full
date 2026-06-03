@@ -10,17 +10,20 @@ from kanban_framework.types import Phase
 
 
 def _sync_phase_for_mode(current_phase: str, target_mode: str) -> str | None:
-    """Find the nearest valid phase when switching to lightweight/quick mode.
+    """Find the nearest valid phase when switching modes.
 
     If current phase is in the target mode's phase order, return None (no change).
     Otherwise, find the closest phase that exists in the target order.
+    Works for built-in modes and custom modes defined in workflow config.
     """
-    if target_mode == "quick":
-        target_order = [p.value for p in Scheduler.QUICK_PHASE_ORDER]
-    elif target_mode == "lightweight":
-        target_order = [p.value for p in Scheduler.LIGHTWEIGHT_PHASE_ORDER]
+    if target_mode in Scheduler.BUILTIN_MODE_NAMES:
+        target_order = [p.value for p in Scheduler._BUILTIN_MODES.get(target_mode, Scheduler.PHASE_ORDER)]
     else:
-        return None
+        # Custom mode: load phase order from workflow config
+        target_order = [p.value if hasattr(p, "value") else str(p)
+                        for p in Scheduler.dispatch_order(mode=target_mode)]
+        if not target_order:
+            return None
 
     if current_phase in target_order:
         return None
@@ -30,10 +33,8 @@ def _sync_phase_for_mode(current_phase: str, target_mode: str) -> str | None:
     try:
         current_idx = _FULL_ORDER.index(current_phase)
     except ValueError:
-        # Custom phase: fall back to first phase of target order
         return target_order[0]
 
-    # Find the latest target phase whose full-order index <= current
     best = target_order[0]
     for tp in target_order:
         try:
@@ -160,7 +161,7 @@ def _cmd_task_edit(args: list[str]) -> dict:
         updates["lightweight"] = True
     if mode:
         updates["mode"] = mode
-        if mode in ("lightweight", "quick"):
+        if mode in ("lightweight", "quick") or mode not in Scheduler.BUILTIN_MODE_NAMES:
             updates["lightweight"] = True
             synced = _sync_phase_for_mode(task.phase_id, mode)
             if synced is not None:

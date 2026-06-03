@@ -12,12 +12,13 @@ FULL_STEPS: dict[str, list[StepDef]] = {
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的知识检索 Agent。\n"
                     "任务目标：从知识库中找到与当前任务相关的所有知识条目，并产出引用清单。\n\n"
-                    "参考文件：$task_dir/task.json（任务标题和描述）\n\n"
+                    "参考文件：$task_dir/task.json（任务标题和描述）\n"
+                    "如果 task.json 中有 biz_tag 字段，所有知识库查询命令必须带 --biz $biz_tag 参数\n\n"
                     "执行步骤：\n"
                     "1. 读取 task.json 获取任务标题和描述\n"
-                    "2. kanban knowledge hybrid \"<任务标题+描述关键词>\" --json --summary-only\n"
+                    "2. kanban knowledge hybrid \"<任务标题+描述关键词>\" --biz $biz_tag --json --summary-only\n"
                     "3. 对搜索结果逐一判断相关性，筛选出 medium/high 的条目\n"
-                    "4. 如无匹配，kanban knowledge semantic \"<任务描述>\" --json --summary-only 扩大搜索\n"
+                    "4. 如无匹配，kanban knowledge semantic \"<任务描述>\" --biz $biz_tag --json --summary-only 扩大搜索\n"
                     "5. 仍无匹配则记录原因（如：全新领域、无相关经验）\n\n"
                     "$knowledge_protocol\n\n"
                     "输出：写入 $task_dir/plan/knowledge_used.json，格式：\n"
@@ -47,7 +48,7 @@ FULL_STEPS: dict[str, list[StepDef]] = {
                          "kanban time end $task_id plan_A"],
                 interactive=True),
         StepDef("plan.check_constraints", "知识库约束检查：编码前搜索相关约束与模式",
-                actions=["kanban knowledge hybrid \"$task_title\" --json",
+                actions=["kanban knowledge hybrid \"$task_title\" --biz $biz_tag --json",
                          "搜索知识库中与当前任务相关的约束条件、架构模式和已知踩坑记录",
                          "将发现的约束记录到 plan/constraints.md"],
                 agent_type="general-purpose"),
@@ -183,12 +184,12 @@ FULL_STEPS: dict[str, list[StepDef]] = {
     ],
     "execute": [
         StepDef("execute.pitfall_check", "踩坑预警：执行前搜索相关踩坑记录",
-                actions=["kanban knowledge similar --tags \"$(kanban knowledge match '$task_title' --json | python3 -c 'import sys,json;print(\\\",\\\".join(json.load(sys.stdin)[\\\"data\\\"][\\\"domains\\\"][:3]))')\" 2>/dev/null || kanban knowledge hybrid \"$task_title 踩坑 注意事项 错误\" --json",
+                actions=["kanban knowledge similar --tags \"$(kanban knowledge match '$task_title' --json | python3 -c 'import sys,json;print(\\\",\\\".join(json.load(sys.stdin)[\\\"data\\\"][\\\"domains\\\"][:3]))')\" --biz $biz_tag 2>/dev/null || kanban knowledge hybrid \"$task_title 踩坑 注意事项 错误\" --biz $biz_tag --json",
                          "检查是否有与当前任务相关的已知踩坑记录",
                          "将匹配到的踩坑写入 plan/pitfall_warnings.md"],
                 agent_type="general-purpose"),
         StepDef("execute.tech_review", "技术方案评审：多方案时模型推理比较+用户确认",
-                actions=["kanban knowledge hybrid \"$task_title 技术方案 实现 approach best-practice\" --json --summary-only",
+                actions=["kanban knowledge hybrid \"$task_title 技术方案 实现 approach best-practice\" --biz $biz_tag --json --summary-only",
                          "对搜索结果中 category 为 最佳实践/架构/优化 的条目进一步分析",
                          "如有相关条目，用 kanban knowledge get <id> --json 取完整内容",
                          "将条目归类为不同技术方案（不同实现路径或技术选型）",
@@ -215,7 +216,16 @@ FULL_STEPS: dict[str, list[StepDef]] = {
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的评估员。"
                     "从你负责的角色（code_reviewer/qa/product_reviewer）评估代码质量。\n\n"
-                    "参考文件：$task_dir/ 下的所有实现代码和测试\n\n"
+                    "参考文件：\n"
+                    "- $task_dir/ 下的所有实现代码和测试\n"
+                    "- $task_dir/plan/knowledge_used.json（知识库参考，以此为审核基线）\n\n"
+                    "知识库驱动的审核标准：\n"
+                    "- 以 knowledge_used.json 中的条目为审核基线，逐条检查代码是否符合已知规范和最佳实践\n"
+                    "- 代码规范检查：搜索知识库中的编码规范条目，对比实际代码是否遵循\n"
+                    "- 架构设计检查：搜索知识库中的架构模式和反模式，验证设计是否合理\n"
+                    "- 踩坑检查：搜索知识库中相关领域的踩坑记录，检查代码是否重蹈覆辙\n"
+                    "- 如发现知识库未覆盖的新规范/模式/踩坑，kanban knowledge add --biz $biz_tag 补充写入\n"
+                    "- 审核报告中必须包含「知识库对照」章节，列出引用了哪些知识条目、实际应用情况\n\n"
                     "任务边界：\n"
                     "- 产出评审报告保存到 $report_dir/reviews/{role}_report.json\n"
                     "- 完成后立即停止\n"

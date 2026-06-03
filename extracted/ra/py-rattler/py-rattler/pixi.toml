@@ -9,9 +9,9 @@ platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 license = "BSD-3-Clause"
 
 [feature.build.dependencies]
-maturin = "~=1.10.1"
+maturin = "~=1.13.3"
 pip = "~=23.2.1"
-rust = "~=1.93.1"
+rust = "~=1.95.0"
 
 [feature.build.tasks]
 build = "PIP_REQUIRE_VIRTUALENV=false maturin develop --features pty"
@@ -20,6 +20,11 @@ build-release = "PIP_REQUIRE_VIRTUALENV=false maturin develop --release --featur
 [feature.build.target.win-64.tasks]
 build = "PIP_REQUIRE_VIRTUALENV=false maturin develop"
 build-release = "PIP_REQUIRE_VIRTUALENV=false maturin develop --release"
+
+[feature.test.target.win-64.tasks]
+test = { cmd = "pytest --doctest-modules --ignore=rattler/pty/pty_process.py --ignore=rattler/pty/pty_session.py", depends-on = [
+  "build",
+], env = { PYTHONUTF8 = "1" } }
 
 [feature.build.target.linux-64.dependencies]
 patchelf = "~=0.17.2"
@@ -38,7 +43,7 @@ pytest-xprocess = ">=1.0.2,<2"
 # used in examples
 typer = "*"
 # for rust-analyzer
-rust-src = "~=1.93.1"
+rust-src = "~=1.95.0"
 
 [feature.test.pypi-dependencies]
 types-networkx = "*"

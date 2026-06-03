@@ -537,7 +537,7 @@ def test_embed_images_from_pages():
     document = Document(
         (page1, page2), metadata=DocumentMetadata(),
         font_config=FontConfiguration(), color_profiles={},
-        url_fetcher=None).write_pdf()
+        url_fetcher=None, output_intent=None).write_pdf()
     assert document.count(b'/Filter /DCTDecode') == 2
 
 
@@ -760,3 +760,11 @@ def test_pdf_tags_inline_table():
     FakeHTML(string='''
       <html lang="en"><table style="display: inline"><td>abc
     ''').write_pdf(pdf_tags=True)
+
+
+@assert_no_logs
+def test_pdf_ua_2_namespace_type():
+    # Regression test for #2786.
+    pdf = FakeHTML(string='<html lang="en"><body>abc').write_pdf(
+        pdf_variant='pdf/ua-2', uncompressed_pdf=True)
+    assert b'/Type /Namespace' in pdf

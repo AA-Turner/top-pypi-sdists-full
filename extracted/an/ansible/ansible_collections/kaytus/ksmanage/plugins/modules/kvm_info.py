@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: kvm_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get KVM information
 description:
    - Get KVM information on kaytus Server.

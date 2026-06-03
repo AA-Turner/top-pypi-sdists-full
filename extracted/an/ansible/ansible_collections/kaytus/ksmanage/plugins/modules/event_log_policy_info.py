@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: event_log_policy_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get event log policy information
 description:
    - Get event log policy information on kaytus Server.

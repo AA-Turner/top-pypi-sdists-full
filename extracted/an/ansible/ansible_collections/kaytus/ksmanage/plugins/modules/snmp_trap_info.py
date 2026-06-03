@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: snmp_trap_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get snmp trap information
 description:
    - Get snmp trap information on kaytus Server.

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: clear_event_log
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Clear event log
 description:
    - Clear event log on kaytus Server.

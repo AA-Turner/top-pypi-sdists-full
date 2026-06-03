@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_alert_policy
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set alert policy
 description:
    - Set alert policy on kaytus Server.

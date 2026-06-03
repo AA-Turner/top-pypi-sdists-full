@@ -28,6 +28,7 @@ from unittest import mock
 from absl.testing import parameterized
 from etils import epath
 import flax
+import grain.python as pygrain
 import jax
 from jax import numpy as jnp
 import numpy as np
@@ -44,10 +45,12 @@ from orbax.checkpoint.experimental.v1._src.path import async_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.serialization import registry as serialization_registry
 from orbax.checkpoint.experimental.v1._src.synchronization import multihost
+from orbax.checkpoint.experimental.v1._src.synchronization import synchronization
 from orbax.checkpoint.experimental.v1._src.testing import array_utils as array_test_utils
 from orbax.checkpoint.experimental.v1._src.testing import handler_utils
 from orbax.checkpoint.experimental.v1._src.testing import tree_utils as tree_test_utils
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
+
 
 PyTree = tree_types.PyTree
 Path = path_types.Path
@@ -58,7 +61,7 @@ create_numpy_pytree = array_test_utils.create_numpy_pytree
 create_sharded_pytree = array_test_utils.create_sharded_pytree
 as_abstract_type = array_test_utils.as_abstract_type
 
-PYTREE_CHECKPOINTABLE_KEY = 'pytree'
+STATE_CHECKPOINTABLE_KEY = checkpoint_layout.STATE_CHECKPOINTABLE_KEY
 PLACEHOLDER = tree_types.PLACEHOLDER
 
 Foo = handler_utils.Foo
@@ -75,10 +78,12 @@ async def _sleep_and_create_paths(*args, **kwargs):
   await asyncio.sleep(2)
   return await _original_create_paths(*args, **kwargs)
 
+# TODO: b/514807381 - Remove TestBase Pattern from Orbax tests.
+
 
 class SaveLoadTestBase:
 
-  class Test(parameterized.TestCase):
+  class _TestSetup(parameterized.TestCase):
 
     def setUp(self):
       super().setUp()
@@ -96,20 +101,22 @@ class SaveLoadTestBase:
       super().tearDown()
       test_utils.sync_global_processes('SavingTest:teardown_complete')
 
+  class SaveLoadTest(_TestSetup):
+
     def save_and_wait(self, *args, use_async: bool, **kwargs):
       if use_async:
-        response = ocp.save_pytree_async(*args, **kwargs)
+        response = ocp.save_async(*args, **kwargs)
         self.assertIsNotNone(response)
         self.assertIsNone(response.result())
       else:
-        self.assertIsNone(ocp.save_pytree(*args, **kwargs))
+        self.assertIsNone(ocp.save(*args, **kwargs))
 
     def load_and_wait(self, *args, use_async: bool, **kwargs):
       del use_async
-      return ocp.load_pytree(*args, **kwargs)
+      return ocp.load(*args, **kwargs)
 
     @parameterized.parameters((True,), (False,))
-    def test_save_load_pytree(self, use_async):
+    def test_save_load(self, use_async):
       self.save_and_wait(self.directory, self.pytree, use_async=use_async)
       loaded = self.load_and_wait(
           self.directory, self.abstract_pytree, use_async=use_async
@@ -124,7 +131,7 @@ class SaveLoadTestBase:
       loaded = self.load_and_wait(self.directory, use_async=use_async)
       test_utils.assert_tree_equal(self, self.pytree, loaded)
 
-    def test_save_pytree_async(self):
+    def test_save_async(self):
       start_serialize = threading.Event()
       original_serialize = serialization_v0.async_serialize_from_host
 
@@ -141,7 +148,7 @@ class SaveLoadTestBase:
           )
       )
 
-      response = ocp.save_pytree_async(self.directory, self.pytree)
+      response = ocp.save_async(self.directory, self.pytree)
       initial_d_files_mtimes = tree_test_utils.get_d_files_mtimes(
           self.directory
       )
@@ -158,7 +165,7 @@ class SaveLoadTestBase:
           tree_test_utils.is_pytree_checkpoint_complete(self.directory)
       )
 
-      restored = ocp.load_pytree(
+      restored = ocp.load(
           self.directory,
           self.abstract_pytree,
       )
@@ -201,13 +208,12 @@ class SaveLoadTestBase:
           )
       )
 
-      context = ocp.Context(
-          async_options=ocp.options.AsyncOptions(timeout_secs=timeout_secs)
-      )
+      context = ocp.Context()
+      context.asynchronous.timeout_secs = timeout_secs
       self.enter_context(context)
 
       start = time.time()
-      response = ocp.save_pytree_async(self.directory / 'timeout', self.pytree)
+      response = ocp.save_async(self.directory / 'timeout', self.pytree)
 
       is_primary = multihost.is_primary_host(0)
       msg = expected_msg_primary if is_primary else expected_msg_non_primary
@@ -227,13 +233,13 @@ class SaveLoadTestBase:
     )
     def test_empty_tree(self, tree):
       with self.assertRaisesRegex(ValueError, 'Found empty item'):
-        ocp.save_pytree(self.directory, tree)
+        ocp.save(self.directory, tree)
 
     def test_none_tree(self):
       with self.assertRaisesRegex(
           ValueError, 'checkpointable must not be None for saving'
       ):
-        ocp.save_pytree(self.directory, None)
+        ocp.save(self.directory, None)
 
     # Note the ommission of jax.Array, since this is covered in
     # several other tests.
@@ -245,8 +251,8 @@ class SaveLoadTestBase:
         (np.asarray(3.14),),
     )
     def test_standard_leaf_types(self, value):
-      ocp.save_pytree(self.directory, dict(k=value))
-      loaded = ocp.load_pytree(self.directory)
+      ocp.save(self.directory, dict(k=value))
+      loaded = ocp.load(self.directory)
       if isinstance(value, np.ndarray):
         np.testing.assert_array_equal(loaded['k'], value)
       else:
@@ -276,14 +282,14 @@ class SaveLoadTestBase:
       }
       for k, v in values.items():
         with self.subTest(k):
-          ocp.save_pytree(self.directory / k, [v])
+          ocp.save(self.directory / k, [v])
           with self.subTest('with_abstract_pytree'):
-            loaded = ocp.load_pytree(self.directory / k, [as_abstract_type(v)])
+            loaded = ocp.load(self.directory / k, [as_abstract_type(v)])
             test_utils.assert_tree_equal(self, [v], loaded)
           with self.subTest('without_abstract_pytree'):
             if multihost.is_pathways_backend():
               self.skipTest('Must provide abstract_pytree for Pathways.')
-            loaded = ocp.load_pytree(self.directory / k)
+            loaded = ocp.load(self.directory / k)
             test_utils.assert_tree_equal(self, [v], loaded)
 
     @parameterized.parameters(
@@ -294,13 +300,9 @@ class SaveLoadTestBase:
         (np.asarray(3.14),),
     )
     def test_standard_leaf_types_as_checkpointable(self, value):
-      with self.subTest('save_pytree'):
-        ocp.save_pytree(
-            self.directory / 'pytree', value, checkpointable_name='leaf'
-        )
-        loaded = ocp.load_pytree(
-            self.directory / 'pytree', checkpointable_name='leaf'
-        )
+      with self.subTest('save'):
+        ocp.save(self.directory / 'pytree', value, checkpointable_name='leaf')
+        loaded = ocp.load(self.directory / 'pytree', checkpointable_name='leaf')
         if isinstance(value, np.ndarray):
           np.testing.assert_array_equal(loaded, value)
         else:
@@ -325,13 +327,9 @@ class SaveLoadTestBase:
               jax.sharding.PartitionSpec(),
           ),
       )
-      with self.subTest('save_pytree'):
-        ocp.save_pytree(
-            self.directory / 'pytree', value, checkpointable_name='leaf'
-        )
-        loaded = ocp.load_pytree(
-            self.directory / 'pytree', checkpointable_name='leaf'
-        )
+      with self.subTest('save'):
+        ocp.save(self.directory / 'pytree', value, checkpointable_name='leaf')
+        loaded = ocp.load(self.directory / 'pytree', checkpointable_name='leaf')
         test_utils.assert_tree_equal(self, value, loaded)
       with self.subTest('save_checkpointables'):
         ocp.save_checkpointables(
@@ -344,7 +342,7 @@ class SaveLoadTestBase:
 
     def test_save_unregistered_type_as_pytree(self):
       with self.assertRaises(serialization_registry.UnregisteredTypeError):
-        ocp.save_pytree(self.directory, handler_utils.Foo(1, 'hi'))
+        ocp.save(self.directory, handler_utils.Foo(1, 'hi'))
 
     @parameterized.parameters(
         ({},),
@@ -364,51 +362,45 @@ class SaveLoadTestBase:
 
       with self.subTest('numpy_to_jax'):
         subdir = 'numpy'
-        ocp.save_pytree(self.directory / subdir, [numpy_arr])
+        ocp.save(self.directory / subdir, [numpy_arr])
         test_utils.assert_tree_equal(
             self,
             [jax_arr],
-            ocp.load_pytree(
-                self.directory / subdir, [as_abstract_type(jax_arr)]
-            ),
+            ocp.load(self.directory / subdir, [as_abstract_type(jax_arr)]),
         )
         if multihost.is_pathways_backend():
           self.skipTest('Must provide abstract_pytree for Pathways.')
         test_utils.assert_tree_equal(
-            self, [numpy_arr], ocp.load_pytree(self.directory / subdir)
+            self, [numpy_arr], ocp.load(self.directory / subdir)
         )
 
       with self.subTest('jax_to_numpy'):
         subdir = 'jax'
-        ocp.save_pytree(self.directory / subdir, [jax_arr])
+        ocp.save(self.directory / subdir, [jax_arr])
         test_utils.assert_tree_equal(
             self,
             [numpy_arr],
-            ocp.load_pytree(
-                self.directory / subdir, [as_abstract_type(numpy_arr)]
-            ),
+            ocp.load(self.directory / subdir, [as_abstract_type(numpy_arr)]),
         )
         if multihost.is_pathways_backend():
           self.skipTest('Must provide abstract_pytree for Pathways.')
         test_utils.assert_tree_equal(
-            self, [jax_arr], ocp.load_pytree(self.directory / subdir)
+            self, [jax_arr], ocp.load(self.directory / subdir)
         )
 
       with self.subTest('jax_to_numpy_by_value'):
         subdir = 'jax_to_np_by_value'
-        ocp.save_pytree(self.directory / subdir, [jax_arr])
+        ocp.save(self.directory / subdir, [jax_arr])
         test_utils.assert_tree_equal(
             self,
             [numpy_arr],
-            ocp.load_pytree(
-                self.directory / subdir, [np.array([], dtype=np.int64)]
-            ),
+            ocp.load(self.directory / subdir, [np.array([], dtype=np.int64)]),
         )
 
     def test_empty_array(self):
       value = np.ones(shape=(0,))
       with self.assertRaisesRegex(ValueError, 'zero size'):
-        ocp.save_pytree(self.directory, dict(k=value))
+        ocp.save(self.directory, dict(k=value))
 
     @parameterized.parameters(
         (complex(1.1, 2.2),),
@@ -419,7 +411,7 @@ class SaveLoadTestBase:
     def test_invalid_leaf_types(self, value):
       # TODO(cpgaffney): Consider improving the error message raised.
       with self.assertRaises(ValueError):
-        ocp.save_pytree(self.directory, dict(k=value))
+        ocp.save(self.directory, dict(k=value))
 
     # TODO(b/337105122): Add tests passing invalid abstract PyTrees.
     def test_flax_model(self):
@@ -442,17 +434,17 @@ class SaveLoadTestBase:
         )
 
       state = make_state_with_optax()
-      ocp.save_pytree(self.directory, state)
+      ocp.save(self.directory, state)
 
       with self.subTest('with_abstract_state'):
         abstract_state = jax.tree.map(as_abstract_type, state)
-        loaded = ocp.load_pytree(self.directory, abstract_state)
+        loaded = ocp.load(self.directory, abstract_state)
         test_utils.assert_tree_equal(self, state, loaded)
 
       with self.subTest('without_abstract_state'):
         if multihost.is_pathways_backend():
           self.skipTest('Must provide abstract_pytree for Pathways.')
-        loaded = ocp.load_pytree(self.directory)
+        loaded = ocp.load(self.directory)
         expected_tree = tree_utils.serialize_tree(
             make_state_with_nones(),
             keep_empty_nodes=True,
@@ -490,14 +482,14 @@ class SaveLoadTestBase:
       )
       save_sharding = jax.sharding.NamedSharding(mesh, save_spec)
       tree = {'x': create_sharded_array(np.arange(len_devices), save_sharding)}
-      ocp.save_pytree(self.directory, tree)
+      ocp.save(self.directory, tree)
 
       load_sharding = jax.sharding.NamedSharding(mesh, load_spec)
       expected_tree = {
           'x': create_sharded_array(np.arange(len_devices), load_sharding)
       }
       abstract_tree = {'x': as_abstract_type(expected_tree['x'])}
-      loaded = ocp.load_pytree(self.directory, abstract_pytree=abstract_tree)
+      loaded = ocp.load(self.directory, abstract_state=abstract_tree)
       test_utils.assert_tree_equal(self, expected_tree, loaded)
 
     @parameterized.parameters(
@@ -545,63 +537,61 @@ class SaveLoadTestBase:
               dtype=save_dtype
           )
       )
-      with ocp.Context(
-          array_options=ocp.options.ArrayOptions(
-              saving=ocp.options.ArrayOptions.Saving(
-                  scoped_storage_options_creator=scoped_storage_options_creator
-              )
-          )
-      ):
-        ocp.save_pytree(self.directory, tree)
+      ctx = ocp.Context()
+      ctx.array.saving.scoped_storage_options_creator = (
+          scoped_storage_options_creator
+      )
+      with ctx:
+        ocp.save(self.directory, tree)
 
       with self.subTest('with_abstract_tree'):
         abstract_tree = jax.tree.map(as_abstract_type, load_casted_tree)
-        loaded = ocp.load_pytree(self.directory, abstract_tree)
+        loaded = ocp.load(self.directory, abstract_tree)
         test_utils.assert_tree_equal(self, load_casted_tree, loaded)
 
       with self.subTest('without_abstract_tree'):
         if multihost.is_pathways_backend():
           self.skipTest('Must provide abstract_pytree for Pathways.')
-        loaded = ocp.load_pytree(self.directory)
+        loaded = ocp.load(self.directory)
         test_utils.assert_tree_equal(self, save_casted_tree, loaded)
 
     # TODO(b/295313820): Improve mismatched-tree error messages.
     def test_mismatched_abstract_tree(self):
-      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save(self.directory, self.pytree)
 
       with self.subTest('subset_of_keys'):
         abstract_pytree = dict(self.abstract_pytree)
         del abstract_pytree['a'], abstract_pytree['b']
         with self.assertRaisesRegex(ValueError, 'User-provided restore item'):
-          ocp.load_pytree(self.directory, abstract_pytree)
+          ocp.load(self.directory, abstract_pytree)
 
       with self.subTest('superset_of_keys'):
         abstract_pytree = dict(self.abstract_pytree)
         abstract_pytree['z'] = as_abstract_type(np.arange(16))
         with self.assertRaisesRegex(ValueError, 'User-provided restore item'):
-          ocp.load_pytree(self.directory, abstract_pytree)
+          ocp.load(self.directory, abstract_pytree)
 
       with self.subTest('renamed_key'):
         abstract_pytree = dict(self.abstract_pytree)
         abstract_pytree['z'] = abstract_pytree.pop('a')
         with self.assertRaisesRegex(ValueError, 'User-provided restore item'):
-          ocp.load_pytree(self.directory, abstract_pytree)
+          ocp.load(self.directory, abstract_pytree)
 
     def test_overwrites(self):
-      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save(self.directory, self.pytree)
       with self.assertLogs(level='INFO') as cm:
-        ocp.save_pytree(self.directory, self.numpy_pytree, overwrite=True)
+        ocp.save(self.directory, self.numpy_pytree, overwrite=True)
         found_log = any(
             'Specified `overwrite`: removing existing path.' in log
             for log in cm.output
         )
         self.assertEqual(found_log, multihost.is_primary_host(0))
       test_utils.assert_tree_equal(
-          self, self.numpy_pytree, ocp.load_pytree(self.directory)
+          self, self.numpy_pytree, ocp.load(self.directory)
       )
 
     def test_auto_overwrite_tmp_checkpoint(self):
-      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save(self.directory, self.pytree)
       if multihost.is_primary_host(0):
         self.directory.rename(
             self.directory.parent
@@ -610,9 +600,9 @@ class SaveLoadTestBase:
       test_utils.sync_global_processes(
           'test_auto_overwrite_tmp_checkpoint:rename'
       )
-      ocp.save_pytree(self.directory, self.numpy_pytree)
+      ocp.save(self.directory, self.numpy_pytree)
       test_utils.assert_tree_equal(
-          self, self.numpy_pytree, ocp.load_pytree(self.directory)
+          self, self.numpy_pytree, ocp.load(self.directory)
       )
 
     def test_multiple_pytrees(self):
@@ -633,8 +623,8 @@ class SaveLoadTestBase:
             self.directory, abstract_checkpointables
         )
         test_utils.assert_tree_equal(self, checkpointables, loaded)
-      with self.subTest('load_pytree'):
-        loaded = ocp.load_pytree(self.directory, self.abstract_pytree)
+      with self.subTest('load'):
+        loaded = ocp.load(self.directory, self.abstract_pytree)
         test_utils.assert_tree_equal(self, self.pytree, loaded)
       with self.subTest('load_numpy_pytree'):
         loaded = ocp.load_checkpointables(
@@ -667,26 +657,25 @@ class SaveLoadTestBase:
       }
       ocp.save_checkpointables(self.directory, checkpointables)
 
-      with self.subTest('load_pytree'):
-        loaded = ocp.load_pytree(self.directory)
+      with self.subTest('load'):
+        loaded = ocp.load(self.directory)
         test_utils.assert_tree_equal(self, self.numpy_pytree, loaded)
 
       with self.subTest('load_checkpointables'):
-        with self.assertRaisesRegex(KeyError, 'Requested checkpointables:'):
+        with self.assertRaisesRegex(
+            KeyError, 'Requested checkpointables:'
+        ):
           ocp.load_checkpointables(
               self.directory, {'foo': handler_utils.AbstractFoo()}
           )
 
     def test_custom_checkpointables(self):
-      checkpointables_options = (
-          ocp.options.CheckpointablesOptions.create_with_handlers(
-              handler_utils.FooHandler,
-              handler_utils.BarHandler,
-          )
-      )
-      self.enter_context(
-          ocp.Context(checkpointables_options=checkpointables_options)
-      )
+      registry = ocp.handlers.local_registry()
+      registry.add(handler_utils.FooHandler)
+      registry.add(handler_utils.BarHandler)
+      ctx = ocp.Context()
+      ctx.checkpointables.registry = registry
+      self.enter_context(ctx)
       checkpointables = {
           'pytree': self.numpy_pytree,
           'foo': Foo(123, 'hi'),
@@ -756,14 +745,11 @@ class SaveLoadTestBase:
           'two': {'c': 3, 'd': 4},
       }
       directory = self.directory
-      checkpointables_options = (
-          ocp.options.CheckpointablesOptions.create_with_handlers(
-              one=handler_utils.DictHandler,
-          )
-      )
-      self.enter_context(
-          ocp.Context(checkpointables_options=checkpointables_options)
-      )
+      registry = ocp.handlers.local_registry()
+      registry.add(handler_utils.DictHandler, checkpointable_name='one')
+      ctx = ocp.Context()
+      ctx.checkpointables.registry = registry
+      self.enter_context(ctx)
       ocp.save_checkpointables(directory, checkpointables)
       self.assertTrue((directory / 'one' / 'data.txt').exists())
       self.assertFalse((directory / 'two' / 'data.txt').exists())
@@ -782,7 +768,9 @@ class SaveLoadTestBase:
       loaded = ocp.load_checkpointables(self.directory)
       self.assertSameElements(['two'], loaded.keys())
 
-      with self.assertRaisesRegex(KeyError, 'Requested checkpointables:'):
+      with self.assertRaisesRegex(
+          KeyError, 'Requested checkpointables:'
+      ):
         ocp.load_checkpointables(self.directory, {'one': None})
 
 
@@ -790,34 +778,27 @@ class SaveLoadTestBase:
       # TODO(b/408241116): Enable tests on Pathways.
       if multihost.is_pathways_backend():
         self.skipTest('Sharding metadata not present in Pathways.')
-      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save(self.directory, self.pytree)
       with self.subTest('checkpoint_metadata'):
-        loaded = ocp.load_pytree(
-            self.directory, ocp.pytree_metadata(self.directory)
-        )
+        loaded = ocp.load(self.directory, ocp.metadata(self.directory))
         test_utils.assert_tree_equal(self, self.pytree, loaded)
-      with self.subTest('pytree_metadata'):
-        loaded = ocp.load_pytree(
-            self.directory, ocp.pytree_metadata(self.directory).metadata
-        )
+      with self.subTest('metadata'):
+        loaded = ocp.load(self.directory, ocp.metadata(self.directory).metadata)
         test_utils.assert_tree_equal(self, self.pytree, loaded)
       with self.subTest('abstract_pytree'):
-        loaded = ocp.load_pytree(self.directory, self.abstract_pytree)
+        loaded = ocp.load(self.directory, self.abstract_pytree)
         test_utils.assert_tree_equal(self, self.pytree, loaded)
       with self.subTest('none'):
-        loaded = ocp.load_pytree(self.directory)
+        loaded = ocp.load(self.directory)
         test_utils.assert_tree_equal(self, self.pytree, loaded)
 
     def test_abstract_checkpointables_types(self):
-      checkpointables_options = (
-          ocp.options.CheckpointablesOptions.create_with_handlers(
-              handler_utils.FooHandler,
-              handler_utils.BarHandler,
-          )
-      )
-      self.enter_context(
-          ocp.Context(checkpointables_options=checkpointables_options)
-      )
+      registry = ocp.handlers.local_registry()
+      registry.add(handler_utils.FooHandler)
+      registry.add(handler_utils.BarHandler)
+      ctx = ocp.Context()
+      ctx.checkpointables.registry = registry
+      self.enter_context(ctx)
       checkpointables = {
           'foo': Foo(123, 'hi'),
           'bar': Bar(456, 'bye'),
@@ -844,14 +825,11 @@ class SaveLoadTestBase:
         self.assertEqual(checkpointables, loaded)
 
     def test_async_directory_creation(self):
-      checkpointables_options = (
-          ocp.options.CheckpointablesOptions.create_with_handlers(
-              handler_utils.FooHandler,
-          )
-      )
-      self.enter_context(
-          ocp.Context(checkpointables_options=checkpointables_options)
-      )
+      registry = ocp.handlers.local_registry()
+      registry.add(handler_utils.FooHandler)
+      ctx = ocp.Context()
+      ctx.checkpointables.registry = registry
+      self.enter_context(ctx)
       self.enter_context(
           mock.patch.object(
               async_utils, '_create_paths', _sleep_and_create_paths
@@ -865,6 +843,56 @@ class SaveLoadTestBase:
       result.result()
       self.assertTrue(self.directory.exists())
       self.assertLen(list(self.directory.parent.iterdir()), 1)
+
+    def test_grain_dataset_checkpointable(self):
+      # Create a simple dataset
+      ds = pygrain.MapDataset.source(list(range(10)))
+      dl = pygrain.DataLoader(
+          data_source=ds,
+          sampler=pygrain.SequentialSampler(10, pygrain.ShardOptions(0, 1)),
+          operations=[pygrain.Batch(1)],
+      )
+      data_iter = iter(dl)
+
+      # Advance it
+      next(data_iter)  # [0]
+      next(data_iter)  # [1]
+
+      checkpointables = {
+          STATE_CHECKPOINTABLE_KEY: self.pytree,
+          'dataset': data_iter,
+      }
+
+      # Save
+      ocp.save_checkpointables(self.directory, checkpointables)
+
+      # Advance original to change state
+      next(data_iter)  # [2]
+
+      # Restore
+      new_dl = pygrain.DataLoader(
+          data_source=ds,
+          sampler=pygrain.SequentialSampler(10, pygrain.ShardOptions(0, 1)),
+          operations=[pygrain.Batch(1)],
+      )
+      new_data_iter = iter(new_dl)
+
+      abstract_checkpointables = {
+          STATE_CHECKPOINTABLE_KEY: self.abstract_pytree,
+          'dataset': new_data_iter,
+      }
+
+      # Load
+      loaded = ocp.load_checkpointables(
+          self.directory, abstract_checkpointables
+      )
+
+      # The restored iterator should be at the saved position
+      # (after [1], so next is [2])
+      self.assertEqual(next(loaded['dataset']), [2])
+      test_utils.assert_tree_equal(
+          self, self.pytree, loaded[STATE_CHECKPOINTABLE_KEY]
+      )
 
     def test_background_error(self):
 
@@ -994,7 +1022,7 @@ class SaveLoadTestBase:
       self.assertTrue(self.directory.exists())
 
     def test_partial_restore_placeholder(self):
-      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save(self.directory, self.pytree)
 
       reference_pytree = jax.tree.map(lambda x: x, self.abstract_pytree)
       reference_pytree['b'] = PLACEHOLDER
@@ -1012,11 +1040,11 @@ class SaveLoadTestBase:
           'y': self.pytree['y'],
       }
 
-      loaded = ocp.load_pytree(self.directory, reference_pytree)
+      loaded = ocp.load(self.directory, reference_pytree)
       test_utils.assert_tree_equal(self, expected, loaded)
 
     def test_partial_restore_omission(self):
-      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save(self.directory, self.pytree)
 
       reference_pytree = jax.tree.map(lambda x: x, self.abstract_pytree)
       del reference_pytree['b']
@@ -1031,14 +1059,10 @@ class SaveLoadTestBase:
           'y': self.pytree['y'],
       }
 
-      with ocp.Context(
-          pytree_options=ocp.options.PyTreeOptions(
-              loading=ocp.options.PyTreeOptions.Loading(
-                  partial_load=True,
-              )
-          )
-      ):
-        loaded = ocp.load_pytree(self.directory, reference_pytree)
+      ctx = ocp.Context()
+      ctx.pytree.loading.partial_load = True
+      with ctx:
+        loaded = ocp.load(self.directory, reference_pytree)
 
       test_utils.assert_tree_equal(self, expected, loaded)
 
@@ -1053,8 +1077,8 @@ class SaveLoadTestBase:
       mesh = jax.sharding.Mesh(devices, axis_names)
       jax.sharding.set_mesh(mesh)
 
-      ocp.save_pytree(self.directory, self.pytree)
-      loaded = ocp.load_pytree(self.directory, self.abstract_pytree)
+      ocp.save(self.directory, self.pytree)
+      loaded = ocp.load(self.directory, self.abstract_pytree)
       test_utils.assert_tree_equal(self, self.pytree, loaded)
 
     @parameterized.parameters((3,), (8,))
@@ -1078,7 +1102,7 @@ class SaveLoadTestBase:
               return_value=timeout,
           ),
       ):
-        r = ocp.save_pytree_async(self.directory, self.pytree)
+        r = ocp.save_async(self.directory, self.pytree)
         start = time.time()
         if multihost.is_primary_host(primary_host=0):
           with self.assertRaises(AssertionError):
@@ -1101,7 +1125,7 @@ class SaveLoadTestBase:
       with self.assertRaisesRegex(
           ValueError, 'Directory path mismatch in multi-process save'
       ):
-        ocp.save_pytree(directory, self.pytree)
+        ocp.save(directory, self.pytree)
 
     def test_load_and_broadcast(self):
       replica_count = 2
@@ -1118,16 +1142,12 @@ class SaveLoadTestBase:
       self.assertEqual(
           sharding.shard_shape((4, 32)), (4, 32 // partition_count)
       )
-      with ocp.Context(
-          array_options=ocp.options.ArrayOptions(
-              loading=ocp.options.ArrayOptions.Loading(
-                  use_load_and_broadcast=True,
-              )
-          )
-      ):
-        ocp.save_pytree(self.directory, [arr])
+      ctx = ocp.Context()
+      ctx.array.loading.use_load_and_broadcast = True
+      with ctx:
+        ocp.save(self.directory, [arr])
         with self.subTest('with_abstract_pytree'):
-          loaded = ocp.load_pytree(
+          loaded = ocp.load(
               self.directory, [array_test_utils.as_abstract_type(arr)]
           )
           test_utils.assert_tree_equal(self, [arr], loaded)
@@ -1137,7 +1157,7 @@ class SaveLoadTestBase:
               'Must provide `sharding` to restore with'
               ' `SingleReplicaArrayHandler`',
           ):
-            ocp.load_pytree(self.directory)
+            ocp.load(self.directory)
 
     def test_subchunking(self):
       self.assertEqual(jax.device_count(), 8)
@@ -1156,26 +1176,17 @@ class SaveLoadTestBase:
       }
 
       with self.subTest('global_setting'):
-        with ocp.Context(
-            array_options=ocp.options.ArrayOptions(
-                saving=ocp.options.ArrayOptions.Saving(
-                    storage_options=ocp.options.ArrayOptions.Saving.StorageOptions(
-                        chunk_byte_size=8,  # force divide in two subchunks
-                    )
-                )
-            )
-        ):
-          ocp.save_pytree(self.directory / 'global_setting', pytree)
-          metadata = ocp.pytree_metadata(
-              self.directory / 'global_setting'
-          ).metadata
+        ctx = ocp.Context()
+        ctx.array.saving.storage_options.chunk_byte_size = 8
+        with ctx:
+          ocp.save(self.directory / 'global_setting', pytree)
+          metadata = ocp.metadata(self.directory / 'global_setting').metadata
           for k in pytree:
             self.assertEqual(metadata[k].shape, (32,))
             self.assertEqual(metadata[k].storage_metadata.write_shape, (4,))
             self.assertEqual(metadata[k].storage_metadata.chunk_shape, (2,))
 
       with self.subTest('per_key_setting'):
-
         def scoped_storage_options_creator(key, value):
           del value
           if 'a' in tree_utils.str_keypath(key):
@@ -1186,20 +1197,58 @@ class SaveLoadTestBase:
               chunk_byte_size=8,  # force divide in 2 subchunks
           )
 
-        with ocp.Context(
-            array_options=ocp.options.ArrayOptions(
-                saving=ocp.options.ArrayOptions.Saving(
-                    scoped_storage_options_creator=scoped_storage_options_creator
-                )
-            ),
-        ):
-          ocp.save_pytree(self.directory / 'per_key_setting', pytree)
-          metadata = ocp.pytree_metadata(
-              self.directory / 'per_key_setting'
-          ).metadata
+        ctx = ocp.Context()
+        ctx.array.saving.scoped_storage_options_creator = (
+            scoped_storage_options_creator
+        )
+        with ctx:
+          ocp.save(self.directory / 'per_key_setting', pytree)
+          metadata = ocp.metadata(self.directory / 'per_key_setting').metadata
           self.assertEqual(metadata['a'].shape, (32,))
           self.assertEqual(metadata['a'].storage_metadata.write_shape, (4,))
           self.assertEqual(metadata['a'].storage_metadata.chunk_shape, (1,))
           self.assertEqual(metadata['b'].shape, (32,))
           self.assertEqual(metadata['b'].storage_metadata.write_shape, (4,))
           self.assertEqual(metadata['b'].storage_metadata.chunk_shape, (2,))
+
+  class SynchronizationTest(_TestSetup):
+
+    def test_sync_save_increments_operation_id(self):
+      initial_op_id = int(synchronization.get_operation_id())
+      save_dir = self.directory / 'sync_save'
+      ocp.save(save_dir, self.pytree)
+      post_save_op_id = int(synchronization.get_operation_id())
+      self.assertEqual(post_save_op_id, initial_op_id + 1)
+
+    def test_async_save_increments_operation_id(self):
+      initial_op_id = int(synchronization.get_operation_id())
+      save_dir = self.directory / 'async_save'
+      response = ocp.save_async(save_dir, self.pytree)
+      response.result()
+      post_save_op_id = int(synchronization.get_operation_id())
+      self.assertEqual(post_save_op_id, initial_op_id + 1)
+
+    def test_sync_load_increments_operation_id(self):
+      save_dir = self.directory / 'sync_load'
+      ocp.save(save_dir, self.pytree)
+
+      initial_op_id = int(synchronization.get_operation_id())
+      restored = ocp.load(save_dir, self.abstract_pytree)
+      self.assertIsNotNone(restored)
+      post_load_op_id = int(synchronization.get_operation_id())
+      self.assertEqual(post_load_op_id, initial_op_id + 1)
+
+    def test_save_then_load_increments_operation_id_sequentially(self):
+      initial_op_id = int(synchronization.get_operation_id())
+      save_dir = self.directory / 'save_then_load_seq'
+
+      # 1. Perform save (should increment by 1)
+      ocp.save(save_dir, self.pytree)
+      post_save_op_id = int(synchronization.get_operation_id())
+      self.assertEqual(post_save_op_id, initial_op_id + 1)
+
+      # 2. Perform load (should increment by 1 again)
+      restored = ocp.load(save_dir, self.abstract_pytree)
+      self.assertIsNotNone(restored)
+      post_load_op_id = int(synchronization.get_operation_id())
+      self.assertEqual(post_load_op_id, initial_op_id + 2)

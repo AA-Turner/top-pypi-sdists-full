@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -22,7 +21,7 @@ class SorobanAuthorizationEntries:
     """
 
     def __init__(
-        self, soroban_authorization_entries: List[SorobanAuthorizationEntry]
+        self, soroban_authorization_entries: list[SorobanAuthorizationEntry]
     ) -> None:
         _expect_max_length = 4294967295
         if (

@@ -21,24 +21,19 @@
 The module file for adaptive_response_notable_events
 """
 
-from __future__ import absolute_import, division, print_function
-
-
-__metaclass__ = type
-
 import json
 
 from ansible.errors import AnsibleActionFail
 from ansible.module_utils.connection import Connection
 from ansible.module_utils.six.moves.urllib.parse import quote
 from ansible.plugins.action import ActionBase
-from ansible_collections.ansible.netcommon.plugins.module_utils.network.common import utils
-from ansible_collections.ansible.utils.plugins.module_utils.common.argspec_validate import (
-    AnsibleArgSpecValidator,
-)
 
+from ansible_collections.splunk.es.plugins.module_utils import dict_utils as utils
 from ansible_collections.splunk.es.plugins.module_utils.splunk import (
     SplunkRequest,
+    check_argspec,
+)
+from ansible_collections.splunk.es.plugins.module_utils.splunk_utils import (
     map_obj_to_params,
     map_params_to_obj,
     remove_get_keys_from_payload_dict,
@@ -53,7 +48,7 @@ class ActionModule(ActionBase):
     """action module"""
 
     def __init__(self, *args, **kwargs):
-        super(ActionModule, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._result = None
         self.api_object = "servicesNS/nobody/SplunkEnterpriseSecuritySuite/saved/searches"
         self.module_name = "adaptive_response_notable_events"
@@ -74,18 +69,6 @@ class ActionModule(ActionBase):
             "action.notable.param.severity": "severity",
             "name": "correlation_search_name",
         }
-
-    def _check_argspec(self):
-        aav = AnsibleArgSpecValidator(
-            data=utils.remove_empties(self._task.args),
-            schema=DOCUMENTATION,
-            schema_format="doc",
-            name=self._task.action,
-        )
-        valid, errors, self._task.args = aav.validate()
-        if not valid:
-            self._result["failed"] = True
-            self._result["msg"] = errors
 
     def fail_json(self, msg):
         """Replace the AnsibleModule fail_json here
@@ -215,9 +198,9 @@ class ActionModule(ActionBase):
             )
 
         if "action.notable.param.next_steps" in res:
-            next_steps = ""
-            for next_step in res["action.notable.param.next_steps"]:
-                next_steps += "[[action|{0}]]".format(next_step)
+            next_steps = "".join(
+                f"[[action|{next_step}]]" for next_step in res["action.notable.param.next_steps"]
+            )
 
             # NOTE: version:1 appears to be hard coded when you create this via the splunk web UI
             next_steps_dict = {"version": 1, "data": next_steps}
@@ -245,10 +228,7 @@ class ActionModule(ActionBase):
 
     def search_for_resource_name(self, conn_request, correlation_search_name):
         query_dict = conn_request.get_by_path(
-            "{0}/{1}".format(
-                self.api_object,
-                quote(correlation_search_name),
-            ),
+            f"{self.api_object}/{quote(correlation_search_name)}",
         )
 
         search_result = {}
@@ -259,9 +239,7 @@ class ActionModule(ActionBase):
             )
         else:
             raise AnsibleActionFail(
-                "Correlation Search '{0}' doesn't exist".format(
-                    correlation_search_name,
-                ),
+                f"Correlation Search '{correlation_search_name}' doesn't exist",
             )
 
         return search_result, metadata
@@ -289,31 +267,29 @@ class ActionModule(ActionBase):
             # if the obtained values are different from 'deleted' state values
             if search_by_name and search_by_name != diff_cmp:
                 before.append(search_by_name)
-                payload = {
-                    "action.notable.param.default_owner": "",
-                    "action.notable.param.default_status": "",
-                    "action.notable.param.drilldown_name": "",
-                    "action.notable.param.drilldown_search": "",
-                    "action.notable.param.drilldown_earliest_offset": "$info_min_time$",
-                    "action.notable.param.drilldown_latest_offset": "$info_max_time$",
-                    "action.notable.param.extract_artifacts": "{}",
-                    "action.notable.param.investigation_profiles": "{}",
-                    "action.notable.param.next_steps": "",
-                    "action.notable.param.recommended_actions": "",
-                    "action.notable.param.rule_description": "",
-                    "action.notable.param.rule_title": "",
-                    "action.notable.param.security_domain": "",
-                    "action.notable.param.severity": "",
-                }
-                payload.update(self.create_metadata(metadata, mode="delete"))
-                url = "{0}/{1}".format(
-                    self.api_object,
-                    quote(want_conf["correlation_search_name"]),
-                )
-                conn_request.create_update(
-                    url,
-                    data=payload,
-                )
+                if not self._task.check_mode:
+                    payload = {
+                        "action.notable.param.default_owner": "",
+                        "action.notable.param.default_status": "",
+                        "action.notable.param.drilldown_name": "",
+                        "action.notable.param.drilldown_search": "",
+                        "action.notable.param.drilldown_earliest_offset": "$info_min_time$",
+                        "action.notable.param.drilldown_latest_offset": "$info_max_time$",
+                        "action.notable.param.extract_artifacts": "{}",
+                        "action.notable.param.investigation_profiles": "{}",
+                        "action.notable.param.next_steps": "",
+                        "action.notable.param.recommended_actions": "",
+                        "action.notable.param.rule_description": "",
+                        "action.notable.param.rule_title": "",
+                        "action.notable.param.security_domain": "",
+                        "action.notable.param.severity": "",
+                    }
+                    payload.update(self.create_metadata(metadata, mode="delete"))
+                    url = f"{self.api_object}/{quote(want_conf['correlation_search_name'])}"
+                    conn_request.create_update(
+                        url,
+                        data=payload,
+                    )
                 changed = True
                 after = []
 
@@ -392,72 +368,78 @@ class ActionModule(ActionBase):
 
                         changed = True
 
-                        payload = self.map_objects_to_params(
-                            metadata,
-                            want_conf,
-                        )
+                        if self._task.check_mode:
+                            # In check mode, return the expected configuration
+                            after.append(want_conf)
+                        else:
+                            payload = self.map_objects_to_params(
+                                metadata,
+                                want_conf,
+                            )
 
-                        url = "{0}/{1}".format(
-                            self.api_object,
-                            quote(correlation_search_name),
-                        )
-                        api_response = conn_request.create_update(
-                            url,
-                            data=payload,
-                        )
-                        response_json, metadata = self.map_params_to_object(
-                            api_response["entry"][0],
-                        )
+                            url = f"{self.api_object}/{quote(correlation_search_name)}"
+                            api_response = conn_request.create_update(
+                                url,
+                                data=payload,
+                            )
+                            response_json, metadata = self.map_params_to_object(
+                                api_response["entry"][0],
+                            )
 
-                        after.append(response_json)
+                            after.append(response_json)
                     elif self._task.args["state"] == "replaced":
-                        self.delete_module_api_config(
-                            conn_request=conn_request,
-                            config=[want_conf],
-                        )
+                        if not self._task.check_mode:
+                            self.delete_module_api_config(
+                                conn_request=conn_request,
+                                config=[want_conf],
+                            )
                         changed = True
 
-                        payload = self.map_objects_to_params(
-                            metadata,
-                            want_conf,
-                        )
+                        if self._task.check_mode:
+                            # In check mode, return the expected configuration
+                            after.append(want_conf)
+                        else:
+                            payload = self.map_objects_to_params(
+                                metadata,
+                                want_conf,
+                            )
 
-                        url = "{0}/{1}".format(
-                            self.api_object,
-                            quote(correlation_search_name),
-                        )
-                        api_response = conn_request.create_update(
-                            url,
-                            data=payload,
-                        )
-                        response_json, metadata = self.map_params_to_object(
-                            api_response["entry"][0],
-                        )
+                            url = f"{self.api_object}/{quote(correlation_search_name)}"
+                            api_response = conn_request.create_update(
+                                url,
+                                data=payload,
+                            )
+                            response_json, metadata = self.map_params_to_object(
+                                api_response["entry"][0],
+                            )
 
-                        after.append(response_json)
+                            after.append(response_json)
                 else:
                     before.append(have_conf)
                     after.append(have_conf)
             else:
                 changed = True
                 want_conf = utils.remove_empties(want_conf)
-                payload = self.map_objects_to_params(metadata, want_conf)
 
-                url = "{0}/{1}".format(
-                    self.api_object,
-                    quote(correlation_search_name),
-                )
-                api_response = conn_request.create_update(
-                    url,
-                    data=payload,
-                )
+                if self._task.check_mode:
+                    # In check mode, return the expected configuration
+                    after.extend(before)
+                    after.append(want_conf)
+                else:
+                    payload = self.map_objects_to_params(metadata, want_conf)
 
-                response_json, metadata = self.map_params_to_object(
-                    api_response["entry"][0],
-                )
+                    url = f"{self.api_object}/{quote(correlation_search_name)}"
+                    api_response = conn_request.create_update(
+                        url,
+                        data=payload,
+                    )
 
-                after.extend(before)
-                after.append(response_json)
+                    response_json, metadata = self.map_params_to_object(
+                        api_response["entry"][0],
+                    )
+
+                    after.extend(before)
+                    after.append(response_json)
         if not changed:
             after = None
 
@@ -469,10 +451,9 @@ class ActionModule(ActionBase):
 
     def run(self, tmp=None, task_vars=None):
         self._supports_check_mode = True
-        self._result = super(ActionModule, self).run(tmp, task_vars)
+        self._result = super().run(tmp, task_vars)
 
-        self._check_argspec()
-        if self._result.get("failed"):
+        if not check_argspec(self, self._result, DOCUMENTATION):
             return self._result
 
         self._result[self.module_name] = {}

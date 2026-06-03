@@ -30,6 +30,8 @@ use super::{Builtin, Context, read_text_file, resolve_path};
 use crate::error::{Error, Result};
 use crate::interpreter::ExecResult;
 
+// Ignore files are repository input. Keep parsing/matching bounded so a large
+// ignore file cannot force unbounded regex compilation or per-path scans.
 const RG_IGNORE_FILE_MAX_BYTES: usize = 1024 * 1024;
 const RG_IGNORE_RULES_MAX_PER_FILE: usize = 10_000;
 const RG_IGNORE_RULES_MAX_TOTAL: usize = 50_000;
@@ -358,6 +360,12 @@ struct RgIgnoreRule {
     regex: Regex,
 }
 
+struct RgIgnoreRuleSet {
+    parent: Option<Arc<RgIgnoreRuleSet>>,
+    local: Vec<RgIgnoreRule>,
+    len: usize,
+}
+
 #[derive(Clone)]
 struct RgTypeDatabase {
     definitions: BTreeMap<String, Vec<RgTypeGlob>>,
@@ -398,6 +406,34 @@ impl<'a> RgMatch<'a> {
     fn end(self) -> usize {
         self.end
     }
+}
+
+fn rg_replacement_cap_marker() -> String {
+    format!(
+        "[rg: replacement output capped at {} bytes]",
+        RG_MAX_REPLACEMENT_OUTPUT_BYTES
+    )
+}
+
+fn replacement_output_exceeds_cap(
+    haystack_len: usize,
+    replacement: &str,
+    match_count: usize,
+    include_unmatched_text: bool,
+) -> bool {
+    let capture_ref_count = replacement.bytes().filter(|&byte| byte == b'$').count();
+    let per_match = replacement
+        .len()
+        .saturating_add(capture_ref_count.saturating_mul(haystack_len));
+    let projected =
+        match_count
+            .saturating_mul(per_match)
+            .saturating_add(if include_unmatched_text {
+                haystack_len
+            } else {
+                0
+            });
+    projected > RG_MAX_REPLACEMENT_OUTPUT_BYTES
 }
 
 impl RgMatcher {
@@ -455,19 +491,12 @@ impl RgMatcher {
 
     fn replace_all(&self, text: &str, replacement: &str) -> String {
         // THREAT[TM-DOS-RG-REPLACE]: attacker-controlled `--replace` text combined
-        // with many matches can allocate output ≈ matches × replacement_len before
-        // interpreter stdout truncation, enabling memory amplification / OOM.
-        // Project the size up front and refuse to allocate past the cap; surface a
-        // visible marker in the output instead of silently truncating.
+        // with many matches can allocate output before interpreter stdout
+        // truncation. Budget on a conservative expansion upper bound so capture
+        // references like `$1` cannot bypass the plain replacement length check.
         let match_count = self.count_matches(text);
-        let projected = text
-            .len()
-            .saturating_add(match_count.saturating_mul(replacement.len()));
-        if projected > RG_MAX_REPLACEMENT_OUTPUT_BYTES {
-            return format!(
-                "[rg: replacement output capped at {} bytes]",
-                RG_MAX_REPLACEMENT_OUTPUT_BYTES
-            );
+        if replacement_output_exceeds_cap(text.len(), replacement, match_count, true) {
+            return rg_replacement_cap_marker();
         }
         match self {
             Self::Rust(regex) => regex.replace_all(text, replacement).into_owned(),
@@ -476,20 +505,17 @@ impl RgMatcher {
     }
 
     fn replace_first(&self, text: &str, replacement: &str) -> String {
-        // Same cap as replace_all — for a single match the worst case is
-        // text.len() + replacement.len(), so the cap mainly guards against
-        // an attacker-supplied giant replacement string.
-        let projected = text.len().saturating_add(replacement.len());
-        if projected > RG_MAX_REPLACEMENT_OUTPUT_BYTES {
-            return format!(
-                "[rg: replacement output capped at {} bytes]",
-                RG_MAX_REPLACEMENT_OUTPUT_BYTES
-            );
+        if replacement_output_exceeds_cap(text.len(), replacement, 1, true) {
+            return rg_replacement_cap_marker();
         }
         match self {
             Self::Rust(regex) => regex.replace(text, replacement).into_owned(),
             Self::Fancy(regex) => regex.replacen(text, 1, replacement).into_owned(),
         }
+    }
+
+    fn replacement_matches_exceed_cap(&self, text: &str, replacement: &str) -> bool {
+        replacement_output_exceeds_cap(text.len(), replacement, self.count_matches(text), false)
     }
 }
 
@@ -1530,18 +1556,53 @@ impl RgOptions {
         Ok(())
     }
 
-    fn is_ignored_by_rules(&self, path: &Path, is_dir: bool, rules: &[RgIgnoreRule]) -> bool {
-        let mut ignored = false;
-        for rule in rules {
-            if rule.matches(path, is_dir) || (!is_dir && rule.matches_parent_dir(path)) {
-                ignored = !rule.include;
-            }
-        }
-        ignored
+    fn is_ignored_by_rules(&self, path: &Path, is_dir: bool, rules: &RgIgnoreRuleSet) -> bool {
+        rules.is_ignored(path, is_dir)
     }
 
     fn color_enabled(&self) -> bool {
         self.color == RgColorMode::Always
+    }
+}
+
+impl RgIgnoreRuleSet {
+    fn root(local: Vec<RgIgnoreRule>) -> Self {
+        let len = local.len();
+        Self {
+            parent: None,
+            local,
+            len,
+        }
+    }
+
+    fn child(parent: Arc<Self>, local: Vec<RgIgnoreRule>) -> Self {
+        let len = parent.len + local.len();
+        Self {
+            parent: Some(parent),
+            local,
+            len,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn is_ignored(&self, path: &Path, is_dir: bool) -> bool {
+        let mut ignored = false;
+        self.apply_matches(path, is_dir, &mut ignored);
+        ignored
+    }
+
+    fn apply_matches(&self, path: &Path, is_dir: bool, ignored: &mut bool) {
+        if let Some(parent) = &self.parent {
+            parent.apply_matches(path, is_dir, ignored);
+        }
+        for rule in &self.local {
+            if rule.matches(path, is_dir) || (!is_dir && rule.matches_parent_dir(path)) {
+                *ignored = !rule.include;
+            }
+        }
     }
 }
 
@@ -3046,10 +3107,27 @@ async fn load_rg_ignore_files(
 
     for ignore_file in opts.ignore_file_paths.clone() {
         let path = resolve_path(cwd, &ignore_file);
-        let content = read_text_file(fs, &path, "rg").await?;
+        let content = match read_rg_ignore_file(fs, &path).await {
+            Ok(content) => content,
+            Err(Error::Execution(message)) if message.starts_with("rg: ignore file") => {
+                return Err(ExecResult::err(format!("{message}\n"), 2));
+            }
+            Err(err) => {
+                return Err(ExecResult::err(
+                    format!("rg: {}: {err}\n", path.display()),
+                    1,
+                ));
+            }
+        };
+        let content = String::from_utf8_lossy(&content);
         let rules = parse_rg_ignore_rules(&content, cwd, opts.ignore_file_case_insensitive)
             .map_err(|e| ExecResult::err(format!("{}\n", e), 2))?;
-        opts.explicit_ignore_rules.extend(rules);
+        append_rg_ignore_rules_with_base(
+            &mut opts.explicit_ignore_rules,
+            rules,
+            opts.global_ignore_rules.len(),
+        )
+        .map_err(|e| ExecResult::err(format!("{}\n", e), 2))?;
     }
     Ok(())
 }
@@ -3189,6 +3267,7 @@ async fn load_local_ignore_rules(
     dir: &Path,
     root: &Path,
     opts: &RgOptions,
+    inherited_rule_count: usize,
     rules: &mut Vec<RgIgnoreRule>,
 ) -> Result<()> {
     if opts.no_ignore {
@@ -3196,38 +3275,42 @@ async fn load_local_ignore_rules(
     }
 
     if !opts.no_ignore_dot {
-        load_optional_ignore_file(
+        load_optional_ignore_file_with_rule_base(
             fs,
             &dir.join(".ignore"),
             dir,
             opts.ignore_file_case_insensitive,
+            inherited_rule_count,
             rules,
         )
         .await?;
-        load_optional_ignore_file(
+        load_optional_ignore_file_with_rule_base(
             fs,
             &dir.join(".rgignore"),
             dir,
             opts.ignore_file_case_insensitive,
+            inherited_rule_count,
             rules,
         )
         .await?;
     }
     if !opts.no_ignore_vcs && (!opts.require_git || has_git_dir_in_ancestors(fs, dir, root).await) {
-        load_optional_ignore_file(
+        load_optional_ignore_file_with_rule_base(
             fs,
             &dir.join(".gitignore"),
             dir,
             opts.ignore_file_case_insensitive,
+            inherited_rule_count,
             rules,
         )
         .await?;
         if !opts.no_ignore_exclude {
-            load_optional_ignore_file(
+            load_optional_ignore_file_with_rule_base(
                 fs,
                 &dir.join(".git/info/exclude"),
                 dir,
                 opts.ignore_file_case_insensitive,
+                inherited_rule_count,
                 rules,
             )
             .await?;
@@ -3253,7 +3336,7 @@ async fn load_parent_ignore_rules(
     ancestors.reverse();
 
     for ancestor in ancestors {
-        load_local_ignore_rules(fs, &ancestor, Path::new("/"), opts, rules).await?;
+        load_local_ignore_rules(fs, &ancestor, Path::new("/"), opts, 0, rules).await?;
     }
     Ok(())
 }
@@ -3281,19 +3364,58 @@ async fn load_optional_ignore_file(
     case_insensitive: bool,
     rules: &mut Vec<RgIgnoreRule>,
 ) -> Result<()> {
-    let Ok(content) = fs.read_file(path).await else {
-        return Ok(());
+    load_optional_ignore_file_with_rule_base(fs, path, base, case_insensitive, 0, rules).await
+}
+
+async fn load_optional_ignore_file_with_rule_base(
+    fs: &dyn crate::fs::FileSystem,
+    path: &Path,
+    base: &Path,
+    case_insensitive: bool,
+    inherited_rule_count: usize,
+    rules: &mut Vec<RgIgnoreRule>,
+) -> Result<()> {
+    let content = match read_rg_ignore_file(fs, path).await {
+        Ok(content) => content,
+        Err(Error::Execution(message)) if message.starts_with("rg: ignore file") => {
+            return Err(Error::Execution(message));
+        }
+        Err(_) => return Ok(()),
     };
-    if content.len() > RG_IGNORE_FILE_MAX_BYTES {
+    let content = String::from_utf8_lossy(&content);
+    let parsed = parse_rg_ignore_rules(&content, base, case_insensitive)?;
+    append_rg_ignore_rules_with_base(rules, parsed, inherited_rule_count)
+}
+
+async fn read_rg_ignore_file(fs: &dyn crate::fs::FileSystem, path: &Path) -> Result<Vec<u8>> {
+    if let Ok(meta) = fs.stat(path).await {
+        validate_rg_ignore_file_size(path, meta.size)?;
+    }
+    let content = fs.read_file(path).await?;
+    validate_rg_ignore_file_size(path, content.len() as u64)?;
+    Ok(content)
+}
+
+fn validate_rg_ignore_file_size(path: &Path, len: u64) -> Result<()> {
+    if len > RG_IGNORE_FILE_MAX_BYTES as u64 {
         return Err(Error::Execution(format!(
             "rg: ignore file too large (max {} bytes): {}",
             RG_IGNORE_FILE_MAX_BYTES,
             path.display()
         )));
     }
-    let content = String::from_utf8_lossy(&content);
-    let parsed = parse_rg_ignore_rules(&content, base, case_insensitive)?;
-    let Some(total) = rules.len().checked_add(parsed.len()) else {
+    Ok(())
+}
+
+fn append_rg_ignore_rules_with_base(
+    rules: &mut Vec<RgIgnoreRule>,
+    parsed: Vec<RgIgnoreRule>,
+    inherited_rule_count: usize,
+) -> Result<()> {
+    let Some(total) = inherited_rule_count
+        .checked_add(rules.len())
+        .and_then(|count| count.checked_add(parsed.len()))
+    else {
         return Err(Error::Execution("rg: too many ignore rules".to_string()));
     };
     if total > RG_IGNORE_RULES_MAX_TOTAL {
@@ -3369,7 +3491,7 @@ struct RgWalkItem {
     actual: PathBuf,
     actual_root: PathBuf,
     depth: usize,
-    rules: Arc<Vec<RgIgnoreRule>>,
+    rules: Arc<RgIgnoreRuleSet>,
     ancestors: Vec<PathBuf>,
     display_hint: RgDisplayHint,
 }
@@ -3444,16 +3566,28 @@ async fn collect_rg_files_recursive(
             actual: root.actual.clone(),
             actual_root: root.actual.clone(),
             depth: 0,
-            rules: Arc::new(rules),
+            rules: Arc::new(RgIgnoreRuleSet::root(rules)),
             ancestors: vec![root.actual.clone()],
             display_hint: root.display_hint,
         });
     }
 
     while let Some(item) = stack.pop() {
-        let mut rules = (*item.rules).clone();
-        let _ =
-            load_local_ignore_rules(fs, &item.actual, &item.actual_root, opts, &mut rules).await;
+        let mut local_rules = Vec::new();
+        let _ = load_local_ignore_rules(
+            fs,
+            &item.actual,
+            &item.actual_root,
+            opts,
+            item.rules.len(),
+            &mut local_rules,
+        )
+        .await;
+        let rules = if local_rules.is_empty() {
+            item.rules.clone()
+        } else {
+            Arc::new(RgIgnoreRuleSet::child(item.rules.clone(), local_rules))
+        };
         if let Ok(entries) = fs.read_dir(&item.actual).await {
             for entry in entries {
                 if !opts.hidden && is_hidden_name(&entry.name) {
@@ -3490,7 +3624,7 @@ async fn collect_rg_files_recursive(
                             actual: entry_actual_path,
                             actual_root: item.actual_root.clone(),
                             depth: entry_depth,
-                            rules: Arc::new(rules.clone()),
+                            rules: rules.clone(),
                             ancestors: child_ancestors,
                             display_hint: item.display_hint,
                         });
@@ -4085,26 +4219,29 @@ struct RgMultilineMatch<'a> {
     column: usize,
 }
 
-fn split_rg_lines(content: &str, crlf: bool, null_data: bool) -> Vec<RgLine<'_>> {
-    let mut lines = Vec::new();
+fn iter_rg_lines(content: &str, crlf: bool, null_data: bool) -> impl Iterator<Item = RgLine<'_>> {
     let mut offset = 0usize;
     let terminator = if null_data { '\0' } else { '\n' };
-    for raw in content.split_inclusive(terminator) {
+    content.split_inclusive(terminator).map(move |raw| {
+        let start_offset = offset;
+        offset += raw.len();
         let text = raw.strip_suffix(terminator).unwrap_or(raw);
         let match_text = if crlf {
             text.strip_suffix('\r').unwrap_or(text)
         } else {
             text
         };
-        lines.push(RgLine {
+        RgLine {
             text,
             match_text,
             raw,
-            start_offset: offset,
-        });
-        offset += raw.len();
-    }
-    lines
+            start_offset,
+        }
+    })
+}
+
+fn split_rg_lines(content: &str, crlf: bool, null_data: bool) -> Vec<RgLine<'_>> {
+    iter_rg_lines(content, crlf, null_data).collect()
 }
 
 fn rg_record_terminator(opts: &RgOptions) -> char {
@@ -5139,13 +5276,196 @@ impl Builtin for Rg {
             } else {
                 content
             };
-            let lines = split_rg_lines(content, opts.crlf, opts.null_data);
             let record_terminator = rg_record_terminator(&opts);
             json_bytes_searched += content.len();
             if !json_binary_search {
                 json_searches += 1;
             }
             stats.bytes_searched += content.len();
+
+            if opts.multiline
+                && !opts.invert_match
+                && !opts.stats
+                && !json_output
+                && (opts.quiet || opts.files_with_matches || opts.files_without_matches)
+            {
+                // THREAT[TM-DOS-RG-LINES]: multiline existence modes can decide
+                // from the whole buffer without materializing one `RgLine` per
+                // input record. Invert/stats modes still need line accounting.
+                let matched = regex.is_match(content);
+                let match_count = usize::from(matched);
+                if matched {
+                    stats.matches += 1;
+                    stats.matched_lines += 1;
+                    stats.files_with_matches += 1;
+                    if !opts.files_without_matches {
+                        any_match = true;
+                    }
+                }
+
+                if opts.quiet {
+                    if let Some(result) = rg_quiet_result(
+                        &opts,
+                        match_count,
+                        &mut any_match,
+                        &collected_inputs.stderr,
+                    ) {
+                        return Ok(result);
+                    }
+                    continue;
+                }
+                if opts.files_with_matches && matched {
+                    output.push_str(&color_path(
+                        filename,
+                        opts.color_enabled(),
+                        &opts.color_scheme,
+                    ));
+                    output.push(if opts.null || opts.null_data {
+                        '\0'
+                    } else {
+                        '\n'
+                    });
+                    continue;
+                }
+                if opts.files_without_matches {
+                    if !matched {
+                        any_match = true;
+                        output.push_str(&color_path(
+                            filename,
+                            opts.color_enabled(),
+                            &opts.color_scheme,
+                        ));
+                        output.push(if opts.null || opts.null_data {
+                            '\0'
+                        } else {
+                            '\n'
+                        });
+                    }
+                    continue;
+                }
+            }
+
+            let summary_only = !opts.multiline
+                && !json_output
+                && !opts.passthru
+                && !has_context
+                && (opts.quiet
+                    || opts.files_with_matches
+                    || opts.files_without_matches
+                    || opts.count_only
+                    || opts.count_matches);
+            if summary_only {
+                // THREAT[TM-DOS-RG-LINES]: summary/early-exit modes do not need
+                // random line access. Stream them to avoid one allocation per
+                // attacker-controlled input line before `-q`/`-l` can return.
+                for line in iter_rg_lines(content, opts.crlf, opts.null_data) {
+                    let matched = regex.is_match(line.match_text);
+                    let matched = if opts.invert_match { !matched } else { matched };
+
+                    if !matched {
+                        if opts.stop_on_nonmatch && match_count > 0 {
+                            break;
+                        }
+                        continue;
+                    }
+
+                    if let Some(max) = opts.max_count
+                        && match_count >= max
+                    {
+                        break;
+                    }
+
+                    match_count += 1;
+                    let matches_on_line = if opts.invert_match {
+                        if opts.count_only || opts.count_matches {
+                            1
+                        } else {
+                            0
+                        }
+                    } else {
+                        regex.count_matches(line.match_text)
+                    };
+                    if opts.count_matches && !opts.invert_match {
+                        count_value += matches_on_line;
+                    } else {
+                        count_value += 1;
+                    }
+                    stats.matches += matches_on_line;
+                    stats.matched_lines += 1;
+                    if !opts.files_without_matches {
+                        any_match = true;
+                    }
+
+                    if (opts.files_with_matches || opts.files_without_matches || opts.quiet)
+                        && !opts.stats
+                    {
+                        break;
+                    }
+                }
+
+                if match_count > 0 {
+                    stats.files_with_matches += 1;
+                }
+
+                if opts.quiet {
+                    if let Some(result) = rg_quiet_result(
+                        &opts,
+                        match_count,
+                        &mut any_match,
+                        &collected_inputs.stderr,
+                    ) {
+                        return Ok(result);
+                    }
+                    continue;
+                }
+                if opts.files_with_matches && match_count > 0 {
+                    output.push_str(&color_path(
+                        filename,
+                        opts.color_enabled(),
+                        &opts.color_scheme,
+                    ));
+                    output.push(if opts.null || opts.null_data {
+                        '\0'
+                    } else {
+                        '\n'
+                    });
+                    continue;
+                }
+                if opts.files_without_matches {
+                    if match_count == 0 {
+                        any_match = true;
+                        output.push_str(&color_path(
+                            filename,
+                            opts.color_enabled(),
+                            &opts.color_scheme,
+                        ));
+                        output.push(if opts.null || opts.null_data {
+                            '\0'
+                        } else {
+                            '\n'
+                        });
+                    }
+                    continue;
+                }
+                if opts.count_only || opts.count_matches {
+                    if count_value == 0 && !opts.include_zero {
+                        continue;
+                    }
+                    if show_filename {
+                        output.push_str(&color_path(
+                            filename,
+                            opts.color_enabled(),
+                            &opts.color_scheme,
+                        ));
+                        output.push(if opts.null { '\0' } else { ':' });
+                    }
+                    output.push_str(&count_value.to_string());
+                    output.push(record_terminator);
+                    continue;
+                }
+            }
+
+            let lines = split_rg_lines(content, opts.crlf, opts.null_data);
 
             if opts.multiline {
                 // Early-exit modes only need to know whether any match exists, so cap
@@ -6015,6 +6335,17 @@ impl Builtin for Rg {
                 }
             } else if opts.vimgrep && !opts.invert_match {
                 for &line_idx in &match_lines {
+                    if opts.only_matching
+                        && let Some(replacement) = &opts.replacement
+                        && regex.replacement_matches_exceed_cap(
+                            lines[line_idx].match_text,
+                            replacement.as_str(),
+                        )
+                    {
+                        output.push_str(&rg_replacement_cap_marker());
+                        output.push(record_terminator);
+                        continue;
+                    }
                     regex.for_each_match(lines[line_idx].match_text, |mat| {
                         write_rg_prefix(
                             &mut output,
@@ -6048,6 +6379,16 @@ impl Builtin for Rg {
                 }
             } else if opts.only_matching && !opts.invert_match {
                 for &line_idx in &match_lines {
+                    if let Some(replacement) = &opts.replacement
+                        && regex.replacement_matches_exceed_cap(
+                            lines[line_idx].match_text,
+                            replacement.as_str(),
+                        )
+                    {
+                        output.push_str(&rg_replacement_cap_marker());
+                        output.push(record_terminator);
+                        continue;
+                    }
                     regex.for_each_match(lines[line_idx].match_text, |mat| {
                         write_rg_prefix(
                             &mut output,
@@ -6194,9 +6535,66 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
+    fn rg_line_iterator_tracks_offsets_without_eager_collection() {
+        let mut lines = iter_rg_lines("a\nb\r\nc", true, false);
+
+        let first = lines.next().expect("first line");
+        assert_eq!(first.text, "a");
+        assert_eq!(first.match_text, "a");
+        assert_eq!(first.raw, "a\n");
+        assert_eq!(first.start_offset, 0);
+
+        let second = lines.next().expect("second line");
+        assert_eq!(second.text, "b\r");
+        assert_eq!(second.match_text, "b");
+        assert_eq!(second.raw, "b\r\n");
+        assert_eq!(second.start_offset, 2);
+
+        let third = lines.next().expect("third line");
+        assert_eq!(third.text, "c");
+        assert_eq!(third.match_text, "c");
+        assert_eq!(third.raw, "c");
+        assert_eq!(third.start_offset, 5);
+        assert!(lines.next().is_none());
+    }
+
+    #[test]
+    fn rg_line_iterator_honors_null_data_records() {
+        let lines: Vec<_> = iter_rg_lines("a\0b", false, true).collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].text, "a");
+        assert_eq!(lines[0].raw, "a\0");
+        assert_eq!(lines[0].start_offset, 0);
+        assert_eq!(lines[1].text, "b");
+        assert_eq!(lines[1].raw, "b");
+        assert_eq!(lines[1].start_offset, 2);
+    }
+
+    #[test]
     fn glob_brace_alternation_depth_limit_does_not_expand_nested_pattern() {
         let regex = glob_to_regex_with_depth("{a,b}", RG_GLOB_MAX_BRACE_DEPTH);
         assert_eq!(regex, r"^\{a,b\}$");
+    }
+
+    #[test]
+    fn rg_ignore_rule_set_preserves_parent_then_child_precedence() {
+        let parent = Arc::new(RgIgnoreRuleSet::root(vec![
+            RgIgnoreRule::parse("*.log", Path::new("/proj"), false)
+                .expect("parse")
+                .expect("rule"),
+        ]));
+        let child = RgIgnoreRuleSet::child(
+            parent,
+            vec![
+                RgIgnoreRule::parse("!keep.log", Path::new("/proj/sub"), false)
+                    .expect("parse")
+                    .expect("rule"),
+            ],
+        );
+
+        assert!(child.is_ignored(Path::new("/proj/sub/drop.log"), false));
+        assert!(!child.is_ignored(Path::new("/proj/sub/keep.log"), false));
+        assert_eq!(child.len(), 2);
     }
 
     #[test]
@@ -11548,6 +11946,40 @@ mod tests {
         );
     }
 
+    /// CI pins ripgrep to this version (see `RG_VERSION` in
+    /// `.github/workflows/ci.yml` and `scripts/install-ripgrep-ci.sh`). The
+    /// differential tests compare byte-for-byte against real ripgrep, whose
+    /// output, accepted `--colors` specs, and built-in file types vary across
+    /// releases, so they only run against the pinned version.
+    const PINNED_RG_VERSION: &str = "15.1.0";
+
+    fn real_rg_matches_pinned_version() -> bool {
+        let Ok(output) = std::process::Command::new("rg").arg("--version").output() else {
+            return false;
+        };
+        if !output.status.success() {
+            return false;
+        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .is_some_and(|line| line.contains(&format!("ripgrep {PINNED_RG_VERSION}")))
+    }
+
+    /// Returns `true` (and prints a skip notice) when the local `rg` is not the
+    /// pinned version, so differential tests can early-return instead of
+    /// emitting confusing byte-mismatch failures against an unexpected release.
+    fn skip_if_rg_version_mismatch(test: &str) -> bool {
+        if real_rg_matches_pinned_version() {
+            return false;
+        }
+        eprintln!(
+            "skipping {test}: differential tests require pinned ripgrep \
+             {PINNED_RG_VERSION} (install via scripts/install-ripgrep-ci.sh)"
+        );
+        true
+    }
+
     fn normalize_real_rg_temp_paths(output: &[u8], tempdir: &tempfile::TempDir) -> String {
         let mut stdout = String::from_utf8_lossy(output).into_owned();
         if let Ok(canonical) = std::fs::canonicalize(tempdir.path()) {
@@ -13183,6 +13615,71 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_rg_only_matching_replace_caps_amplified_output() {
+        let payload = "a".repeat(10_000);
+        let replacement = "x".repeat(2048);
+        let files: &[(&str, &[u8])] = &[("/big.txt", payload.as_bytes())];
+
+        for args in [
+            vec![
+                "--only-matching",
+                "--replace",
+                replacement.as_str(),
+                "a",
+                "/big.txt",
+            ],
+            vec![
+                "--vimgrep",
+                "--only-matching",
+                "--replace",
+                replacement.as_str(),
+                "a",
+                "/big.txt",
+            ],
+        ] {
+            let result = run_rg(&args, None, files).await;
+
+            assert_eq!(result.exit_code, 0);
+            assert!(
+                result.stdout.contains("replacement output capped"),
+                "expected cap marker, got: {:?}", // debug-ok: assert-failure message
+                &result.stdout[..result.stdout.len().min(200)]
+            );
+            assert!(
+                result.stdout.len() < 2 * RG_MAX_REPLACEMENT_OUTPUT_BYTES,
+                "only-matching replacement output bypassed the cap: {} bytes",
+                result.stdout.len()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rg_replace_caps_capture_amplified_output() {
+        let payload = "a".repeat(500_000);
+        let replacement = "$1$1$1$1";
+        let files: &[(&str, &[u8])] = &[("/big.txt", payload.as_bytes())];
+
+        let result = run_rg(
+            &["--replace", replacement, "(a{1000})", "/big.txt"],
+            None,
+            files,
+        )
+        .await;
+
+        assert_eq!(result.exit_code, 0);
+        assert!(
+            result.stdout.contains("replacement output capped"),
+            "expected cap marker, got: {:?}", // debug-ok: assert-failure message
+            &result.stdout[..result.stdout.len().min(200)]
+        );
+        assert!(
+            result.stdout.len() < 2 * RG_MAX_REPLACEMENT_OUTPUT_BYTES,
+            "capture replacement output bypassed the cap: {} bytes",
+            result.stdout.len()
+        );
+    }
+
     #[test]
     fn test_rg_only_matching_rejects_empty_pattern() {
         let args = vec![
@@ -13419,11 +13916,17 @@ mod tests {
 
     #[test]
     fn real_rg_binary_is_available_for_differential_tests() {
+        if skip_if_rg_version_mismatch("real_rg_binary_is_available_for_differential_tests") {
+            return;
+        }
         require_real_rg();
     }
 
     #[tokio::test]
     async fn diff_rg_matches_real_rg_cases() {
+        if skip_if_rg_version_mismatch("diff_rg_matches_real_rg_cases") {
+            return;
+        }
         for case in RG_DIFF_CASES {
             assert_rg_diff_case(case).await;
         }
@@ -13438,6 +13941,9 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn diff_rg_matches_real_rg_symlink_cases() {
+        if skip_if_rg_version_mismatch("diff_rg_matches_real_rg_symlink_cases") {
+            return;
+        }
         for case in RG_SYMLINK_DIFF_CASES {
             assert_rg_symlink_diff_case(case).await;
         }

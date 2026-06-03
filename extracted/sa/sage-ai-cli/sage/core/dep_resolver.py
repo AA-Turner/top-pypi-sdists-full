@@ -144,6 +144,7 @@ _REPLACE_PYTHON: dict[str, str | None] = {
     "openai-python": "openai",        # the real package is `openai`
     "anthropic-python": "anthropic",
     "stripe-python": "stripe",
+    "social-auth-app-python": None,   # invalid package
 }
 
 _REPLACE_NODE: dict[str, str | None] = {

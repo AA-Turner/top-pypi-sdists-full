@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2020-2021, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -45,25 +43,15 @@ _value:
 """
 
 
+import ipaddress
 import typing as t
 from collections.abc import Callable
 
 from ansible.errors import AnsibleFilterError
 from ansible.module_utils.common.text.converters import to_text
 
-from ansible_collections.community.dns.plugins.plugin_utils.ips import (
-    assert_requirements_present,
-)
-
-try:
-    import ipaddress
-except ImportError:  # pragma: no cover
-    # handled by assert_requirements_present
-    pass  # pragma: no cover
-
 
 def reverse_pointer(ip: t.Any) -> str:
-    assert_requirements_present("community.dns.reverse_pointer", "filter")
     if not isinstance(ip, (str, bytes)):
         raise AnsibleFilterError(
             "Input for community.dns.reverse_pointer must be a string"
@@ -71,7 +59,7 @@ def reverse_pointer(ip: t.Any) -> str:
     try:
         ipaddr = ipaddress.ip_address(to_text(ip))
     except Exception as e:
-        raise AnsibleFilterError(f"Cannot parse IP address: {e}")
+        raise AnsibleFilterError(f"Cannot parse IP address: {e}") from e
     res = ipaddr.reverse_pointer
     if not res.endswith("."):
         res += "."

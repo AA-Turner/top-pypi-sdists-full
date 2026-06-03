@@ -1,4 +1,4 @@
-from typing import TypedDict, Union, Required
+from typing import Required, TypedDict, Union
 
 
 class GroupAttributesSnapshot(TypedDict, total=False):

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: add_ldisk
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Create logical disk
 description:
    - Create logical disk on kaytus Server.

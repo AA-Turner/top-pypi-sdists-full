@@ -133,6 +133,10 @@ async fn live_instances_includes_http_registered_rows() {
     let row = gs.instance_json(&live[0]);
     assert_eq!(row["source"], "http");
     assert_eq!(row["mcp_url"], "http://remote.example:28765/mcp");
+    assert_eq!(
+        row["gateway"]["registration_refresh_mode"],
+        "http_ttl_heartbeat"
+    );
 }
 
 #[tokio::test]
@@ -184,6 +188,10 @@ async fn live_instances_includes_mdns_rows_and_http_wins_conflicts() {
     let row = gs.instance_json(&live[0]);
     assert_eq!(row["source"], "http");
     assert_eq!(row["mcp_url"], "http://remote.example:28765/mcp");
+    assert_eq!(
+        row["gateway"]["registration_refresh_mode"],
+        "http_ttl_heartbeat"
+    );
 }
 
 #[tokio::test]
@@ -289,6 +297,23 @@ async fn live_instances_merges_file_mdns_relay_and_http_in_priority_order() {
     assert_eq!(live[3].instance_id, http_id, "HTTP must shadow file/mDNS");
 
     let rows: Vec<_> = live.iter().map(|entry| gs.instance_json(entry)).collect();
+    assert_eq!(
+        rows[0]["gateway"]["registration_refresh_mode"],
+        "file_registry_heartbeat"
+    );
+    assert_eq!(
+        rows[1]["gateway"]["registration_refresh_mode"],
+        "mdns_discovery"
+    );
+    assert_eq!(
+        rows[2]["gateway"]["registration_refresh_mode"],
+        "relay_poll"
+    );
+    assert_eq!(
+        rows[3]["gateway"]["registration_refresh_mode"],
+        "http_ttl_heartbeat"
+    );
+
     let counts = crate::gateway::state::instance_source_counts(&rows);
     assert_eq!(counts["file"], 1);
     assert_eq!(counts["mdns"], 1);
@@ -458,6 +483,113 @@ fn test_entry_json_exposes_lifecycle_metadata_for_admin() {
         row["lifecycle"]["restart_command"],
         "rez-env dcc_mcp_maya -- maya-sidecar"
     );
+}
+
+#[test]
+fn test_entry_json_exposes_gateway_recovery_metadata() {
+    let mut entry = ServiceEntry::new("maya", "127.0.0.1", 28812).with_pid(4242);
+    entry
+        .metadata
+        .insert("gateway_runtime_mode".into(), "daemon-backed".into());
+    entry
+        .metadata
+        .insert("gateway_guardian_enabled".into(), "true".into());
+
+    let row = entry_to_json(&entry, Duration::from_secs(30), None);
+
+    assert_eq!(row["gateway"]["runtime_mode"], "daemon-backed");
+    assert_eq!(row["gateway"]["guardian_enabled"], true);
+    assert_eq!(row["gateway"]["recovery_driver"], "daemon_guardian");
+    assert_eq!(
+        row["gateway"]["registration_refresh_mode"],
+        "file_registry_heartbeat"
+    );
+
+    entry
+        .metadata
+        .insert("gateway_runtime_mode".into(), "embedded-fallback".into());
+    entry
+        .metadata
+        .insert("gateway_guardian_enabled".into(), "false".into());
+    let row = entry_to_json(&entry, Duration::from_secs(30), None);
+    assert_eq!(row["gateway"]["recovery_driver"], "embedded_election");
+}
+
+#[test]
+fn test_entry_json_exposes_dispatch_contract_for_sidecars() {
+    let mut entry = ServiceEntry::new("maya", "127.0.0.1", 28812).with_pid(4242);
+    entry.status = ServiceStatus::Available;
+    entry
+        .metadata
+        .insert("dcc_mcp_role".into(), "per-dcc-sidecar".into());
+    entry
+        .metadata
+        .insert("mcp_url".into(), "http://127.0.0.1:28812/mcp".into());
+    entry
+        .metadata
+        .insert("dispatch_status".into(), "ready".into());
+    entry
+        .metadata
+        .insert("dispatch_ready_at_unix".into(), "1800000000".into());
+    entry
+        .metadata
+        .insert("host_rpc_uri".into(), "commandport://127.0.0.1:6000".into());
+    entry
+        .metadata
+        .insert("host_rpc_scheme".into(), "commandport".into());
+
+    let row = entry_to_json(&entry, Duration::from_secs(30), None);
+
+    assert_eq!(row["dispatch"]["reported"], true);
+    assert_eq!(row["dispatch"]["status"], "ready");
+    assert_eq!(row["dispatch"]["ready"], true);
+    assert_eq!(row["dispatch"]["ready_at_unix"], "1800000000");
+    assert_eq!(
+        row["dispatch"]["host_rpc_uri"],
+        "commandport://127.0.0.1:6000"
+    );
+    assert_eq!(row["dispatch"]["host_rpc_scheme"], "commandport");
+}
+
+#[test]
+fn test_entry_json_distinguishes_registered_unavailable_sidecar() {
+    let mut entry = ServiceEntry::new("maya", "127.0.0.1", 28812).with_pid(4242);
+    entry.status = ServiceStatus::Booting;
+    entry
+        .metadata
+        .insert("dcc_mcp_role".into(), "per-dcc-sidecar".into());
+    entry
+        .metadata
+        .insert("mcp_url".into(), "http://127.0.0.1:28812/mcp".into());
+    entry
+        .metadata
+        .insert("dispatch_status".into(), "unavailable".into());
+    entry
+        .metadata
+        .insert("failure_stage".into(), "host-rpc-connect".into());
+    entry
+        .metadata
+        .insert("failure_reason".into(), "host-rpc connect failed".into());
+
+    let row = entry_to_json(&entry, Duration::from_secs(30), None);
+
+    assert_eq!(row["status"], "booting");
+    assert_eq!(row["dispatch"]["reported"], true);
+    assert_eq!(row["dispatch"]["status"], "unavailable");
+    assert_eq!(row["dispatch"]["ready"], false);
+    assert_eq!(row["dispatch"]["failure_stage"], "host-rpc-connect");
+    assert_eq!(row["dispatch"]["failure_reason"], "host-rpc connect failed");
+}
+
+#[test]
+fn test_entry_json_marks_dispatch_not_reported_for_in_process_servers() {
+    let entry = ServiceEntry::new("houdini", "127.0.0.1", 18812).with_pid(4242);
+
+    let row = entry_to_json(&entry, Duration::from_secs(30), None);
+
+    assert_eq!(row["dispatch"]["reported"], false);
+    assert_eq!(row["dispatch"]["status"], "not_reported");
+    assert!(row["dispatch"]["ready"].is_null());
 }
 
 #[tokio::test]
@@ -1010,6 +1142,89 @@ async fn test_read_alive_instances_filters_sentinel_and_self() {
             .iter()
             .any(|e| e.dcc_type == GATEWAY_SENTINEL_DCC_TYPE),
         "sentinel must never appear in read_alive_instances output",
+    );
+}
+
+#[tokio::test]
+async fn gateway_instances_resource_lists_many_dcc_rows_without_gateway_sentinel() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+
+    {
+        let r = registry.read().await;
+        let mut sentinel = ServiceEntry::new(GATEWAY_SENTINEL_DCC_TYPE, "127.0.0.1", 9765);
+        sentinel.version = Some(env!("CARGO_PKG_VERSION").into());
+        r.register(sentinel).unwrap();
+
+        for i in 0..10 {
+            r.register(ServiceEntry::new("maya", "127.0.0.1", 18000 + i))
+                .unwrap();
+            r.register(ServiceEntry::new("houdini", "127.0.0.1", 18100 + i))
+                .unwrap();
+        }
+    }
+
+    let gs = test_gateway_state_with_own(registry.clone(), "127.0.0.1", 9765);
+    let payload = crate::gateway::native_resources::instances::build_payload(
+        &gs,
+        &crate::gateway::native_resources::instances::Query::List {
+            include_stale: true,
+            include_dead: false,
+        },
+    )
+    .await
+    .expect("gateway://instances payload");
+
+    assert_eq!(payload["total"], 20);
+    assert_eq!(payload["by_source"]["file"], 20);
+    let rows = payload["instances"].as_array().expect("instances array");
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row["dcc_type"] == serde_json::json!("maya"))
+            .count(),
+        10
+    );
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row["dcc_type"] == serde_json::json!("houdini"))
+            .count(),
+        10
+    );
+    assert!(
+        rows.iter()
+            .all(|row| row["dcc_type"] != serde_json::json!(GATEWAY_SENTINEL_DCC_TYPE)),
+        "gateway://instances must expose only addressable DCC services"
+    );
+}
+
+#[tokio::test]
+async fn gateway_instances_resource_rejects_ambiguous_instance_prefix() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry = Arc::new(RwLock::new(FileRegistry::new(dir.path()).unwrap()));
+
+    {
+        let r = registry.read().await;
+        let mut first = ServiceEntry::new("maya", "127.0.0.1", 18812);
+        first.instance_id = uuid::Uuid::parse_str("abcdef0123456789abcdef0123456789").unwrap();
+        r.register(first).unwrap();
+        let mut second = ServiceEntry::new("houdini", "127.0.0.1", 18813);
+        second.instance_id = uuid::Uuid::parse_str("abcdef9923456789abcdef0123456789").unwrap();
+        r.register(second).unwrap();
+    }
+
+    let gs = test_gateway_state(registry.clone());
+    let err = crate::gateway::native_resources::instances::build_payload(
+        &gs,
+        &crate::gateway::native_resources::instances::Query::Single {
+            instance_id: "abcdef".to_string(),
+        },
+    )
+    .await
+    .expect_err("ambiguous resource prefix should be rejected");
+
+    assert!(
+        err.contains("multiple-instances-match"),
+        "ambiguous prefix should produce the same resolver error as REST routing: {err}"
     );
 }
 

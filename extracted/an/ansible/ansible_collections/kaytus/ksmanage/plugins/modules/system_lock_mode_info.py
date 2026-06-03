@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: system_lock_mode_info
 version_added: "2.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get system lock mode information
 description:
    - Get system lock mode information on kaytus Server.

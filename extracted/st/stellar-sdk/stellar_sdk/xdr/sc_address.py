@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -41,11 +40,11 @@ class SCAddress:
     def __init__(
         self,
         type: SCAddressType,
-        account_id: Optional[AccountID] = None,
-        contract_id: Optional[ContractID] = None,
-        muxed_account: Optional[MuxedEd25519Account] = None,
-        claimable_balance_id: Optional[ClaimableBalanceID] = None,
-        liquidity_pool_id: Optional[PoolID] = None,
+        account_id: AccountID | None = None,
+        contract_id: ContractID | None = None,
+        muxed_account: MuxedEd25519Account | None = None,
+        claimable_balance_id: ClaimableBalanceID | None = None,
+        liquidity_pool_id: PoolID | None = None,
     ) -> None:
         self.type = type
         self.account_id = account_id

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class TransactionSet:
     def __init__(
         self,
         previous_ledger_hash: Hash,
-        txs: List[TransactionEnvelope],
+        txs: list[TransactionEnvelope],
     ) -> None:
         _expect_max_length = 4294967295
         if txs and len(txs) > _expect_max_length:

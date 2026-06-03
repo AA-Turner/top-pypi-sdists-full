@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "GetStreamPaginatorName",
+    "IteratorPositionType",
     "KeyspacesStreamsServiceName",
     "ListStreamsPaginatorName",
     "OriginTypeType",
@@ -36,6 +37,7 @@ __all__ = (
 )
 
 GetStreamPaginatorName = Literal["get_stream"]
+IteratorPositionType = Literal["AT_TIP", "BEHIND_TIP"]
 ListStreamsPaginatorName = Literal["list_streams"]
 OriginTypeType = Literal["REPLICATION", "TTL", "USER"]
 ShardFilterTypeType = Literal["CHILD_SHARDS"]
@@ -369,6 +371,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -396,6 +399,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

@@ -6,9 +6,8 @@ use crate::basis::{
     KnotSource, KroneckerFactoredBasis, MaternBasisSpec, MaternIdentifiability,
     OneDimensionalBoundary, PenaltyCandidate, PenaltyInfo, PenaltySource, SpatialIdentifiability,
     SphericalSplineBasisSpec, SphericalSplineIdentifiability, ThinPlateBasisSpec,
-    apply_sum_to_zero_constraint,
-    build_bspline_basis_1d, build_duchon_basis, build_duchon_basis_log_kappa_derivatives,
-    build_duchon_basiswithworkspace, build_matern_basis,
+    apply_sum_to_zero_constraint, build_bspline_basis_1d, build_duchon_basis,
+    build_duchon_basis_log_kappa_derivatives, build_duchon_basiswithworkspace, build_matern_basis,
     build_matern_basis_log_kappa_aniso_derivatives, build_matern_basis_log_kappa_derivatives,
     build_matern_basiswithworkspace, build_matern_collocation_operator_matrices,
     build_spherical_spline_basis, build_thin_plate_basis,
@@ -221,6 +220,185 @@ pub fn parse_shape_constraint(raw: &str) -> Result<ShapeConstraint, String> {
     }
 }
 
+impl ShapeConstraint {
+    /// Canonical formula-DSL spelling, i.e. the text emitted into
+    /// `s(x, shape=...)`. Round-trips through [`parse_shape_constraint`].
+    pub fn dsl_str(&self) -> &'static str {
+        match self {
+            ShapeConstraint::None => "none",
+            ShapeConstraint::MonotoneIncreasing => "monotone_increasing",
+            ShapeConstraint::MonotoneDecreasing => "monotone_decreasing",
+            ShapeConstraint::Convex => "convex",
+            ShapeConstraint::Concave => "concave",
+        }
+    }
+}
+
+/// Smooth-term head keywords recognised by the formula DSL. A `shape=` option
+/// may be attached to any term whose head is one of these.
+const SMOOTH_HEAD_KEYWORDS: [&str; 11] = [
+    "s",
+    "smooth",
+    "te",
+    "tensor",
+    "thinplate",
+    "tps",
+    "duchon",
+    "matern",
+    "sphere",
+    "bs",
+    "bspline",
+];
+
+/// Rewrite smooth-term calls in `formula` so each named smooth carries a
+/// `shape=<kind>` option understood by the formula DSL.
+///
+/// `constraints` pairs the smooth-term text as it appears in the formula
+/// (e.g. `"s(x)"` or `"s(x, type=duchon, centers=8)"`) with a shape-constraint
+/// spelling accepted by [`parse_shape_constraint`]; comparison is exact after
+/// whitespace removal. A `"none"` constraint is a no-op. Referencing a term not
+/// present in the formula is an error.
+///
+/// This is the single source of truth for the `gamfit.fit(..., constraints=…)`
+/// rewrite — the Python wrapper only marshals the mapping across the FFI and
+/// holds no formula-parsing or alias-normalization logic of its own.
+pub fn apply_shape_constraints_to_formula(
+    formula: &str,
+    constraints: &[(String, String)],
+) -> Result<String, String> {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    if constraints.is_empty() {
+        return Ok(formula.to_string());
+    }
+    let strip_ws = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+
+    // Whitespace-stripped term text -> canonical shape spelling.
+    let mut wanted: BTreeMap<String, &'static str> = BTreeMap::new();
+    // Whitespace-stripped term text -> original key (for error labels).
+    let mut originals: BTreeMap<String, String> = BTreeMap::new();
+    for (key, kind_raw) in constraints {
+        let kind = parse_shape_constraint(kind_raw)?;
+        let nk = strip_ws(key);
+        originals.entry(nk.clone()).or_insert_with(|| key.clone());
+        if kind != ShapeConstraint::None {
+            wanted.insert(nk, kind.dsl_str());
+        }
+    }
+    if wanted.is_empty() {
+        return Ok(formula.to_string());
+    }
+
+    let chars: Vec<char> = formula.chars().collect();
+    let n = chars.len();
+    let is_ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+
+    let mut out = String::with_capacity(formula.len() + 32);
+    let mut matched: BTreeSet<String> = BTreeSet::new();
+    let mut i = 0usize;
+    while i < n {
+        // Locate the next smooth-term head (`<keyword> \s* (`) at or after `i`,
+        // respecting word boundaries so `abs(` never matches the `s(` head.
+        let mut head: Option<(usize, usize)> = None; // (head_start, paren_index)
+        let mut p = i;
+        while p < n {
+            let boundary = p == 0 || !is_ident(chars[p - 1]);
+            if boundary {
+                for kw in SMOOTH_HEAD_KEYWORDS.iter() {
+                    let klen = kw.chars().count();
+                    if p + klen > n || chars[p..p + klen].iter().collect::<String>() != **kw {
+                        continue;
+                    }
+                    let mut q = p + klen;
+                    while q < n && chars[q].is_whitespace() {
+                        q += 1;
+                    }
+                    if q < n && chars[q] == '(' {
+                        head = Some((p, q));
+                        break;
+                    }
+                }
+            }
+            if head.is_some() {
+                break;
+            }
+            p += 1;
+        }
+        let (head_start, paren_open) = match head {
+            Some(h) => h,
+            None => {
+                out.extend(chars[i..].iter());
+                break;
+            }
+        };
+        out.extend(chars[i..head_start].iter());
+
+        // Find the matching close paren, honoring nesting and string literals.
+        let body_start = paren_open + 1;
+        let mut depth = 1i32;
+        let mut j = body_start;
+        let mut in_str: Option<char> = None;
+        let mut closed = false;
+        while j < n {
+            let ch = chars[j];
+            if let Some(quote) = in_str {
+                if ch == quote {
+                    in_str = None;
+                }
+            } else if ch == '\'' || ch == '"' {
+                in_str = Some(ch);
+            } else if ch == '(' {
+                depth += 1;
+            } else if ch == ')' {
+                depth -= 1;
+                if depth == 0 {
+                    closed = true;
+                    break;
+                }
+            }
+            j += 1;
+        }
+        if !closed {
+            // Unbalanced — emit the remainder verbatim; the DSL parser will
+            // produce the canonical error.
+            out.extend(chars[head_start..].iter());
+            break;
+        }
+
+        let term_text: String = chars[head_start..=j].iter().collect();
+        let key_norm = strip_ws(&term_text);
+        match wanted.get(&key_norm) {
+            None => out.extend(chars[head_start..=j].iter()),
+            Some(kind) => {
+                let head_paren: String = chars[head_start..body_start].iter().collect();
+                let inside: String = chars[body_start..j].iter().collect();
+                let inside = inside.trim();
+                if inside.is_empty() {
+                    out.push_str(&format!("{head_paren}shape={kind})"));
+                } else {
+                    out.push_str(&format!("{head_paren}{inside}, shape={kind})"));
+                }
+                matched.insert(key_norm);
+            }
+        }
+        i = j + 1;
+    }
+
+    let mut missing: Vec<String> = wanted
+        .keys()
+        .filter(|k| !matched.contains(*k))
+        .map(|k| originals.get(k).cloned().unwrap_or_else(|| k.clone()))
+        .collect();
+    if !missing.is_empty() {
+        missing.sort();
+        return Err(format!(
+            "shape constraints referenced smooth term(s) not found in formula: {}",
+            missing.join(", ")
+        ));
+    }
+    Ok(out)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BySmoothKind {
     Numeric,
@@ -415,7 +593,6 @@ pub enum ByVariableSpec {
 /// `marginalspecs[i]` is the 1D B-spline setup for `feature_cols[i]`.
 /// The final penalty set is one Kronecker penalty per margin:
 /// `S_i = I ⊗ ... ⊗ S_marginal_i ⊗ ... ⊗ I`, plus optional global ridge.
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TensorMarginalSpec {
     BSpline(BSplineBasisSpec),
@@ -2578,6 +2755,27 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
     // contributes no outer optimization axis even when `scale_dims` is on —
     // "standardize the geometry, then learn the smoothness." Only an explicit
     // kernel length scale κ (the Matérn / hybrid path) is optimized here.
+    //
+    // ISOTROPIC Matérn (#519): the *default* `matern(x1, x2)` is isotropic
+    // (`scale_dims=false` → `aniso_log_scales = None`), so the only candidate
+    // hyper axis is the scalar κ. That single-axis "isotropic analytic"
+    // κ-search runs into the boundary valley described in #519 and diverges
+    // (final_grad_norm ~ 3e2 after 80 iters) on perfectly ordinary 2-D data.
+    // The kernel scale is already seeded from data geometry
+    // (`default_matern_length_scale`, intersected with the safe κ window), and
+    // for an isotropic kernel REML can recover all the needed smoothness
+    // through the penalty weight ρ alone. So we anchor κ at the data-derived
+    // seed and contribute NO κ axis: REML optimizes only ρ, which converges.
+    //
+    // ANISOTROPIC Matérn (`scale_dims=true` → `aniso_log_scales = Some`) keeps
+    // its per-axis kernel-η ARD: the d-dimensional ψ search is the *point* of
+    // the anisotropic request ("Matérn keeps its kernel-η ARD"), and it has
+    // more than the single brittle scalar axis to move along, so it is healthy.
+    if let Some(term) = spec.smooth_terms.get(term_idx)
+        && let SmoothBasisSpec::Matern { spec: matern, .. } = &term.basis
+    {
+        return matern.aniso_log_scales.is_some();
+    }
     get_spatial_length_scale(spec, term_idx).is_some()
 }
 
@@ -5793,7 +5991,9 @@ fn build_factor_smooth(
             ))
         })?;
         let start = level_idx * p;
-        dense.slice_mut(s![i, start..start + p]).assign(&base.row(i));
+        dense
+            .slice_mut(s![i, start..start + p])
+            .assign(&base.row(i));
     }
 
     // Penalties: replicate each marginal penalty into a block-diagonal
@@ -22176,6 +22376,12 @@ mod tests {
             data[[i, 1]] = x1;
         }
 
+        // ANISOTROPIC Matérn (`aniso_log_scales = Some`): the joint κ/η outer
+        // optimizer only engages for anisotropic spatial terms (#519 —
+        // isotropic Matérn anchors its data-seeded κ and learns smoothness
+        // through ρ alone, so it contributes no κ axis). This test exercises
+        // the joint-optimizer center-freezing path, so it must carry per-axis
+        // anisotropy scales to produce the κ/η hyper axes it is asserting on.
         let matern_term = |name: &str, length_scale: f64| SmoothTermSpec {
             name: name.to_string(),
             basis: SmoothBasisSpec::Matern {
@@ -22188,7 +22394,7 @@ mod tests {
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
-                    aniso_log_scales: None,
+                    aniso_log_scales: Some(vec![0.0, 0.0]),
                 },
                 input_scales: None,
             },
@@ -24087,6 +24293,11 @@ mod tests {
             data[[i, 1]] = x1;
         }
 
+        // ANISOTROPIC Matérn (`aniso_log_scales = Some`): the two-block
+        // exact-joint design cache memoizes per-block κ/η axes, which (#519)
+        // only exist for anisotropic spatial terms — isotropic Matérn anchors
+        // its data-seeded κ and contributes no κ axis. Per-axis scales give
+        // each block the log-κ/η hyper axes this cache test drives.
         let matern_term = |name: &str, length_scale: f64| SmoothTermSpec {
             name: name.to_string(),
             basis: SmoothBasisSpec::Matern {
@@ -24099,7 +24310,7 @@ mod tests {
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
-                    aniso_log_scales: None,
+                    aniso_log_scales: Some(vec![0.0, 0.0]),
                 },
                 input_scales: None,
             },
@@ -24219,22 +24430,30 @@ mod tests {
             data[[i, 1]] = x1;
         }
 
+        // Hybrid Duchon term with an explicit scalar `length_scale`: this is
+        // the canonical single-log-κ-axis spatial term (`dims_per_term == [1]`)
+        // that the single-block exact-joint design cache is built to memoize.
+        // (#519 — isotropic Matérn no longer contributes a κ axis; it anchors
+        // its data-seeded κ and learns smoothness through ρ alone, so it is the
+        // wrong fixture for a single-κ-axis cache test. Hybrid Duchon keeps the
+        // scalar κ axis without any of the brittle isotropic-Matérn κ-search.)
         let spec = TermCollectionSpec {
             linear_terms: vec![],
             random_effect_terms: vec![],
             smooth_terms: vec![SmoothTermSpec {
-                name: "matern".to_string(),
-                basis: SmoothBasisSpec::Matern {
+                name: "duchon_hybrid".to_string(),
+                basis: SmoothBasisSpec::Duchon {
                     feature_cols: vec![0, 1],
-                    spec: MaternBasisSpec {
+                    spec: DuchonBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
-                        length_scale: 0.9,
-                        nu: MaternNu::FiveHalves,
-                        include_intercept: false,
-                        double_penalty: true,
-                        identifiability: MaternIdentifiability::CenterSumToZero,
+                        length_scale: Some(0.9),
+                        power: 1.0,
+                        nullspace_order: DuchonNullspaceOrder::Linear,
+                        identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
+                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        boundary: OneDimensionalBoundary::Open,
                     },
                     input_scales: None,
                 },

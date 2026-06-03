@@ -10,6 +10,7 @@ from statsig_python_core import (
     Statsig,
     DataStoreResponse,
     DataStoreBytesResponse,
+    DataStoreGetBytesRequest,
 )
 from pytest_httpserver import HTTPServer
 from utils import get_test_data_resource, get_test_data_resource_bytes
@@ -21,6 +22,7 @@ json_data = json.loads(dcs_content)
 eval_proj_protobuf = get_test_data_resource_bytes("eval_proj_dcs.pb.br")
 
 del json_data["checksum"]
+NO_UPDATE_BYTES_RESPONSE = json.dumps({"has_updates": False}).encode()
 
 updated_dcs_json_data = json_data.copy()
 if "time" in updated_dcs_json_data:
@@ -80,10 +82,14 @@ class MockBytesDataStore(DataStore):
         self.test_param = test_param
         self.init_called = False
         self.content_set = None
+        self.stored_time = 1767981029384
+        self.stored_checksum = "8506699639233708000"
         self.get_called_count = 0
         self.get_bytes_called_count = 0
+        self.get_bytes_requests = []
         self.set_called_count = 0
         self.set_bytes_called_count = 0
+        self.returned_no_update = False
         self.should_poll = False
         self.initialize_fn = self.initialize
         self.shutdown_fn = self.shutdown
@@ -108,13 +114,34 @@ class MockBytesDataStore(DataStore):
         self.set_called_count += 1
         self._log(f"Setting value for key via string path: {key}")
 
-    def get_bytes(self, key: str) -> Optional[DataStoreBytesResponse]:
+    def get_bytes(
+        self,
+        key: str,
+        request: Optional[DataStoreGetBytesRequest] = None,
+    ) -> Optional[DataStoreBytesResponse]:
         self._log(f"Getting bytes for key: {key}")
         self.get_bytes_called_count += 1
-        return DataStoreBytesResponse(result=eval_proj_protobuf, time=1234567890)
+        self.get_bytes_requests.append(request)
+        if request is not None and request.checksum is not None and request.checksum == self.stored_checksum:
+            self.returned_no_update = True
+            return DataStoreBytesResponse(
+                result=NO_UPDATE_BYTES_RESPONSE,
+                time=request.since_time,
+                checksum=request.checksum,
+                has_updates=False,
+            )
+        return DataStoreBytesResponse(result=eval_proj_protobuf, time=1234567890, checksum=self.stored_checksum)
 
-    def set_bytes(self, key: str, value: bytes, time: Optional[int] = None):
+    def set_bytes(
+        self,
+        key: str,
+        value: bytes,
+        time: Optional[int] = None,
+        checksum: Optional[str] = None,
+    ):
         self.content_set = value
+        self.stored_time = time
+        self.stored_checksum = checksum
         self.set_bytes_called_count += 1
         self._log(f"Setting bytes for key: {key}")
 
@@ -240,6 +267,63 @@ def test_data_store_usage_get_bytes(statsig_bytes_setup):
     assert data_store.get_bytes_called_count >= 1
     assert data_store.get_called_count == 0
     assert data_store.set_bytes_called_count > 0
+
+
+def test_data_store_usage_get_bytes_request_has_since_time_after_initial_poll(statsig_bytes_setup):
+    statsig, data_store, user = statsig_bytes_setup
+    data_store.should_poll = True
+    statsig.initialize().wait()
+
+    gate = statsig.get_feature_gate(user, "test_public")
+    assert gate.details.reason == "Adapter(DataStore):Recognized"
+
+    for _ in range(100):
+        if data_store.get_bytes_called_count >= 2:
+            break
+        sleep(0.05)
+
+    assert data_store.get_bytes_called_count >= 2
+
+    first_request = data_store.get_bytes_requests[0]
+    second_request = data_store.get_bytes_requests[1]
+
+    assert isinstance(first_request, DataStoreGetBytesRequest)
+    assert first_request.since_time is None
+    assert first_request.checksum is None
+    assert isinstance(second_request, DataStoreGetBytesRequest)
+    assert second_request.since_time is not None
+
+
+def test_data_store_usage_get_bytes_request_checksum_match_returns_no_update(statsig_bytes_setup):
+    statsig, data_store, user = statsig_bytes_setup
+    data_store.should_poll = True
+    statsig.initialize().wait()
+
+    gate = statsig.get_feature_gate(user, "test_public")
+    assert gate.details.reason == "Adapter(DataStore):Recognized"
+
+    for _ in range(100):
+        if data_store.get_bytes_called_count >= 2:
+            break
+        sleep(0.05)
+
+    assert data_store.get_bytes_called_count >= 2
+    assert data_store.returned_no_update
+
+    request_with_checksum = next(
+        request
+        for request in data_store.get_bytes_requests
+        if request is not None and request.checksum is not None
+    )
+    assert request_with_checksum.checksum == data_store.stored_checksum
+    assert request_with_checksum.since_time == data_store.stored_time
+
+    # no second write should occur when server responds with {"has_updates": false}
+    for _ in range(100):
+        if data_store.get_bytes_called_count > 2:
+            break
+        sleep(0.05)
+
 
 
 def test_data_store_usage_set_bytes(statsig_bytes_setup):

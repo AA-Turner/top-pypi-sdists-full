@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_network_bond
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set network bond
 description:
    - Set network bond on kaytus Server.
@@ -28,11 +28,13 @@ options:
     interface:
         description:
             - Interface name.
+            - The M6 model does not support I(both).
         choices: ['shared', 'dedicated', 'both']
         type: str
     auto_config:
         description:
             - Enable this option to configure the interfaces in service configuration automatically.
+            - Only the M5 model supports this parameter.
         choices: ['enable', 'disable']
         type: str
 extends_documentation_fragment:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -58,11 +57,11 @@ class LedgerCloseMetaV2:
         ext: LedgerCloseMetaExt,
         ledger_header: LedgerHeaderHistoryEntry,
         tx_set: GeneralizedTransactionSet,
-        tx_processing: List[TransactionResultMetaV1],
-        upgrades_processing: List[UpgradeEntryMeta],
-        scp_info: List[SCPHistoryEntry],
+        tx_processing: list[TransactionResultMetaV1],
+        upgrades_processing: list[UpgradeEntryMeta],
+        scp_info: list[SCPHistoryEntry],
         total_byte_size_of_live_soroban_state: Uint64,
-        evicted_keys: List[LedgerKey],
+        evicted_keys: list[LedgerKey],
     ) -> None:
         _expect_max_length = 4294967295
         if tx_processing and len(tx_processing) > _expect_max_length:

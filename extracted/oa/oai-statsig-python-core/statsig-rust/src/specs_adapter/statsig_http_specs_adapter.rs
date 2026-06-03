@@ -410,6 +410,7 @@ impl StatsigHttpSpecsAdapter {
             source: SpecsSource::Network,
             received_at: Utc::now().timestamp_millis() as u64,
             source_api: Some(resp.loggable_api),
+            has_updates: None,
         };
 
         self.ops_stats.add_marker(

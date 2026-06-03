@@ -1,4 +1,4 @@
-# Generated from french.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from french.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class FrenchStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from french.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from french.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "y", "à", "â", "è", "é", "ê", "ë", "î", "ï", "ô", "ù", "û"}
@@ -37,11 +37,8 @@ class FrenchStemmer(BaseStemmer):
             return False
         self.cursor += 1
         self.ket = self.cursor
-        try:
-            if self.cursor < self.limit:
-                raise lab0()
+        if self.cursor >= self.limit:
             return False
-        except lab0: pass
         self.slice_del()
         return True
 

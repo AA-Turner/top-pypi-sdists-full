@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: session_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get online session information
 description:
    - Get online session information on kaytus Server.

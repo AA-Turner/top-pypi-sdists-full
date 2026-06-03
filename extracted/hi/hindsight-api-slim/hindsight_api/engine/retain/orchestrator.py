@@ -402,6 +402,8 @@ async def retain_batch(
     outbox_callback: RetainOutboxCallback | None = None,
     outbox_callback_factory: RetainOutboxCallbackFactory | None = None,
     db_semaphore: "asyncio.Semaphore | None" = None,
+    document_body_override: str | None = None,
+    chunk_index_offset: int = 0,
 ) -> tuple[list[list[str]], TokenUsage, int | None]:
     """
     Process a batch of content through the retain pipeline.
@@ -409,6 +411,14 @@ async def retain_batch(
     Supports delta retain: when upserting a document that already has chunks,
     only re-processes chunks whose content has changed. Unchanged chunks keep
     their existing facts, entities, and links.
+
+    ``chunk_index_offset`` shifts the chunk_index (and therefore the derived
+    ``chunk_id = {bank}_{doc}_{index}``) of every chunk this call stores. The
+    in-process splitter slices an oversized single item into several
+    sub-batches that all share one document_id and run sequentially; without
+    a per-document offset each sub-batch would restart chunk_index at 0, so
+    their chunk_ids collide and later sub-batches overwrite earlier chunks —
+    leaving only one sub-batch's worth of chunks/memories behind (issue #1888).
 
     Returns a three-tuple of:
       * per-content-item unit ID lists
@@ -480,6 +490,8 @@ async def retain_batch(
                     outbox_callback=group_outbox_callback,
                     outbox_callback_factory=outbox_callback_factory,
                     db_semaphore=db_semaphore,
+                    document_body_override=document_body_override,
+                    chunk_index_offset=chunk_index_offset,
                 )
                 for group_idx, orig_idx in enumerate(original_indices[doc_key]):
                     if group_idx < len(group_ids):
@@ -621,6 +633,7 @@ async def retain_batch(
             schema,
             outbox_callback,
             db_semaphore,
+            document_body_override=document_body_override,
         )
         if delta_result is not None:
             return delta_result
@@ -677,6 +690,8 @@ async def retain_batch(
         schema=schema,
         outbox_callback=outbox_callback,
         db_semaphore=db_semaphore,
+        document_body_override=document_body_override,
+        chunk_index_offset=chunk_index_offset,
     )
 
 
@@ -814,6 +829,8 @@ async def _streaming_retain_batch(
     schema: str | None = None,
     outbox_callback: Callable[["asyncpg.Connection"], Awaitable[None]] | None = None,
     db_semaphore: "asyncio.Semaphore | None" = None,
+    document_body_override: str | None = None,
+    chunk_index_offset: int = 0,
 ) -> tuple[list[list[str]], TokenUsage]:
     """
     Process a large document in streaming mini-batches to bound memory usage.
@@ -847,7 +864,15 @@ async def _streaming_retain_batch(
     # document exists with a matching content_hash and has committed chunks,
     # the producer can skip already-extracted chunks to avoid duplicate work.
     existing_chunk_hashes: set[str] = set()
-    combined_content = "\n".join([c.get("content", "") for c in contents_dicts])
+    # When the caller is processing a sub-batch sliced out of an oversized
+    # item (see _split_contents_into_sub_batches), document_body_override
+    # carries the full original document body. Use it for the doc-row write
+    # so documents.original_text stores the complete payload, not just this
+    # slice (issue #1838).
+    if document_body_override is not None:
+        combined_content = document_body_override
+    else:
+        combined_content = "\n".join([c.get("content", "") for c in contents_dicts])
     # Memory: contents_dicts content strings are now captured in combined_content.
     # Clear them from the dicts to release the per-item copies (can be multi-MB each).
     for d in contents_dicts:
@@ -1027,14 +1052,20 @@ async def _streaming_retain_batch(
             # Adjust chunk indices to use the original global position (global_idx)
             # so that chunk_id = {bank}_{doc}_{chunk_index} is deterministic regardless
             # of task completion order. content_index is batch-relative for result grouping.
+            #
+            # chunk_index_offset continues the document's chunk_index sequence
+            # when this call is one of several sequential sub-batches sliced
+            # from a single oversized item sharing one document_id — without it
+            # each sub-batch restarts at 0 and their chunk_ids collide (#1888).
+            doc_chunk_index = global_idx + chunk_index_offset
             for fact in extracted:
                 fact.content_index = content_idx_in_batch
                 if fact.chunk_index is not None:
-                    fact.chunk_index = global_idx
+                    fact.chunk_index = doc_chunk_index
             for pf in processed:
                 pf.content_index = content_idx_in_batch
             for cm in chunk_meta:
-                cm.chunk_index = global_idx
+                cm.chunk_index = doc_chunk_index
 
             batch_contents.append(content)
             batch_extracted.extend(extracted)
@@ -1490,6 +1521,8 @@ async def _try_delta_retain(
     schema,
     outbox_callback,
     db_semaphore: "asyncio.Semaphore | None" = None,
+    *,
+    document_body_override: str | None = None,
 ) -> tuple[list[list[str]], TokenUsage, int | None] | None:
     """
     Attempt delta retain for a document upsert. Returns result tuple if delta
@@ -1575,6 +1608,7 @@ async def _try_delta_retain(
             log_buffer,
             start_time,
             outbox_callback,
+            document_body_override=document_body_override,
         )
 
     # Build content items for only the changed/new chunks
@@ -1591,6 +1625,7 @@ async def _try_delta_retain(
             log_buffer,
             start_time,
             outbox_callback,
+            document_body_override=document_body_override,
         )
 
     # Extract facts and generate embeddings (shared pipeline)
@@ -1650,7 +1685,13 @@ async def _try_delta_retain(
 
                 # Update document metadata (no delete)
                 step_start = time.time()
-                combined_content = "\n".join([c.get("content", "") for c in contents_dicts])
+                # When this sub-batch is one slice of an oversized item
+                # split across multiple sub-batches, store the full body
+                # (issue #1838) instead of just the slice.
+                if document_body_override is not None:
+                    combined_content = document_body_override
+                else:
+                    combined_content = "\n".join([c.get("content", "") for c in contents_dicts])
                 retain_params, merged_tags = _build_retain_params(contents_dicts, document_tags)
                 await fact_storage.upsert_document_metadata(
                     conn,
@@ -1775,6 +1816,8 @@ async def _delta_metadata_only(
     log_buffer,
     start_time,
     outbox_callback,
+    *,
+    document_body_override: str | None = None,
 ):
     """Handle the case where no chunks changed — just update document metadata and tags."""
     async with acquire_with_retry(pool) as conn:
@@ -1785,7 +1828,12 @@ async def _delta_metadata_only(
                 document_id,
                 bank_id,
             )
-            combined_content = "\n".join([c.get("content", "") for c in contents_dicts])
+            # When this sub-batch is a slice of an oversized item, write the
+            # full original body (issue #1838) instead of just the slice.
+            if document_body_override is not None:
+                combined_content = document_body_override
+            else:
+                combined_content = "\n".join([c.get("content", "") for c in contents_dicts])
             retain_params, merged_tags = _build_retain_params(contents_dicts, document_tags)
             await fact_storage.upsert_document_metadata(
                 conn,

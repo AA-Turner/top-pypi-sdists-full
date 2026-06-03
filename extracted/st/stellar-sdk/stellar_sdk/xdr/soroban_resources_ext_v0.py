@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -29,7 +28,7 @@ class SorobanResourcesExtV0:
 
     def __init__(
         self,
-        archived_soroban_entries: List[Uint32],
+        archived_soroban_entries: list[Uint32],
     ) -> None:
         _expect_max_length = 4294967295
         if (

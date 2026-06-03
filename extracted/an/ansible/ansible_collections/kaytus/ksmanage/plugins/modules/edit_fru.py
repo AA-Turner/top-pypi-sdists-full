@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_fru
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set fru settings
 description:
    - Set fru settings on kaytus Server.

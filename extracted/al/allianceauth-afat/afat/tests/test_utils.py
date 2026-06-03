@@ -143,7 +143,7 @@ class TestGetOrCreateCharacter(BaseTestCase):
     """
 
     @patch("afat.utils.esi", new=MagicMock())
-    @patch("afat.utils.esi_handler.result")
+    @patch("afat.utils.ESIHandler.result")
     def test_returns_None_when_name_resolution_returns_no_characters(self, mock_result):
         """
         Test that the function returns None when name resolution returns no characters
@@ -161,7 +161,7 @@ class TestGetOrCreateCharacter(BaseTestCase):
         self.assertIsNone(result)
 
     @patch("afat.utils.esi", new=MagicMock())
-    @patch("afat.utils.esi_handler.result")
+    @patch("afat.utils.ESIHandler.result")
     @patch("afat.utils.EveCharacter.objects.filter")
     def test_returns_existing_character_when_found_by_name(
         self, mock_filter, mock_result
@@ -294,7 +294,7 @@ class TestGetOrCreateCharacter(BaseTestCase):
         mock_create_alliance.assert_called_once_with(alliance_id=44444)
 
     @patch("afat.utils.esi", new=MagicMock())
-    @patch("afat.utils.esi_handler.result")
+    @patch("afat.utils.ESIHandler.result")
     def test_returns_none_when_character_not_found_by_name(self, mock_result):
         """
         Test that the function returns None when character not found by name

@@ -42,3 +42,21 @@ def test_get_universal_system_prompt_includes_windows_prompt_on_windows(
     assert "Use: backslashes (\\\\) for paths" in prompt
     assert "Check command availability with: `where command` (Windows)" in prompt
     assert "Script shebang: Not applicable on Windows" in prompt
+
+
+def test_cli_md_investigate_permits_artifact_writes() -> None:
+    """Investigate branch must not block write_file for explicitly-requested output files.
+
+    Regression for: comprehension test cases asking "write to ANSWER.md" were
+    silently blocked because "Do not edit files" was too broad.
+    """
+    import pathlib
+    cli_md = (pathlib.Path(__file__).parent.parent / "drydock" / "core" / "prompts" / "cli.md").read_text()
+    # Must allow writing named output artifacts in investigate mode
+    assert "write your answer to" in cli_md or "named output file" in cli_md, (
+        "cli.md investigate branch must permit writing explicit output artifacts"
+    )
+    # Must not have the old blanket ban
+    assert "Do not edit files." not in cli_md, (
+        "cli.md must not blanket-ban all file edits in investigate mode"
+    )

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_power_budget
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set power budget information
 description:
    - Set power budget information on kaytus Server.

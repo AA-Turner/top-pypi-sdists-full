@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_smtp_com
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set SMTP information
 description:
    - Set SMTP com information on kaytus Server.

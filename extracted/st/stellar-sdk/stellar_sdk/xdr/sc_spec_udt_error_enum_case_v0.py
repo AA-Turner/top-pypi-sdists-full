@@ -8,7 +8,7 @@ import json
 from xdrlib3 import Packer, Unpacker
 
 from .base import DEFAULT_XDR_MAX_DEPTH, String
-from .constants import *
+from .constants import SC_SPEC_DOC_LIMIT
 from .uint32 import Uint32
 
 __all__ = ["SCSpecUDTErrorEnumCaseV0"]

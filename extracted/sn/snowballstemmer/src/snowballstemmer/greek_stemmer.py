@@ -1,4 +1,4 @@
-# Generated from greek.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from greek.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class GreekStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from greek.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from greek.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"α", "ε", "η", "ι", "ο", "υ", "ω"}
@@ -15,9 +15,6 @@ class GreekStemmer(BaseStemmer):
     g_v2 = {"α", "ε", "η", "ι", "ο", "ω"}
 
     B_test1 = False
-
-    def __r_has_min_length(self):
-        return len(self.current) >= 3
 
     def __r_tolower(self):
         while True:
@@ -823,7 +820,7 @@ class GreekStemmer(BaseStemmer):
         v_1 = self.limit - self.cursor
         self.__r_tolower()
         self.cursor = self.limit - v_1
-        if not self.__r_has_min_length():
+        if len(self.current) < 3:
             return False
         self.B_test1 = True
         v_2 = self.limit - self.cursor

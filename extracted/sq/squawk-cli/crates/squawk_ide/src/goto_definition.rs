@@ -670,6 +670,248 @@ cross join ((((select u$0.n * 10 as val)))) x;
     }
 
     #[test]
+    fn goto_lateral_cte_ref_after_lateral_not_found() {
+        // c is defined after the lateral it isn't visible to the subquery
+        // Query 1 ERROR at Line 10: : ERROR:  missing FROM-clause entry for table "c"
+        // LINE 10:     where d.id = c.id
+        //                           ^
+        goto_not_found(
+            "
+with
+  d as (select 1 id, 2 amount),
+  c as (select 2 id)
+select r.amount
+from
+  d,
+  lateral (
+    select d.amount
+    from d
+    where d.id = c$0.id
+    limit 1
+  ) r,
+  c;
+",
+        );
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_not_found() {
+        // b is defined after a, so a can't reference it in a non-recursive WITH
+        // ERROR:  relation "b" does not exist
+        goto_not_found(
+            "
+  with
+    a as (select * from b$0),
+    b as (select 1 x)
+  select * from a;
+",
+        );
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored() {
+        assert_snapshot!(goto("
+create table b(c int);
+with
+  a as (select c$0 from b),
+  b as (select 1 c)
+select c from a;
+"), @"
+          ╭▸ 
+        2 │ create table b(c int);
+          │                ─ 2. destination
+        3 │ with
+        4 │   a as (select c from b),
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored_inside_table_query() {
+        assert_snapshot!(goto("
+create table b(c int);
+with
+  a as (table b),
+  b as (select 1 c)
+select c$0 from a;
+"), @"
+          ╭▸ 
+        2 │ create table b(c int);
+          │                ─ 2. destination
+          ‡
+        6 │ select c from a;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored_inside_create_table_as_star() {
+        assert_snapshot!(goto("
+create table b(c int);
+create table ct as
+  with
+    a as (select * from b),
+    b as (select 1 c)
+  select * from a;
+select c$0 from ct;
+"), @"
+          ╭▸ 
+        2 │ create table b(c int);
+          │                ─ 2. destination
+          ‡
+        8 │ select c from ct;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored_inside_create_table_as_table() {
+        assert_snapshot!(goto("
+create table b(c int);
+create table made as
+  with
+    a as (table b),
+    b as (select 1 c)
+  table a;
+select c$0 from made;
+"), @"
+          ╭▸ 
+        2 │ create table b(c int);
+          │                ─ 2. destination
+          ‡
+        8 │ select c from made;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_star_over_subquery_from_item() {
+        assert_snapshot!(goto("
+create table t(c int);
+with
+  a as (select * from (select c from t))
+select c$0 from a;
+"), @"
+          ╭▸ 
+        4 │   a as (select * from (select c from t))
+          │                               ─ 2. destination
+        5 │ select c from a;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_outer_cte_visible_inside_inner_with() {
+        assert_snapshot!(goto("
+with outer_cte as (select 1 c)
+select * from (
+  with inner_cte as (select 2 d)
+  select c$0 from outer_cte
+) s;
+"), @"
+          ╭▸ 
+        2 │ with outer_cte as (select 1 c)
+          │                             ─ 2. destination
+          ‡
+        5 │   select c from outer_cte
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_inner_cte_forward_ref_falls_back_to_outer_cte() {
+        assert_snapshot!(goto("
+with t as (select 1 c)
+select * from (
+  with
+    x as (select c$0 from t),
+    t as (select 2 c)
+  select c from x
+) s;
+"), @"
+          ╭▸ 
+        2 │ with t as (select 1 c)
+          │                     ─ 2. destination
+          ‡
+        5 │     x as (select c from t),
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_recursive_inner_cte_forward_ref_shadows_outer_cte() {
+        assert_snapshot!(goto("
+with t as (select 1 c)
+select * from (
+  with recursive
+    x as (select c$0 from t),
+    t as (select 2 c)
+  select c from x
+) s;
+"), @"
+          ╭▸ 
+        5 │     x as (select c from t),
+          │                  ─ 1. source
+        6 │     t as (select 2 c)
+          ╰╴                   ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored_for_qualified_star() {
+        assert_snapshot!(goto("
+create table b(c int);
+with
+  a as (select b.* from b),
+  b as (select 1 c)
+select c$0 from a;
+"), @"
+          ╭▸ 
+        2 │ create table b(c int);
+          │                ─ 2. destination
+          ‡
+        6 │ select c from a;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored_for_star_column_count() {
+        assert_snapshot!(goto("
+create table b(x int, yy int);
+with
+  a(x, yy) as (select *, 2 y, 3 z from b),
+  b as (select 1 only_col)
+select y$0 from a;
+"), @"
+          ╭▸ 
+        4 │   a(x, yy) as (select *, 2 y, 3 z from b),
+          │                            ─ 2. destination
+        5 │   b as (select 1 only_col)
+        6 │ select y from a;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_forward_ref_ignored_inside_subquery_table() {
+        assert_snapshot!(goto("
+create table b(c int);
+with
+  a as (select * from (table b) q),
+  b as (select 1 c)
+select c$0 from a;
+"), @"
+          ╭▸ 
+        2 │ create table b(c int);
+          │                ─ 2. destination
+          ‡
+        6 │ select c from a;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_drop_sequence() {
         assert_snapshot!(goto("
 create sequence s;
@@ -2147,6 +2389,49 @@ select a$0 from t;
     }
 
     #[test]
+    fn goto_view_select_star_column_gap() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create view v as select * from t;
+select a$0 from v;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create view v as select * from t;
+        4 │ select a from v;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_view_table_query_column_gap() {
+        assert_snapshot!(goto("
+create table t(a int);
+create view v as table t;
+select a$0 from v;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ create view v as table t;
+        4 │ select a from v;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_values_partial_alias_remaining_column_gap() {
+        assert_snapshot!(goto("
+select column2$0 from (values (1, 2)) v(a);
+"), @"
+          ╭▸ 
+        2 │ select column2 from (values (1, 2)) v(a);
+          ╰╴             ─ 1. source        ─ 2. destination
+        ");
+    }
+
+    #[test]
     fn goto_create_table_inherits() {
         assert_snapshot!(goto("
 create table bar(a int);
@@ -2804,6 +3089,22 @@ select a from t$0;
           │                 ─ 2. destination
         3 │ select a from t;
           ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_into_select_star() {
+        assert_snapshot!(goto("
+create table t(a bigint);
+select * into u from t;
+select a$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a bigint);
+          │                ─ 2. destination
+        3 │ select * into u from t;
+        4 │ select a from u;
+          ╰╴       ─ 1. source
         ");
     }
 
@@ -4877,6 +5178,62 @@ group by a$0 + 1
     }
 
     #[test]
+    fn goto_update_alias_hides_table_name() {
+        goto_not_found(
+            "
+create table t(a int);
+update t as u set a = t$0.a;
+",
+        );
+    }
+
+    #[test]
+    fn goto_insert_alias_hides_table_name() {
+        goto_not_found(
+            "
+create table t(a int);
+insert into t as u values (1) returning t$0.a;
+",
+        );
+    }
+
+    #[test]
+    fn goto_delete_alias_hides_table_name() {
+        goto_not_found(
+            "
+create table t(a int);
+delete from t as u where t$0.a = 1;
+",
+        );
+    }
+
+    #[test]
+    fn goto_merge_alias_hides_target_table_name() {
+        goto_not_found(
+            "
+create table t(a int);
+create table s(a int);
+merge into t as u
+  using s on t$0.a = s.a
+  when matched then do nothing;
+",
+        );
+    }
+
+    #[test]
+    fn goto_merge_using_alias_hides_table_name() {
+        goto_not_found(
+            "
+create table t(a int);
+create table s(a int);
+merge into t
+  using s as u on s$0.a = t.a
+  when matched then do nothing;
+",
+        );
+    }
+
+    #[test]
     fn goto_select_alias_in_order_by_with_cte() {
         assert_snapshot!(goto("
 with t as (select 2 b)
@@ -4902,6 +5259,36 @@ select a from x$0;
           │      ─ 2. destination
         3 │ select a from x;
           ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_shadows_table_in_from() {
+        assert_snapshot!(goto("
+create table x(a int);
+with x as (select 1 a)
+select a from x$0;
+"), @"
+          ╭▸ 
+        3 │ with x as (select 1 a)
+          │      ─ 2. destination
+        4 │ select a from x;
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_shadows_view_column() {
+        assert_snapshot!(goto("
+create view x as select 1 a;
+with x as (select 2 a)
+select a$0 from x;
+"), @"
+          ╭▸ 
+        3 │ with x as (select 2 a)
+          │                     ─ 2. destination
+        4 │ select a from x;
+          ╰╴       ─ 1. source
         ");
     }
 
@@ -5161,6 +5548,25 @@ select a$0 from inserted;
     }
 
     #[test]
+    fn goto_cte_returning_qualified_star_column_gap() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+with changed as (
+  insert into t values (1, 2)
+  returning new.*
+)
+select a$0 from changed;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+          ‡
+        7 │ select a from changed;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_cte_delete_returning_star_column() {
         assert_snapshot!(goto("
 create table t(a int, b int);
@@ -5249,6 +5655,16 @@ select a$0 from (select 1 a);
     }
 
     #[test]
+    fn goto_subquery_star_partial_alias_masks_original_column_gap() {
+        goto_not_found(
+            "
+create table t(a int, b int);
+select a$0 from (select * from t) u(x);
+",
+        );
+    }
+
+    #[test]
     fn goto_subquery_column_with_as() {
         assert_snapshot!(goto("
 select a$0 from (select 1 as a);
@@ -5267,6 +5683,18 @@ select c$0 from (select 1 c union select 2 c);
           ╭▸ 
         2 │ select c from (select 1 c union select 2 c);
           ╰╴       ─ 1. source      ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_subquery_compound_select_column_order_by() {
+        assert_snapshot!(goto("
+with t as (select 1 a)
+select 2 a from t union select 1 order by a$0;
+"), @"
+          ╭▸ 
+        3 │ select 2 a from t union select 1 order by a;
+          ╰╴         ─ 2. destination                 ─ 1. source
         ");
     }
 
@@ -7168,6 +7596,16 @@ select m.message$0 from users as u join messages as m on u.id = m.user_id;
         4 │ select m.message from users as u join messages as m on u.id = m.user_id;
           ╰╴               ─ 1. source
         ");
+    }
+
+    #[test]
+    fn goto_alias_hides_table_name() {
+        goto_not_found(
+            "
+create table t(a int);
+select t$0.a from t as u;
+",
+        );
     }
 
     #[test]

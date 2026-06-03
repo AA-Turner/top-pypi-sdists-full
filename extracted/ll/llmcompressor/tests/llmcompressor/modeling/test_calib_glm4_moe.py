@@ -4,21 +4,18 @@ from functools import partial
 import pytest
 import torch
 from transformers import AutoModelForCausalLM
+from transformers.models.glm4_moe.configuration_glm4_moe import Glm4MoeConfig
+from transformers.models.glm4_moe.modeling_glm4_moe import (
+    Glm4MoeMoE as OriginalGlm4MoeMoE,
+)
 
 from llmcompressor.modeling.glm4_moe import CalibrationGlm4MoeMoE
 from llmcompressor.modeling.moe_context import moe_calibration_context
 from llmcompressor.utils.dev import skip_weights_download
 from llmcompressor.utils.helpers import calibration_forward_context
-from tests.testing_utils import requires_cadence, requires_gpu
+from tests.testing_utils import requires_cadence, requires_gpu, requires_transformers_v4
 
-Glm4MoeConfig = pytest.importorskip(
-    "transformers.models.glm4_moe.configuration_glm4_moe",
-    reason="Glm4MoeConfig not available in this version of transformers",
-).Glm4MoeConfig
-OriginalGlm4MoeMoE = pytest.importorskip(
-    "transformers.models.glm4_moe.modeling_glm4_moe",
-    reason="Glm4MoeMoE not available in this version of transformers",
-).Glm4MoeMoE
+pytestmark = requires_transformers_v4
 
 
 @requires_cadence("weekly")
@@ -71,6 +68,8 @@ def test_calib_glm4moe_module():
     config = Glm4MoeConfig()
     with torch.device("cuda"):
         original = OriginalGlm4MoeMoE(config).eval()
+        for param in original.parameters():
+            param.data.normal_(mean=0.0, std=0.02)
 
     # Create dummy input tensor that simulates hidden_states
     hidden_dim = config.hidden_size

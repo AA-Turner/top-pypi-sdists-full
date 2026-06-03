@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -28,7 +27,7 @@ class SorobanAuthorizedInvocation:
     def __init__(
         self,
         function: SorobanAuthorizedFunction,
-        sub_invocations: List["SorobanAuthorizedInvocation"],
+        sub_invocations: list[SorobanAuthorizedInvocation],
     ) -> None:
         _expect_max_length = 4294967295
         if sub_invocations and len(sub_invocations) > _expect_max_length:

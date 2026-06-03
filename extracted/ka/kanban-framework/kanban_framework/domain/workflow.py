@@ -21,10 +21,12 @@ class WorkflowEngine:
 
     def transition(self, task: Task, target) -> str:
         lw = task.lightweight
-        quick = getattr(task, 'mode', '') == 'quick'
-        ext_order = self._get_effective_order(lw, quick=quick)
+        mode = getattr(task, 'mode', 'full')
+        quick = mode == 'quick'
+        ext_order = self._get_effective_order(lw, quick=quick, mode=mode)
         if ext_order is None:
-            base = Scheduler.LIGHTWEIGHT_PHASE_ORDER if lw else Scheduler.PHASE_ORDER
+            base = Scheduler.dispatch_order(lightweight=lw, quick=quick,
+                                            mode=mode, kanban_dir=self._fs.kanban_dir)
             ext_order = [p.value if isinstance(p, Phase) else str(p) for p in base]
         current_str = task.phase_id
         target_str = target.value if isinstance(target, Phase) else str(target)
@@ -80,9 +82,11 @@ class WorkflowEngine:
 
     def complete_phase(self, task: Task) -> Task:
         self._ensure_phase_completed(task)
-        quick = getattr(task, 'mode', '') == 'quick'
-        ext_order = self._get_effective_order(task.lightweight, quick=quick)
+        mode = getattr(task, 'mode', 'full')
+        quick = mode == 'quick'
+        ext_order = self._get_effective_order(task.lightweight, quick=quick, mode=mode)
         next_p = Scheduler.next_phase(task.phase, lightweight=task.lightweight, quick=quick,
+                                      mode=mode, kanban_dir=self._fs.kanban_dir,
                                       custom_order=ext_order)
         if next_p:
             try:
@@ -123,29 +127,29 @@ class WorkflowEngine:
         task.history.append(entry)
         return entry
 
-    def next_phase(self, phase, lightweight: bool = False, quick: bool = False) -> str | None:
-        ext_order = self._get_effective_order(lightweight, quick=quick)
+    def next_phase(self, phase, lightweight: bool = False, quick: bool = False,
+                    mode: str | None = None) -> str | None:
+        ext_order = self._get_effective_order(lightweight, quick=quick, mode=mode)
         result = Scheduler.next_phase(phase, lightweight=lightweight, quick=quick,
+                                      mode=mode, kanban_dir=self._fs.kanban_dir,
                                       custom_order=ext_order)
         if result is None:
             return None
         return result.value if isinstance(result, Phase) else str(result)
 
-    def _get_effective_order(self, lightweight: bool, quick: bool = False) -> list[str] | None:
-        """Build effective phase order from workflow.json extensions."""
+    def _get_effective_order(self, lightweight: bool, quick: bool = False,
+                             mode: str | None = None) -> list[str] | None:
+        """Build effective phase order from workflow.json extensions.
+
+        dispatch_order already applies extensions (since _base_order fix),
+        so we delegate directly and convert to string list.
+        """
         if self._cfg is None:
             return None
         wf = self._cfg.workflow
-        ext_data = wf.get("extensions")
-        if not ext_data:
-            return None
-        from kanban_framework.domain.workflow_extensions import WorkflowExtension
-        ext = WorkflowExtension(wf)
-        if ext.validate():
-            return None
-        base_order = Scheduler.dispatch_order(lightweight=lightweight, quick=quick)
-        str_order = [p.value if isinstance(p, Phase) else str(p) for p in base_order]
-        return ext.build_phase_order(str_order)
+        base_order = Scheduler.dispatch_order(lightweight=lightweight, quick=quick,
+                                              mode=mode, workflow=wf, kanban_dir=self._fs.kanban_dir)
+        return [p.value if isinstance(p, Phase) else str(p) for p in base_order]
 
     def is_terminal(self, phase) -> bool:
         phase_str = phase.value if isinstance(phase, Phase) else str(phase)
@@ -207,10 +211,16 @@ class WorkflowEngine:
         if action == IterationAction.PASS:
             result["next_phase"] = self.next_phase(gate_phase).value if self.next_phase(gate_phase) else None
         elif action == IterationAction.RETRY_PREV:
-            # Go back to the phase before the gate
+            # Go back to the phase before the gate — use mode's actual phase order
             try:
-                idx = Scheduler.PHASE_ORDER.index(gate_phase)
-                result["retry_phase"] = Scheduler.PHASE_ORDER[idx - 1].value
+                mode = getattr(task, 'mode', None)
+                order = [p.value if isinstance(p, Phase) else str(p)
+                         for p in Scheduler.dispatch_order(
+                             mode=mode, workflow=self._cfg.workflow,
+                             kanban_dir=self._fs.kanban_dir)]
+                gate_str = gate_phase.value if isinstance(gate_phase, Phase) else str(gate_phase)
+                idx = order.index(gate_str)
+                result["retry_phase"] = order[idx - 1] if idx > 0 else order[0]
             except (ValueError, IndexError):
                 result["retry_phase"] = Phase.PLAN.value
         elif action == IterationAction.MAX_ITER:
@@ -218,9 +228,10 @@ class WorkflowEngine:
 
         return result
 
-    def previous_phase(self, phase) -> str | None:
-        ext_order = self._get_effective_order(False)
-        base = Scheduler.dispatch_order()
+    def previous_phase(self, phase, mode: str | None = None) -> str | None:
+        ext_order = self._get_effective_order(False, mode=mode)
+        base = Scheduler.dispatch_order(workflow=self._cfg.workflow,
+                                        mode=mode, kanban_dir=self._fs.kanban_dir)
         order = ext_order if ext_order is not None else [p.value if isinstance(p, Phase) else str(p) for p in base]
         phase_str = phase.value if isinstance(phase, Phase) else str(phase)
         try:

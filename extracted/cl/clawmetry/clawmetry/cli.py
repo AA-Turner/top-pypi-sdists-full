@@ -283,8 +283,70 @@ def _stop_existing_daemon() -> None:
         LOG_FILE.write_text("")
 
 
+def _oauth_browser_login(provider: str) -> str:
+    """Browser-bridge OAuth for `clawmetry connect`.
+
+    Spins up a one-shot loopback server on 127.0.0.1, opens the cloud OAuth flow
+    with cli_port=<our port>, and captures the cm_ key that the callback redirects
+    back to loopback. Returns "" on timeout/error so the caller falls back to email
+    OTP. The key only ever travels over 127.0.0.1 — nothing is exposed off-host.
+    """
+    import http.server
+    import urllib.parse
+    import webbrowser
+    import time as _time
+
+    app_base = os.environ.get("CLAWMETRY_APP_BASE", "https://app.clawmetry.com").rstrip("/")
+    captured = {}
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            captured["token"] = (params.get("token") or [""])[0]
+            ok = captured["token"].startswith("cm_")
+            msg = ("You're connected — return to your terminal."
+                   if ok else "Sign-in failed. Return to your terminal and use email instead.")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(
+                ("<!DOCTYPE html><html><head><meta charset='utf-8'><title>ClawMetry</title></head>"
+                 "<body style='font-family:sans-serif;background:#0b0f1a;color:#e2e8f0;display:flex;"
+                 "align-items:center;justify-content:center;height:100vh;margin:0'>"
+                 "<div style='text-align:center'><div style='font-size:40px'>\U0001F99E</div>"
+                 "<h2 style='font-weight:700'>" + msg + "</h2></div></body></html>").encode("utf-8")
+            )
+
+        def log_message(self, *args):  # silence default stderr request logging
+            pass
+
+    try:
+        srv = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+    except OSError:
+        return ""
+    port = srv.server_address[1]
+    url = f"{app_base}/api/oauth/{provider}/start?cli_port={port}"
+    print(f"\n  🌐 Opening your browser to sign in with {provider.title()}…")
+    print(f"  If it doesn't open, paste this into your browser:\n  {url}\n")
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+    srv.timeout = 1
+    deadline = _time.time() + 180
+    try:
+        while "token" not in captured and _time.time() < deadline:
+            srv.handle_request()
+    finally:
+        srv.server_close()
+
+    tok = captured.get("token", "")
+    return tok if tok.startswith("cm_") else ""
+
+
 def _get_api_key_interactive() -> str:
-    """Interactive API key acquisition: email OTP or direct paste."""
+    """Interactive API key acquisition: GitHub/Google OAuth, email OTP, or paste."""
     import getpass
     import urllib.request
     import urllib.error
@@ -316,7 +378,19 @@ def _get_api_key_interactive() -> str:
         return result
 
     print()
-    entry = _input("  📧 Enter your email: ").strip()
+    print("  Sign in with:")
+    print("    [1] GitHub      [2] Google      (opens your browser)")
+    print("    …or type your email to get a 6-digit code.")
+    entry = _input("  > ").strip()
+
+    # Browser-bridge OAuth (GitHub / Google). Falls back to email on failure.
+    _provider = {"1": "github", "github": "github", "2": "google", "google": "google"}.get(entry.lower())
+    if _provider:
+        _key = _oauth_browser_login(_provider)
+        if _key:
+            return _key
+        print("  Couldn't complete browser sign-in. Let's use email instead.")
+        entry = _input("  📧 Enter your email: ").strip()
 
     # If it's already an API key, return it directly
     if entry.startswith("cm_"):
@@ -1443,8 +1517,64 @@ def _cmd_uninstall() -> None:
     print()
 
 
+def _status_live_line(rows, prev, now):
+    """Build the one-line live status from session rows. ``prev`` is the last
+    ``(total_tokens, time)`` sample (or None); ``now`` is the current time.
+    Returns ``(line, (total_tokens, now))``. Pure so it's unit-testable — the
+    refresh loop is the only impure part. Live tokens/sec is the total-token
+    delta over wall time (so it's ~0 when idle, and climbs while an agent works).
+    """
+    rows = rows or []
+    tot_tok = sum(int(r.get("total_tokens") or 0) for r in rows)
+    tot_cost = sum(float(r.get("cost_usd") or 0) for r in rows)
+    cur, best = {}, ""
+    for r in rows:
+        k = r.get("last_active_at") or r.get("updated_at") or r.get("started_at") or ""
+        if k >= best:
+            best, cur = k, r
+    _md = cur.get("metadata") if isinstance(cur.get("metadata"), dict) else {}
+    model = cur.get("model") or _md.get("model") or "—"
+    tps = 0.0
+    if prev is not None and now > prev[1]:
+        tps = max(0.0, (tot_tok - prev[0]) / (now - prev[1]))
+    line = f"\U0001F99E {len(rows)} sessions · {tot_tok:,} tokens · ${tot_cost:,.4f} · {model} · {tps:,.0f} tok/s"
+    return line, (tot_tok, now)
+
+
+def _status_live() -> None:
+    """clawmetry status --live — a refreshing one-line terminal status bar
+    (sessions · tokens · cost · model · live tokens/sec), read from the running
+    daemon's local store via the read-only proxy. Ctrl-C to exit."""
+    import sys as _sys
+    import time as _t
+    from clawmetry.local_store import get_store
+    try:
+        store = get_store(read_only=True)
+    except Exception as exc:
+        print(f"  Cannot open the local store (is the sync daemon running?): {exc}")
+        return
+    print("ClawMetry live  ·  Ctrl-C to exit\n")
+    prev = None
+    try:
+        while True:
+            try:
+                rows = store.query_sessions_table(limit=300) or []
+            except Exception:
+                rows = []
+            line, prev = _status_live_line(rows, prev, _t.time())
+            _sys.stdout.write("\r\033[2K" + line)
+            _sys.stdout.flush()
+            _t.sleep(2)
+    except KeyboardInterrupt:
+        _sys.stdout.write("\n")
+        _sys.stdout.flush()
+
+
 def _cmd_status(args) -> None:
     """clawmetry status — show local + cloud sync status."""
+    if getattr(args, "live", False):
+        _status_live()
+        return
     import platform
     from clawmetry.sync import CONFIG_FILE, STATE_FILE, LOG_FILE
 
@@ -2827,6 +2957,7 @@ def main() -> None:
     # status
     p_status = sub.add_parser("status", help="Show local + cloud sync status")
     p_status.add_argument("--show-key", action="store_true", help="Reveal secret key")
+    p_status.add_argument("--live", action="store_true", help="Live one-line status bar (sessions · tokens · cost · model · tok/s); Ctrl-C to exit")
 
     # proxy
     p_proxy = sub.add_parser(

@@ -50,6 +50,13 @@ export const GuardEditor = {
     initGuards(props.phases);
     watch(() => props.phases, (v) => initGuards(v), { deep: true });
 
+    const phaseList = computed(() => {
+      if (props.phases && props.phases.length > 0) {
+        return props.phases.map(p => p.id || p).filter(Boolean);
+      }
+      return PHASE_ORDER;
+    });
+
     function toggleCheck(phaseId, checkId) {
       const g = phaseGuards[phaseId];
       const idx = g.checks.indexOf(checkId);
@@ -76,7 +83,7 @@ export const GuardEditor = {
 
     return {
       PHASE_ORDER, PHASE_LABELS, ALL_CHECKS,
-      phaseGuards,
+      phaseGuards, phaseList,
       toggleCheck, onLimitChange, emitGuard,
     };
   },
@@ -90,7 +97,7 @@ export const GuardEditor = {
       </p>
 
       <div class="guard-list">
-        <div v-for="pid in PHASE_ORDER" :key="pid" class="guard-phase-card">
+        <div v-for="pid in phaseList" :key="pid" class="guard-phase-card">
           <div class="guard-phase-header">
             <span class="guard-phase-title">{{ PHASE_LABELS[pid] || pid }}</span>
             <span class="guard-phase-badge">{{ pid }}</span>

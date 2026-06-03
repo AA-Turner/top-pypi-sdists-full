@@ -66,7 +66,7 @@ class RequestsClient(BaseSyncClient):
         self.backoff_factor: float = backoff_factor
 
         # adding 504 to the tuple of statuses to retry
-        self.status_forcelist = tuple(Retry.RETRY_AFTER_STATUS_CODES) + (504,)
+        self.status_forcelist = (*Retry.RETRY_AFTER_STATUS_CODES, 504)
 
         # configure standard session
 
@@ -132,7 +132,7 @@ class RequestsClient(BaseSyncClient):
             else:
                 text = resp.text
         except (RequestException, NewConnectionError) as err:
-            raise ConnectionError(err)
+            raise ConnectionError(err) from err
 
         return Response(
             status_code=resp.status_code,
@@ -178,7 +178,7 @@ class RequestsClient(BaseSyncClient):
                 url, data=data, json=json_data, timeout=self.post_timeout
             )
         except (RequestException, NewConnectionError) as err:
-            raise ConnectionError(err)
+            raise ConnectionError(err) from err
         return Response(
             status_code=resp.status_code,
             text=resp.text,
@@ -200,7 +200,7 @@ class RequestsClient(BaseSyncClient):
         :return: a Generator for server response
         :raise: :exc:`StreamClientError <stellar_sdk.exceptions.StreamClientError>`
         """
-        query_params = params.copy() if params else dict()
+        query_params = params.copy() if params else {}
 
         query_params |= IDENTIFICATION_HEADERS
         retry = 0.1
@@ -232,7 +232,7 @@ class RequestsClient(BaseSyncClient):
                                 yield json.loads(data)
                         except json.JSONDecodeError:
                             # Content was not json-decodable
-                            pass  # pragma: no cover
+                            pass
             except requests.Timeout:
                 logger.warning(
                     f"We have encountered an timeout error and we will try to reconnect, cursor = {query_params.get('cursor')}"

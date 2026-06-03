@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_service
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set service settings
 description:
    - Set service settings on kaytus Server.

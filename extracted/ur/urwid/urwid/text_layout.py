@@ -44,7 +44,7 @@ def get_ellipsis_string(encoding: str) -> str:
 
 
 @functools.lru_cache(maxsize=4)
-def _get_width(string) -> int:
+def _get_width(string: str) -> int:
     """Get ellipsis character width for given encoding."""
     return wcwidth.width(string, control_codes="ignore")
 
@@ -362,6 +362,13 @@ default_layout = StandardTextLayout()
 
 
 class LayoutSegment:
+    __slots__ = ("end", "offs", "sc", "text")
+
+    sc: int
+    offs: int | None
+    text: bytes | None
+    end: int | None
+
     def __init__(self, seg: tuple[int, int, int | bytes] | tuple[int, int | None]) -> None:
         """Create object from line layout segment structure"""
 
@@ -382,7 +389,7 @@ class LayoutSegment:
                 raise ValueError(seg)
             t = seg[2]
             if isinstance(t, bytes):
-                self.text: bytes | None = t
+                self.text = t
                 self.end = None
             else:
                 if not isinstance(t, int):

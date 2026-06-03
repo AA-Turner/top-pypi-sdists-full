@@ -16,17 +16,7 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, division, print_function
-
-
-__metaclass__ = type
-
-from ansible.module_utils.six import PY2
-
-
 builtin_import = "builtins.__import__"
-if PY2:
-    builtin_import = "__builtin__.__import__"
 
 import tempfile
 
@@ -210,8 +200,12 @@ class TestSplunkEsDataInputsMonitorRules:
         def get_by_path(self, path):
             return RESPONSE_PAYLOAD
 
+        def delete_by_path(self, path):
+            return {}
+
         monkeypatch.setattr(SplunkRequest, "create_update", create_update)
         monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
 
         self._plugin._task.args = {
             "state": "replaced",
@@ -322,8 +316,12 @@ class TestSplunkEsDataInputsMonitorRules:
         def get_by_path(self, path):
             return RESPONSE_PAYLOAD
 
+        def delete_by_path(self, path):
+            return {}
+
         monkeypatch.setattr(SplunkRequest, "create_update", create_update)
         monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
 
         self._plugin._task.args = {
             "state": "deleted",
@@ -362,3 +360,141 @@ class TestSplunkEsDataInputsMonitorRules:
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is False
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_monitor_merged_check_mode(self, connection, monkeypatch):
+        """Test that merged state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin.api_response = RESPONSE_PAYLOAD
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = {}
+
+        create_update_called = []
+
+        def create_update(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD[0]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_monitor_merged_check_mode_existing(
+        self,
+        conn,
+        monkeypatch,
+    ):
+        """Test that merged state with existing config in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        create_update_called = []
+
+        def create_update(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD[1]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_monitor_replaced_check_mode(self, conn, monkeypatch):
+        """Test that replaced state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = RESPONSE_PAYLOAD
+
+        delete_called = []
+        create_update_called = []
+
+        def create_update(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD
+
+        def delete_by_path(self, path):
+            delete_called.append(True)
+            return {}
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REQUEST_PAYLOAD[1]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_monitor_deleted_check_mode(self, conn, monkeypatch):
+        """Test that deleted state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        delete_called = []
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD
+
+        def delete_by_path(self, path):
+            delete_called.append(True)
+            return {}
+
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [{"name": "/var/log"}],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"

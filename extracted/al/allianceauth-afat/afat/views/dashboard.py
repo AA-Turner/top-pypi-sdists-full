@@ -15,13 +15,12 @@ from allianceauth.framework.api.evecharacter import get_user_from_evecharacter
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
-from afat import __title__
 from afat.helper.association import get_all_characters_with_fats_from_user
 from afat.helper.views import convert_fatlinks_to_dict, convert_fats_to_dict
 from afat.models import Fat, FatLink
-from afat.providers import AppLogger
+from afat.providers.applogger import AppLogger
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 
 @login_required()

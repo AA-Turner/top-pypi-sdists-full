@@ -253,14 +253,12 @@ click.Context.formatter_class = MyHelpFormatter
 )
 @click.option(
     "--select",
-    "-s",
     default=None,
     metavar="SELECTION or MODEL_NAME",
     help="--select dbt resources to compare using dbt selection syntax in dbt versions >= 1.5.\nIn versions < 1.5, it will naively search for a model with MODEL_NAME as the name.",
 )
 @click.option(
     "--state",
-    "-s",
     default=None,
     metavar="PATH",
     help="Specify manifest to utilize for 'prod' comparison paths instead of using configuration.",
@@ -611,7 +609,7 @@ def _data_diff(
         _print_result(stats, json_output, diff_iter)
 
     end = time.monotonic()
-    logging.info(f"Duration: {end-start:.2f} seconds.")
+    logging.info(f"Duration: {end - start:.2f} seconds.")
 
 
 if __name__ == "__main__":

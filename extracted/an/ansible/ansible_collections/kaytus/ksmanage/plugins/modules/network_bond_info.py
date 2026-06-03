@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: network_bond_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get network bond information
 description:
    - Get network bond information on kaytus Server.

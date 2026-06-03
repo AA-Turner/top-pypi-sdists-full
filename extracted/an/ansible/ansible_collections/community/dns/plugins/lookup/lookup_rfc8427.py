@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2023-2025, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -14,7 +12,7 @@ author:
 short_description: Look up DNS records and return RFC 8427 JSON format
 version_added: 3.4.0
 requirements:
-  - dnspython >= 1.15.0 (maybe older versions also work)
+  - dnspython >= 2.0.0
 description:
   - Look up DNS records and return them in L(RFC 8427 DNS message JSON format, https://www.rfc-editor.org/rfc/rfc8427.html).
   - RFC 8427 defines a standardized format for representing DNS messages in JSON.
@@ -162,21 +160,18 @@ from ansible.errors import AnsibleLookupError
 from ansible.module_utils.common.text.converters import to_text
 from ansible.plugins.lookup import LookupBase
 
-from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
+from ansible_collections.community.dns.plugins.module_utils._dnspython_records import (
     NAME_TO_RDTYPE,
     NAME_TO_REQUIRED_VERSION,
 )
-from ansible_collections.community.dns.plugins.module_utils.ips import is_ip_address
-from ansible_collections.community.dns.plugins.module_utils.resolver import (
+from ansible_collections.community.dns.plugins.module_utils._ips import is_ip_address
+from ansible_collections.community.dns.plugins.module_utils._resolver import (
     SimpleResolver,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.ips import (
-    assert_requirements_present as assert_requirements_present_ipaddress,
-)
-from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
+from ansible_collections.community.dns.plugins.plugin_utils._resolver import (
     assert_requirements_present as assert_requirements_present_dnspython,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
+from ansible_collections.community.dns.plugins.plugin_utils._resolver import (
     guarded_run,
 )
 
@@ -290,7 +285,7 @@ class LookupModule(LookupBase):
                     response_msg, name, int(rdtype)
                 )
             except dns.resolver.NXDOMAIN:
-                raise AnsibleLookupError(f"Got NXDOMAIN when querying {name}")
+                raise AnsibleLookupError(f"Got NXDOMAIN when querying {name}") from None
 
         return guarded_run(
             callback,
@@ -306,7 +301,9 @@ class LookupModule(LookupBase):
             try:
                 return resolver.resolve_addresses(server)
             except NXDOMAIN as exc:
-                raise AnsibleLookupError(f"Nameserver {server} does not exist ({exc})")
+                raise AnsibleLookupError(
+                    f"Nameserver {server} does not exist ({exc})"
+                ) from None
 
         return f
 
@@ -340,9 +337,6 @@ class LookupModule(LookupBase):
         server_addresses: list[str] | None = None
         if self.get_option("server"):
             server_addresses = []
-            assert_requirements_present_ipaddress(
-                "community.dns.lookup_rfc8427", "lookup"
-            )
             servers: list[str] = self.get_option("server")
             for server in servers:
                 if is_ip_address(server):

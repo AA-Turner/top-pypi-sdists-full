@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -40,8 +39,8 @@ class SCError:
     def __init__(
         self,
         type: SCErrorType,
-        contract_code: Optional[Uint32] = None,
-        code: Optional[SCErrorCode] = None,
+        contract_code: Uint32 | None = None,
+        code: SCErrorCode | None = None,
     ) -> None:
         self.type = type
         self.contract_code = contract_code

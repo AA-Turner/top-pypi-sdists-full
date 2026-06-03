@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -58,10 +57,10 @@ class SCPStatementPledges:
     def __init__(
         self,
         type: SCPStatementType,
-        prepare: Optional[SCPStatementPrepare] = None,
-        confirm: Optional[SCPStatementConfirm] = None,
-        externalize: Optional[SCPStatementExternalize] = None,
-        nominate: Optional[SCPNomination] = None,
+        prepare: SCPStatementPrepare | None = None,
+        confirm: SCPStatementConfirm | None = None,
+        externalize: SCPStatementExternalize | None = None,
+        nominate: SCPNomination | None = None,
     ) -> None:
         self.type = type
         self.prepare = prepare

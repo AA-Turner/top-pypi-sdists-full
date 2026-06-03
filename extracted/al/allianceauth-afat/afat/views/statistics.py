@@ -27,7 +27,6 @@ from allianceauth.framework.api.evecharacter import get_main_character_from_evec
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
-from afat import __title__
 from afat.helper.views import (
     characters_with_permission,
     current_month_and_year,
@@ -38,10 +37,10 @@ from afat.helper.views import (
     user_has_any_perms,
 )
 from afat.models import Fat
-from afat.providers import AppLogger
+from afat.providers.applogger import AppLogger
 from afat.utils import get_or_create_alliance_info, get_or_create_corporation_info
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 
 @login_required()
@@ -236,7 +235,7 @@ def character(  # pylint: disable=too-many-locals
     ):
         can_view_character = True
 
-    # If the user cannot view the character's statistics, send him home …
+    # If the user cannot view the character's statistics, send him home…
     if can_view_character is False:
         messages.warning(
             request=request,

@@ -1394,7 +1394,8 @@ def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_nam
         
         if not github_token:
             # Get GitHub token from environment
-            github_token = PKEnvironment().allSecrets.get('GITHUB_TOKEN') or PKEnvironment().allSecrets.get('CI_PAT') or PKEnvironment().allSecrets.get("PKG")
+            github_tokens = [PKEnvironment().allSecrets.get('CI_PAT'), PKEnvironment().allSecrets.get('GITHUB_TOKEN'), PKEnvironment().allSecrets.get("PKG")]
+            github_token = github_tokens[0]
         
         if not github_token:
             logger.error("No GitHub token found, cannot trigger workflow")
@@ -1410,12 +1411,19 @@ def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_nam
         )
         
         if result and result.status_code == 204:
-            logger.info("✅ Successfully triggered production scans workflow at 9:30 AM IST")
+            logger.info(f"✅ Successfully triggered {workflow_name} workflow in {repo} repository at {PKDateUtilities.currentDateTime()}")
             return True, result
         else:
-            logger.error(f"Failed to trigger workflow: {result.status_code if result else 'No response'}")
-            logger.error(f"Failed to trigger workflow: {result if result else 'No response'}")
-            return False, result
+            index = github_tokens.index(github_token)
+            logger.error(f"Failed to trigger workflow {workflow_name} in {repo} repository at {PKDateUtilities.currentDateTime()}: {str(result.status_code)+ ':'+ str(result.content) if result is not None else 'No response'}")
+            if len(github_tokens) > 0 and github_token == github_tokens[len(github_tokens) - 1]:
+                logger.error("All GitHub tokens have been tried and failed.")
+                return False, result
+            elif len(github_tokens) > index + 1:
+                logger.info("Trying next GitHub token...")
+                return trigger_prod_scans_workflow(repo, owner, workflow_name, github_tokens[index + 1])
+            else:
+                return False, result
             
     except Exception as e:
         logger.error(f"Error triggering production scans workflow: {e}")
@@ -1462,7 +1470,6 @@ def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
                     logger.info(f"✅ Triggered {wf_name} successfully")
                 else:
                     logger.warning(f"⚠️ Failed to trigger {repo}/{wf_name}, will retry next minute: {response.status_code}: {response.content}")
-                    sleep(60)
                     github_token = PKEnvironment().allSecrets.get('CI_PAT')
                     continue   # re-check after retry
         

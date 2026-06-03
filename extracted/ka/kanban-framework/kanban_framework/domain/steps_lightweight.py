@@ -1,7 +1,6 @@
-"""Lightweight mode step definitions."""
+"""Lightweight mode step definitions — streamlined for fast iteration."""
 from __future__ import annotations
 from kanban_framework.domain.steps_types import StepDef
-from kanban_framework.domain.steps_full import FULL_STEPS
 
 LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
     "plan": [
@@ -13,12 +12,13 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的知识检索 Agent（轻量模式）。\n"
                     "任务目标：从知识库中找到与当前任务相关的所有知识条目，并产出引用清单。\n\n"
-                    "参考文件：$task_dir/task.json（任务标题和描述）\n\n"
+                    "参考文件：$task_dir/task.json（任务标题和描述）\n"
+                    "如果 task.json 中有 biz_tag 字段，所有知识库查询命令必须带 --biz $biz_tag 参数\n\n"
                     "执行步骤：\n"
                     "1. 读取 task.json 获取任务标题和描述\n"
-                    "2. kanban knowledge hybrid \"<任务标题+描述关键词>\" --json --summary-only\n"
+                    "2. kanban knowledge hybrid \"<任务标题+描述关键词>\" --biz $biz_tag --json --summary-only\n"
                     "3. 对搜索结果逐一判断相关性，筛选出 medium/high 的条目\n"
-                    "4. 如无匹配，kanban knowledge search \"<关键词>\" --intent experience_reuse --json --summary-only\n"
+                    "4. 如无匹配，kanban knowledge search \"<关键词>\" --biz $biz_tag --intent experience_reuse --json --summary-only\n"
                     "5. 仍无匹配则记录原因（如：全新领域、无相关经验）\n\n"
                     "$knowledge_protocol\n\n"
                     "输出：写入 $task_dir/plan/knowledge_used.json\n"
@@ -30,13 +30,6 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                          "产出 spec.md 保存到 $task_dir/spec.md",
                          "kanban time end $task_id plan_A"],
                 interactive=True),
-        StepDef("plan.check_constraints", "知识库约束检查：编码前搜索相关约束与模式",
-                actions=["kanban knowledge hybrid \"$task_title\" --json",
-                         "搜索知识库中与当前任务相关的约束条件、架构模式和已知踩坑记录",
-                         "将发现的约束记录到 plan/constraints.md"],
-                agent_type="general-purpose"),
-        # Lightweight: no user_confirm_spec - brainstorming already
-        # gathered requirements interactively, proceed to task breakdown
         StepDef("plan.plan_B", "Plan: 任务拆解（writing-plans）",
                 actions=["kanban time start $task_id plan_B",
                          "spawn writing-plans agent",
@@ -45,7 +38,13 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的 writing-plans 子任务。"
                     "使用 superpowers:writing-plans 技能完成任务拆解。\n\n"
-                    "参考文件：$task_dir/spec.md（已由 brainstorming 产出）\n\n"
+                    "参考文件：\n"
+                    "- $task_dir/spec.md（已由 brainstorming 产出）\n"
+                    "- $task_dir/plan/knowledge_used.json（知识库引用清单，必须参考）\n\n"
+                    "重要约束：\n"
+                    "- 每个 subtask 的 plan/ST-NNN_*.md 必须在开头引用相关知识条目：\n"
+                    '  \"知识库参考: [K001] xxx 模式 — 避免 xx 问题\"\n'
+                    "- 如 knowledge_used.json 为空或无匹配，请在 plan/index.md 中说明原因\n\n"
                     "任务边界：\n"
                     "- 产出 plan/index.md、plan/ST-NNN_*.md、task_breakdown.json 保存到 $task_dir/\n"
                     "- 完成后立即停止，不要建议或选择执行方式\n"
@@ -56,36 +55,76 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                 actions=["kanban time end $task_id plan",
                          "kanban guard check-artifacts $task_id plan",
                          "kanban workflow checkpoint $task_id plan",
-                         "kanban workflow complete-phase $task_id"]),
+                         "kanban workflow complete-phase $task_id"],
+                required_artifacts=["spec.md", "task_breakdown.json", "plan/index.md"]),
     ],
-    "execute": FULL_STEPS["execute"],
-    "evaluate": [
-        StepDef("evaluate.spawn_qa", "QA 单角色评估 (lightweight)",
-                actions=["spawn kanban-qa agent (eval mode)"],
-                agent_type="general-purpose"),
-        StepDef("evaluate.e2e_run", "E2E 测试执行（如项目配置了 E2E）",
-                actions=["检查 $task_dir/test_spec.md 是否包含 E2E 用例",
-                         "如有 E2E 用例则执行浏览器测试",
-                         "无 E2E 用例则跳过此步骤"],
+    "execute": [
+        StepDef("execute.spawn", "执行编码（轻量模式）",
+                actions=["kanban time start $task_id execute",
+                         "spawn executor agent 直接执行编码",
+                         "kanban time end $task_id execute"],
                 agent_type="general-purpose",
                 spawn_prompt=(
-                    "你是 kanban 任务 $task_id 的 E2E 测试执行器。\n"
-                    "在浏览器中实际验证功能是否正常工作。\n\n"
-                    "参考文件：$task_dir/test_spec.md\n\n"
+                    "你是 kanban 任务 $task_id 的执行 Agent（轻量模式）。\n"
+                    "根据任务描述和 plan 直接执行代码修改，无需全量评审流程。\n\n"
+                    "参考文件：$task_dir/spec.md、$task_dir/task_breakdown.json\n\n"
                     "任务边界：\n"
-                    "- 启动浏览器执行 E2E 场景\n"
-                    "- 产出报告保存到 $report_dir/reviews/e2e_report.json\n"
-                    "- 如无 E2E 配置或浏览器不可用，产出说明性报告并完成\n"
-                    "- 完成后立即停止\n\n"
-                    "完成标志：$report_dir/reviews/e2e_report.json 文件存在且非空。"
+                    "- 编写代码并运行测试确认正确\n"
+                    "- 运行测试确认修改正确\n"
+                    "- 产出 execution_summary.md 保存到 $task_dir/\n"
+                    "- 完成后立即停止\n"
+                    "- 不要调用任何 kanban CLI 命令\n\n"
+                    "完成标志：$task_dir/execution_summary.md 文件存在且非空。"
+                )),
+        StepDef("execute.verify", "验证执行产物",
+                actions=["kanban guard check-artifacts $task_id execute"]),
+        StepDef("execute.commit", "Git 提交执行产物",
+                actions=["kanban workflow checkpoint $task_id execute"]),
+        StepDef("execute.complete", "Execute 完成",
+                actions=["kanban workflow complete-phase $task_id"]),
+    ],
+    "evaluate": [
+        StepDef("evaluate.spawn_review", "通用审核 (lightweight)",
+                actions=["spawn kanban-qa agent (eval mode)"],
+                agent_type="general-purpose",
+                spawn_prompt=(
+                    "你是 kanban 任务 $task_id 的轻量质量审核员。\n"
+                    "不要求测试覆盖率或测试用例（轻量模式无 qa_spec），聚焦实际产出质量。\n\n"
+                    "审核维度（逐项检查，产出报告中每项给出结论 + 证据）：\n"
+                    "1. 需求符合性 — 对照 $task_dir/spec.md，检查实现是否覆盖了所有功能点\n"
+                    "2. 知识库对照 — 读取 $task_dir/plan/knowledge_used.json：\n"
+                    "   - 检查实现是否应用了 high/medium 条目的建议\n"
+                    "   - 搜索知识库中相关踩坑，验证代码是否避开了已知问题\n"
+                    "   - 如发现未覆盖的新模式/踩坑，kanban knowledge add --biz $biz_tag 补充写入\n"
+                    "3. 功能合理性 — 代码逻辑是否清晰、有没有明显 bug（人工审读即可）\n"
+                    "4. 代码质量 — 命名是否合理、结构是否清晰、有无硬编码的安全问题\n\n"
+                    "参考文件：$task_dir/spec.md、$task_dir/plan/knowledge_used.json、$task_dir/ 下的实现代码\n\n"
+                    "任务边界：\n"
+                    "- 产出 $report_dir/reviews/review_report.json\n"
+                    "- 报告中必须包含「知识库对照」章节（逐条说明每个引用条目是否被正确应用）\n"
+                    "- 完成后立即停止，不要进入后续阶段\n\n"
+                    "完成标志：$report_dir/reviews/review_report.json 文件存在且非空。"
                 )),
         StepDef("evaluate.collect_score", "收集评分",
                 actions=["评分已由 complete-phase 自动同步"]),
-        StepDef("evaluate.check_score", "评分检查",
-                actions=["kanban workflow self-improve-check $task_id"]),
         StepDef("evaluate.complete", "Evaluate 完成",
                 actions=["kanban workflow complete-phase $task_id"]),
     ],
-    "user_decision": FULL_STEPS["user_decision"],
-    "archive": FULL_STEPS["archive"],
+    "user_decision": [
+        StepDef("user_decision.present", "展示变更摘要",
+                actions=["展示 retrospective + acceptance + 变更全景"],
+                user_action=True),
+        StepDef("user_decision.wait", "等待用户决策",
+                actions=["kanban decide $task_id --action <approve_and_archive|abort|restart>"],
+                user_action=True),
+    ],
+    "archive": [
+        StepDef("archive.guard", "归档 Guards — inbox + subtask + stray",
+                actions=["kanban guard check-inbox $task_id",
+                         "kanban guard check-pending-subtasks $task_id",
+                         "kanban guard check-archive-stray $task_id"]),
+        StepDef("archive.cleanup", "清理 worktree",
+                actions=["kanban worktree remove $task_id",
+                         "kanban clean $task_id"]),
+    ],
 }

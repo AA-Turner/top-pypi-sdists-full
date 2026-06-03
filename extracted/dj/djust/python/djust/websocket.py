@@ -733,6 +733,25 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+    async def _flush_all_pending(self) -> None:
+        """Flush every queued client side-effect at the end of a WS turn, in
+        canonical order. Single source of truth: every turn-end path (event,
+        skip-render noop, broadcast, db-notify, async completion) calls this so
+        no path can silently drop a queued command. Each ``_flush_*`` drains and
+        clears its own queue, so calling this twice in one turn is a harmless
+        no-op. Regression context: skip-render and broadcast paths used to flush
+        only push_events/flash/page_metadata/pending_layout/deferred and dropped
+        queued navigation/accessibility/i18n — so ``live_redirect()`` from a
+        state-unchanging handler never reached the client (#1643)."""
+        await self._flush_push_events()
+        await self._flush_flash()
+        await self._flush_page_metadata()
+        await self._flush_pending_layout()
+        await self._flush_deferred()
+        await self._flush_navigation()
+        await self._flush_accessibility()
+        await self._flush_i18n()
+
     async def _flush_accessibility(self) -> None:
         """
         Send any pending accessibility commands (announcements, focus)
@@ -929,6 +948,14 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
             if patches is not None:
                 patch_list = fast_json_loads(patches) if patches else []
+                # Refresh the recovery baseline so a later request_html (e.g.
+                # an async-triggered patch that fails on the client) has fresh
+                # HTML to serve. Mirrors handle_event and server_push (#1202).
+                # Without this, an html_recovery that already consumed
+                # _recovery_html leaves it None, the next request_html returns
+                # "Recovery HTML unavailable", and the client freezes at the
+                # transitional state even though the backend advanced (#1636).
+                self._arm_recovery(html, version)
                 await self._send_update(
                     patches=patch_list,
                     version=version,
@@ -945,6 +972,9 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         ),
                     )
                 )(html)
+                # The fallback sends the full render to the client, so the
+                # recovery baseline must track it too (#1636).
+                self._arm_recovery(html, version)
                 await self._send_update(
                     html=html_content,
                     version=version,
@@ -952,11 +982,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     source="async",
                 )
 
-            await self._flush_push_events()
-            await self._flush_flash()
-            await self._flush_page_metadata()
-            await self._flush_pending_layout()
-            await self._flush_deferred()
+            await self._flush_all_pending()
 
         except Exception as e:
             error = e
@@ -1009,6 +1035,21 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     logger.exception(
                         "[djust] Error in handle_async_result for task '%s'", task_name
                     )
+
+    def _arm_recovery(self, html: str, version: int) -> None:
+        """Arm the on-demand VDOM recovery baseline.
+
+        Single source of truth for the ``request_html`` recovery state
+        (``_recovery_html`` / ``_recovery_version``). Every render-send path —
+        ``handle_event``, ``server_push``, ``_run_async_work`` — calls this after
+        rendering so the baseline can never drift between paths. Hand-copying the
+        two-line assignment is exactly how the async path was missed in #1639;
+        centralizing it here (#1645) makes a new send path inherit correct arming
+        by calling one method. The one-time clear (``_recovery_html = None`` in
+        ``handle_request_html``) is the only other writer.
+        """
+        self._recovery_html = html
+        self._recovery_version = version
 
     async def _send_update(
         self,
@@ -1113,14 +1154,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     response["ref"] = ref
                 self._attach_debug_payload(response, event_name, performance)
                 await self.send_json(response)
-                await self._flush_push_events()
-                await self._flush_flash()
-                await self._flush_page_metadata()
-                await self._flush_pending_layout()
-                await self._flush_deferred()
-                await self._flush_navigation()
-                await self._flush_accessibility()
-                await self._flush_i18n()
+                await self._flush_all_pending()
         else:
             response = {
                 "type": "html_update",
@@ -1141,14 +1175,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 response["ref"] = ref
             self._attach_debug_payload(response, event_name)
             await self.send_json(response)
-            await self._flush_push_events()
-            await self._flush_flash()
-            await self._flush_page_metadata()
-            await self._flush_pending_layout()
-            await self._flush_deferred()
-            await self._flush_navigation()
-            await self._flush_accessibility()
-            await self._flush_i18n()
+            await self._flush_all_pending()
 
     async def _dispatch_single_event(
         self,
@@ -1242,11 +1269,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         if skip_render:
             self.view_instance._skip_render = False
             has_async = getattr(self.view_instance, "_async_pending", None) is not None
-            await self._flush_push_events()
-            await self._flush_flash()
-            await self._flush_page_metadata()
-            await self._flush_pending_layout()
-            await self._flush_deferred()
+            await self._flush_all_pending()
             await self._send_noop(async_pending=has_async, ref=event_ref)
             if has_async:
                 await self._dispatch_async_work()
@@ -1989,9 +2012,29 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             # reconnect when saved state exists in the session. Pairs with
             # the WS-event-handler save in handle_event so state survives
             # reconnects (page refresh, network blip, snapshot/restore).
+            #
+            # #1552 fix: gate the saved_state read on
+            # ``enable_state_snapshot`` to mirror the SAVE-block gate added
+            # in #1475 (commit 066d7f05). PR #1466 widened this read from
+            # ``if has_prerendered:`` to ``if has_prerendered or saved_state:``
+            # AND made the ``aget`` itself unconditional — so views that
+            # DIDN'T opt in were still getting state restored from the
+            # HTTP-path session save onto every WS mount, AFTER mount()
+            # had already initialized the view. The next render_with_diff
+            # then diffed against that clobbered baseline, producing
+            # patches the client's DOM couldn't resolve. Bisect confirmed:
+            # 0.9.7rc1 (pre-#1466) → no bug. 0.9.7rc2 (post-#1466) → bug
+            # reproduces. Gating the LOAD symmetrically with the SAVE
+            # restores 0.9.7rc1 behavior for non-opt-in views while
+            # preserving #1466's reconnect-resume capability for opt-in
+            # views (``enable_state_snapshot = True``).
             mounted = False
             view_key = f"liveview_{page_url}"
-            saved_state = await request.session.aget(view_key, {}) if request.session else {}
+            saved_state = (
+                await request.session.aget(view_key, {})
+                if request.session and getattr(self.view_instance, "enable_state_snapshot", False)
+                else {}
+            )
             if has_prerendered or saved_state:
                 if saved_state:
                     from .security import safe_setattr
@@ -2849,6 +2892,12 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             # version while an event handler is mid-execution.
             await self._render_lock.acquire()
             self._processing_user_event = True
+            # Tag any push_to_view broadcasts this handler emits with the
+            # originating channel, so this same session skips its OWN redundant
+            # self-broadcast (#1677). Reset in the finally below.
+            from djust import push as _djust_push
+
+            _origin_token = _djust_push.origin_channel.set(getattr(self, "channel_name", None))
             try:
                 if component_id:
                     # Component event: route to component's event handler method
@@ -3242,6 +3291,90 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                                     sanitize_for_log(event_name or ""),
                                 )
 
+                        # ADR-018 iter 18a — Branch B: sticky-child state save.
+                        # Kept as a SEPARATE ``if`` (NOT merged into Branch A's
+                        # gate) so the #1466 source-grep guard in
+                        # test_ws_reconnect_state_1465.py — which asserts the
+                        # exact Branch-A gate string — stays green.
+                        #
+                        # When a sticky-child event fires, the routing path
+                        # (~line 2696) sets ``target_view`` to the child, so
+                        # Branch A's ``target_view is self.view_instance`` gate
+                        # skips it. This branch generalizes the save (Decision
+                        # 4) to persist the child under its stable sticky key
+                        # (Decision 1), gated on the both-opt-in predicate
+                        # (Decision 5). It is wrapped in the SAME 150ms
+                        # ``asyncio.wait_for`` bound as Branch A — a sticky
+                        # child save must not extend close-time tail latency.
+                        from .mixins.sticky import (
+                            save_sticky_child_state,
+                            sticky_child_should_persist,
+                            warn_sticky_child_optin_skip,
+                            write_sticky_index_and_prune,
+                        )
+
+                        if target_view is not self.view_instance and sticky_child_should_persist(
+                            target_view, self.view_instance
+                        ):
+
+                            async def _persist_sticky_child_after_event() -> None:
+                                """Inner helper bounded by ``asyncio.wait_for``.
+                                Saves the sticky child under its stable key +
+                                writes the GC ledger, then batches one
+                                ``asave()``.
+                                """
+                                parent = self.view_instance
+                                mount_request = getattr(parent, "_djust_mount_request", None)
+                                # Precedence: the mount request's session is
+                                # authoritative (it carries the parent's
+                                # save key namespace); the scope session is
+                                # the fallback when the parent never stashed
+                                # a mount request.
+                                save_session = getattr(
+                                    mount_request, "session", None
+                                ) or self.scope.get("session")
+                                if save_session is None:
+                                    return
+
+                                parent_path = (
+                                    mount_request.path if mount_request is not None else "/"
+                                )
+
+                                await save_sticky_child_state(
+                                    target_view, save_session, parent_path
+                                )
+                                await write_sticky_index_and_prune(
+                                    parent, save_session, parent_path
+                                )
+                                await save_session.asave()
+
+                            try:
+                                await asyncio.wait_for(
+                                    _persist_sticky_child_after_event(), timeout=0.150
+                                )
+                            except asyncio.TimeoutError:
+                                logger.warning(
+                                    "WS-event sticky-child state save exceeded 150ms "
+                                    "for %r — session backend backpressure; skipping "
+                                    "this event's save. Subsequent events will retry.",
+                                    sanitize_for_log(event_name or ""),
+                                )
+                            except Exception:  # noqa: BLE001 — saves must never break event handling
+                                logger.exception(
+                                    "Failed to save sticky-child state after WS event %r",
+                                    sanitize_for_log(event_name or ""),
+                                )
+                        elif target_view is not self.view_instance:
+                            # ADR-018 iter 18c — the gate above was False for a
+                            # CHILD event. ``warn_sticky_child_optin_skip`` is a
+                            # no-op UNLESS this is the Decision-5 opt-in mismatch
+                            # (child opted in, parent did not); when it is, it
+                            # emits a one-shot warning so the silent
+                            # persistence gap is observable. Safe to call for
+                            # every non-parent target_view — the helper
+                            # re-checks the misconfiguration itself.
+                            warn_sticky_child_optin_skip(target_view, self.view_instance)
+
                         # Auto-detect unchanged state: if no public assigns were
                         # reassigned, auto-skip the render (eliminates DJE-053).
                         # In-place mutations (list.append) are NOT detected and
@@ -3295,11 +3428,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                             has_async = (
                                 getattr(self.view_instance, "_async_pending", None) is not None
                             )
-                            await self._flush_push_events()
-                            await self._flush_flash()
-                            await self._flush_page_metadata()
-                            await self._flush_pending_layout()
-                            await self._flush_deferred()
+                            await self._flush_all_pending()
                             await self._send_noop(async_pending=has_async, ref=event_ref)
                             if has_async:
                                 await self._dispatch_async_work()
@@ -3422,13 +3551,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                             "event_name": event_name,
                         }
                     )
-                    await self._flush_push_events()
-                    await self._flush_flash()
-                    await self._flush_page_metadata()
-                    await self._flush_pending_layout()
-                    await self._flush_deferred()
-                    await self._flush_navigation()
-                    await self._flush_i18n()
+                    await self._flush_all_pending()
                 else:
                     # For component events, send full HTML instead of patches
                     # Component VDOM is separate from parent VDOM, causing path mismatches
@@ -3526,8 +3649,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # Store rendered HTML for on-demand recovery.
                         # Client sends request_html when applyPatches() fails
                         # (e.g., {% if %} blocks shifting DOM structure).
-                        self._recovery_html = html
-                        self._recovery_version = version
+                        self._arm_recovery(html, version)
 
                         await self._send_update(
                             patches=patch_list,
@@ -3648,6 +3770,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 )
                 await self.send_json(response)
             finally:
+                _djust_push.origin_channel.reset(_origin_token)
                 self._processing_user_event = False
                 self._render_lock.release()
 
@@ -4287,6 +4410,34 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         # mutates ``self._sticky_preserved`` to the final survivor set
         # after the slot scan; if it raises mid-flight we drain any
         # staged children so their background tasks don't leak.
+        #
+        # #1647: trust the DESTINATION URL over the client-supplied `view`.
+        # The client's resolveViewPath() falls back to the current container's
+        # dj-view (the SOURCE view) when its route map is empty — which is the
+        # default for apps using plain Django path() URLconfs (no
+        # live_session()). Mounting the source class against the new URL's
+        # request raises. Resolve the target view server-side from the URL; only
+        # override when it maps to a djust LiveView, so the live_session
+        # route-map path (client resolved correctly) is unaffected.
+        #
+        # NOT for back-navigation: a `state_snapshot` carries the authoritative
+        # `view_slug` for the restored view, and its `url` may be generic (e.g.
+        # "/") and resolve to an unrelated view. Skip the URL-override whenever a
+        # snapshot is present so back-nav restores the snapshot's view, not
+        # whatever the URL happens to map to.
+        resolved_view = (
+            None
+            if data.get("state_snapshot")
+            else self._resolve_view_path_from_url(data.get("url", ""))
+        )
+        if resolved_view and resolved_view != data.get("view"):
+            logger.debug(
+                "live_redirect_mount: server-resolved target view %s from URL %s (client sent %s)",
+                resolved_view,
+                sanitize_for_log(data.get("url", "")),
+                sanitize_for_log(str(data.get("view"))),
+            )
+            data = {**data, "view": resolved_view}
         try:
             await self.handle_mount(
                 data,
@@ -4310,6 +4461,36 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         )
             self._sticky_preserved = {}
             raise
+
+    def _resolve_view_path_from_url(self, url: str) -> Optional[str]:
+        """Resolve a ``live_redirect`` destination URL to its djust LiveView
+        dotted path, server-side, via Django's URL resolver (#1647).
+
+        Returns the ``module.QualName`` of the view class wired to ``url`` in the
+        URLconf when (and only when) it is a :class:`djust.LiveView` subclass.
+        Returns ``None`` when the URL doesn't resolve, or maps to a non-LiveView
+        (e.g. a plain Django view) — the caller then keeps the client-supplied
+        ``view`` (preserving the ``live_session`` route-map path, where the
+        client already resolved the target correctly).
+        """
+        if not url:
+            return None
+        from django.urls import Resolver404, resolve
+
+        from .live_view import LiveView
+
+        try:
+            match = resolve(url)
+        except Resolver404:
+            return None
+        except Exception:  # noqa: BLE001 — never let URL resolution break mount
+            logger.debug("live_redirect view resolution raised for %s", sanitize_for_log(url))
+            return None
+        # View.as_view() stamps the class onto the returned callable.
+        view_class = getattr(match.func, "view_class", None)
+        if not (isinstance(view_class, type) and issubclass(view_class, LiveView)):
+            return None
+        return f"{view_class.__module__}.{view_class.__qualname__}"
 
     def _build_live_redirect_request(self, data: Dict[str, Any]):
         """Reconstruct a minimal Django request for the live_redirect target.
@@ -4809,6 +4990,22 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             return
 
         try:
+            # Skip our OWN self-broadcast (#1677): when a handler on THIS
+            # session pushed to its own view, the originating session already
+            # got the state via its direct event response. Re-rendering for the
+            # redundant self-broadcast bumps the VDOM version, which under rapid
+            # event bursts arrives non-sequentially at the client and triggers a
+            # full-HTML recovery storm + intermittent reconnect. Other sessions
+            # (sender_channel != ours) and external pushes (sender_channel is
+            # None — Celery, cross-view, etc.) are unaffected.
+            sender_channel = event.get("sender_channel")
+            if sender_channel and sender_channel == self.channel_name:
+                logger.debug(
+                    "[djust] server_push on %s skipped — own self-broadcast (#1677)",
+                    self.view_instance.__class__.__name__,
+                )
+                return
+
             # Yield to user events: if a user event is being processed,
             # skip this broadcast to avoid version interleaving (#560).
             if self._processing_user_event:
@@ -4861,11 +5058,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # suppress the re-render cycle (e.g. sender ignoring its own broadcast).
                 if getattr(self.view_instance, "_skip_render", False):
                     self.view_instance._skip_render = False
-                    await self._flush_push_events()
-                    await self._flush_flash()
-                    await self._flush_page_metadata()
-                    await self._flush_pending_layout()
-                    await self._flush_deferred()
+                    await self._flush_all_pending()
                     await self._send_noop()
                     return
 
@@ -4883,8 +5076,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     # handle_event. Without this, request_html after a failed
                     # broadcast-triggered patch finds _recovery_html=None and
                     # forces a page reload. See #1202.
-                    self._recovery_html = html
-                    self._recovery_version = version
+                    self._arm_recovery(html, version)
                     await self._send_update(
                         patches=patches,
                         version=version,
@@ -4893,11 +5085,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     )
                 else:
                     # Even if no patches, flush any push_events and flash messages
-                    await self._flush_push_events()
-                    await self._flush_flash()
-                    await self._flush_page_metadata()
-                    await self._flush_pending_layout()
-                    await self._flush_deferred()
+                    await self._flush_all_pending()
             finally:
                 self._render_lock.release()
 
@@ -4986,11 +5174,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
                 if getattr(self.view_instance, "_skip_render", False):
                     self.view_instance._skip_render = False
-                    await self._flush_push_events()
-                    await self._flush_flash()
-                    await self._flush_page_metadata()
-                    await self._flush_pending_layout()
-                    await self._flush_deferred()
+                    await self._flush_all_pending()
                     await self._send_noop()
                     return
 
@@ -5009,11 +5193,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         source="broadcast",
                     )
                 else:
-                    await self._flush_push_events()
-                    await self._flush_flash()
-                    await self._flush_page_metadata()
-                    await self._flush_pending_layout()
-                    await self._flush_deferred()
+                    await self._flush_all_pending()
 
                 # v0.7.0 — If handle_info flipped an activity to visible,
                 # drain its queue in the same round-trip. The flush is

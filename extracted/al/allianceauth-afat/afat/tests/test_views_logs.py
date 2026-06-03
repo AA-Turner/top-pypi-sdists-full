@@ -3,11 +3,8 @@ Test logs view
 """
 
 # Standard Library
-from datetime import datetime
+import datetime as dt
 from http import HTTPStatus
-
-# Third Party
-from pytz import utc
 
 # Django
 from django.urls import reverse
@@ -71,14 +68,14 @@ class TestLogsView(BaseTestCase):
             hash="1231",
             creator=cls.user_with_manage_afat,
             character=cls.character_1001,
-            created=datetime(year=2020, month=4, day=1, tzinfo=utc),
+            created=dt.datetime(year=2020, month=4, day=1, tzinfo=dt.timezone.utc),
         )
         cls.afat_link_april_2 = FatLink.objects.create(
             fleet="April Fleet 2",
             hash="1232",
             creator=cls.user_with_manage_afat,
             character=cls.character_1001,
-            created=datetime(year=2020, month=4, day=15, tzinfo=utc),
+            created=dt.datetime(year=2020, month=4, day=15, tzinfo=dt.timezone.utc),
         )
 
     def test_should_not_show_log_view_for_user_without_access(self):

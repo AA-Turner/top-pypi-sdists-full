@@ -51,10 +51,13 @@ class EveCharacterManager(Manager["EveCharacter"]):
         return self.exclude(corporation_id=_DOOMHEIM_CORPORATION_ID)
 
     def create_character(self, character_id) -> "EveCharacter":
-        character, response = open_api_provider.get_character(character_id=character_id, use_etag=False)  # ETAG False, We need response data to create a character object.
-        return self.create_character_obj(character_id, character, response)  # ETAG False, We need response data to create a character object.
+        character, character_response = open_api_provider.get_character(character_id=character_id, use_etag=False)  # ETAG False, We need response data to create a character object.
+        affiliation, affiliation_response = open_api_provider.get_affiliations(character_ids=[character_id], use_etag=False)  # ETAG False, We need response data to create a character object.
+        affiliation = affiliation[0]
 
-    def create_character_obj(self, character_id: "CharacterID", character: "CharactersDetail", response: Response) -> "EveCharacter":
+        return self.create_character_obj(character_id, character, affiliation, character_response, affiliation_response)  # ETAG False, We need response data to create a character object.
+
+    def create_character_obj(self, character_id: "CharacterID", character: "CharactersDetail", affiliation: dict, character_response: Response, affilation_response: Response) -> "EveCharacter":
         corporation_model = _eve_corporation_model()
         alliance_model = _eve_alliance_model()
         faction_model = _eve_faction_model()
@@ -83,12 +86,12 @@ class EveCharacterManager(Manager["EveCharacter"]):
 
         return self.create(
             character_id=character_id,
-            alliance_id=character.alliance_id if character.alliance_id else None,
+            alliance_id=affiliation.alliance_id if affiliation.alliance_id else None,
             birthday=character.birthday,
             bloodline_id=character.bloodline_id,
-            corporation_id=corporation_id,
+            corporation_id=affiliation.corporation_id,
             description=character.description if character.description else "",
-            faction_id=character.faction_id if character.faction_id else None,
+            faction_id=affiliation.faction_id if affiliation.faction_id else None,
             gender=character.gender,
             character_name=character.name,
             race_id=character.race_id,
@@ -99,11 +102,15 @@ class EveCharacterManager(Manager["EveCharacter"]):
             alliance_name=alliance_obj.alliance_name if alliance_obj else "",
             alliance_ticker=alliance_obj.alliance_ticker if alliance_obj else "",
             faction_name=faction_obj.faction_name if faction_obj else "",
-            last_updated=datetime.strptime(response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
+            last_updated_affiliations=datetime.strptime(affilation_response.headers.get("Date"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc),
+            last_updated_other=datetime.strptime(character_response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
         )
 
     def update_character(self, character_id) -> "EveCharacter":
         return self.get(character_id=character_id).update_character()
+
+    def update_character_other(self, character_id, force_refresh: bool = False) -> "EveCharacter":
+        return self.get(character_id=character_id).update_character_other(force_refresh=force_refresh)
 
     def get_character_by_id(self, character_id: "CharacterID") -> "EveCharacter | None":
         """Return character by character ID or None if not found."""
@@ -257,9 +264,11 @@ class EveFactionManager(Manager["EveFactionInfo"]):
             except IntegrityError:
                 return self.get(faction_id=faction_id)
 
-    def update_factions(self) :
+    def update_factions(self, force_refresh: bool = False) -> "EveFactionManager":
         try:
-            factions, response = open_api_provider.get_all_factions(use_etag=True)
+            factions, response = open_api_provider.get_all_factions(
+                use_etag=True if not force_refresh else False,
+                force_refresh=force_refresh)
         except HTTPNotModified:
             # nothing to update
             return self
@@ -277,3 +286,4 @@ class EveFactionManager(Manager["EveFactionInfo"]):
             obj.station_system_count = faction.station_system_count if faction.station_system_count else None
             obj.last_updated = datetime.strptime(response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
             obj.save()
+        return self

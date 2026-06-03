@@ -25,7 +25,7 @@ from smplkit.audit import (
 
 
 # JSON Logic filter — only forward ``invoice.*`` actions.
-# Events that don't match are recorded as ``filtered_out`` deliveries.
+# Events that don't match the filter aren't forwarded (and produce no delivery record).
 # See https://jsonlogic.com for the full operator reference.
 INVOICE_FILTER = {"in": ["invoice.", {"var": "action"}]}
 

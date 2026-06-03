@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -21,7 +20,7 @@ class SCMap:
         typedef SCMapEntry SCMap<>;
     """
 
-    def __init__(self, sc_map: List[SCMapEntry]) -> None:
+    def __init__(self, sc_map: list[SCMapEntry]) -> None:
         _expect_max_length = 4294967295
         if sc_map and len(sc_map) > _expect_max_length:
             raise ValueError(

@@ -50,9 +50,8 @@ class Event:
                 the time the event was recorded.
             data (EventData | Unset): Free-form payload attached to the event. Use it for resource snapshots (by convention
                 under `data.snapshot`), request identifiers, or any other context the event needs to carry.
-            do_not_forward (bool | Unset): When `true`, the event is recorded but not delivered to any forwarder. A delivery
-                log entry with status `SKIPPED_DO_NOT_FORWARD` is written for each enabled forwarder so the skip is visible in
-                the delivery log. Default: False.
+            do_not_forward (bool | Unset): When `true`, the event is recorded but not delivered to any forwarder, and no
+                delivery log entries are created for it. Default: False.
             created_at (datetime.datetime | None | Unset): When the event was received and recorded.
             idempotency_key (None | str | Unset): The idempotency key used to deduplicate the record. Echoes the
                 `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.

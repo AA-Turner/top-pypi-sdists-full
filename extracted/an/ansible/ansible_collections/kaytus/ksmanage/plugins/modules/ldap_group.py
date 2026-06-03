@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: ldap_group
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Manage ldap group information
 description:
    - Manage ldap group information on kaytus Server.

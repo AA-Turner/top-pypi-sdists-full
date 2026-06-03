@@ -1,28 +1,33 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-OpenSearch client initialization module.
+"""OpenSearch client initialization module.
 
 This module provides functions to initialize OpenSearch clients with different
 authentication methods and connection modes (single vs multi-cluster).
 """
 
 import boto3
+import importlib.metadata
 import logging
 import os
+from .connection import (
+    DEFAULT_MAX_RESPONSE_SIZE,
+    BufferedAsyncHttpConnection,
+    OpenSearchClientError,
+)
+from botocore.credentials import Credentials
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, Optional
-from urllib.parse import urlparse
-
+from http.client import HTTP_PORT, HTTPS_PORT
 from mcp.server.lowlevel.server import request_ctx
-from starlette.requests import Request
-
 from mcp_server_opensearch.clusters_information import ClusterInfo, get_cluster
 from mcp_server_opensearch.global_state import get_mode, get_profile
 from opensearchpy import AsyncOpenSearch, AWSV4SignerAsyncAuth
+from starlette.requests import Request
 from tools.tool_params import baseToolArgs
-from botocore.credentials import Credentials
+from typing import Any, AsyncIterator, Dict, Optional
+from urllib.parse import ParseResult, urlparse, urlunparse
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -32,14 +37,13 @@ OPENSEARCH_SERVICE = 'es'
 OPENSEARCH_SERVERLESS_SERVICE = 'aoss'
 DEFAULT_TIMEOUT = 30
 DEFAULT_SSL_VERIFY = True
-
-
-# Import custom connection classes and exceptions
-from .connection import (
-    BufferedAsyncHttpConnection,
-    OpenSearchClientError,
-    DEFAULT_MAX_RESPONSE_SIZE,
-)
+try:
+    _VERSION = importlib.metadata.version('opensearch-mcp-server-py')
+except importlib.metadata.PackageNotFoundError:
+    _VERSION = 'unknown'
+USER_AGENT = f'opensearch-mcp-server-py/{_VERSION}'
+# opensearch-py uses 9200 when the URL has no port; http/https must use RFC defaults.
+_DEFAULT_PORTS_BY_SCHEME: dict[str, int] = {'http': HTTP_PORT, 'https': HTTPS_PORT}
 
 
 class AuthenticationError(OpenSearchClientError):
@@ -52,30 +56,6 @@ class ConfigurationError(OpenSearchClientError):
     """Exception raised when configuration is invalid."""
 
     pass
-
-
-def _log_connection_event(
-    auth_method: str,
-    datasource_type: str,
-    opensearch_url: str,
-    error: str,
-) -> None:
-    """Emit a structured error log event for failed datasource connections.
-
-    Only logs failures because AsyncOpenSearch() construction does not
-    actually connect — a "success" event would be misleading.
-    """
-    logger.error(
-        f'Datasource connection failed: {auth_method} ({datasource_type})',
-        extra={
-            'event_type': 'datasource_connection',
-            'auth_method': auth_method,
-            'datasource_type': datasource_type,
-            'status': 'error',
-            'opensearch_url': opensearch_url,
-            'error': error,
-        },
-    )
 
 
 # Public API Functions
@@ -101,8 +81,8 @@ def initialize_client(args: baseToolArgs) -> AsyncOpenSearch:
         logger.info(f'Initializing OpenSearch client in {mode} mode')
 
         if mode == 'single':
-            # In single mode, always use environment variables, ignore cluster name
-            return _initialize_client_single_mode()
+            # In single mode, use environment variables with optional per-call overrides from args
+            return _initialize_client_single_mode(args)
         elif mode == 'multi':
             # In multi mode, cluster name must be provided
             if not args or not args.opensearch_cluster_name:
@@ -163,19 +143,77 @@ async def get_opensearch_client(args: baseToolArgs) -> AsyncIterator[AsyncOpenSe
 
 
 # Private Implementation Functions
-def _initialize_client_single_mode() -> AsyncOpenSearch:
-    """Initialize OpenSearch client for single mode using environment variables.
+def _netloc_with_explicit_port(parsed: ParseResult, port: int) -> str:
+    host = parsed.hostname
+    if not host:
+        return parsed.netloc
+    host_literal = f'[{host}]' if ':' in host and not host.startswith('[') else host
+    if parsed.username is not None:
+        userinfo = parsed.username
+        if parsed.password is not None:
+            userinfo = f'{userinfo}:{parsed.password}'
+        return f'{userinfo}@{host_literal}:{port}'
+    return f'{host_literal}:{port}'
 
-    Single mode uses environment variables for connection, with optional header-based auth:
-    - OPENSEARCH_URL (required, or from headers if OPENSEARCH_HEADER_AUTH=true)
-    - OPENSEARCH_HEADER_AUTH: If true, prefer headers over env vars for auth
-    - OPENSEARCH_USERNAME / OPENSEARCH_PASSWORD
-    - AWS_PROFILE / AWS_REGION
-    - AWS_IAM_ARN
-    - OPENSEARCH_NO_AUTH
-    - AWS_OPENSEARCH_SERVERLESS
-    - OPENSEARCH_TIMEOUT
-    - BEARER
+
+def _parsed_with_default_ports(parsed: ParseResult) -> tuple[str, ParseResult]:
+    """Return ``(url, parsed)`` with :80/:443 in netloc when http(s) omits a port."""
+    if parsed.port is not None:
+        return urlunparse(parsed), parsed
+    port = _DEFAULT_PORTS_BY_SCHEME.get(parsed.scheme)
+    if port is None or not parsed.hostname:
+        return urlunparse(parsed), parsed
+    new_netloc = _netloc_with_explicit_port(parsed, port)
+    new_parsed = parsed._replace(netloc=new_netloc)
+    return urlunparse(new_parsed), new_parsed
+
+
+def _log_connection_event(
+    auth_method: str,
+    datasource_type: str,
+    opensearch_url: str,
+    error: str,
+) -> None:
+    """Emit a structured error log event for failed datasource connections.
+
+    Only logs failures because AsyncOpenSearch() construction does not
+    actually connect — a "success" event would be misleading.
+    """
+    logger.error(
+        f'Datasource connection failed: {auth_method} ({datasource_type})',
+        extra={
+            'event_type': 'datasource_connection',
+            'auth_method': auth_method,
+            'datasource_type': datasource_type,
+            'status': 'error',
+            'opensearch_url': opensearch_url,
+            'error': error,
+        },
+    )
+
+
+def _initialize_client_single_mode(args: baseToolArgs = None) -> AsyncOpenSearch:
+    """Initialize OpenSearch client for single mode.
+
+    Uses environment variables for connection parameters, but any values provided
+    in the tool ``args`` take precedence.  This allows agents to dynamically
+    target different clusters on a per-call basis without reconfiguring the
+    server's environment.
+
+    Override-capable parameters (via ``args``):
+    - opensearch_url          → OPENSEARCH_URL
+    - opensearch_username     → OPENSEARCH_USERNAME
+    - opensearch_password     → OPENSEARCH_PASSWORD
+    - opensearch_no_auth      → OPENSEARCH_NO_AUTH
+    - aws_iam_arn             → AWS_IAM_ARN
+    - aws_profile             → AWS_PROFILE
+    - aws_opensearch_serverless → AWS_OPENSEARCH_SERVERLESS
+    - opensearch_timeout      → OPENSEARCH_TIMEOUT
+    - opensearch_ssl_verify   → OPENSEARCH_SSL_VERIFY
+    - aws_region              → AWS_REGION
+
+    Other parameters (header auth, mTLS certs, max response size, bearer) are
+    still sourced exclusively from environment variables / headers.
 
     Returns:
         OpenSearch: An initialized OpenSearch client instance
@@ -197,7 +235,10 @@ def _initialize_client_single_mode() -> AsyncOpenSearch:
         opensearch_timeout_str = os.getenv('OPENSEARCH_TIMEOUT', '').strip()
         opensearch_timeout = int(opensearch_timeout_str) if opensearch_timeout_str else None
         ssl_verify = os.getenv('OPENSEARCH_SSL_VERIFY', 'true').lower() != 'false'
-        
+        opensearch_ca_cert_path = _get_env_path('OPENSEARCH_CA_CERT_PATH')
+        opensearch_client_cert_path = _get_env_path('OPENSEARCH_CLIENT_CERT_PATH')
+        opensearch_client_key_path = _get_env_path('OPENSEARCH_CLIENT_KEY_PATH')
+
         # Parse max response size from environment
         max_response_size_str = os.getenv('OPENSEARCH_MAX_RESPONSE_SIZE', '').strip()
         max_response_size = None
@@ -213,13 +254,39 @@ def _initialize_client_single_mode() -> AsyncOpenSearch:
                 logger.warning(
                     f'Invalid OPENSEARCH_MAX_RESPONSE_SIZE format: {max_response_size_str}, using default'
                 )
+
+        # Apply per-call overrides from tool args (if provided)
+        if args is not None:
+            if args.opensearch_url is not None:
+                opensearch_url = args.opensearch_url.strip()
+            if args.opensearch_username is not None:
+                opensearch_username = args.opensearch_username.strip()
+            if args.opensearch_password is not None:
+                # Intentionally not stripped: leading/trailing whitespace in
+                # passwords is valid and must be preserved exactly as provided.
+                opensearch_password = args.opensearch_password
+            if args.opensearch_no_auth is not None:
+                opensearch_no_auth = args.opensearch_no_auth
+            if args.aws_iam_arn is not None:
+                iam_arn = args.aws_iam_arn.strip()
+            if args.aws_profile is not None:
+                profile = args.aws_profile.strip()
+            if args.aws_opensearch_serverless is not None:
+                is_serverless_mode = args.aws_opensearch_serverless
+            if args.opensearch_timeout is not None:
+                opensearch_timeout = args.opensearch_timeout
+            if args.opensearch_ssl_verify is not None:
+                ssl_verify = args.opensearch_ssl_verify
+
         aws_access_key_id = None
         aws_secret_access_key = None
         aws_session_token = None
         bearer_auth_header = None
 
-        # Default to region from environment
+        # Default to region from environment, then apply override
         aws_region = get_aws_region_single_mode()
+        if args is not None and args.aws_region is not None:
+            aws_region = args.aws_region.strip()
 
         # Check if header auth is enabled and update variables accordingly
         use_header_auth = os.getenv('OPENSEARCH_HEADER_AUTH', '').lower() == 'true'
@@ -278,6 +345,9 @@ def _initialize_client_single_mode() -> AsyncOpenSearch:
             aws_session_token=aws_session_token,
             max_response_size=max_response_size,
             bearer_auth_header=bearer_auth_header,
+            opensearch_ca_cert_path=opensearch_ca_cert_path,
+            opensearch_client_cert_path=opensearch_client_cert_path,
+            opensearch_client_key_path=opensearch_client_key_path,
         )
 
     except (ConfigurationError, AuthenticationError):
@@ -323,7 +393,12 @@ def _initialize_client_multi_mode(cluster_info: ClusterInfo) -> AsyncOpenSearch:
         ssl_verify = True  # Default to secure
         if cluster_info.ssl_verify is not None:
             ssl_verify = cluster_info.ssl_verify
-        
+        opensearch_ca_cert_path = _normalize_path_value(cluster_info.opensearch_ca_cert_path)
+        opensearch_client_cert_path = _normalize_path_value(
+            cluster_info.opensearch_client_cert_path
+        )
+        opensearch_client_key_path = _normalize_path_value(cluster_info.opensearch_client_key_path)
+
         # Get max response size from cluster config, fallback to environment variable
         max_response_size = cluster_info.max_response_size
         if max_response_size is None:
@@ -392,6 +467,9 @@ def _initialize_client_multi_mode(cluster_info: ClusterInfo) -> AsyncOpenSearch:
             aws_session_token=aws_session_token,
             max_response_size=max_response_size,
             bearer_auth_header=bearer_auth_header,
+            opensearch_ca_cert_path=opensearch_ca_cert_path,
+            opensearch_client_cert_path=opensearch_client_cert_path,
+            opensearch_client_key_path=opensearch_client_key_path,
         )
 
     except (ConfigurationError, AuthenticationError):
@@ -421,6 +499,9 @@ def _create_opensearch_client(
     aws_session_token: Optional[str] = None,
     max_response_size: Optional[int] = None,
     bearer_auth_header: Optional[str] = None,
+    opensearch_ca_cert_path: Optional[str] = None,
+    opensearch_client_cert_path: Optional[str] = None,
+    opensearch_client_key_path: Optional[str] = None,
 ) -> AsyncOpenSearch:
     """Common function to create OpenSearch client with authentication.
 
@@ -443,6 +524,9 @@ def _create_opensearch_client(
         aws_session_token: AWS session token from headers (optional)
         max_response_size: Maximum response size in bytes (None means no limit)
         bearer_auth_header: Authorization Bearer header value (optional)
+        opensearch_ca_cert_path: Path to the CA certificate bundle for verifying TLS
+        opensearch_client_cert_path: Path to the client certificate for mTLS
+        opensearch_client_key_path: Path to the client private key for mTLS
 
     Returns:
         OpenSearch: An initialized OpenSearch client instance
@@ -458,11 +542,12 @@ def _create_opensearch_client(
 
     opensearch_url = opensearch_url.strip()
 
-    # Validate URL format
+    # Parse and validate; only when scheme is http/https and no port is given, append port.
     try:
         parsed_url = urlparse(opensearch_url)
         if not parsed_url.scheme or not parsed_url.netloc:
             raise ValueError('Invalid URL format')
+        opensearch_url, parsed_url = _parsed_with_default_ports(parsed_url)
     except Exception as e:
         raise ConfigurationError(f'Invalid OpenSearch URL format: {opensearch_url}. Error: {e}')
 
@@ -483,6 +568,12 @@ def _create_opensearch_client(
     response_size_limit = (
         max_response_size if max_response_size is not None else DEFAULT_MAX_RESPONSE_SIZE
     )
+    tls_config = _build_tls_kwargs(
+        ssl_verify=ssl_verify,
+        opensearch_ca_cert_path=opensearch_ca_cert_path,
+        opensearch_client_cert_path=opensearch_client_cert_path,
+        opensearch_client_key_path=opensearch_client_key_path,
+    )
 
     # Build client configuration with buffered connection
     client_kwargs: Dict[str, Any] = {
@@ -492,8 +583,10 @@ def _create_opensearch_client(
         'connection_class': BufferedAsyncHttpConnection,
         'timeout': timeout,
         'max_response_size': response_size_limit,
+        'headers': {'user-agent': USER_AGENT},
     }
-    
+    client_kwargs.update(tls_config)
+
     if response_size_limit is not None:
         logger.info(
             f'Configuring OpenSearch client with max_response_size={response_size_limit} bytes'
@@ -526,7 +619,9 @@ def _create_opensearch_client(
                 client_kwargs['headers'] = {'Authorization': bearer_auth_header}
                 return AsyncOpenSearch(**client_kwargs)
             except Exception as e:
-                _log_connection_event('header_auth_bearer', datasource_type, opensearch_url, str(e))
+                _log_connection_event(
+                    'header_auth_bearer', datasource_type, opensearch_url, str(e)
+                )
                 raise AuthenticationError(
                     f'Failed to authenticate with Authorization Bearer header: {e}'
                 )
@@ -621,6 +716,70 @@ def _create_opensearch_client(
     raise AuthenticationError('No valid authentication method provided for OpenSearch')
 
 
+def _get_env_path(env_var_name: str) -> Optional[str]:
+    """Return a normalized path value from the environment."""
+    return _normalize_path_value(os.getenv(env_var_name, ''))
+
+
+def _normalize_path_value(path_value: Optional[str]) -> Optional[str]:
+    """Normalize a configured filesystem path, treating blank values as unset."""
+    if path_value is None:
+        return None
+
+    normalized_path = path_value.strip()
+    if not normalized_path:
+        return None
+
+    return normalized_path
+
+
+def _validate_tls_file_path(path: str, description: str) -> str:
+    """Validate that a configured TLS file path exists and is readable."""
+    if not os.path.isfile(path):
+        raise ConfigurationError(f'{description} file does not exist or is not a file: {path}')
+
+    if not os.access(path, os.R_OK):
+        raise ConfigurationError(f'{description} file is not readable: {path}')
+
+    return path
+
+
+def _build_tls_kwargs(
+    ssl_verify: bool,
+    opensearch_ca_cert_path: Optional[str] = None,
+    opensearch_client_cert_path: Optional[str] = None,
+    opensearch_client_key_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build TLS-related OpenSearch client kwargs from configured certificate paths."""
+    tls_kwargs: Dict[str, Any] = {}
+    has_client_cert = opensearch_client_cert_path is not None
+    has_client_key = opensearch_client_key_path is not None
+
+    if has_client_cert != has_client_key:
+        raise ConfigurationError(
+            'OpenSearch mTLS requires both client certificate and client key paths to be set'
+        )
+
+    if opensearch_ca_cert_path is not None:
+        tls_kwargs['ca_certs'] = _validate_tls_file_path(
+            opensearch_ca_cert_path, 'OpenSearch CA certificate'
+        )
+
+    if has_client_cert and has_client_key:
+        tls_kwargs['client_cert'] = _validate_tls_file_path(
+            opensearch_client_cert_path, 'OpenSearch client certificate'
+        )
+        tls_kwargs['client_key'] = _validate_tls_file_path(
+            opensearch_client_key_path, 'OpenSearch client key'
+        )
+        if not ssl_verify and 'ca_certs' not in tls_kwargs:
+            logger.warning(
+                'OpenSearch mTLS is configured with SSL verification disabled and no CA bundle'
+            )
+
+    return tls_kwargs
+
+
 def get_aws_region_single_mode() -> Optional[str]:
     """Get AWS region for single mode using environment variables.
 
@@ -688,7 +847,6 @@ def get_aws_region_multi_mode(cluster_info: ClusterInfo) -> Optional[str]:
         Optional[str]: AWS region, or None if not available (acceptable for basic auth/no auth)
 
     """
-
     try:
         # Try cluster-specific region first
         if cluster_info.aws_region and cluster_info.aws_region.strip():
@@ -760,7 +918,7 @@ def _get_auth_from_headers() -> Dict[str, Optional[str]]:
                 )
                 result['aws_session_token'] = headers.get('aws-session-token', '').strip() or None
                 result['aws_service_name'] = headers.get('aws-service-name', '').strip() or None
-                
+
                 # Extract auth from Authorization header
                 auth_header = headers.get('authorization', '').strip()
                 if auth_header:
@@ -771,11 +929,12 @@ def _get_auth_from_headers() -> Dict[str, Optional[str]]:
                             result['bearer_auth_header'] = f'Bearer {token}'
                     elif auth_header_lower.startswith('basic '):
                         import base64
+
                         # Extract the base64 encoded credentials
                         encoded_credentials = auth_header[6:]  # Skip 'Basic '
                         decoded_bytes = base64.b64decode(encoded_credentials)
                         decoded_credentials = decoded_bytes.decode('utf-8')
-                        
+
                         # Split into username and password
                         if ':' in decoded_credentials:
                             username, password = decoded_credentials.split(':', 1)

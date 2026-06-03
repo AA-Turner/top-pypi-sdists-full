@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: hard_disk_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get hard disk information
 description:
    - Get hard disk information on kaytus Server.

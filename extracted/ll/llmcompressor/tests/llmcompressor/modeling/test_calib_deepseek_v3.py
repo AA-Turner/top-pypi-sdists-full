@@ -13,7 +13,9 @@ from llmcompressor.modeling.deepseek_v3 import CalibrationDeepseekV3MoE
 from llmcompressor.modeling.moe_context import moe_calibration_context
 from llmcompressor.utils.dev import skip_weights_download
 from llmcompressor.utils.helpers import calibration_forward_context
-from tests.testing_utils import requires_cadence, requires_gpu
+from tests.testing_utils import requires_cadence, requires_gpu, requires_transformers_v4
+
+pytestmark = requires_transformers_v4
 
 
 @requires_cadence("weekly")
@@ -66,10 +68,13 @@ def test_calib_deepseekv3_module():
     config = DeepseekV3Config()
     with torch.device("cuda"):
         original = OriginalDeepseekV3MoE(config).eval()
+        for param in original.parameters():
+            param.data.normal_(mean=0.0, std=0.02)
 
     # Create dummy input tensor that simulates hidden_states
     hidden_dim = config.hidden_size
     batch, seq_len = 4, 32
+
     sample = torch.randn(batch, seq_len, hidden_dim, device="cuda")
 
     with calibration_forward_context(original):
@@ -78,9 +83,9 @@ def test_calib_deepseekv3_module():
     module = CalibrationDeepseekV3MoE(original, config, calibrate_all_experts=True)
     with calibration_forward_context(module):
         output = module(sample)
-        assert torch.allclose(true_output, output, atol=1e-6)
+        assert torch.nn.functional.mse_loss(true_output, output) < 1e-10
 
     module = CalibrationDeepseekV3MoE(original, config, calibrate_all_experts=False)
     with calibration_forward_context(module):
         output = module(sample)
-        assert torch.allclose(true_output, output, atol=1e-6)
+        assert torch.nn.functional.mse_loss(true_output, output) < 1e-10

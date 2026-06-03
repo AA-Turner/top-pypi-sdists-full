@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_preserve_config
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set preserve config
 description:
    - Set preserve config on kaytus Server.

@@ -41,6 +41,7 @@ def connect_to_table(
 
     return TableSegment(db, table_name, key_columns, **kw)
 
+
 def _get_table_segment_args(**kwargs):
     accepted_kwargs = {
         "update_column",

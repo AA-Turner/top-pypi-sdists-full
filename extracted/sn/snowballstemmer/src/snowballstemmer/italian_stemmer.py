@@ -1,4 +1,4 @@
-# Generated from italian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from italian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class ItalianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from italian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from italian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "à", "è", "ì", "ò", "ù"}
@@ -24,11 +24,8 @@ class ItalianStemmer(BaseStemmer):
         if self.find_among(ItalianStemmer.a_0) == 0:
             return False
         self.ket = self.cursor
-        try:
-            if self.cursor < self.limit:
-                raise lab0()
+        if self.cursor >= self.limit:
             return False
-        except lab0: pass
         self.slice_del()
         return True
 
@@ -208,9 +205,6 @@ class ItalianStemmer(BaseStemmer):
     def __r_RV(self):
         return self.I_pV <= self.cursor
 
-    def __r_R1(self):
-        return self.I_p1 <= self.cursor
-
     def __r_R2(self):
         return self.I_p2 <= self.cursor
 
@@ -224,10 +218,7 @@ class ItalianStemmer(BaseStemmer):
             return False
         if not self.__r_RV():
             return False
-        if among_var == 1:
-            self.slice_del()
-        else:
-            self.slice_from("e")
+        self.slice_from(ItalianStemmer.as_4[among_var - 1])
         return True
 
     def __r_standard_suffix(self):
@@ -273,7 +264,7 @@ class ItalianStemmer(BaseStemmer):
                 return False
             self.slice_del()
         elif among_var == 7:
-            if not self.__r_R1():
+            if self.I_p1 > self.cursor:
                 return False
             self.slice_del()
             v_2 = self.limit - self.cursor
@@ -516,6 +507,7 @@ class ItalianStemmer(BaseStemmer):
         Among("er", -1, 2),
         Among("ir", -1, 2)
     ]
+    as_4 = ("", "e")
 
     a_5 = [
         Among("ic", -1, -1),

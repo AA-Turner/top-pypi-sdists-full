@@ -113,13 +113,18 @@ class Dialect(BaseDialect):
         return super().parse_type(table_path, info)
 
     def set_timezone_to_utc(self) -> str:
-        return "SET TIME ZONE '+00:00'"
+        # PrestoDB has no SQL command to change the session timezone and no
+        # timezone session property. The session timezone is fixed at connect
+        # time. Raise so the connection setup logs and moves on, matching the
+        # base class pattern for databases without session timezone support.
+        # The Trino dialect overrides this since Trino does have SET TIME ZONE.
+        raise NotImplementedError("No support for session tz.")
 
     def current_timestamp(self) -> str:
         return "current_timestamp"
 
     def md5_as_int(self, s: str) -> str:
-        return f"cast(from_base(substr(to_hex(md5(to_utf8({s}))), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS}), 16) as decimal(38, 0)) - {CHECKSUM_OFFSET}"
+        return f"cast(from_base(substr(to_hex(md5(to_utf8({s}))), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS}), 16) as decimal(38, 0)) - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"to_hex(md5(to_utf8({s})))"
@@ -129,13 +134,15 @@ class Dialect(BaseDialect):
         return f"TRIM(CAST({value} AS VARCHAR))"
 
     def normalize_timestamp(self, value: str, coltype: TemporalType) -> str:
-        # TODO rounds
-        if coltype.rounds:
-            s = f"date_format(cast({value} as timestamp(6)), '%Y-%m-%d %H:%i:%S.%f')"
-        else:
-            s = f"date_format(cast({value} as timestamp(6)), '%Y-%m-%d %H:%i:%S.%f')"
-
-        return f"RPAD(RPAD({s}, {TIMESTAMP_PRECISION_POS+coltype.precision}, '.'), {TIMESTAMP_PRECISION_POS+6}, '0')"
+        # PrestoDB has no parameterized TIMESTAMP(p) type, only plain TIMESTAMP
+        # which is fixed at millisecond precision. Casting to TIMESTAMP(6) here
+        # fails with "Unknown type: timestamp(6)" on real PrestoDB even though
+        # Trino accepts it. The Trino dialect provides its own precision aware
+        # override so this only affects PrestoDB.
+        s = f"date_format(cast({value} as timestamp), '%Y-%m-%d %H:%i:%S.%f')"
+        return (
+            f"RPAD(RPAD({s}, {TIMESTAMP_PRECISION_POS + coltype.precision}, '.'), {TIMESTAMP_PRECISION_POS + 6}, '0')"
+        )
 
     def normalize_number(self, value: str, coltype: FractionalType) -> str:
         return self.to_string(f"cast({value} as decimal(38,{coltype.precision}))")
@@ -197,4 +204,8 @@ class Presto(Database):
 
     @property
     def is_autocommit(self) -> bool:
-        return False
+        # PrestoDB and Trino both run every statement in autocommit mode by
+        # default, with no implicit transaction. Emitting a bare COMMIT then
+        # fails with NOT_IN_TRANSACTION. Telling the base dialect that we are
+        # autocommit makes render_commit a no op so the COMMIT is never sent.
+        return True

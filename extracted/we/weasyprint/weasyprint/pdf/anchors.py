@@ -14,6 +14,9 @@ from ..text.ffi import ffi, gobject, pango
 from ..text.fonts import get_font_description
 from ..urls import URLFetchingError
 
+# Mimetypes datastore with only types registered in the stdlib.
+MIMETYPES = mimetypes.MimeTypes()
+
 
 def add_links(links_and_anchors, matrix, pdf, page, names, tags):
     """Include hyperlinks in given PDF page."""
@@ -351,6 +354,11 @@ def write_pdf_attachment(pdf, attachment, compress):
         filename = 'attachment.bin'
     mime_type = (
         mime_type or
+        # First try the stdlib mimetype datastore and then fall back
+        # to trying the extended lookup utilizing more OS specific databases.
+        # This ensure consistent behaviour across platforms for common file types.
+        # See #2707.
+        MIMETYPES.guess_type(filename, strict=False)[0] or
         mimetypes.guess_type(filename, strict=False)[0] or
         'application/octet-stream')
 

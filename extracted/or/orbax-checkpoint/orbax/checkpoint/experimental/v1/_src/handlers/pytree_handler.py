@@ -35,6 +35,7 @@ from orbax.checkpoint._src.serialization import types as v0_serialization_types
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.context import options as options_lib
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
+from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.serialization import compatibility
@@ -55,7 +56,7 @@ PartialSaveReplacementError = (
     base_pytree_checkpoint_handler.PartialSaveReplacementError
 )
 
-PYTREE_CHECKPOINTABLE_KEY = 'pytree'
+STATE_CHECKPOINTABLE_KEY = checkpoint_layout.STATE_CHECKPOINTABLE_KEY
 
 
 def _get_remaining_timeout(
@@ -271,12 +272,13 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
 
       state_pytree = {'weights': [1.0, 2.0], 'bias': 0.0}
 
-      checkpointables_options = (
-          ocp.options.CheckpointablesOptions.create_with_handlers(
-              model_state=ocp.handlers.PyTreeHandler()
-          )
+      registry = ocp.handlers.local_registry()
+      registry.add(
+          ocp.handlers.PyTreeHandler, checkpointable_name='model_state'
       )
-      with ocp.Context(checkpointables_options=checkpointables_options):
+      ctx = ocp.Context()
+      ctx.checkpointables.registry = registry
+      with ctx:
           ocp.save_checkpointables(path, dict(model_state=state_pytree))
 
   Attributes:
@@ -298,7 +300,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
       ) = None,
       partial_save_mode: bool = False,
   ):
-    context = context_lib.get_context(context)
+    context = context if context is not None else context_lib.get_context()
     self._context = context
     self._multiprocessing_options = context.multiprocessing_options
     self._partial_save_mode = partial_save_mode
@@ -318,6 +320,11 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     )
 
   async def _finalize(self, directory: path_types.Path):
+    # Keep non-finalized checkpoint state during partial saves to be merged
+    # later during partial save finalization.
+    if self._partial_save_mode:
+      return
+
     if multihost.is_primary_host(self._multiprocessing_options.primary_host):
       await self._handler_impl._finalize_async(directory)  # pylint: disable=protected-access
 

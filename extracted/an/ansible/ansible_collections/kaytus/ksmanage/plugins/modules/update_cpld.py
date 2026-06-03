@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: update_cpld
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Update CPLD
 description:
    - Update CPLD on kaytus Server.

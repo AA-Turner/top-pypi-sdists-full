@@ -742,3 +742,46 @@ releases:
     - 4.2.1.yml
     - mysql_query_decimal_serialization.yaml
     release_date: '2026-05-04'
+  5.0.0:
+    changes:
+      breaking_changes:
+      - "All modules and plugins have been removed from this collection. They have
+        been migrated to the `ansible.mysql <https://galaxy.ansible.com/ui/repo/published/ansible/mysql/>`_
+        collection. Redirections have been provided.\nPlease install ``ansible.mysql``
+        and adjust the FQCNs in your playbooks (``community.mysql.mysql_info`` \u2192
+        ``ansible.mysql.mysql_info``).\n"
+      release_summary: This collection has been deprecated. Please use ``ansible.mysql``
+        instead - https://galaxy.ansible.com/ui/repo/published/ansible/mysql/. All
+        the modules were moved to ``ansible.mysql`` as-is. Your current playbooks
+        that call the modules from ``community.mysql`` will not require any changes
+        and will continue working via redirects to the corresponding modules in ``ansible.mysql``,
+        though we recommend changing FQCN parts in module names in playbook tasks
+        as soon as possible (e.g. ``community.mysql.mysql_info`` -> ``ansible.mysql.mysql_info``).
+      removed_features:
+      - "All modules and plugins have been removed from this collection. They have
+        been migrated to the `ansible.mysql <https://galaxy.ansible.com/ui/repo/published/ansible/mysql/>`_
+        collection. Redirections have been provided.\nPlease install ``ansible.mysql``
+        and adjust the FQCNs in your playbooks (``community.mysql.mysql_info`` \u2192
+        ``ansible.mysql.mysql_info``).\n"
+    fragments:
+    - 5.0.0.yml
+    - remove.yml
+    release_date: '2026-05-06'
+  5.0.1:
+    changes:
+      bugfixes:
+      - Add action_groups to meta/runtime.yml to ensure that if the community.mysql
+        action group is used, it also applies to ansible.mysql's action group.
+      release_summary: This is a patch release of the community.mysql collection.
+        It contains a fix for compatibility with ansible.mysql.
+    fragments:
+    - 5.0.1.yml
+    - fix.yml
+    release_date: '2026-05-12'
+  5.0.2:
+    changes:
+      release_summary: This is a patch release of community.mysql collections which
+        only adds deprecation warnings to module redirects.
+    fragments:
+    - 5.0.1.yml
+    release_date: '2026-05-25'

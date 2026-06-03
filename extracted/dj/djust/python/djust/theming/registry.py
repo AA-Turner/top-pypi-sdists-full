@@ -124,7 +124,10 @@ class ThemeRegistry:
     def _do_discover(self):
         """Internal: load from built-in dicts, DJUST_THEMES setting, themes_dir."""
         # 1. Built-in presets
-        from .presets import THEME_PRESETS
+        # Import from _builtin_presets, NOT .presets — the latter would
+        # re-introduce the presets ↔ registry cycle (CodeQL alerts
+        # #2352/#2351/#1900/#1883).
+        from ._builtin_presets import THEME_PRESETS
 
         for name, preset in THEME_PRESETS.items():
             self._presets[name] = preset
@@ -197,7 +200,7 @@ class ThemeRegistry:
         """Load theme.toml manifests from configured themes_dir."""
         from django.conf import settings
 
-        from .manager import get_theme_config
+        from ._config import get_theme_config
 
         config = get_theme_config()
         themes_dir_rel = config.get("themes_dir", "themes/")

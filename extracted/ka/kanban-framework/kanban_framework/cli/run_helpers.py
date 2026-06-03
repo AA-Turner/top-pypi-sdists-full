@@ -49,14 +49,12 @@ def _validate_fsm_state(task, tm) -> dict | None:
     }
     current_phase = task.phase
 
-    # Check if current phase is valid
+    # Check if current phase is valid — allow recovery from invalid phases
     if current_phase not in order:
-        return {
-            "error": f"phase '{current_phase.value}' not in {mode_label} phase order",
-            "current_phase": current_phase.value,
-            "expected_order": [p.value for p in order],
-            "fix": "kanban workflow next-step " + task.id,
-        }
+        # Current phase not in mode's phase order (e.g., after a mode switch
+        # or a buggy complete-phase). Allow the operation to proceed so the
+        # user can recover by transitioning to a valid phase.
+        return None
 
     # Check for skipped phases before current
     current_idx = order.index(current_phase)
@@ -142,7 +140,11 @@ def _track_phase_time(task_id: str, phase: str, action: str) -> None:
 
 
 def _move_to_archive(fs: Filesystem, task_id: str) -> None:
-    """Move entire task directory to archive."""
+    """Move entire task directory to archive.
+
+    Uses rename first (fast, same-filesystem), falls back to copytree+remove
+    (cross-filesystem or when rename fails, e.g. Windows file locks).
+    """
     import shutil
     archive_task_dir = fs.archive_dir() / task_id
 
@@ -150,17 +152,26 @@ def _move_to_archive(fs: Filesystem, task_id: str) -> None:
     if archive_task_dir.exists():
         shutil.rmtree(archive_task_dir)
 
-    # Move entire task directory (includes task.json, inbox.md, iteration data, etc.)
     task_dir = fs.task_dir(task_id)
-    if task_dir.exists():
-        fs.ensure_dir(archive_task_dir.parent)
+    if not task_dir.exists():
+        return
+    fs.ensure_dir(archive_task_dir.parent)
+    try:
         task_dir.rename(archive_task_dir)
+    except OSError:
+        # Cross-filesystem or locked files — copy then remove
+        shutil.copytree(str(task_dir), str(archive_task_dir))
+        shutil.rmtree(str(task_dir), ignore_errors=True)
+        # Verify cleanup — remove residual files if rmtree partially failed
+        if task_dir.exists():
+            shutil.rmtree(str(task_dir), ignore_errors=True)
 
 
 def _knowledge_health_on_archive(task_id: str) -> None:
     """Run knowledge health check on archive — mark stale, report gaps.
 
     Archive also migrates any task-level knowledge-log.md into DB (#166).
+    Tracks knowledge effectiveness based on task evaluation scores.
     """
     try:
         root = Filesystem.find_project_root()
@@ -180,6 +191,10 @@ def _knowledge_health_on_archive(task_id: str) -> None:
         if gaps:
             import sys
             print(f"KNOWLEDGE HEALTH: knowledge gaps detected for {task_id}: {list(gaps.keys())}", file=sys.stderr)
+
+        # Knowledge effectiveness tracking: correlate knowledge_used.json with eval scores
+        _track_knowledge_effectiveness(fs, km, task_id)
+
         # Skills auto-evolution: extract improvements from framework_assessment
         from kanban_framework.domain.skills import SkillManager
         sm = SkillManager(fs.kanban_dir)
@@ -191,6 +206,50 @@ def _knowledge_health_on_archive(task_id: str) -> None:
     except Exception as exc:
         import sys
         print(f"WARNING: knowledge health check failed for {task_id}: {exc}", file=sys.stderr)
+
+
+def _track_knowledge_effectiveness(fs: Filesystem, km, task_id: str) -> None:
+    """Correlate knowledge_used.json with evaluation scores and update effectiveness."""
+    import json as _json
+    task_dir = fs.task_dir(task_id)
+    ku_path = task_dir / "plan" / "knowledge_used.json"
+    if not ku_path.is_file():
+        return
+
+    try:
+        ku = _json.loads(ku_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    matched = ku.get("matched", [])
+    if not matched:
+        return
+
+    # Get task's latest evaluation score
+    avg_score = 0.0
+    try:
+        from kanban_framework.domain.task import TaskManager
+        from kanban_framework.infra.config import Config
+        cfg = Config(fs)
+        tm = TaskManager(fs, cfg)
+        task = tm.show(task_id)
+        if task.score_history:
+            latest = task.score_history[-1] if task.score_history else {}
+            avg_score = latest.get("average", 0.0)
+    except Exception:
+        pass
+
+    if avg_score <= 0:
+        return
+
+    for m in matched:
+        eid = m.get("id", "")
+        if not eid:
+            continue
+        try:
+            km.update_effectiveness(eid, task_id, avg_score)
+        except Exception:
+            pass
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -400,7 +459,7 @@ def _auto_track_step(fs, task_id: str, step_id: str, status: str,
         "plan_review.spawn", "plan_review.knowledge_cross_validate",
         "qa_spec.spawn", "spec_review.spawn",
         "execute.pitfall_check", "execute.spawn",
-        "evaluate.spawn", "evaluate.spawn_qa", "evaluate.e2e_run",
+        "evaluate.spawn", "evaluate.spawn_review", "evaluate.e2e_run",
         "retrospective.spawn", "retrospective.audit_realtime_knowledge",
     }
     if step_id not in spawn_steps:

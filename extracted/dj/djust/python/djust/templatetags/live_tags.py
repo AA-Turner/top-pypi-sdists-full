@@ -1724,9 +1724,51 @@ def live_render(context, view_path: str, **kwargs) -> Any:
             "satisfy (login redirect: %s)" % (view_path, auth_redirect)
         )
 
-    mount = getattr(child, "mount", None)
-    if callable(mount):
-        mount(request, **kwargs)
+    # 4b. ADR-018 iter 18b — sticky-child state restore (Decisions 2 + 6).
+    #     A sticky child whose state was persisted by 18a's SAVE path has
+    #     that state restored here, BEFORE mount(), in lieu of mount()'s
+    #     state-init — mirroring the parent's own skip-mount()-on-saved-state
+    #     path at websocket.py:handle_mount. ``restore_sticky_child_state``
+    #     internally returns False (and the fresh mount() runs) when the
+    #     child is non-sticky, the both-opt-in gate fails, the session is
+    #     absent, or no saved state exists — so there is NO behavior change
+    #     for the unsaved / non-opted-in case. Wrapped in try/except: a
+    #     malformed session entry must fall through to a fresh mount(),
+    #     never break the parent's render.
+    restored = False
+    if sticky_kwarg:
+        from ..mixins.sticky import restore_sticky_child_state
+
+        try:
+            # ADR-018 iter 18c — path-derivation invariant. ``parent_path``
+            # (the 4th arg) MUST match the path used at SAVE time: the WS save
+            # uses ``_djust_mount_request.path`` (websocket.py), the HTTP save
+            # uses ``request.path`` (mixins/request.py). On all current
+            # transports the restore-time ``request.path`` and the save-time
+            # parent mount-request path coincide — the parent is re-mounted on
+            # the same URL it was saved on. If a future transport makes the
+            # restore-time request path differ from the parent's original
+            # mount path, this key derivation breaks SILENTLY: the restore
+            # looks under the wrong ``liveview_<path>__sticky__<id>`` key and
+            # falls through to a fresh ``mount()``. Keep save and restore
+            # path-derivation in lockstep.
+            restored = restore_sticky_child_state(
+                child,
+                parent,
+                getattr(request, "session", None),
+                getattr(request, "path", "/"),
+            )
+        except Exception:  # noqa: BLE001 — restore must never break render
+            logger.exception(
+                "live_render: sticky restore for %r failed; mounting fresh",
+                view_path,
+            )
+            restored = False
+
+    if not restored:
+        mount = getattr(child, "mount", None)
+        if callable(mount):
+            mount(request, **kwargs)
 
     # 5. Assign the view_id and register on the parent. _register_child
     #    wires parent/view_id back-references on the child.

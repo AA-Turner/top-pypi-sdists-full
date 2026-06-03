@@ -66,7 +66,7 @@ def _load_knowledge_summary(fs: Filesystem, task: Task) -> dict | None:
         return {
             "matched_count": len(matched),
             "top_matches": [
-                {"id": m["id"], "title": m["title"], "relevance": m.get("relevance", ""),
+                {"id": m["id"], "title": m.get("title", ""), "relevance": m.get("relevance", ""),
                  "how_to_apply": m.get("how_to_apply", "")[:100]}
                 for m in matched[:5]
             ],
@@ -105,11 +105,14 @@ def _auto_knowledge_retrieval(fs: Filesystem, task: Task, step_id: str,
         query = f"{task.title} {task.description}"
         max_results = kcfg.get("max_results", 3)
         intent = kcfg.get("intent")
+        biz_tag = getattr(task, 'biz_tag', None)
 
         if intent:
-            results = km.search_by_intent(intent, query, limit=max_results * 2)
+            results = km.search_by_intent(intent, query, limit=max_results * 2,
+                                          biz_context=biz_tag)
         else:
-            results = km.search_hybrid(query, limit=max_results * 2)
+            results = km.search_hybrid(query, limit=max_results * 2,
+                                       biz_context=biz_tag)
 
         # Apply filters from config
         categories = kcfg.get("categories")

@@ -40,27 +40,28 @@ class MultiBackend:
             r.pop("_rrf_score", None)
         return merged[:limit]
 
-    def search(self, keyword, limit=20):
-        primary = self._primary.search(keyword, limit=limit) if self._primary else []
-        secondary = self._secondary.search(keyword, limit=limit) if self._secondary else []
+    def search(self, keyword, limit=20, *, biz_context=None):
+        primary = self._primary.search(keyword, limit=limit, biz_context=biz_context) if self._primary else []
+        secondary = self._secondary.search(keyword, limit=limit, biz_context=biz_context) if self._secondary else []
         return self._merge_dedup(primary, secondary, limit)
 
-    def search_semantic(self, query, limit=20):
-        primary = self._primary.search_semantic(query, limit=limit) if self._primary else []
-        secondary = self._secondary.search_semantic(query, limit=limit) if self._secondary else []
+    def search_semantic(self, query, limit=20, *, biz_context=None):
+        primary = self._primary.search_semantic(query, limit=limit, biz_context=biz_context) if self._primary else []
+        secondary = self._secondary.search_semantic(query, limit=limit, biz_context=biz_context) if self._secondary else []
         return self._merge_dedup(primary, secondary, limit)
 
-    def search_hybrid(self, keyword, limit=20):
-        primary = self._primary.search_hybrid(keyword, limit=limit) if self._primary else []
-        secondary = self._secondary.search_hybrid(keyword, limit=limit) if self._secondary else []
+    def search_hybrid(self, keyword, limit=20, *, biz_context=None):
+        primary = self._primary.search_hybrid(keyword, limit=limit, biz_context=biz_context) if self._primary else []
+        secondary = self._secondary.search_hybrid(keyword, limit=limit, biz_context=biz_context) if self._secondary else []
         return self._merge_dedup(primary, secondary, limit)
 
     def add_entry(self, **kwargs):
         return self._primary.add_entry(**kwargs)
 
-    def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0):
+    def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0, biz_context=None):
         return self._primary.list_entries(domain=domain, category=category,
-                                           status=status, limit=limit, offset=offset)
+                                           status=status, limit=limit, offset=offset,
+                                           biz_context=biz_context)
 
     def get_entry(self, entry_id):
         e = self._primary.get_entry(entry_id)

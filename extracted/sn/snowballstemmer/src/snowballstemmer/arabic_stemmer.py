@@ -1,4 +1,4 @@
-# Generated from arabic.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from arabic.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class ArabicStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from arabic.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from arabic.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     B_is_defined = False
@@ -28,108 +28,7 @@ class ArabicStemmer(BaseStemmer):
                             if among_var == 0:
                                 raise lab2()
                             self.ket = self.cursor
-                            if among_var == 1:
-                                self.slice_del()
-                            elif among_var == 2:
-                                self.slice_from("0")
-                            elif among_var == 3:
-                                self.slice_from("1")
-                            elif among_var == 4:
-                                self.slice_from("2")
-                            elif among_var == 5:
-                                self.slice_from("3")
-                            elif among_var == 6:
-                                self.slice_from("4")
-                            elif among_var == 7:
-                                self.slice_from("5")
-                            elif among_var == 8:
-                                self.slice_from("6")
-                            elif among_var == 9:
-                                self.slice_from("7")
-                            elif among_var == 10:
-                                self.slice_from("8")
-                            elif among_var == 11:
-                                self.slice_from("9")
-                            elif among_var == 12:
-                                self.slice_from("\u0621")
-                            elif among_var == 13:
-                                self.slice_from("\u0623")
-                            elif among_var == 14:
-                                self.slice_from("\u0625")
-                            elif among_var == 15:
-                                self.slice_from("\u0626")
-                            elif among_var == 16:
-                                self.slice_from("\u0622")
-                            elif among_var == 17:
-                                self.slice_from("\u0624")
-                            elif among_var == 18:
-                                self.slice_from("\u0627")
-                            elif among_var == 19:
-                                self.slice_from("\u0628")
-                            elif among_var == 20:
-                                self.slice_from("\u0629")
-                            elif among_var == 21:
-                                self.slice_from("\u062A")
-                            elif among_var == 22:
-                                self.slice_from("\u062B")
-                            elif among_var == 23:
-                                self.slice_from("\u062C")
-                            elif among_var == 24:
-                                self.slice_from("\u062D")
-                            elif among_var == 25:
-                                self.slice_from("\u062E")
-                            elif among_var == 26:
-                                self.slice_from("\u062F")
-                            elif among_var == 27:
-                                self.slice_from("\u0630")
-                            elif among_var == 28:
-                                self.slice_from("\u0631")
-                            elif among_var == 29:
-                                self.slice_from("\u0632")
-                            elif among_var == 30:
-                                self.slice_from("\u0633")
-                            elif among_var == 31:
-                                self.slice_from("\u0634")
-                            elif among_var == 32:
-                                self.slice_from("\u0635")
-                            elif among_var == 33:
-                                self.slice_from("\u0636")
-                            elif among_var == 34:
-                                self.slice_from("\u0637")
-                            elif among_var == 35:
-                                self.slice_from("\u0638")
-                            elif among_var == 36:
-                                self.slice_from("\u0639")
-                            elif among_var == 37:
-                                self.slice_from("\u063A")
-                            elif among_var == 38:
-                                self.slice_from("\u0641")
-                            elif among_var == 39:
-                                self.slice_from("\u0642")
-                            elif among_var == 40:
-                                self.slice_from("\u0643")
-                            elif among_var == 41:
-                                self.slice_from("\u0644")
-                            elif among_var == 42:
-                                self.slice_from("\u0645")
-                            elif among_var == 43:
-                                self.slice_from("\u0646")
-                            elif among_var == 44:
-                                self.slice_from("\u0647")
-                            elif among_var == 45:
-                                self.slice_from("\u0648")
-                            elif among_var == 46:
-                                self.slice_from("\u0649")
-                            elif among_var == 47:
-                                self.slice_from("\u064A")
-                            elif among_var == 48:
-                                self.slice_from("\u0644\u0627")
-                            elif among_var == 49:
-                                self.slice_from("\u0644\u0623")
-                            elif among_var == 50:
-                                self.slice_from("\u0644\u0625")
-                            else:
-                                self.slice_from("\u0644\u0622")
+                            self.slice_from(ArabicStemmer.as_0[among_var - 1])
                             break
                         except lab2: pass
                         self.cursor = v_3
@@ -832,6 +731,7 @@ class ArabicStemmer(BaseStemmer):
         Among("\uFEFB", -1, 48),
         Among("\uFEFC", -1, 48)
     ]
+    as_0 = ("", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "\u0621", "\u0623", "\u0625", "\u0626", "\u0622", "\u0624", "\u0627", "\u0628", "\u0629", "\u062A", "\u062B", "\u062C", "\u062D", "\u062E", "\u062F", "\u0630", "\u0631", "\u0632", "\u0633", "\u0634", "\u0635", "\u0636", "\u0637", "\u0638", "\u0639", "\u063A", "\u0641", "\u0642", "\u0643", "\u0644", "\u0645", "\u0646", "\u0647", "\u0648", "\u0649", "\u064A", "\u0644\u0627", "\u0644\u0623", "\u0644\u0625", "\u0644\u0622")
 
     a_1 = [
         Among("\u0622", -1, 1),

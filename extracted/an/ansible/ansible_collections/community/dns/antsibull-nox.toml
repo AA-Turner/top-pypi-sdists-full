@@ -7,18 +7,6 @@
 "community.library_inventory_filtering_v1" = "git+https://github.com/ansible-collections/community.library_inventory_filtering.git,stable-1"
 "community.general" = "git+https://github.com/ansible-collections/community.general.git,main"
 
-[collection_sources_per_ansible.'2.14']
-# community.general's main branch needs ansible-core >= 2.15
-"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-9"
-
-[collection_sources_per_ansible.'2.15']
-# community.general's main branch needs ansible-core >= 2.16
-"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-10"
-
-[collection_sources_per_ansible.'2.16']
-# community.general's main branch needs ansible-core >= 2.17
-"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-11"
-
 [vcs]
 vcs = "git"
 development_branch = "main"
@@ -30,7 +18,6 @@ stable_branches = [ "stable-*" ]
 extra_code_files = ["tests/update-docs-fragments.py"]
 run_isort = false
 run_black = true
-run_black_modules = false  # modules still support Python 2
 black_config = "black.toml"
 run_ruff_autofix = true
 ruff_autofix_config = "ruff.toml"
@@ -44,7 +31,6 @@ run_flake8 = true
 flake8_config = ".flake8"
 run_pylint = true
 pylint_rcfile = ".pylintrc"
-pylint_modules_rcfile = ".pylintrc-py2"
 run_yamllint = true
 yamllint_config = ".yamllint"
 yamllint_config_plugins = ".yamllint-docs"
@@ -71,6 +57,7 @@ codeblocks_allow_without_type = false
 codeblocks_allow_literal_blocks = false
 
 [sessions.license_check]
+run_reuse = true
 
 [sessions.extra_checks]
 run_no_unwanted_files = true
@@ -88,13 +75,13 @@ run_avoid_characters = true
 name = "hetzner"
 pattern = "^hetzner_.*$"
 exclusions = []
-doc_fragment = "community.dns.attributes.actiongroup_hetzner"
+doc_fragment = "community.dns._attributes.actiongroup_hetzner"
 
 [[sessions.extra_checks.action_groups_config]]
 name = "hosttech"
 pattern = "^hosttech_.*$"
 exclusions = []
-doc_fragment = "community.dns.attributes.actiongroup_hosttech"
+doc_fragment = "community.dns._attributes.actiongroup_hosttech"
 
 [[sessions.extra_checks.avoid_character_group]]
 name = "tab"
@@ -102,6 +89,8 @@ regex = "\\x09"
 
 [sessions.build_import_check]
 run_galaxy_importer = true
+
+[sessions.ansible_lint]
 
 [sessions.ansible_test_sanity]
 include_devel = true
@@ -113,14 +102,10 @@ include_devel = true
 include_devel = true
 
 [sessions.ansible_test_integration_w_default_container.core_python_versions]
-"2.14" = ["2.7", "3.5", "3.9"]
-"2.15" = ["3.7"]
-"2.16" = ["2.7", "3.6", "3.11"]
-"2.17" = ["3.7", "3.12"]
 "2.18" = ["3.8", "3.13"]
 "2.19" = ["3.9", "3.13"]
 "2.20" = ["3.10", "3.14"]
-"2.21" = ["3.10", "3.14"]
+"2.21" = ["3.11", "3.14"]
 
 [[sessions.ee_check.execution_environments]]
 name = "devel-ubi-9"

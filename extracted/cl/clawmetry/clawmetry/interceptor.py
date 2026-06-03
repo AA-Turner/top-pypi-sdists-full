@@ -108,15 +108,42 @@ def _estimate_cost(
     """Estimate cost in USD for given model and token counts."""
     if not model or (input_tokens == 0 and output_tokens == 0):
         return None
-    # Find best match (model names can have version suffixes like -20240229)
+    # Find the MOST SPECIFIC match (model names have version suffixes like
+    # -20240229). First-substring would let "gpt-4o" swallow "gpt-4o-mini" (a
+    # 16x over-charge) or "o1" swallow "o1-mini" — so pick the longest matching
+    # key, which is the more specific model.
     model_lower = model.lower()
+    best_key = None
+    best_prices = None
     for key, prices in _PRICING.items():
-        if key in model_lower:
-            cost = (
-                input_tokens * prices["input"] + output_tokens * prices["output"]
-            ) / 1_000_000
-            return round(cost, 8)
-    return None
+        idx = model_lower.find(key)
+        if idx == -1:
+            continue
+        # Reject a match immediately followed by a digit or "." — that's a
+        # different version (e.g. "gpt-4" must NOT price "gpt-4.1"/"gpt-4.5";
+        # let those fall through to the canonical table instead of classic
+        # gpt-4's $30/$60). "-"/letter suffixes (gpt-4-turbo, claude-opus-4-8)
+        # are still valid matches.
+        after = model_lower[idx + len(key): idx + len(key) + 1]
+        if after.isdigit() or after == ".":
+            continue
+        if best_key is None or len(key) > len(best_key):
+            best_key, best_prices = key, prices
+    if best_prices is not None:
+        cost = (
+            input_tokens * best_prices["input"] + output_tokens * best_prices["output"]
+        ) / 1_000_000
+        return round(cost, 8)
+    # Fall back to the canonical multi-provider table so a real out-loop call is
+    # never silently $0 just because this small table predates the model
+    # (gpt-4.1/5, o3/o4, gemini-2.5, grok, …). providers_pricing infers the
+    # provider from the model and returns a conservative non-zero estimate.
+    try:
+        from clawmetry.providers_pricing import estimate_event_cost_usd as _pp_cost
+        c = _pp_cost(model, input_tokens, output_tokens)
+        return round(c, 8) if c and c > 0 else None
+    except Exception:
+        return None
 
 
 # ── URL detection ──────────────────────────────────────────────────────────────
@@ -155,7 +182,7 @@ def _build_external_event(
         host = urlparse(url).netloc or url.split("/")[2]
     except Exception:
         host = ""
-    return {
+    ev: dict[str, Any] = {
         "type": "external_api_call",
         "ts": datetime.now(timezone.utc).isoformat(),
         "url": url,
@@ -165,6 +192,10 @@ def _build_external_event(
         "latency_ms": round(latency_ms, 1),
         "library": library,
     }
+    src = _get_source()
+    if src:
+        ev["source"] = src
+    return ev
 
 
 def _detect_provider(url: str) -> str:
@@ -291,7 +322,31 @@ def _build_event(
         event["model"] = model
     if cost is not None:
         event["cost_usd"] = cost
+    src = _get_source()
+    if src:
+        event["source"] = src
     return event
+
+
+# ── Named source (out-loop / production agents) ────────────────────────────────
+# A production agent built on an SDK (OpenAI Agents, LangChain, Vercel AI SDK,
+# E2B, …) is auto-tracked by `import clawmetry.track`. Tagging it with a name
+# makes it a first-class *source* in the dashboard (e.g. "support-agent",
+# "investment-agent") instead of an anonymous script, so you can attribute cost
+# per product. Set via CLAWMETRY_SOURCE=<name> or clawmetry.track.set_source().
+_source: str = ""
+
+
+def set_source(name: str) -> None:
+    """Tag every subsequently-intercepted LLM call with a named source."""
+    global _source
+    _source = (str(name or "").strip())[:120]
+
+
+def _get_source() -> str:
+    if _source:
+        return _source
+    return (os.environ.get("CLAWMETRY_SOURCE", "") or "").strip()[:120]
 
 
 # ── httpx patching ─────────────────────────────────────────────────────────────

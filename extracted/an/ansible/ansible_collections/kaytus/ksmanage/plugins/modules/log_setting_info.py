@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: log_setting_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get bmc log setting information
 description:
    - Get bmc log setting information on kaytus Server.

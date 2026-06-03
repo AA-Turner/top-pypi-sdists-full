@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: snmp_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get snmp get/set information
 description:
    - Get snmp get/set information on kaytus Server.

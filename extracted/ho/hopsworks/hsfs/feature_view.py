@@ -47,6 +47,7 @@ from hsfs import (
 from hsfs import serving_key as skm
 from hsfs.constructor import filter, query
 from hsfs.constructor.filter import Filter, Logic
+from hsfs.constructor.lookback import FeatureGroupLookback, Lookback
 from hsfs.core import data_source as ds
 from hsfs.core import (
     explicit_provenance,
@@ -558,6 +559,8 @@ class FeatureView:
         self,
         start_time: str | int | datetime | date | None = None,
         end_time: str | int | datetime | date | None = None,
+        extra_filter: filter.Filter | filter.Logic | None = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
     ) -> str:
         """Get a query string of the batch query.
 
@@ -592,6 +595,14 @@ class FeatureView:
                 End event time for the batch query, exclusive.
                 Strings should be formatted in one of the following formats `%Y-%m-%d`, `%Y-%m-%d %H`, `%Y-%m-%d %H:%M`, `%Y-%m-%d %H:%M:%S`, or `%Y-%m-%d %H:%M:%S.%f`.
                 Int, i.e., Unix Epoch should be in seconds.
+            extra_filter:
+                Additional filters to be applied to the batch query on top of any feature view or training dataset filters.
+                Filters are pushed down to the data layer and combined with existing filters using AND logic.
+            lookback:
+                Optional lookback window to bound the PIT join.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             The batch query.
@@ -605,6 +616,8 @@ class FeatureView:
                 if self._batch_scoring_server
                 else None
             ),
+            extra_filter=extra_filter,
+            lookback=Lookback.from_user_input(lookback),
         )
 
     @public
@@ -1182,6 +1195,8 @@ class FeatureView:
         transformed: bool | None = True,
         transformation_context: dict[str, Any] = None,
         logging_data: bool = False,
+        extra_filter: filter.Filter | filter.Logic | None = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> TrainingDatasetDataFrameTypes | HopsworksLoggingMetadataType:
         """Get a batch of data from an event time interval from the offline feature store.
@@ -1280,6 +1295,14 @@ class FeatureView:
                 The logging metadata is available as part of an additional attribute `hopsworks_logging_metadata` of the returned object.
                 The logging metadata contains the untransformed features, transformed features, inference helpers, serving keys, request parameters and event time.
                 The batch data object returned can be passed to `feature_view.log()` to log the feature vectors along with all the logging metadata.
+            extra_filter:
+                Additional filters to be applied to the batch data on top of any feature view or training dataset filters.
+                Filters are pushed down to the data layer and combined with existing filters using AND logic.
+            lookback:
+                Optional lookback window to bound the PIT join.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             DataFrame: The spark dataframe containing the feature data.
@@ -1307,6 +1330,8 @@ class FeatureView:
             transformed=transformed,
             transformation_context=transformation_context,
             logging_data=logging_data,
+            extra_filter=extra_filter,
+            lookback=Lookback.from_user_input(lookback),
         )
 
     @public
@@ -1532,6 +1557,7 @@ class FeatureView:
         transformation_context: dict[str, Any] = None,
         data_source: ds.DataSource | dict[str, Any] | None = None,
         tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> tuple[int, job.Job]:
         """Create the metadata for a training dataset and save the corresponding training data into `location`.
@@ -1699,6 +1725,11 @@ class FeatureView:
                 The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution.
             data_source: The data source specifying the location of the data. Overrides the storage_connector and location arguments when specified.
             tags: Tags to attach to the training dataset for better discoverability.
+            lookback:
+                Optional lookback window persisted with the training dataset so re-reading the same training-dataset version reconstructs the same per-join predicate.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             td_version: training dataset version
@@ -1736,6 +1767,7 @@ class FeatureView:
             write_options or {},
             spine=spine,
             transformation_context=transformation_context,
+            lookback=Lookback.from_user_input(lookback),
         )
         warnings.warn(
             f"Incremented version to `{td.version}`.",
@@ -1768,6 +1800,7 @@ class FeatureView:
         transformation_context: dict[str, Any] = None,
         data_source: ds.DataSource | dict[str, Any] | None = None,
         tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> tuple[int, job.Job]:
         # TODO: Convert the docstrings from this point on:
@@ -1986,6 +2019,11 @@ class FeatureView:
                 The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
             data_source: The data source specifying the location of the data. Overrides the storage_connector and location arguments when specified.
             tags: Tags to attach to the training dataset for better discoverability.
+            lookback:
+                Optional lookback window persisted with the training dataset and applied to all splits.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             td_version: The version of the created training dataset.
@@ -2030,6 +2068,7 @@ class FeatureView:
             write_options or {},
             spine=spine,
             transformation_context=transformation_context,
+            lookback=Lookback.from_user_input(lookback),
         )
         warnings.warn(
             f"Incremented version to `{td.version}`.",
@@ -2064,6 +2103,7 @@ class FeatureView:
         transformation_context: dict[str, Any] = None,
         data_source: ds.DataSource | dict[str, Any] | None = None,
         tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> tuple[int, job.Job]:
         """Create the metadata for a training dataset and save the corresponding training data into `location`.
@@ -2267,6 +2307,11 @@ class FeatureView:
                 The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
             data_source: The data source specifying the location of the data. Overrides the storage_connector and location arguments when specified.
             tags: Tags to attach to the training dataset for better discoverability.
+            lookback:
+                Optional lookback window persisted with the training dataset and applied to all splits.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             td_version: The training dataset version.
@@ -2319,6 +2364,7 @@ class FeatureView:
             write_options or {},
             spine=spine,
             transformation_context=transformation_context,
+            lookback=Lookback.from_user_input(lookback),
         )
         warnings.warn(
             f"Incremented version to `{td.version}`.",
@@ -2427,6 +2473,7 @@ class FeatureView:
         training_helper_columns: bool = False,
         dataframe_type: str | None = "default",
         transformation_context: dict[str, Any] = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> tuple[
         TrainingDatasetDataFrameTypes,
@@ -2528,6 +2575,11 @@ class FeatureView:
             transformation_context:
                 A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
                 The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
+            lookback:
+                Optional lookback window applied to the PIT join before reading; bounds the rows each joined feature group contributes so the engine can prune partitions before opening files.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             (X, y): Tuple of dataframe of features and labels. If there are no labels, y returns `None`.
@@ -2545,6 +2597,7 @@ class FeatureView:
             statistics_config=statistics_config,
             training_dataset_type=training_dataset.TrainingDataset.IN_MEMORY,
             extra_filter=extra_filter,
+            lookback=Lookback.from_user_input(lookback),
         )
         td, df = self._feature_view_engine.get_training_data(
             self,
@@ -2584,6 +2637,7 @@ class FeatureView:
         training_helper_columns: bool = False,
         dataframe_type: str | None = "default",
         transformation_context: dict[str, Any] = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> tuple[
         TrainingDatasetDataFrameTypes,
@@ -2697,6 +2751,11 @@ class FeatureView:
             transformation_context:
                 A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
                 The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
+            lookback:
+                Optional lookback window applied to the PIT join before reading; bounds the rows each joined feature group contributes so the engine can prune partitions before opening files. The same window applies to both the train and test splits.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             (X_train, X_test, y_train, y_test):
@@ -2722,6 +2781,7 @@ class FeatureView:
             statistics_config=statistics_config,
             training_dataset_type=training_dataset.TrainingDataset.IN_MEMORY,
             extra_filter=extra_filter,
+            lookback=Lookback.from_user_input(lookback),
         )
         td, df = self._feature_view_engine.get_training_data(
             self,
@@ -2778,6 +2838,7 @@ class FeatureView:
         training_helper_columns: bool = False,
         dataframe_type: str | None = "default",
         transformation_context: dict[str, Any] = None,
+        lookback: FeatureGroupLookback | Lookback | dict[str, Any] | None = None,
         **kwargs,
     ) -> tuple[
         TrainingDatasetDataFrameTypes,
@@ -2906,6 +2967,11 @@ class FeatureView:
             transformation_context:
                 A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
                 The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
+            lookback:
+                Optional lookback window applied to the PIT join before reading; bounds the rows each joined feature group contributes so the engine can prune partitions before opening files. The same window applies to all three splits.
+                For one window across every feature group, pass a `FeatureGroupLookback` — e.g. `FeatureGroupLookback(key="PARTITION_KEY", start=date(2026, 5, 5), end=date(2026, 5, 17))` or its dict form `{"key": "PARTITION_KEY", "start": date(2026, 5, 5), "end": date(2026, 5, 17)}`.
+                For different windows per feature group, pass a `Lookback` — e.g. `Lookback(default=FeatureGroupLookback(...), feature_group_lookbacks={"dim_a": FeatureGroupLookback(...)})` or its dict form `{"default": {...}, "feature_group_lookbacks": {"dim_a": {...}}}`.
+                See [`FeatureGroupLookback`][hsfs.constructor.lookback.FeatureGroupLookback] and [`Lookback`][hsfs.constructor.lookback.Lookback] for accepted key values, validation rules, and per-FG key matching semantics.
 
         Returns:
             (X_train, X_val, X_test, y_train, y_val, y_test):
@@ -2939,6 +3005,7 @@ class FeatureView:
             statistics_config=statistics_config,
             training_dataset_type=training_dataset.TrainingDataset.IN_MEMORY,
             extra_filter=extra_filter,
+            lookback=Lookback.from_user_input(lookback),
         )
         td, df = self._feature_view_engine.get_training_data(
             self,
@@ -4866,6 +4933,39 @@ class FeatureView:
     @query.setter
     def query(self, query_obj: query.Query) -> None:
         self._query = query_obj
+
+    @public
+    def get_feature(self, name: str) -> Feature:
+        """Return a Feature for `name` (bare or join-prefixed) from this FV's query.
+
+        Delegates to `self.query.get_feature(...)`.
+        The returned Feature carries its feature_group, so it can be passed
+        directly into `extra_filter` on `get_batch_data` / `get_batch_query`:
+
+            fv.get_batch_data(extra_filter=(fv.get_feature("amount") > 100))
+
+        For joined feature views, accepts either the bare name (resolves to
+        the left FG if it owns the feature, else the first joined match) or
+        the join-prefixed name (e.g. `"customers_1_customer_id"`) for an
+        unambiguous lookup.
+
+        Parameters:
+            name: Feature name.
+                Use a bare name when the feature is unambiguous.
+                Use the join-prefixed form (e.g. `"customers_1_customer_id"`)
+                when the feature view joins multiple feature groups that
+                share the column.
+
+        Returns:
+            The `Feature` from the feature view's query, with its feature
+            group attached so it can be used directly in `extra_filter`.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: if `name`
+                is not in the feature view's query, or is ambiguous across
+                joined feature groups and no prefix was used.
+        """
+        return self._query.get_feature(name)
 
     @public
     @property

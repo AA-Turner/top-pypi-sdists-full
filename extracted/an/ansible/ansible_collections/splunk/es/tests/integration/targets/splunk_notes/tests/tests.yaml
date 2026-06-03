@@ -1,0 +1,689 @@
+---
+- debug:
+    msg: START splunk_notes integration tests on connection={{ ansible_connection }}
+
+# SETUP - Create finding, investigation, and response plan for testing
+- block:
+    - name: Setup - Create a finding for testing notes
+      register: setup_finding
+      splunk.es.splunk_finding:
+        title: "{{ test_finding.title }}"
+        description: "{{ test_finding.description }}"
+        security_domain: "{{ test_finding.security_domain }}"
+        entity: "{{ test_finding.entity }}"
+        entity_type: "{{ test_finding.entity_type }}"
+        finding_score: "{{ test_finding.finding_score }}"
+        urgency: "{{ test_finding.urgency }}"
+        status: "{{ test_finding.status }}"
+
+    - name: Setup - Assert finding was created
+      assert:
+        that:
+          - setup_finding['changed'] == true
+          - setup_finding['finding']['after']['ref_id'] is defined
+
+    - name: Setup - Set finding ref_id fact
+      ansible.builtin.set_fact:
+        test_finding_ref_id: "{{ setup_finding['finding']['after']['ref_id'] }}"
+
+    - name: Setup - Wait for Splunk to index the finding
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Setup - Create an investigation for testing notes
+      register: setup_investigation
+      splunk.es.splunk_investigation:
+        name: "{{ test_investigation.name }}"
+        description: "{{ test_investigation.description }}"
+        status: "{{ test_investigation.status }}"
+        owner: "{{ test_investigation.owner }}"
+        urgency: "{{ test_investigation.urgency }}"
+        sensitivity: "{{ test_investigation.sensitivity }}"
+
+    - name: Setup - Assert investigation was created
+      assert:
+        that:
+          - setup_investigation['changed'] == true
+          - setup_investigation['investigation']['after']['investigation_ref_id'] is defined
+
+    - name: Setup - Set investigation ref_id fact
+      ansible.builtin.set_fact:
+        test_investigation_ref_id: "{{ setup_investigation['investigation']['after']['investigation_ref_id'] }}"
+
+    - name: Setup - Create a response plan for testing notes
+      register: setup_response_plan
+      splunk.es.splunk_response_plan:
+        name: "{{ test_response_plan.name }}"
+        description: "{{ test_response_plan.description }}"
+        template_status: "{{ test_response_plan.template_status }}"
+        phases: "{{ test_response_plan.phases }}"
+
+    - name: Setup - Assert response plan was created
+      assert:
+        that:
+          - setup_response_plan['changed'] == true
+
+    - name: Setup - Query response plan to get ID
+      register: response_plan_info
+      splunk.es.splunk_response_plan_info:
+        name: "{{ test_response_plan.name }}"
+
+    - name: Setup - Set response plan ID fact
+      ansible.builtin.set_fact:
+        test_response_plan_id: "{{ response_plan_info.response_plans[0].id }}"
+
+    - name: Setup - Apply response plan to investigation
+      register: apply_result
+      splunk.es.splunk_response_plan_execution:
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan: "{{ test_response_plan.name }}"
+        state: present
+
+    - name: Setup - Assert response plan was applied
+      assert:
+        that:
+          - apply_result['changed'] == true
+          - apply_result['response_plan_execution']['after']['applied_plan_id'] is defined
+
+    - name: Setup - Set applied plan ID fact
+      ansible.builtin.set_fact:
+        test_applied_plan_id: "{{ apply_result['response_plan_execution']['after']['applied_plan_id'] }}"
+
+    - name: Setup - Query applied response plan to get phase and task IDs
+      register: applied_plan_info
+      splunk.es.splunk_response_plan_execution_info:
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+
+    - name: Setup - Set phase and task ID facts
+      vars:
+        applied_plan: "{{ applied_plan_info.applied_response_plans | selectattr('name', 'equalto', test_response_plan.name) | first }}"
+      ansible.builtin.set_fact:
+        test_phase_id: "{{ applied_plan.phases[0].id }}"
+        test_task_id: "{{ applied_plan.phases[0].tasks[0].id }}"
+
+    - name: Setup - Debug IDs
+      debug:
+        msg: >
+          Finding: {{ test_finding_ref_id }},
+          Investigation: {{ test_investigation_ref_id }},
+          Applied Plan: {{ test_applied_plan_id }},
+          Phase: {{ test_phase_id }},
+          Task: {{ test_task_id }}
+
+    - name: Create note on finding (CHECK MODE)
+      check_mode: true
+      register: finding_note_check_result
+      splunk.es.splunk_notes:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        content: "{{ note_content.finding_note_1 }}"
+        state: present
+
+    - name: Assert check mode reports changed but no actual creation
+      assert:
+        that:
+          - finding_note_check_result['changed'] == true
+          - finding_note_check_result['note']['before'] is none
+          - finding_note_check_result['note']['after']['content'] == note_content.finding_note_1
+
+    - name: Query finding notes to verify check mode did not create
+      register: finding_notes_check_verify
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+
+    - name: Assert no notes exist after check mode
+      assert:
+        that:
+          - finding_notes_check_verify['changed'] == false
+          - finding_notes_check_verify['notes'] | length == 0
+
+    - name: Create first note on finding
+      register: finding_note_1_result
+      splunk.es.splunk_notes:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        content: "{{ note_content.finding_note_1 }}"
+        state: present
+
+    - name: Assert first finding note was created
+      assert:
+        that:
+          - finding_note_1_result['changed'] == true
+          - finding_note_1_result['note']['before'] is none
+          - finding_note_1_result['note']['after']['note_id'] is defined
+          - finding_note_1_result['note']['after']['content'] == note_content.finding_note_1
+
+    - name: Set first finding note_id fact
+      ansible.builtin.set_fact:
+        finding_note_1_id: "{{ finding_note_1_result['note']['after']['note_id'] }}"
+
+    - name: Query finding notes to verify creation
+      register: finding_notes_after_create
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+
+    - name: Assert finding note is returned by info module
+      assert:
+        that:
+          - finding_notes_after_create['changed'] == false
+          - finding_notes_after_create['notes'] | length == 1
+          - finding_notes_after_create['notes'][0]['note_id'] == finding_note_1_id
+          - finding_notes_after_create['notes'][0]['content'] == note_content.finding_note_1
+
+    - name: Create second note on finding
+      register: finding_note_2_result
+      splunk.es.splunk_notes:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        content: "{{ note_content.finding_note_2 }}"
+        state: present
+
+    - name: Assert second finding note was created
+      assert:
+        that:
+          - finding_note_2_result['changed'] == true
+          - finding_note_2_result['note']['after']['note_id'] is defined
+
+    - name: Set second finding note_id fact
+      ansible.builtin.set_fact:
+        finding_note_2_id: "{{ finding_note_2_result['note']['after']['note_id'] }}"
+
+    - name: Query all finding notes (should return 2)
+      register: finding_notes_multiple
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+
+    - name: Assert info module returns multiple notes
+      assert:
+        that:
+          - finding_notes_multiple['notes'] | length == 2
+          - finding_notes_multiple['notes'] | selectattr('note_id', 'equalto', finding_note_1_id) | list | length == 1
+          - finding_notes_multiple['notes'] | selectattr('note_id', 'equalto', finding_note_2_id) | list | length == 1
+
+    - name: Query specific finding note by ID
+      register: finding_note_by_id
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_1_id }}"
+
+    - name: Assert specific note query returns correct note
+      assert:
+        that:
+          - finding_note_by_id['notes'] | length == 1
+          - finding_note_by_id['notes'][0]['note_id'] == finding_note_1_id
+
+    - name: Update finding note (CHECK MODE)
+      check_mode: true
+      register: update_finding_note_check
+      splunk.es.splunk_notes:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_1_id }}"
+        content: "{{ note_content.finding_note_1_updated }}"
+        state: present
+
+    - name: Assert check mode update reports changed
+      assert:
+        that:
+          - update_finding_note_check['changed'] == true
+          - update_finding_note_check['note']['before']['content'] == note_content.finding_note_1
+          - update_finding_note_check['note']['after']['content'] == note_content.finding_note_1_updated
+
+    - name: Update finding note
+      register: update_finding_note_result
+      splunk.es.splunk_notes: &update_finding_note_task
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_1_id }}"
+        content: "{{ note_content.finding_note_1_updated }}"
+        state: present
+
+    - name: Assert finding note was updated
+      assert:
+        that:
+          - update_finding_note_result['changed'] == true
+          - update_finding_note_result['note']['before']['content'] == note_content.finding_note_1
+          - update_finding_note_result['note']['after']['content'] == note_content.finding_note_1_updated
+
+    - name: Query finding note to verify update
+      register: finding_note_after_update
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_1_id }}"
+
+    - name: Assert finding note content is updated
+      assert:
+        that:
+          - finding_note_after_update['notes'][0]['content'] == note_content.finding_note_1_updated
+
+    - name: Update finding note again with same content (IDEMPOTENT)
+      register: update_finding_note_idempotent
+      splunk.es.splunk_notes: *update_finding_note_task
+
+    - name: Assert update is idempotent (no changes)
+      assert:
+        that:
+          - update_finding_note_idempotent['changed'] == false
+
+    - name: Delete finding note (CHECK MODE)
+      check_mode: true
+      register: delete_finding_note_check
+      splunk.es.splunk_notes:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_2_id }}"
+        state: absent
+
+    - name: Assert check mode delete reports changed
+      assert:
+        that:
+          - delete_finding_note_check['changed'] == true
+          - delete_finding_note_check['note']['before'] is not none
+          - delete_finding_note_check['note']['after'] is none
+
+    - name: Query finding note to verify check mode did not delete
+      register: finding_note_delete_check_verify
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_2_id }}"
+
+    - name: Assert note still exists
+      assert:
+        that:
+          - finding_note_delete_check_verify['notes'] | length == 1
+
+    - name: Delete finding note
+      register: delete_finding_note_result
+      splunk.es.splunk_notes: &delete_finding_note_task
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_2_id }}"
+        state: absent
+
+    - name: Assert finding note was deleted
+      assert:
+        that:
+          - delete_finding_note_result['changed'] == true
+          - delete_finding_note_result['note']['before'] is not none
+          - delete_finding_note_result['note']['after'] is none
+
+    - name: Query deleted finding note to verify deletion
+      register: finding_note_after_delete
+      splunk.es.splunk_notes_info:
+        target_type: finding
+        finding_ref_id: "{{ test_finding_ref_id }}"
+        note_id: "{{ finding_note_2_id }}"
+
+    - name: Assert deleted note is not returned
+      assert:
+        that:
+          - finding_note_after_delete['notes'] | length == 0
+
+    - name: Delete already deleted finding note (IDEMPOTENT)
+      register: delete_finding_note_idempotent
+      splunk.es.splunk_notes: *delete_finding_note_task
+
+    - name: Assert delete is idempotent (no changes)
+      assert:
+        that:
+          - delete_finding_note_idempotent['changed'] == false
+          - delete_finding_note_idempotent['note']['before'] is none
+          - delete_finding_note_idempotent['note']['after'] is none
+
+    - name: Create note on investigation (CHECK MODE)
+      check_mode: true
+      register: investigation_note_check_result
+      splunk.es.splunk_notes:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        content: "{{ note_content.investigation_note_1 }}"
+        state: present
+
+    - name: Assert check mode reports changed
+      assert:
+        that:
+          - investigation_note_check_result['changed'] == true
+
+    - name: Create first note on investigation
+      register: investigation_note_1_result
+      splunk.es.splunk_notes:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        content: "{{ note_content.investigation_note_1 }}"
+        state: present
+
+    - name: Assert first investigation note was created
+      assert:
+        that:
+          - investigation_note_1_result['changed'] == true
+          - investigation_note_1_result['note']['after']['note_id'] is defined
+          - investigation_note_1_result['note']['after']['content'] == note_content.investigation_note_1
+
+    - name: Set first investigation note_id fact
+      ansible.builtin.set_fact:
+        investigation_note_1_id: "{{ investigation_note_1_result['note']['after']['note_id'] }}"
+
+    - name: Query investigation notes to verify creation
+      register: investigation_notes_after_create
+      splunk.es.splunk_notes_info:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+
+    - name: Assert investigation note is returned by info module
+      assert:
+        that:
+          - investigation_notes_after_create['notes'] | length == 1
+          - investigation_notes_after_create['notes'][0]['note_id'] == investigation_note_1_id
+
+    - name: Create second note on investigation
+      register: investigation_note_2_result
+      splunk.es.splunk_notes:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        content: "{{ note_content.investigation_note_2 }}"
+        state: present
+
+    - name: Set second investigation note_id fact
+      ansible.builtin.set_fact:
+        investigation_note_2_id: "{{ investigation_note_2_result['note']['after']['note_id'] }}"
+
+    - name: Query all investigation notes (should return 2)
+      register: investigation_notes_multiple
+      splunk.es.splunk_notes_info:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+
+    - name: Assert info module returns multiple investigation notes
+      assert:
+        that:
+          - investigation_notes_multiple['notes'] | length == 2
+
+    - name: Query specific investigation note by ID
+      register: investigation_note_by_id
+      splunk.es.splunk_notes_info:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        note_id: "{{ investigation_note_1_id }}"
+
+    - name: Assert specific note query returns correct note
+      assert:
+        that:
+          - investigation_note_by_id['notes'] | length == 1
+          - investigation_note_by_id['notes'][0]['note_id'] == investigation_note_1_id
+
+    - name: Update investigation note
+      register: update_investigation_note_result
+      splunk.es.splunk_notes: &update_investigation_note_task
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        note_id: "{{ investigation_note_1_id }}"
+        content: "{{ note_content.investigation_note_1_updated }}"
+        state: present
+
+    - name: Assert investigation note was updated
+      assert:
+        that:
+          - update_investigation_note_result['changed'] == true
+
+    - name: Update investigation note again (IDEMPOTENT)
+      register: update_investigation_note_idempotent
+      splunk.es.splunk_notes: *update_investigation_note_task
+
+    - name: Assert update is idempotent
+      assert:
+        that:
+          - update_investigation_note_idempotent['changed'] == false
+
+    - name: Delete investigation note
+      register: delete_investigation_note_result
+      splunk.es.splunk_notes: &delete_investigation_note_task
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        note_id: "{{ investigation_note_2_id }}"
+        state: absent
+
+    - name: Assert investigation note was deleted
+      assert:
+        that:
+          - delete_investigation_note_result['changed'] == true
+
+    - name: Delete already deleted investigation note (IDEMPOTENT)
+      register: delete_investigation_note_idempotent
+      splunk.es.splunk_notes: *delete_investigation_note_task
+
+    - name: Assert delete is idempotent
+      assert:
+        that:
+          - delete_investigation_note_idempotent['changed'] == false
+
+    - name: Create note on response plan task (CHECK MODE)
+      check_mode: true
+      register: task_note_check_result
+      splunk.es.splunk_notes:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        content: "{{ note_content.task_note_1 }}"
+        state: present
+
+    - name: Assert check mode reports changed
+      assert:
+        that:
+          - task_note_check_result['changed'] == true
+
+    - name: Create first note on response plan task
+      register: task_note_1_result
+      splunk.es.splunk_notes:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        content: "{{ note_content.task_note_1 }}"
+        state: present
+
+    - name: Assert first task note was created
+      assert:
+        that:
+          - task_note_1_result['changed'] == true
+          - task_note_1_result['note']['after']['note_id'] is defined
+          - task_note_1_result['note']['after']['content'] == note_content.task_note_1
+
+    - name: Set first task note_id fact
+      ansible.builtin.set_fact:
+        task_note_1_id: "{{ task_note_1_result['note']['after']['note_id'] }}"
+
+    - name: Query task notes to verify creation
+      register: task_notes_after_create
+      splunk.es.splunk_notes_info:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+
+    - name: Assert task note is returned by info module
+      assert:
+        that:
+          - task_notes_after_create['notes'] | length == 1
+          - task_notes_after_create['notes'][0]['note_id'] == task_note_1_id
+
+    - name: Create second note on response plan task
+      register: task_note_2_result
+      splunk.es.splunk_notes:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        content: "{{ note_content.task_note_2 }}"
+        state: present
+
+    - name: Set second task note_id fact
+      ansible.builtin.set_fact:
+        task_note_2_id: "{{ task_note_2_result['note']['after']['note_id'] }}"
+
+    - name: Query all task notes (should return 2)
+      register: task_notes_multiple
+      splunk.es.splunk_notes_info:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+
+    - name: Assert info module returns multiple task notes
+      assert:
+        that:
+          - task_notes_multiple['notes'] | length == 2
+
+    - name: Query specific task note by ID (direct lookup)
+      register: task_note_by_id
+      splunk.es.splunk_notes_info:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        note_id: "{{ task_note_1_id }}"
+
+    - name: Assert specific task note query returns correct note
+      assert:
+        that:
+          - task_note_by_id['notes'] | length == 1
+          - task_note_by_id['notes'][0]['note_id'] == task_note_1_id
+
+    - name: Update task note
+      register: update_task_note_result
+      splunk.es.splunk_notes: &update_task_note_task
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        note_id: "{{ task_note_1_id }}"
+        content: "{{ note_content.task_note_1_updated }}"
+        state: present
+
+    - name: Assert task note was updated
+      assert:
+        that:
+          - update_task_note_result['changed'] == true
+
+    - name: Update task note again (IDEMPOTENT)
+      register: update_task_note_idempotent
+      splunk.es.splunk_notes: *update_task_note_task
+
+    - name: Assert update is idempotent
+      assert:
+        that:
+          - update_task_note_idempotent['changed'] == false
+
+    - name: Delete task note
+      register: delete_task_note_result
+      splunk.es.splunk_notes: &delete_task_note_task
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        note_id: "{{ task_note_2_id }}"
+        state: absent
+
+    - name: Assert task note was deleted
+      assert:
+        that:
+          - delete_task_note_result['changed'] == true
+
+    - name: Query deleted task note to verify deletion
+      register: task_note_after_delete
+      splunk.es.splunk_notes_info:
+        target_type: response_plan_task
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan_id: "{{ test_applied_plan_id }}"
+        phase_id: "{{ test_phase_id }}"
+        task_id: "{{ test_task_id }}"
+        note_id: "{{ task_note_2_id }}"
+
+    - name: Assert deleted task note is not returned
+      assert:
+        that:
+          - task_note_after_delete['notes'] | length == 0
+
+    - name: Delete already deleted task note (IDEMPOTENT)
+      register: delete_task_note_idempotent
+      splunk.es.splunk_notes: *delete_task_note_task
+
+    - name: Assert delete is idempotent
+      assert:
+        that:
+          - delete_task_note_idempotent['changed'] == false
+
+    - name: Create third investigation note for limit test
+      splunk.es.splunk_notes:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        content: "Third investigation note for limit test"
+        state: present
+
+    - name: Query investigation notes with limit=1
+      register: investigation_notes_limit_1
+      splunk.es.splunk_notes_info:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        limit: 1
+
+    - name: Assert limit=1 returns exactly one note
+      assert:
+        that:
+          - investigation_notes_limit_1['notes'] | length == 1
+
+    - name: Query investigation notes with limit=2
+      register: investigation_notes_limit_2
+      splunk.es.splunk_notes_info:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        limit: 2
+
+    - name: Assert limit=2 returns exactly two notes
+      assert:
+        that:
+          - investigation_notes_limit_2['notes'] | length == 2
+
+    - name: Query non-existent note by ID
+      register: nonexistent_note_result
+      splunk.es.splunk_notes_info:
+        target_type: investigation
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        note_id: "non-existent-note-id-12345"
+
+    - name: Assert non-existent note returns empty list without error
+      assert:
+        that:
+          - nonexistent_note_result['changed'] == false
+          - nonexistent_note_result['failed'] is not defined or nonexistent_note_result['failed'] == false
+          - nonexistent_note_result['notes'] | length == 0
+
+  # CLEANUP
+  always:
+    - name: Cleanup - Remove response plan from investigation
+      splunk.es.splunk_response_plan_execution:
+        investigation_ref_id: "{{ test_investigation_ref_id }}"
+        response_plan: "{{ test_response_plan.name }}"
+        state: absent
+      when: test_investigation_ref_id is defined
+      ignore_errors: true
+
+    - name: Cleanup - Delete test response plan
+      splunk.es.splunk_response_plan:
+        name: "{{ test_response_plan.name }}"
+        state: absent
+      ignore_errors: true

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: pdisk_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get physical disks information
 description:
    - Get physical disks information on kaytus Server.

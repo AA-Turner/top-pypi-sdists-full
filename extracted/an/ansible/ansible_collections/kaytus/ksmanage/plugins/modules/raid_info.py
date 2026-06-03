@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: raid_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get RAID/HBA card and controller information
 description:
    - Get RAID/HBA card and controller information information on kaytus Server.

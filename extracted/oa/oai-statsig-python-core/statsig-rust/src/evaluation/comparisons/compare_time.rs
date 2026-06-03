@@ -48,6 +48,7 @@ fn to_millis(ts: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use crate::evaluation::comparisons::compare_time;
+    use crate::user::user_value::UserValue;
     use crate::{dyn_value, test_only_make_eval_value, DynamicValue};
     use chrono::Utc;
 
@@ -91,6 +92,24 @@ mod tests {
             &test_eval_value,
             "before"
         ));
+    }
+
+    #[test]
+    fn test_date_only_format() {
+        let test_eval_value = test_only_make_eval_value!("2023-01-02");
+        assert!(compare_time(
+            (&create_str_value("2023-01-01")).into(),
+            &test_eval_value,
+            "before"
+        ));
+    }
+
+    #[test]
+    fn test_date_only_user_value_before_epoch_millis() {
+        let test_eval_value = test_only_make_eval_value!(1780286400000_i64); // 2026-06-01T04:00:00Z
+        let left = UserValue::from_string("2026-05-30");
+
+        assert!(compare_time((&left).into(), &test_eval_value, "before"));
     }
 
     #[test]

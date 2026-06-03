@@ -137,7 +137,7 @@ class Compiler(AbstractCompiler):
 
     def new_unique_table_name(self, prefix="tmp") -> DbPath:
         self._counter[0] += 1
-        table_name = f"{prefix}{self._counter[0]}_{'%x'%random.randrange(2**32)}"
+        table_name = f"{prefix}{self._counter[0]}_{'%x' % random.randrange(2**32)}"
         return self.database.dialect.parse_table_name(table_name)
 
     def add_table_context(self, *tables: Sequence, **kw) -> Self:
@@ -706,7 +706,7 @@ class BaseDialect(abc.ABC):
             return f"'{v.uuid}'"
         elif isinstance(v, decimal.Decimal):
             return str(v)
-        elif isinstance(v, bytearray):
+        elif isinstance(v, (bytes, bytearray)):
             return f"'{v.decode()}'"
         elif isinstance(v, Code):
             return v.code

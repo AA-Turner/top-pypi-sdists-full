@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -51,7 +50,7 @@ class ClaimableBalanceEntry:
     def __init__(
         self,
         balance_id: ClaimableBalanceID,
-        claimants: List[Claimant],
+        claimants: list[Claimant],
         asset: Asset,
         amount: Int64,
         ext: ClaimableBalanceEntryExt,

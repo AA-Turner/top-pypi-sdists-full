@@ -50,7 +50,9 @@ def _topo_sort(steps: list[dict]) -> list[dict]:
 
 def build_step_dag(lightweight: bool = False, quick: bool = False,
                    custom_order: list[str] | None = None,
-                   custom_steps: dict[str, list[StepDef]] | None = None) -> dict:
+                   custom_steps: dict[str, list[StepDef]] | None = None,
+                   mode: str | None = None,
+                   kanban_dir = None) -> dict:
     """Build a flat step DAG from phase step definitions.
 
     Returns:
@@ -61,6 +63,13 @@ def build_step_dag(lightweight: bool = False, quick: bool = False,
     if custom_steps is not None and custom_order is not None:
         steps_map = custom_steps
         phase_order = custom_order
+    elif mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
+        # Custom mode: load steps and phase order from workflow definition
+        from kanban_framework.domain.steps import _get_steps
+        steps_map = _get_steps(mode)
+        str_order = [p.value if hasattr(p, "value") else str(p)
+                     for p in Scheduler.dispatch_order(mode=mode, kanban_dir=kanban_dir)]
+        phase_order = str_order
     elif quick:
         steps_map = QUICK_STEPS
         phase_order = Scheduler.QUICK_PHASE_ORDER
@@ -183,7 +192,7 @@ def find_step_def(step_id: str, lightweight: bool = False,
 
     Searches: workflow.json loaded steps → hardcoded builtins.
     """
-    if mode and mode not in ("full", "lightweight", "quick"):
+    if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
         mode = mode
     else:
         mode = "quick" if quick else ("lightweight" if lightweight else "full")

@@ -1032,6 +1032,39 @@ _HEARTBEAT_PLAN_TO_TIER = {
 }
 
 
+def _sync_auto_update_with_plan(tier: str | None) -> None:
+    """Entitled accounts (Trial / Starter / Pro / Enterprise) keep the node
+    current automatically: enable the opt-in ``auto_update`` flag so the
+    daemon's update-check worker installs new releases (riding the 48h
+    staleness rail). This is what makes "I'm on Pro, the node should just stay
+    current" real without a manual ``pip install -U``.
+
+    Safety: respects an explicit opt-out (``CLAWMETRY_AUTO_UPDATE`` in
+    0/false/no/off), only ever ENABLES (never auto-disables, so a user's manual
+    choice survives a downgrade), and no-ops for free / inactive plans. Best
+    effort — never raises."""
+    try:
+        if not tier or tier == "cloud_free":
+            return
+        _ov = os.environ.get("CLAWMETRY_AUTO_UPDATE", "").strip().lower()
+        if _ov in ("0", "false", "no", "off"):
+            return
+        from routes.update_check import (
+            _get_update_check_config as _gucc,
+            _set_update_check_config as _succ,
+        )
+        cfg = _gucc() or {}
+        if not cfg.get("auto_update"):
+            _succ({"auto_update": True})
+            log.info(
+                "auto-update enabled for entitled plan (%s) — this node will keep "
+                "itself current (48h stability window). Opt out any time with "
+                "CLAWMETRY_AUTO_UPDATE=0.", tier,
+            )
+    except Exception as exc:
+        log.debug("auto-update plan sync skipped: %s", exc)
+
+
 def _persist_cloud_plan_to_disk(plan: str | None, trial_days_left=None) -> None:
     """Mirror the heartbeat plan into ``~/.clawmetry/cloud_plan.json`` so the
     dashboard process (which runs ``clawmetry.entitlements.get_entitlement``)
@@ -1043,6 +1076,8 @@ def _persist_cloud_plan_to_disk(plan: str | None, trial_days_left=None) -> None:
     is removed instead of written, so the resolver falls back to OSS-free
     rather than granting a dead plan."""
     tier = _HEARTBEAT_PLAN_TO_TIER.get(str(plan or "").strip().lower())
+    # Entitled plan → keep this node current automatically (opt-out + 48h rail).
+    _sync_auto_update_with_plan(tier)
     try:
         if tier is None:
             if os.path.isfile(_CLOUD_PLAN_CACHE_PATH):
@@ -4644,7 +4679,13 @@ def sync_intercepted_events(config: dict, state: dict, paths: dict) -> int:
                     ev = json.loads(raw)
                 except Exception:
                     continue
-                if ev.get("type") == "external_api_call":
+                _evt = ev.get("type")
+                if _evt in ("external_api_call", "llm_call"):
+                    # llm_call carries cost/tokens/model + provider; normalise
+                    # provider→host so both event types share external_api_calls
+                    # (the out-loop card then shows real per-source $ spend).
+                    if _evt == "llm_call" and not ev.get("host"):
+                        ev["host"] = ev.get("provider") or ""
                     try:
                         store.ingest_external_call(ev, node_id)
                         ingested += 1
@@ -5287,6 +5328,21 @@ def _build_node_meta() -> dict:
         except Exception:
             pass
         meta["local_ips"] = sorted(_ips)[:8]
+    except Exception:
+        pass
+    # Pro-adapter + auto-update status so the cloud Fleet can show whether an
+    # entitled node is actually running clawmetry-pro (the paid runtime
+    # adapters) and keeping itself current — turning the "I'm on Pro but Claude
+    # Code isn't showing" guesswork into a visible state on the node card.
+    try:
+        from clawmetry.license import _pro_installed_version as _pv
+        _pver = _pv()
+        meta["pro_version"] = str(_pver) if _pver else ""
+    except Exception:
+        pass
+    try:
+        from routes.update_check import _get_update_check_config as _gucc
+        meta["auto_update"] = bool((_gucc() or {}).get("auto_update"))
     except Exception:
         pass
     return meta
@@ -8612,6 +8668,154 @@ def _epoch_to_iso(epoch) -> str | None:
         return None
 
 
+def _session_cost_intel(s) -> dict:
+    """Per-session cost-intelligence foundation: the token split + the derived
+    reasoning-tax $ and cache-hit %, computed from the adapter Session.
+
+    The split (input/output/cache/reasoning) is dropped at event ingest (family
+    events carry only a total) and the ``sessions`` table doesn't store it — so
+    this is the single place every adapter's authoritative split is available.
+    We stash it on the session metadata here so the cost-intelligence chip and
+    the context graph can read it. Reasoning bills at the OUTPUT rate (there is
+    no separate reasoning rate). Best-effort: a field is OMITTED (honest
+    "unknown") when its source data is absent. Never raises.
+    """
+    out: dict = {}
+    try:
+        in_t = int(getattr(s, "input_tokens", 0) or 0)
+        out_t = int(getattr(s, "output_tokens", 0) or 0)
+        cr = int(getattr(s, "cache_read_tokens", 0) or 0)
+        cw = int(getattr(s, "cache_write_tokens", 0) or 0)
+        rt = int(getattr(s, "reasoning_tokens", 0) or 0)
+        model = getattr(s, "model", "") or ""
+        out["tokenSplit"] = {
+            "input": in_t, "output": out_t,
+            "cacheRead": cr, "cacheWrite": cw, "reasoning": rt,
+        }
+        # Cache-hit %: share of read context served from cache (cheaper).
+        if (in_t + cr) > 0:
+            out["cacheHitPct"] = round(cr / (in_t + cr) * 100, 1)
+        # Reasoning-tax $: reasoning tokens priced at the model's output rate.
+        if model and rt > 0:
+            try:
+                from clawmetry.providers_pricing import estimate_event_cost_usd
+                _rc = estimate_event_cost_usd(model, output_tokens=rt)
+                if _rc is not None:
+                    out["reasoningCostUsd"] = round(float(_rc), 6)
+            except Exception:
+                pass
+        # Cache re-read tax: Anthropic's prompt cache has a 5-minute TTL, so a
+        # session that idles past it re-derives context it already had — paying
+        # to REBUILD the cache (cache writes bill ~1.25x input) instead of
+        # reading it cheaply (~0.1x). Surface what was paid to (re)build the
+        # cache vs what reuse actually saved; a churny session (high write, low
+        # read / low cacheHitPct) is paying the re-read tax. Anthropic-style
+        # cache split only — omitted (honest "unknown") for other providers.
+        if model and (cw > 0 or cr > 0):
+            try:
+                from clawmetry.providers_pricing import estimate_event_cost_usd as _ec
+                _wc = _ec(model, cache_write_tokens=cw)
+                if _wc and _wc > 0:
+                    out["cacheWriteCostUsd"] = round(float(_wc), 6)
+                if cr > 0:
+                    _full = _ec(model, input_tokens=cr) or 0.0
+                    _read = _ec(model, cache_read_tokens=cr) or 0.0
+                    if (_full - _read) > 0:
+                        out["cacheSavedUsd"] = round(float(_full - _read), 6)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return out
+
+
+def _session_tool_health(events) -> dict:
+    """Per-session tool failure-rate from the adapter events: how many tool
+    results came back as a REAL (non-benign) error. A tool that keeps failing
+    (e.g. "browser fails 40%") is invisible to the user, who just sees the agent
+    "thinking". Benign read-guards / transient gateway timeouts are filtered out
+    (mirrors the transcript-ingest benign filter) so the rate is actionable, not
+    alarmist. Returns {} when there are no tool results. Never raises.
+    """
+    try:
+        from clawmetry import error_signal as _es
+    except Exception:
+        _es = None
+    results = 0
+    errors = 0
+    try:
+        for e in events:
+            et = (getattr(e, "type", "") or "").lower()
+            if "result" not in et and not getattr(e, "tool_name", ""):
+                continue
+            results += 1
+            extra = getattr(e, "extra", None)
+            extra = extra if isinstance(extra, dict) else {}
+            if not (extra.get("isError") or extra.get("is_error")):
+                continue
+            if _es is not None:
+                try:
+                    txt = _es.extract_tool_result_text(
+                        {"content": getattr(e, "content", ""), "extra": extra}
+                    ) or (getattr(e, "content", "") or "")
+                except Exception:
+                    txt = getattr(e, "content", "") or ""
+                if _es.is_benign_tool_error(txt):
+                    continue
+            errors += 1
+    except Exception:
+        return {}
+    if results <= 0:
+        return {}
+    return {
+        "toolResults": results,
+        "toolErrors": errors,
+        "toolErrorPct": round(errors / results * 100, 1),
+    }
+
+
+def _session_idle_gaps(events, ttl_sec: int = 300) -> dict:
+    """Count idle gaps that crossed the prompt-cache TTL. Anthropic's cache
+    expires after ~5 minutes, so every consecutive-event gap longer than that
+    forced the next call to RE-READ (re-derive) context it already had — a
+    direct, timestamp-only count of the re-read tax events (no per-event cache
+    split needed, which family events drop at ingest). Returns {} for <2 events.
+    Never raises."""
+    ts: list[float] = []
+    try:
+        for e in events or []:
+            t = getattr(e, "ts", None)
+            if t is None:
+                continue
+            try:
+                ts.append(float(t))
+            except (TypeError, ValueError):
+                try:
+                    ts.append(datetime.fromisoformat(
+                        str(t).replace("Z", "+00:00")).timestamp())
+                except Exception:
+                    continue
+    except Exception:
+        return {}
+    if len(ts) < 2:
+        return {}
+    ts.sort()
+    expiries = 0
+    max_gap = 0.0
+    for a, b in zip(ts, ts[1:]):
+        gap = b - a
+        if gap > max_gap:
+            max_gap = gap
+        if gap > ttl_sec:
+            expiries += 1
+    out: dict = {}
+    if expiries:
+        out["cacheExpiryCount"] = expiries
+    if max_gap > 0:
+        out["maxIdleGapSec"] = round(max_gap, 1)
+    return out
+
+
 def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
     """Ingest PicoClaw + NanoClaw sessions into DuckDB (and the cloud) so they
     appear in the sessions list + transcripts the same way OpenClaw does.
@@ -8682,6 +8886,27 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     metadata.update(
                         {k: v for k, v in s.extra.items() if k not in metadata}
                     )
+                # Cost-intelligence foundation: stash the per-session token split
+                # + derived reasoning-tax $ / cache-hit % onto the metadata (the
+                # only place the adapter's authoritative split survives).
+                _intel = _session_cost_intel(s)
+                metadata.update(_intel)
+                # Pre-fetch the events once (the transcript loop below reuses
+                # them) so we can also derive the per-session tool failure-rate.
+                _events = list(adapter.list_events(s.id, limit=2000))
+                _thealth = _session_tool_health(_events)
+                metadata.update(_thealth)
+                _idle = _session_idle_gaps(_events)
+                metadata.update(_idle)
+                # Compaction count: each auto-compaction silently re-summarises
+                # (and re-bills) the context. A session that compacted N times
+                # is thrashing its context window — a glanceable waste signal.
+                _compactions = sum(
+                    1 for e in _events
+                    if "compact" in ((getattr(e, "type", "") or "").lower())
+                )
+                if _compactions:
+                    metadata["compactionCount"] = _compactions
                 # Local upsert (the sessions list reads this).
                 try:
                     store.ingest_session({
@@ -8718,10 +8943,20 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     "message_count": int(s.message_count or 0),
                     "runtime": runtime,
                     "model": s.model or "",
+                    # Cost-intelligence (foundation): carried to the cloud so the
+                    # chip renders from the snapshot, not just the local store.
+                    "reasoning_cost_usd": _intel.get("reasoningCostUsd"),
+                    "cache_hit_pct": _intel.get("cacheHitPct"),
+                    "token_split": _intel.get("tokenSplit"),
+                    "cache_write_cost_usd": _intel.get("cacheWriteCostUsd"),
+                    "cache_saved_usd": _intel.get("cacheSavedUsd"),
+                    "cache_expiry_count": _idle.get("cacheExpiryCount"),
+                    "tool_error_pct": _thealth.get("toolErrorPct"),
+                    "compaction_count": _compactions or None,
                 })
                 # Events → transcript (rides the existing _build_transcripts path).
                 rows = []
-                for e in adapter.list_events(s.id, limit=2000):
+                for e in _events:
                     ets = _epoch_to_iso(e.ts)
                     if not ets:
                         continue
@@ -8756,6 +8991,18 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                         "model": s.model or None,
                     })
                 if rows:
+                    # Per-event USD isn't on disk for family runtimes (the
+                    # adapter derives one accurate cost at the SESSION level).
+                    # Spread that real cost across the session's events in
+                    # proportion to each event's token_count so the event-based
+                    # Cost tab sums to the true session cost instead of $0.
+                    if s.cost_usd is not None:
+                        _tot_tok = sum(r["token_count"] for r in rows)
+                        if _tot_tok > 0:
+                            for r in rows:
+                                r["cost_usd"] = round(s.cost_usd * r["token_count"] / _tot_tok, 8)
+                        else:
+                            rows[-1]["cost_usd"] = s.cost_usd
                     try:
                         store.ingest_many(rows)
                         total_events += len(rows)
@@ -9865,6 +10112,53 @@ def _selfevolve_refresh_async(ctx):
     threading.Thread(target=_run, daemon=True, name="selfevolve-refresh").start()
 
 
+def _build_governance():
+    """NemoClaw governance slice for the cloud governance tab.
+
+    Mirrors the shape the OSS frontend renders (app.js: ``installed``,
+    ``sandboxes[]``, ``policy{}``, ``config{}``, ``drift``, ``network_policies[]``,
+    ``presets[]``). The cloud ``cm-cloud-nemoclaw`` interceptor serves this slice
+    to paid users; without it they fall back to ``{installed: false}``.
+
+    Honest by construction: we only emit fields the daemon can actually observe
+    via ``_detect_nemoclaw()`` (sandbox state + inference + the two security
+    flags). ``policy`` / ``network_policies`` / ``presets`` are left empty rather
+    than fabricated — the OSS renderer degrades gracefully on missing fields.
+    Best-effort: returns ``{"installed": False}`` when NemoClaw is absent or on
+    any error (the UI shows a clean "not available" for that).
+    """
+    try:
+        nemo = _detect_nemoclaw()
+        if not nemo.get("detected"):
+            return {"installed": False}
+        sandboxes = []
+        if nemo.get("sandbox_name") or nemo.get("sandbox_status"):
+            sandboxes.append({
+                "name": nemo.get("sandbox_name") or "(default)",
+                "status": nemo.get("sandbox_status", "unknown"),
+                "type": nemo.get("sandbox_type", "nemoclaw"),
+                "inference_provider": nemo.get("inference_provider", ""),
+                "inference_model": nemo.get("inference_model", ""),
+            })
+        config = {}
+        if nemo.get("version"):
+            config["version"] = nemo["version"]
+        config["sandbox_enabled"] = bool(nemo.get("security_sandbox_enabled"))
+        config["network_policy"] = bool(nemo.get("security_network_policy"))
+        return {
+            "installed": True,
+            "sandboxes": sandboxes,
+            "policy": {},
+            "network_policies": [],
+            "presets": [],
+            "drift": None,
+            "config": config,
+        }
+    except Exception as _e:
+        log.debug("governance snapshot build failed: %s", _e)
+        return {"installed": False}
+
+
 def _build_selfevolve(workspace=None):
     """Self-Evolve findings for the cloud Self-Evolve tab — computed by asking
     OpenClaw itself (see module note above). Best-effort -> {}."""
@@ -10688,6 +10982,40 @@ def _build_tool_catalog_slice(limit: int = 5000, top: int = 60) -> dict:
         calls_map[t["name"]] = recent[:recent_cap]
     out["calls"] = calls_map
     return out
+
+
+def _build_external_calls():
+    """Snapshot slice for the out-loop sources card — source-tagged external
+    API calls only (clawmetry.track.set_source()). Capped + field-trimmed so
+    the cloud lights up the per-source attribution card the same as local,
+    without bloating the snapshot for users who don't use the out-loop SDK.
+    Returns ``[]`` when nothing is tagged (the card self-removes)."""
+    try:
+        from clawmetry import local_store as _ls
+        store = _ls.get_store(read_only=True)
+        rows = store.query_external_calls(limit=2000) or []
+        out = []
+        for c in rows:
+            src = (c or {}).get("source")
+            if not src:
+                continue
+            out.append({
+                "source":      str(src)[:80],
+                "host":        (c.get("host") or "")[:120],
+                "method":      (c.get("method") or "")[:10],
+                "status_code": c.get("status_code"),
+                "latency_ms":  c.get("latency_ms"),
+                "cost_usd":    c.get("cost_usd") or 0,
+                "input_tokens":  c.get("input_tokens") or 0,
+                "output_tokens": c.get("output_tokens") or 0,
+                "model":       (c.get("model") or "")[:60],
+            })
+            if len(out) >= 500:
+                break
+        return out
+    except Exception as _e_ext:
+        log.debug("snapshot: external_calls slice failed: %s", _e_ext)
+        return []
 
 
 def _build_tool_stats():
@@ -11629,6 +11957,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "cronJobs": _build_cron_jobs(paths),
         "channels": _build_channel_data(config),
         "toolStats": _build_tool_stats(),
+        "externalCalls": _build_external_calls(),
         "brainData": _build_brain_data(),
         "gateway": {},
         "runtimeInfo": _build_runtime_info(),
@@ -11651,6 +11980,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
             ]
         ),
         "selfEvolve": _build_selfevolve(paths.get("workspace")),
+        "governance": _build_governance(),
         "dailyUsage": _du,  # #2142: computed once above, shared with `spending`
         "reliability": _build_reliability(),
         "memoryAccess": _build_memory_access(),
@@ -12061,6 +12391,31 @@ def run_daemon() -> None:
         config["node_id"] = socket.gethostname() or platform.node() or "unknown"
         save_config(config)
         log.info(f"Auto-set node_id:  → {config['node_id']!r}")
+    # Auto-provision clawmetry-pro for an ENTITLED account (Trial/Pro/Enterprise)
+    # on every daemon start — so an already-connected node picks up the paid
+    # runtime adapters (Claude Code, Codex, Cursor, …) when its plan changes
+    # (e.g. a trial starts) WITHOUT re-running `clawmetry connect`. Previously
+    # provisioning ran only at connect time, so a node that linked while free
+    # never gained the adapters after upgrading. Idempotent (skips when the
+    # wheel is already current) + never-raises + installs nothing for free
+    # accounts. Adapters import lazily per sync cycle, so a fresh install takes
+    # effect this run; re-run plugin discovery so pro entry-points register too.
+    try:
+        _ak = config.get("api_key", "")
+        if _ak:
+            from clawmetry.license import auto_provision_pro as _auto_pro
+            _pro_ok, _pro_msg = _auto_pro(_ak, config.get("node_id"))
+            if _pro_ok:
+                log.info("clawmetry-pro present (entitled account) — all runtimes enabled")
+                try:
+                    from clawmetry.extensions import load_plugins as _ext_reload
+                    _ext_reload()
+                except Exception:
+                    pass
+            elif _pro_msg:
+                log.info("clawmetry-pro: %s", _pro_msg)
+    except Exception as _pe:
+        log.debug("pro auto-provision (daemon) skipped: %s", _pe)
     paths = detect_paths()
     enc = "🔒 E2E encrypted" if config.get("encryption_key") else "⚠️  unencrypted"
     try:
@@ -12410,6 +12765,66 @@ def run_daemon() -> None:
         log.info("review sampler thread started (issue #1615)")
     except Exception as _e:
         log.warning(f"review sampler failed to start: {_e}")
+
+    # ── Pro-entitlement watcher ──────────────────────────────────────────
+    # A user can start a trial (or upgrade to Starter/Pro) AT ANY TIME, often
+    # while the daemon is already running. Provisioning at connect + at daemon
+    # start (above) covers link-time and restarts; this thread closes the gap
+    # in between — it re-checks entitlement every ~30 min and installs
+    # clawmetry-pro the moment the account becomes entitled, so the paid
+    # runtime adapters (Claude Code, Codex, Cursor, …) start being ingested
+    # within the same session, no restart needed. Idempotent + never-raises;
+    # a free account installs nothing. Adapters import lazily per sync cycle,
+    # so a mid-run install is picked up on the next cycle.
+    try:
+        _pro_stop = threading.Event()
+
+        def _pro_entitlement_worker():
+            time.sleep(120)  # let startup provisioning + first sync settle
+            from clawmetry.license import (
+                auto_provision_pro as _wp,
+                _pro_installed_version as _pv,
+            )
+            while not _pro_stop.is_set():
+                try:
+                    _ak = (load_config() or {}).get("api_key", "")
+                    if _ak:
+                        _was = bool(_pv())
+                        _ok, _msg = _wp(_ak, config.get("node_id"))
+                        if _ok and not _was:
+                            log.info("clawmetry-pro just installed (account became "
+                                     "entitled) — paid runtimes now enabled")
+                            try:
+                                from clawmetry.extensions import load_plugins as _lp
+                                _lp()
+                            except Exception:
+                                pass
+                except Exception as _pwe:
+                    log.debug("pro entitlement tick skipped: %s", _pwe)
+                _pro_stop.wait(timeout=1800)  # ~30 min
+
+        t_pro = threading.Thread(
+            target=_pro_entitlement_worker, daemon=True, name="pro-entitlement"
+        )
+        t_pro.start()
+        log.info("pro-entitlement watcher thread started")
+    except Exception as _e:
+        log.warning(f"pro-entitlement watcher failed to start: {_e}")
+
+    # ── Opt-in auto-update worker ────────────────────────────────────────
+    # routes/update_check.py runs a background checker that self-updates ONLY
+    # when the `auto_update` config is on (default OFF → no behaviour change
+    # for anyone who hasn't opted in), via the same vetted pip+restart path as
+    # the manual "Update now". It was started only in the DASHBOARD process —
+    # but a headless / cloud-synced node runs only this daemon, so auto-update
+    # never fired where it's most needed. Start it here too (idempotent: the
+    # module guards against a double-started thread). Never blocks/raises.
+    try:
+        from routes.update_check import start_update_check_thread as _start_uc
+        _start_uc()
+        log.info("update-check thread started (auto-update honours the opt-in flag)")
+    except Exception as _e:
+        log.warning(f"update-check thread failed to start: {_e}")
 
     # ── Per-tier event retention prune (#2262 catalogue) ─────────────────
     # Hourly tick that reads ``Entitlement.event_retention_days()`` and

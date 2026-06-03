@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: download_manual_screenshot
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Download manual screenshots
 description:
    - Download manual screenshots on kaytus Server.

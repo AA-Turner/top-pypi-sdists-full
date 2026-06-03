@@ -1,11 +1,11 @@
 from contextlib import contextmanager
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from auto_round import AutoRound
 from auto_round.schemes import PRESET_SCHEMES as AR_PRESET_SCHEMES
 from auto_round.schemes import QuantizationScheme as ARQuantizationScheme
+from auto_round.utils import check_to_quantized
 from auto_round.wrapper import WrapperWALayer
 from compressed_tensors.offload import get_execution_device, get_offloaded_device
 from compressed_tensors.offload.module import offload_module, remove_module_offload
@@ -15,12 +15,7 @@ from compressed_tensors.quantization import (
     QuantizationStrategy,
     enable_quantization,
 )
-from compressed_tensors.utils import (
-    align_module_device,
-    delete_offload_parameter,
-    match_named_modules,
-    register_offload_parameter,
-)
+from compressed_tensors.utils import align_module_device, match_named_modules
 from loguru import logger
 from pydantic import PrivateAttr
 
@@ -29,7 +24,7 @@ from llmcompressor.modifiers import Modifier
 from llmcompressor.modifiers.quantization.calibration import apply_calibration_status
 from llmcompressor.modifiers.quantization.quantization import QuantizationMixin
 from llmcompressor.utils import targets_embeddings, untie_word_embeddings
-from llmcompressor.utils.pytorch import get_no_split_params
+from llmcompressor.utils.pytorch import infer_sequential_targets
 
 __all__ = ["AutoRoundModifier"]
 
@@ -69,6 +64,8 @@ def suspend_offloading(model: nn.Module):
     """
     offloading_info = dict()
     for name, module in model.named_modules():
+        if not hasattr(module, "weight"):  # skip SiLU or other non-weight layers
+            continue
         offloading_info[name] = (
             get_execution_device(module),
             get_offloaded_device(module),
@@ -78,6 +75,8 @@ def suspend_offloading(model: nn.Module):
     yield
 
     for name, module in model.named_modules():
+        if not hasattr(module, "weight"):  # skip SiLU or other non-weight layers
+            continue
         offload_module(module, *offloading_info[name])
 
 
@@ -130,9 +129,6 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
     :param scheme: a single quantization scheme to apply to the model. This is a
         dictionary that supports all keys from QuantizationScheme except targets, which
         will be set to the targets parameter set at the modifier level.
-    :param sequential_targets: class names of decoding layers to tune sequentially. If
-        None, targets are inferred via `get_no_split_params()` to respect no-split
-        constraints for large models. Defaults to None.
     :param iters: number of tuning iterations per block (decoding layer). Higher values
         typically improve accuracy at the cost of longer tuning time. Defaults to 200.
     :param enable_torch_compile: whether to enable `torch.compile` to accelerate the
@@ -147,17 +143,17 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         Defaults to None.
     """
 
-    sequential_targets: Union[str, List[str], None] = None
     # AutoRound modifier arguments
     iters: int = 200
     enable_torch_compile: bool = True
     batch_size: int = 8
-    lr: Optional[float] = None
-    device_ids: Optional[str] = None
+    lr: float | None = None
+    device_ids: str | None = None
+    disable_opt_rtn: bool = False
 
     # private variables
-    _all_module_input: Dict[str, List[Tuple]] = PrivateAttr(default_factory=dict)
-    _q_input: Optional[torch.Tensor] = PrivateAttr(default=None)
+    _all_module_input: dict[str, list[tuple]] = PrivateAttr(default_factory=dict)
+    _q_input: torch.Tensor | None = PrivateAttr(default=None)
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         """
@@ -175,7 +171,9 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         for _, param in state.model.named_parameters():
             param.requires_grad_(False)
 
-        self.sequential_targets = self._infer_sequential_targets(state.model)
+        self._sequential_targets = infer_sequential_targets(
+            state.model, sequential_targets=kwargs.get("sequential_targets")
+        )
         return True
 
     def start_calibration(self, model: torch.nn.Module):
@@ -218,15 +216,15 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
                 self.on_start(state, None)
 
         if event.type_ == EventType.SEQUENTIAL_EPOCH_END:
-            subgraph = kwargs.pop("subgraph", None)
-            self.apply_autoround(state, subgraph)
+            modules = kwargs.pop("modules", None)
+            self.apply_autoround(state, modules)
             self.post_autoround_cleanup()
 
         if event.type_ == EventType.CALIBRATION_EPOCH_END:
             if not self.ended_:
                 self.on_end(state, None)
 
-    def apply_autoround(self, state, subgraph):
+    def apply_autoround(self, state, modules):
         """
         Applies AutoRound quantization tuning on the current decoding layer.
 
@@ -242,15 +240,16 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         For more details, please refer to the AutoRound repository:
         https://github.com/intel/auto-round/
         """
-        modules = list(subgraph.submodules(model=state.model))
+        modules = modules or []
 
         decoding_layers = [m for m in modules if self._is_decoding_layer(m)]
         if len(decoding_layers) == 0:
             return
-        assert len(decoding_layers) == 1, (
-            "Only one decoding layer is expected in the subgraph, "
-            f"found {len(decoding_layers)}."
-        )
+        if len(decoding_layers) != 1:
+            raise ValueError(
+                "Only one decoding layer is expected in the modules list, "
+                f"found {len(decoding_layers)}."
+            )
         decoding_layer = decoding_layers[0]
 
         logger.info("Applying AutoRound on layer {}", decoding_layer._tmp_name)
@@ -262,7 +261,7 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
 
         # Build kwargs for AutoRound initialization
         ar_quant_scheme = self._mapping_config_to_autoround()
-        fp_layers = self.get_unquantized_layer_names(decoding_layer)
+        ignore_layers = self.get_unquantized_layer_names(decoding_layer)
         kwargs = {
             "tokenizer": "",  # A placeholder
             "scheme": ar_quant_scheme,
@@ -271,7 +270,8 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
             "enable_torch_compile": self.enable_torch_compile,
             "batch_size": self.batch_size,
             "device_map": self.device_ids,
-            "fp_layers": ",".join(fp_layers) if fp_layers else "",
+            "ignore_layers": ",".join(ignore_layers) if ignore_layers else "",
+            "disable_opt_rtn": self.disable_opt_rtn,
         }
 
         llmc_registered_qparams = self._preprocess_qparams(decoding_layer)
@@ -280,6 +280,7 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
             align_module_device(decoding_layer),
             suspend_offloading(wrapped_model),
         ):
+            self._update_device_map_for_dp(kwargs)
             ar = AutoRound(
                 model=wrapped_model,
                 **kwargs,
@@ -338,7 +339,7 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
 
         return True
 
-    def get_unquantized_layer_names(self, wrapped_model: torch.nn.Module) -> List[str]:
+    def get_unquantized_layer_names(self, wrapped_model: torch.nn.Module) -> list[str]:
         unquantized_layers = []
 
         for name, module in wrapped_model.named_modules():
@@ -348,6 +349,15 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
             ):
                 unquantized_layers.append(name)
         return unquantized_layers
+
+    def _update_device_map_for_dp(self, ar_kwargs):
+        if torch.distributed.is_initialized():
+            rank = torch.distributed.get_rank()
+            ar_kwargs["device_map"] = (
+                f"{torch.accelerator.current_accelerator().type}:{rank}"
+                if torch.accelerator.is_available()
+                else "cpu"
+            )
 
     def _unwrapper_quantized_layer(self, model: torch.nn.Module):
         # auto-round will return WrapperWALayer if activation is quantized
@@ -372,16 +382,7 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
                 del mod._tmp_name
 
     def _is_decoding_layer(self, module: torch.nn.Module) -> bool:
-        return module.__class__.__name__ in self.sequential_targets
-
-    def _infer_sequential_targets(self, model: torch.nn.Module) -> str | list[str]:
-        match self.sequential_targets:
-            case None:
-                return get_no_split_params(model)
-            case str():
-                return [self.sequential_targets]
-            case _:
-                return self.sequential_targets
+        return module.__class__.__name__ in self._sequential_targets
 
     def _unwrapper_quantized_layer(self, model: torch.nn.Module):
         # auto-round will return WrapperWALayer if activation is quantized
@@ -409,10 +410,14 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
                     if name not in llmc_registered_qparams:
                         llmc_registered_qparams[name] = {}
                     llmc_registered_qparams[name][key] = getattr(module, key).clone()
-                    delete_offload_parameter(module, key)
+            QuantizationMetadata.clear_all_qparams(module)
         return llmc_registered_qparams
 
-    def _postprocess_qparams(self, model, llmc_registered_qparams):
+    def _postprocess_qparams(
+        self,
+        model: torch.nn.Module,
+        llmc_registered_qparams: dict[str, dict[str, torch.Tensor]],
+    ):
         """Mapping qparam name from AutoRound to LLMC and register qparams in model."""
         qparams_mapping = {
             # AutoRound parameter name: LLMCompressor parameter name
@@ -421,8 +426,38 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
             "weight_global_scale": "weight_global_scale",
             "act_max": "input_global_scale",
         }
+
+        AUTOROUND_QPARAM_NAMES = (
+            "scale",
+            "act_scale",
+            "weight_global_scale",
+            "act_max",
+        )
+
+        def _clear_layer_quantization_metadata(module: torch.nn.Module) -> bool:
+            """Clear LLMC and AutoRound quantization metadata from a module."""
+            cleared_scheme = False
+            if hasattr(module, "quantization_scheme"):
+                cleared_scheme = True
+
+            QuantizationMetadata.clear_quantization(module)
+
+            for ar_param_name in AUTOROUND_QPARAM_NAMES:
+                if hasattr(module, ar_param_name):
+                    delattr(module, ar_param_name)
+
+            return cleared_scheme
+
         # Update offload parameters and remove temporary attributes
         for name, module in model.named_modules():
+            # Respect AutoRound's final layer decision: if a layer is set back to
+            # full precision (bits/act_bits > 8), do not restore legacy LLMC
+            # qparams, otherwise the layer can look quantized again.
+            layer_should_be_quantized = check_to_quantized(module)
+            if not layer_should_be_quantized:
+                _clear_layer_quantization_metadata(module)
+                continue
+
             # Mapping qparams from AutoRound to LLMC naming
             for ar_param_name, llmc_param_name in qparams_mapping.items():
                 if hasattr(
@@ -432,8 +467,8 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
                     ar_value = getattr(module, ar_param_name)
                     if ar_value is None:
                         continue
-                    if self.scheme == "MXFP4" and ar_param_name == "scale":
-                        # Convert log2 scale back to normal scale for MXFP4
+                    if self.scheme in ("MXFP4", "MXFP8") and ar_param_name == "scale":
+                        # Convert log2 scale back to normal scale for MXFP4 and MXFP8
                         ar_value = torch.exp2(ar_value.float())
                     if not isinstance(ar_value, torch.Tensor):
                         ar_value = torch.tensor(ar_value)
@@ -458,7 +493,7 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
                     # Register to LLMC
                     param_value = torch.nn.Parameter(ar_value, requires_grad=False)
                     delattr(module, ar_param_name)
-                    register_offload_parameter(module, llmc_param_name, param_value)
+                    module.register_parameter(llmc_param_name, param_value)
 
             # Set place holder for other qparams.
             if name in llmc_registered_qparams:
@@ -468,7 +503,7 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
                             llmc_registered_qparams[name][qparam_name],
                             requires_grad=False,
                         )
-                        register_offload_parameter(module, qparam_name, param_value)
+                        module.register_parameter(qparam_name, param_value)
 
     def _mapping_config_to_autoround(self):
         if isinstance(self.scheme, str):

@@ -252,7 +252,7 @@ class DbtParser:
         with open(self.project_dir / RUN_RESULTS_PATH) as run_results:
             logger.info(f"Parsing file {RUN_RESULTS_PATH}")
             run_results_dict = json.load(run_results)
-        run_results_validated = RunResultsJsonConfig.parse_obj(run_results_dict)
+        run_results_validated = RunResultsJsonConfig.model_validate(run_results_dict)
 
         dbt_version = parse_version(run_results_validated.metadata.dbt_version)
 
@@ -279,7 +279,7 @@ class DbtParser:
         with open(path) as manifest:
             logger.info(f"Parsing file {path}")
             manifest_dict = json.load(manifest)
-            manifest_obj = ManifestJsonConfig.parse_obj(manifest_dict)
+            manifest_obj = ManifestJsonConfig.model_validate(manifest_dict)
         return manifest_obj
 
     def get_project_dict(self):

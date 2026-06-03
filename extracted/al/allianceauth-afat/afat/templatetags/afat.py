@@ -10,10 +10,9 @@ from django.utils.translation import gettext as _
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
-from afat import __title__
-from afat.providers import AppLogger
+from afat.providers.applogger import AppLogger
 
-logger = AppLogger(my_logger=get_extension_logger(__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(__name__))
 
 
 @register.filter

@@ -16,17 +16,7 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, division, print_function
-
-
-__metaclass__ = type
-
-from ansible.module_utils.six import PY2
-
-
 builtin_import = "builtins.__import__"
-if PY2:
-    builtin_import = "__builtin__.__import__"
 
 import copy
 import tempfile
@@ -734,3 +724,271 @@ class TestSplunkEsDataInputsNetworksRules:
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is False
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_network_merged_check_mode(self, connection, monkeypatch):
+        """Test that merged state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        create_update_called = []
+
+        def get_by_path(self, path):
+            return {}
+
+        def create_update(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            create_update_called.append(True)
+            return update_response
+
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        # tcp_cooked
+        update_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_cooked"])
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD["tcp_cooked"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+        # tcp_raw
+        create_update_called = []
+        update_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_raw"])
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD["tcp_raw"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+        # udp
+        create_update_called = []
+        update_response = copy.deepcopy(RESPONSE_PAYLOAD["udp"])
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD["udp"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+        # splunktcptoken
+        create_update_called = []
+        update_response = copy.deepcopy(RESPONSE_PAYLOAD["splunktcptoken"])
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD["splunktcptoken"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_network_merged_check_mode_existing(
+        self,
+        conn,
+        monkeypatch,
+    ):
+        """Test that merged state with existing config in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        create_update_called = []
+
+        def get_by_path(self, path):
+            return get_response
+
+        def create_update(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            create_update_called.append(True)
+            return get_response
+
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        # tcp_cooked - update from not disabled to disabled
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_cooked"])
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REPLACED_REQUEST_PAYLOAD["tcp_cooked"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_network_replaced_check_mode(self, conn, monkeypatch):
+        """Test that replaced state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        delete_called = []
+        create_update_called = []
+
+        def delete_by_path(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            delete_called.append(True)
+            return {}
+
+        def create_update(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            create_update_called.append(True)
+            return update_response
+
+        def get_by_path(self, path):
+            return get_response
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+
+        # tcp_cooked
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_cooked"])
+        update_response = copy.deepcopy(REPLACED_RESPONSE_PAYLOAD["tcp_cooked"])
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REPLACED_REQUEST_PAYLOAD["tcp_cooked"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+        # tcp_raw
+        delete_called = []
+        create_update_called = []
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_raw"])
+        update_response = copy.deepcopy(REPLACED_RESPONSE_PAYLOAD["tcp_raw"])
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REPLACED_REQUEST_PAYLOAD["tcp_raw"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+        # udp
+        delete_called = []
+        create_update_called = []
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["udp"])
+        update_response = copy.deepcopy(REPLACED_RESPONSE_PAYLOAD["udp"])
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REPLACED_REQUEST_PAYLOAD["udp"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+        # splunktcptoken
+        delete_called = []
+        create_update_called = []
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["splunktcptoken"])
+        update_response = copy.deepcopy(REPLACED_RESPONSE_PAYLOAD["splunktcptoken"])
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REPLACED_REQUEST_PAYLOAD["splunktcptoken"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_data_inputs_network_deleted_check_mode(self, conn, monkeypatch):
+        """Test that deleted state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        delete_called = []
+
+        def delete_by_path(
+            self,
+            rest_path,
+            data=None,
+            mock=None,
+            mock_data=None,
+        ):
+            delete_called.append(True)
+            return {}
+
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_cooked"])
+
+        def get_by_path(self, path):
+            return get_response
+
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+
+        # tcp_cooked
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_cooked"])
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [REQUEST_PAYLOAD["tcp_cooked"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+
+        # tcp_raw
+        delete_called = []
+        get_response = copy.deepcopy(RESPONSE_PAYLOAD["tcp_raw"])
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [REQUEST_PAYLOAD["tcp_raw"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+
+        # udp
+        delete_called = []
+        get_response = RESPONSE_PAYLOAD["udp"]
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [REQUEST_PAYLOAD["udp"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+
+        # splunktcptoken
+        delete_called = []
+        get_response = RESPONSE_PAYLOAD["splunktcptoken"]
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [REQUEST_PAYLOAD["splunktcptoken"]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"

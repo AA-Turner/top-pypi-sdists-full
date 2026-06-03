@@ -1,11 +1,11 @@
-'''
+r'''
 # datadog-monitors-monitor
 
-> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.8.0.
+> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.11.0.
 
 ## Description
 
-Datadog Monitor 4.8.0
+Datadog Monitor 4.11.0
 
 ## Usage
 
@@ -33,7 +33,7 @@ You can find more information about activating this type in the [AWS CloudFormat
 
 This library is auto-generated and published to all supported programming languages by the [cdklabs/cdk-cloudformation](https://github.com/cdklabs/cdk-cloudformation) project based on the API schema published for `Datadog::Monitors::Monitor`.
 
-* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.8.0).
+* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.11.0).
 * Issues related to `Datadog::Monitors::Monitor` should be reported to the [publisher](undefined).
 
 ## License
@@ -53,7 +53,22 @@ import jsii
 import publication
 import typing_extensions
 
-from typeguard import check_type
+import typeguard
+from importlib.metadata import version as _metadata_package_version
+TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+
+def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
+    if TYPEGUARD_MAJOR_VERSION <= 2:
+        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
+    else:
+        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
+           pass
+        else:
+            if TYPEGUARD_MAJOR_VERSION == 3:
+                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
+                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
+            else:
+                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -74,7 +89,7 @@ class CfnMonitor(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         query: builtins.str,
@@ -207,7 +222,7 @@ class CfnMonitorProps:
         restricted_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''Datadog Monitor 4.8.0.
+        '''Datadog Monitor 4.11.0.
 
         :param query: The monitor query.
         :param type: The type of the monitor.
@@ -422,6 +437,14 @@ class CfnMonitorPropsType(enum.Enum):
     '''error-tracking alert.'''
     CI_HYPHEN_TESTS_ALERT = "CI_HYPHEN_TESTS_ALERT"
     '''ci-tests alert.'''
+    DATABASE_HYPHEN_MONITORING_ALERT = "DATABASE_HYPHEN_MONITORING_ALERT"
+    '''database-monitoring alert.'''
+    NETWORK_HYPHEN_PERFORMANCE_ALERT = "NETWORK_HYPHEN_PERFORMANCE_ALERT"
+    '''network-performance alert.'''
+    COST_ALERT = "COST_ALERT"
+    '''cost alert.'''
+    DATA_HYPHEN_QUALITY_ALERT = "DATA_HYPHEN_QUALITY_ALERT"
+    '''data-quality alert.'''
 
 
 @jsii.data_type(
@@ -557,6 +580,12 @@ class MonitorNotificationPresetName(enum.Enum):
     '''hide_handles.'''
     HIDE_UNDERSCORE_ALL = "HIDE_UNDERSCORE_ALL"
     '''hide_all.'''
+    HIDE_UNDERSCORE_QUERY_UNDERSCORE_AND_UNDERSCORE_HANDLES = "HIDE_UNDERSCORE_QUERY_UNDERSCORE_AND_UNDERSCORE_HANDLES"
+    '''hide_query_and_handles.'''
+    SHOW_UNDERSCORE_ONLY_UNDERSCORE_SNAPSHOT = "SHOW_UNDERSCORE_ONLY_UNDERSCORE_SNAPSHOT"
+    '''show_only_snapshot.'''
+    HIDE_UNDERSCORE_HANDLES_UNDERSCORE_AND_UNDERSCORE_FOOTER = "HIDE_UNDERSCORE_HANDLES_UNDERSCORE_AND_UNDERSCORE_FOOTER"
+    '''hide_handles_and_footer.'''
 
 
 @jsii.enum(
@@ -632,11 +661,11 @@ class MonitorOptions:
         new_group_delay: typing.Optional[jsii.Number] = None,
         new_host_delay: typing.Optional[jsii.Number] = None,
         no_data_timeframe: typing.Optional[jsii.Number] = None,
-        notification_preset_name: typing.Optional[MonitorNotificationPresetName] = None,
+        notification_preset_name: typing.Optional["MonitorNotificationPresetName"] = None,
         notify_audit: typing.Optional[builtins.bool] = None,
         notify_by: typing.Optional[typing.Sequence[builtins.str]] = None,
         notify_no_data: typing.Optional[builtins.bool] = None,
-        on_missing_data: typing.Optional[MonitorOnMissingData] = None,
+        on_missing_data: typing.Optional["MonitorOnMissingData"] = None,
         renotify_interval: typing.Optional[jsii.Number] = None,
         renotify_occurrences: typing.Optional[jsii.Number] = None,
         renotify_statuses: typing.Optional[typing.Sequence["MonitorOptionsRenotifyStatuses"]] = None,
@@ -889,12 +918,12 @@ class MonitorOptions:
     @builtins.property
     def notification_preset_name(
         self,
-    ) -> typing.Optional[MonitorNotificationPresetName]:
+    ) -> typing.Optional["MonitorNotificationPresetName"]:
         '''
         :schema: MonitorOptions#NotificationPresetName
         '''
         result = self._values.get("notification_preset_name")
-        return typing.cast(typing.Optional[MonitorNotificationPresetName], result)
+        return typing.cast(typing.Optional["MonitorNotificationPresetName"], result)
 
     @builtins.property
     def notify_audit(self) -> typing.Optional[builtins.bool]:
@@ -930,12 +959,12 @@ class MonitorOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def on_missing_data(self) -> typing.Optional[MonitorOnMissingData]:
+    def on_missing_data(self) -> typing.Optional["MonitorOnMissingData"]:
         '''
         :schema: MonitorOptions#OnMissingData
         '''
         result = self._values.get("on_missing_data")
-        return typing.cast(typing.Optional[MonitorOnMissingData], result)
+        return typing.cast(typing.Optional["MonitorOnMissingData"], result)
 
     @builtins.property
     def renotify_interval(self) -> typing.Optional[jsii.Number]:

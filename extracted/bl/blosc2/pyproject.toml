@@ -24,13 +24,12 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Follow guidelines from https://scientific-python.org/specs/spec-0000/
 dependencies = [
     "numpy>=1.26",
@@ -41,7 +40,7 @@ dependencies = [
     "requests",
     "threadpoolctl; platform_machine != 'wasm32'",
 ]
-version = "4.3.3"
+version = "4.4.1"
 [project.entry-points."array_api"]
 blosc2 = "blosc2"
 
@@ -51,9 +50,11 @@ documentation = "https://www.blosc.org/python-blosc2/python-blosc2.html"
 
 [project.optional-dependencies]
 parquet = ["pyarrow"]
+tui = ["textual", "rich"]
 
 [project.scripts]
 parquet-to-blosc2 = "blosc2.cli.parquet_to_blosc2:main"
+b2view = "blosc2.b2view.cli:main"
 
 [dependency-groups]
 dev = [

@@ -54,8 +54,9 @@ export const ModeEditor = {
 
     function startAdd() {
       editName.value = '';
-      editTemplate.value = '';
-      editPhases.splice(0, editPhases.length, ...['execute']);
+      editTemplate.value = 'lightweight';  // sensible default
+      // Apply lightweight template immediately
+      editPhases.splice(0, editPhases.length, ...BUILTIN_ORDERS['lightweight']);
     }
 
     function applyTemplate(templateName) {

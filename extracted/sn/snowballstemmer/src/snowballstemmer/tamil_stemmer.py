@@ -1,4 +1,4 @@
-# Generated from tamil.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from tamil.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class TamilStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from tamil.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from tamil.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     B_found_vetrumai_urupu = False
@@ -107,10 +107,7 @@ class TamilStemmer(BaseStemmer):
                     self.slice_del()
                 else:
                     among_var = self.find_among_b(TamilStemmer.a_4)
-                    if among_var == 1:
-                        self.slice_del()
-                    else:
-                        self.slice_from("\u0BAE\u0BCD")
+                    self.slice_from(TamilStemmer.as_4[among_var - 1])
                 break
             except lab0: pass
             self.cursor = self.limit - v_1
@@ -536,6 +533,7 @@ class TamilStemmer(BaseStemmer):
         Among("\u0BC8", 0, 1),
         Among("\u0BCD", 0, 1)
     ]
+    as_4 = ("", "\u0BAE\u0BCD")
 
     a_5 = [
         Among("\u0BA8\u0BCD\u0BA4", -1, 1),

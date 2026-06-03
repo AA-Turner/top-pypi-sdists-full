@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 
 pub(crate) fn try_parse_timestamp(value: &str, parsed_i64: Option<i64>) -> Option<i64> {
     let first = *value.as_bytes().first()?;
@@ -23,6 +23,12 @@ pub(crate) fn try_parse_timestamp(value: &str, parsed_i64: Option<i64>) -> Optio
 
     if let Ok(value) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S") {
         return Some(value.and_utc().timestamp_millis());
+    }
+
+    if let Ok(value) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+        return value
+            .and_hms_opt(0, 0, 0)
+            .map(|value| value.and_utc().timestamp_millis());
     }
 
     None

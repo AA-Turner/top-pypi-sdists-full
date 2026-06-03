@@ -55,7 +55,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):  # pylint: disable=unused-argument
         """
-        Ask before running …
+        Ask before running…
 
         :param args:
         :type args:

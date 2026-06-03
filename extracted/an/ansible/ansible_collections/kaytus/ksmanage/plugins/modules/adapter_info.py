@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: adapter_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get adapter information
 description:
    - Get adapter information on kaytus Server.

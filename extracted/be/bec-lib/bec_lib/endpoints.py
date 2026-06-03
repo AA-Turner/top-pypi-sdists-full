@@ -1680,6 +1680,44 @@ class MessageEndpoints:
         )
 
     @staticmethod
+    def builtin_actor_update_req_notif() -> EndpointInfo:
+        """Endpoint to notify a builtin actor of a pending state change request."""
+        endpoint = f"{EndpointType.INTERNAL.value}/actor/builtin/state_change_request_notification"
+        return EndpointInfo(
+            endpoint=endpoint,
+            message_type=messages.BuiltinActorStateChangeNotification,
+            message_op=MessageOp.SEND,
+        )
+
+    @staticmethod
+    def builtin_actor_update_notif(actor_name: str) -> EndpointInfo:
+        """Endpoint to notify clients of builtin actor state changes."""
+        endpoint = f"{EndpointType.INFO.value}/actor/builtin/{actor_name}/state_change_done"
+        return EndpointInfo(
+            endpoint=endpoint,
+            message_type=messages.BuiltinActorStateUpdatedNotification,
+            message_op=MessageOp.SEND,
+        )
+
+    @staticmethod
+    def modify_interlock_table() -> EndpointInfo:
+        endpoint = f"{EndpointType.INTERNAL.value}/actor/builtin/scan_interlock/table_mod"
+        return EndpointInfo(
+            endpoint=endpoint,
+            message_type=messages.ScanInterlockModifyStateTableMessage,
+            message_op=MessageOp.STREAM,
+        )
+
+    @staticmethod
+    def scan_interlock_states() -> EndpointInfo:
+        endpoint = f"{EndpointType.INFO.value}/actor/builtin/scan_interlock/current_states_watched"
+        return EndpointInfo(
+            endpoint=endpoint,
+            message_type=messages.ScanInterlockStateTableContent,
+            message_op=MessageOp.KEY_VALUE,
+        )
+
+    @staticmethod
     def gui_registry_state(gui_id: str):
         """
         Endpoint for GUI registry state. This endpoint is used to publish the GUI registry state

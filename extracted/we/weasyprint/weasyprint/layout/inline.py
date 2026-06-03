@@ -3,7 +3,7 @@
 import unicodedata
 from math import inf
 
-from ..css import Pending
+from ..css import AnonymousStyle, Pending, check_math
 from ..css.properties import INHERITED
 from ..formatting_structure import boxes, build
 from .absolute import AbsolutePlaceholder, absolute_layout
@@ -331,12 +331,13 @@ def first_letter_to_box(box, skip_stack, first_letter_style):
                     # "This type of initial letter is similar to an
                     # inline-level element if its 'float' property is 'none',
                     # otherwise it is similar to a floated element."
+                    children_style = AnonymousStyle(letter_style)
                     if letter_style['float'] == 'none':
                         letter_box = boxes.InlineBox(
                             f'{box.element_tag}::first-letter',
                             letter_style, box.element, [])
                         text_box = boxes.TextBox(
-                            f'{box.element_tag}::first-letter', letter_style,
+                            f'{box.element_tag}::first-letter', children_style,
                             box.element, first_letter)
                         letter_box.children = (text_box,)
                         box.children = (letter_box, *box.children)
@@ -345,11 +346,11 @@ def first_letter_to_box(box, skip_stack, first_letter_style):
                             f'{box.element_tag}::first-letter',
                             letter_style, box.element, [])
                         line_box = boxes.LineBox(
-                            f'{box.element_tag}::first-letter', letter_style,
+                            f'{box.element_tag}::first-letter', children_style,
                             box.element, [])
                         letter_box.children = (line_box,)
                         text_box = boxes.TextBox(
-                            f'{box.element_tag}::first-letter', letter_style,
+                            f'{box.element_tag}::first-letter', children_style,
                             box.element, first_letter)
                         line_box.children = (text_box,)
                         box.children = (letter_box, *box.children)
@@ -600,7 +601,21 @@ def _out_of_flow_layout(context, box, containing_block, index, child,
             # Translate previous line children
             dx = max(child.margin_width(), 0)
             float_widths[child.style['float']] += dx
-            if child.style['float'] == 'left':
+
+            float_left = child.style['float'] == 'left'
+            float_right = child.style['float'] == 'right'
+            if box.style['direction'] == 'ltr':
+                if child.style['float'] == 'inline-start':
+                    float_left = True
+                if child.style['float'] == 'inline-end':
+                    float_right = True
+            else:
+                if child.style['float'] == 'inline-start':
+                    float_right = True
+                if child.style['float'] == 'inline-end':
+                    float_left = True
+
+            if float_left:
                 if isinstance(box, boxes.LineBox):
                     # The parent is the line, update the current position
                     # for the next child. When the parent is not the line
@@ -608,16 +623,16 @@ def _out_of_flow_layout(context, box, containing_block, index, child,
                     # line is updated by the box itself (see next
                     # split_inline_level call).
                     position_x += dx
-            elif child.style['float'] == 'right':
+            elif float_right:
                 # Update the maximum x position for the next children
                 max_x -= dx
             for _, old_child in line_children:
                 if not old_child.is_in_normal_flow():
                     continue
-                if ((child.style['float'] == 'left' and
-                        box.style['direction'] == 'ltr') or
-                    (child.style['float'] == 'right' and
-                        box.style['direction'] == 'rtl')):
+                float_align = (
+                    (float_left and box.style['direction'] == 'ltr') or
+                    (float_right and box.style['direction'] == 'rtl'))
+                if float_align:
                     old_child.translate(dx=dx)
 
     elif child.is_running():
@@ -1086,7 +1101,7 @@ def inline_box_verticality(box, top_bottom_subtrees, baseline_y):
             # Later, we will assume for this subtree that its baseline
             # is at y=0.
             child_baseline_y = 0
-        elif isinstance(vertical_align, Pending):
+        elif isinstance(vertical_align, Pending) or check_math(vertical_align):
             height, _ = strut(box.style)
             child_baseline_y = baseline_y - percentage(
                 vertical_align, box.style, height)

@@ -19,11 +19,10 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
-from afat import __title__
 from afat.models.afat import Fat, FleetType
-from afat.providers import AppLogger
+from afat.providers.applogger import AppLogger
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 
 def _get_threshold_date(timedelta_in_days: int) -> datetime.datetime:

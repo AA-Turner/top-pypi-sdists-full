@@ -40,6 +40,18 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 
+
+def _upper_or_none(_ctx: click.Context, _param: click.Parameter, value: Optional[str]) -> Optional[str]:
+    """Click callback that uppercases the option value if present.
+
+    Kafka SASL mechanisms and security protocols are matched case-sensitively
+    downstream (CLI, client, server), so we normalize at the flag layer to
+    accept user input like `--sasl-mechanism oauthbearer` without silently
+    falling through the case-sensitive branches and breaking the request.
+    """
+    return value.upper() if value else value
+
+
 DATA_CONNECTOR_SETTINGS: Dict[DataConnectorType, List[str]] = {
     DataConnectorType.KAFKA: [
         "kafka_bootstrap_servers",
@@ -247,15 +259,22 @@ def connection_create_gcs(ctx: Context) -> None:
 @click.option("--schema-registry-url", default=None, help="Avro Confluent Schema Registry URL")
 @click.option(
     "--sasl-mechanism",
-    default="PLAIN",
+    default=None,
+    callback=_upper_or_none,
     help="Authentication method for connection-based protocols. Defaults to 'PLAIN'",
 )
 @click.option(
     "--security-protocol",
-    default="SASL_SSL",
+    default=None,
+    callback=_upper_or_none,
     help="Security protocol for connection-based protocols. Defaults to 'SASL_SSL'",
 )
 @click.option("--ssl-ca-pem", default=None, help="Path or content of the CA Certificate file in PEM format")
+@click.option(
+    "--oauthbearer-aws-external-id",
+    default=None,
+    help="Pre-shared external_id for the AWS assume-role call (OAUTHBEARER+AWS only). If omitted, the wizard prompts for one and falls back to a Tinybird-generated value.",
+)
 @click.pass_context
 def connection_create_kafka_cmd(
     ctx: Context,
@@ -268,6 +287,7 @@ def connection_create_kafka_cmd(
     sasl_mechanism: Optional[str],
     security_protocol: Optional[str],
     ssl_ca_pem: Optional[str],
+    oauthbearer_aws_external_id: Optional[str],
 ) -> None:
     env: str = ctx.ensure_object(dict)["env"]
     project: Project = ctx.ensure_object(dict)["project"]
@@ -295,6 +315,7 @@ def connection_create_kafka_cmd(
         sasl_mechanism=sasl_mechanism,
         security_protocol=security_protocol,
         ssl_ca_pem=ssl_ca_pem,
+        oauthbearer_aws_external_id=oauthbearer_aws_external_id,
     )
 
     if not result["error"]:

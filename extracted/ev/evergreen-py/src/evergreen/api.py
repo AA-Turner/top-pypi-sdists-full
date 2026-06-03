@@ -276,6 +276,7 @@ class EvergreenApi(object):
 
         with self.session.get(url=url, params=params, stream=True, timeout=self._timeout) as res:
             self._log_api_call_time(res, start_time)
+            self._raise_for_status(res)
             if is_binary:
                 for line in res.iter_content(chunk_size=chunk_size, decode_unicode=decode_unicode):
                     yield line
@@ -1374,7 +1375,7 @@ class EvergreenApi(object):
             request["metadata"] = metadata
 
         if metadata_links is not None:
-            request["metadata_links"] = [link.model_dump() for link in metadata_links]
+            request["metadata_links"] = [link._asdict() for link in metadata_links]
 
         self._call_api(url, method="PUT", data=json.dumps(request))
 

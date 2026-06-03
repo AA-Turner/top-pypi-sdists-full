@@ -15,6 +15,7 @@ from typing import Optional
 from kanban_framework.types import Task, Phase, ControlMode
 from kanban_framework.infra.config import Config
 from kanban_framework.infra.filesystem import Filesystem
+from kanban_framework.infra.scheduler import Scheduler
 
 # Re-export from extracted modules for backward compatibility
 from kanban_framework.domain.steps import (  # noqa: F401
@@ -50,6 +51,8 @@ from kanban_framework.domain.state_machine_subtask import (  # noqa: F401
 
 def _output_dir_hint(output_dir: str) -> str:
     return f"保存到 {output_dir}/" if output_dir else "在现有目录中修改文件"
+
+
 
 
 def _load_extension(config: Config):
@@ -95,7 +98,7 @@ class NextStepResult:
 
 def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
     """Determine the exact next action for a task."""
-    mode = task.mode if task.mode not in ("full", "lightweight", "quick") else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
+    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
     ext = _load_extension(config)
     base_order = _get_phase_order(task.lightweight, quick=(task.mode == "quick"),
                                     mode=task.mode, kanban_dir=config._fs.kanban_dir)
@@ -158,7 +161,8 @@ def _handle_manual_mode(fs, task, completed_steps, progress,
     from kanban_framework.domain.step_registry import build_step_dag, get_available_steps
     skipped = {k for k, v in progress.get("steps", {}).items() if v.get("status") == "skipped"}
     dag = build_step_dag(lightweight=task.lightweight, quick=(task.mode == "quick"),
-                         custom_order=custom_order, custom_steps=custom_steps)
+                         custom_order=custom_order, custom_steps=custom_steps,
+                         mode=task.mode, kanban_dir=fs.kanban_dir)
     available = get_available_steps(dag, completed_steps, skipped)
     if not available:
         return NextStepResult(
@@ -203,7 +207,27 @@ def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
         if wctx:
             prompt = prompt + "\n\n" + wctx
 
+    # Compute machine-side knowledge context (per-step config + built-in defaults)
     knowledge_ctx = _auto_knowledge_retrieval(fs, task, step.id, getattr(step, "knowledge", None))
+
+    # Auto-inject knowledge preamble into spawn_prompt for agent steps
+    from kanban_framework.domain.steps import (
+        _KNOWLEDGE_PREAMBLE_FIRST, _KNOWLEDGE_PREAMBLE_REUSE, _KNOWLEDGE_SKIP_PREFIXES,
+    )
+    if prompt and not step.id.startswith(_KNOWLEDGE_SKIP_PREFIXES) and not step.user_action:
+        knowledge_file = fs.task_dir(task.id) / "plan" / "knowledge_used.json"
+        preamble = _KNOWLEDGE_PREAMBLE_REUSE if knowledge_file.is_file() else _KNOWLEDGE_PREAMBLE_FIRST
+        preamble = preamble.replace("$task_title", task.title)
+        preamble = preamble.replace("$task_dir", str(td))
+
+        # Append machine-found knowledge context if available
+        if knowledge_ctx:
+            ctx_text = "\n## 框架自动检索结果（机器匹配，供参考）\n"
+            for k in knowledge_ctx[:3]:
+                ctx_text += f"- [{k.get('id', '?')}] {k.get('title', '?')}: {k.get('summary', k.get('description', ''))[:200]}\n"
+            preamble += ctx_text
+
+        prompt = preamble + prompt
     codegraph_ctx = _build_codegraph_context(fs, task, step.id)
     if codegraph_ctx and prompt:
         prompt = prompt + "\n\n" + codegraph_ctx
@@ -279,23 +303,20 @@ def _build_phase_transition(task, phase_value, phase_steps, lightweight, custom_
 
     # Current phase not in order (e.g., evaluate in quick mode) — guide to nearest valid phase
     if current_idx is None and str_order:
-        _FULL_ORDER = [p.value for p in [
-            Phase.PLAN, Phase.PLAN_REVIEW, Phase.QA_SPEC, Phase.SPEC_REVIEW,
-            Phase.EXECUTE, Phase.EVALUATE, Phase.RETROSPECTIVE,
-            Phase.USER_DECISION, Phase.ARCHIVE,
-        ]]
+        # Build reference from Phase enum + mode's actual phases for universal coverage
+        _REF_ORDER = [p.value for p in Phase] + [p for p in str_order if p not in [e.value for e in Phase]]
         try:
-            full_idx = _FULL_ORDER.index(phase_value)
+            ref_idx = _REF_ORDER.index(phase_value)
         except ValueError:
-            full_idx = 0
+            ref_idx = 0
         # Find the first target phase at or after current position
         target = str_order[0]
         for tp in str_order:
             try:
-                tp_idx = _FULL_ORDER.index(tp)
+                tp_idx = _REF_ORDER.index(tp)
             except ValueError:
                 continue
-            if tp_idx <= full_idx:
+            if tp_idx <= ref_idx:
                 target = tp
         return NextStepResult(
             task_id=task.id, phase=phase_value,

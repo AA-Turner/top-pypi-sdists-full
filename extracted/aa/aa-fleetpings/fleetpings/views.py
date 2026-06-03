@@ -44,9 +44,9 @@ from fleetpings.models import (
     Setting,
     Webhook,
 )
-from fleetpings.providers import AppLogger
+from fleetpings.providers.applogger import AppLogger
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 
 @login_required
@@ -460,7 +460,7 @@ def ajax_create_fleet_ping(request: WSGIRequest) -> HttpResponse:
                     ping_context=ping_context,
                 )
 
-                context["message"] = str(_("Fleet operations timer has been created …"))
+                context["message"] = str(_("Fleet operations timer has been created…"))
 
             # Create an SRP link if requested
             if srp_module_installed() and ping_context["srp"]["create_srp_link"]:
@@ -469,7 +469,7 @@ def ajax_create_fleet_ping(request: WSGIRequest) -> HttpResponse:
                     ping_context=ping_context,
                 )
 
-                context["message"] = str(_("SRP link has been created …"))
+                context["message"] = str(_("SRP link has been created…"))
 
             # If we have a Discord webhook, ping it
             if ping_context["ping_channel"]["webhook"]:

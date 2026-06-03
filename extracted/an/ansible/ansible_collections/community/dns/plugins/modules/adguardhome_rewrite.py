@@ -1,13 +1,8 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-#
 # Copyright (c) 2025 Markus Bergholz
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
-from __future__ import absolute_import, division, print_function
-
-__metaclass__ = type
-
+from __future__ import annotations
 
 DOCUMENTATION = r"""
 module: adguardhome_rewrite
@@ -19,8 +14,8 @@ version_added: 3.3.0
 description:
   - Add, update or delete DNS rewrite rules from AdGuardHome.
 extends_documentation_fragment:
-  - community.dns.adguardhome.connectivity
-  - community.dns.attributes
+  - community.dns._adguardhome.connectivity
+  - community.dns._attributes
 options:
   state:
     description:
@@ -88,15 +83,20 @@ rules:
       sample: dns.osuv.de
 """
 
+import typing as t
+
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.community.dns.plugins.module_utils.adguardhome.api import (
+from ansible_collections.community.dns.plugins.module_utils._adguardhome.api import (
     AdGuardHomeAPIHandler,
     create_adguardhome_argument_spec,
 )
+from ansible_collections.community.dns.plugins.module_utils._argspec import ArgumentSpec
 
 
-def find_and_compare(rules, domain, answer):
+def find_and_compare(
+    rules: list[dict[str, t.Any]], domain: str, answer: str
+) -> tuple[bool, bool, dict[str, t.Any]]:
     domain_exists = False
     value_is_different = False
     target = {}
@@ -110,32 +110,35 @@ def find_and_compare(rules, domain, answer):
     return domain_exists, value_is_different, target
 
 
-def main():
-    rewrite_arguments = {
-        'state': {'type': 'str', 'default': 'present', 'choices': ['present', 'absent']},
-        'answer': {'type': 'str', 'required': False},
-        'domain': {'type': 'str', 'required': True}
-    }
-    argument_spec = create_adguardhome_argument_spec(
-        required_if=[['state', 'present', ['answer']]],
-        additional_argument_specs=rewrite_arguments
+def main() -> None:
+    argument_spec = ArgumentSpec(
+        {
+            "state": {
+                "type": "str",
+                "default": "present",
+                "choices": ["present", "absent"],
+            },
+            "answer": {"type": "str", "required": False},
+            "domain": {"type": "str", "required": True},
+        },
+        required_if=[("state", "present", ["answer"])],
     )
-    module = AnsibleModule(
-        supports_check_mode=True,
-        **argument_spec.to_kwargs()
-    )
+    argument_spec.merge(create_adguardhome_argument_spec())
+    module = AnsibleModule(supports_check_mode=True, **argument_spec.to_kwargs())
 
-    domain = module.params.get('domain')
-    answer = module.params.get('answer')
-    state = module.params.get('state')
+    domain = module.params.get("domain")
+    answer = module.params.get("answer")
+    state = module.params.get("state")
 
     adguardhome = AdGuardHomeAPIHandler(module.params, module.fail_json)
 
-    before = adguardhome.list()  # Note that this is updated to the 'after' value in check mode (but not outside of check mode!)
+    before = (
+        adguardhome.list()
+    )  # Note that this is updated to the 'after' value in check mode (but not outside of check mode!)
     changed = False
 
     domain_exists, value_is_different, target = find_and_compare(before, domain, answer)
-    if state == 'present':
+    if state == "present":
         if not domain_exists and not value_is_different:
             changed = True
             if module.check_mode:
@@ -147,8 +150,8 @@ def main():
             changed = True
             if module.check_mode:
                 for item in before:
-                    if item['domain'] == 'example.org':
-                        item['value'] = answer
+                    if item["domain"] == "example.org":
+                        item["value"] = answer
                         break
             else:
                 adguardhome.update(domain, answer, target)
@@ -165,19 +168,13 @@ def main():
 
     if module.check_mode:
         return_rules = before
-        diff_item = {
-            'before': {'rules': after},
-            'after': {'rules': before}
-        }
+        diff_item = {"before": {"rules": after}, "after": {"rules": before}}
     else:
         return_rules = after
-        diff_item = {
-            'before': {'rules': before},
-            'after': {'rules': after}
-        }
+        diff_item = {"before": {"rules": before}, "after": {"rules": after}}
 
     module.exit_json(changed=changed, diff=diff_item, rules=return_rules)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

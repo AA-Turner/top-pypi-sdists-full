@@ -3,8 +3,21 @@ on:
   pull_request:
     types: [opened, synchronize, ready_for_review]
 
+# Cancel an in-flight preview when the PR is pushed again -- previews publish
+# to Test PyPI, so superseded runs shouldn't keep churning.
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   preview:
+    # Skip on:
+    #  - PRs from forks (no access to publish secrets / OIDC)
+    #  - Dependabot PRs: preview-publishing a dependency bump to Test PyPI is
+    #    pointless (no package version bump) and would fail the version check.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -15,17 +28,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.13'
 
-      # Install all dependencies from pyproject.toml
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install "virtualenv<20.36"
-          pip install hatchling==1.27.0
-          pip install hatch==1.14.0
+      - name: Install build tooling
+        uses: ./.github/actions/setup-hatch
 
       - name: Inject full dynamic version
         run: python .hooks/sync_version.py --dev
@@ -66,7 +74,7 @@ jobs:
 
       - name: Comment on PR
         if: steps.version_check.outputs.exists != 'true'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VERSION: ${{ env.VERSION }}
         with:

@@ -1,10 +1,9 @@
 # Standard Library
-from datetime import datetime
+import datetime as dt
 from http import HTTPStatus
 
 # Third Party
 from eve_sde.models import ItemType
-from pytz import utc
 
 # Django
 from django.urls import reverse
@@ -95,21 +94,21 @@ class TestStatistics(BaseTestCase):
             hash="1231",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=4, day=1, tzinfo=utc),
+            created=dt.datetime(year=2020, month=4, day=1, tzinfo=dt.timezone.utc),
         )
         afat_link_april_2 = FatLink.objects.create(
             fleet="April Fleet 2",
             hash="1232",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=4, day=15, tzinfo=utc),
+            created=dt.datetime(year=2020, month=4, day=15, tzinfo=dt.timezone.utc),
         )
         afat_link_september = FatLink.objects.create(
             fleet="September Fleet",
             hash="1233",
             creator=cls.user_with_basic_access,
             character=cls.character_1001,
-            created=datetime(year=2020, month=9, day=1, tzinfo=utc),
+            created=dt.datetime(year=2020, month=9, day=1, tzinfo=dt.timezone.utc),
         )
         # Ensure SDE ItemType instances exist and assign them to the Fat.ship FK
         omen = ItemType.objects.get_or_create(

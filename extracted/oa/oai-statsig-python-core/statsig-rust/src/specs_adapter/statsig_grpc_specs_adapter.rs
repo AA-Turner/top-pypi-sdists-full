@@ -379,6 +379,7 @@ impl StatsigGrpcSpecsAdapter {
                 source: SpecsSource::Adapter("GRPC".to_string()),
                 received_at: Utc::now().timestamp_millis() as u64,
                 source_api: None,
+                has_updates: None,
             };
 
             listener.did_receive_specs_update(update)

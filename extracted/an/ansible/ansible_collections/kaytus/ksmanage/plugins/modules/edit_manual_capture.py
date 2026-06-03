@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_manual_capture
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set manual capture screen
 description:
    - Set manual capture screen on kaytus Server.

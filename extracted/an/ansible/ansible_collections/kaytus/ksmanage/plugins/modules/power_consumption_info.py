@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: power_consumption_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get power consumption information
 description:
    - Get power consumption information on kaytus Server.

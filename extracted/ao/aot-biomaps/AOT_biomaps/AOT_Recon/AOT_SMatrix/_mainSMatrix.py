@@ -33,8 +33,7 @@ class SMatrix(ABC):
     # Class-level cache for compiled CUDA module shared across all matrix types
     _compiled_module = None
 
-    def __init__(self, manip, matrix_type: SMatrixType, device: Optional[str] = None,
-                 block_rows: int = 64, relative_threshold: float = 0.3):
+    def __init__(self, experiment, device: Optional[str] = None):
         """
         Initialize base matrix parameters.
         """
@@ -44,19 +43,14 @@ class SMatrix(ABC):
         else:
             self.device = device
 
-        self.matrix_type = matrix_type
-        self.manip = manip
         
+        self.experiment = experiment
         # Standard dimensions from AcousticFields
-        self.N = len(manip.AcousticFields)
-        self.T = manip.AcousticFields[0].field.shape[0]
-        self.Z = manip.AcousticFields[0].field.shape[1]
-        self.X = manip.AcousticFields[0].field.shape[2]
+        self.N = len(experiment.AcousticFields)
+        self.T = experiment.AcousticFields[0].field.shape[0]
+        self.Z = experiment.AcousticFields[0].field.shape[1]
+        self.X = experiment.AcousticFields[0].field.shape[2]
         
-        # Hyperparameters
-        self.block_rows = block_rows
-        self.relative_threshold = relative_threshold
-
         # Common attributes
         self.norm_factor_inv = None
         self.norm_factor_inv_gpu = None

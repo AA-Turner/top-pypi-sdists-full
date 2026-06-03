@@ -1,6 +1,6 @@
 [package]
 name = "gam"
-version = "0.3.71"
+version = "0.3.76"
 edition = "2024"
 rust-version = "1.93"
 autobins = false
@@ -214,6 +214,15 @@ codegen-units = 1
 # ceiling and makes the link reliable rather than relying on whatever the
 # preinstalled-toolchain wipe yields on a given runner image.
 [profile.test]
+debug = "line-tables-only"
+
+# Dev/`maturin develop` profile — same rationale as [profile.test]. Cargo's
+# default dev profile emits full DWARF (`debug = 2`), which is what lets
+# `target/` balloon to ~30 GB (the dep + crate object files carry the bulk of
+# it). `line-tables-only` keeps backtraces resolvable to file:line and panic
+# locations while cutting the bulk of the debuginfo, so the dev target stays
+# a few GB instead of tens.
+[profile.dev]
 debug = "line-tables-only"
 
 # Iteration profile — drops `lto=thin` and uses 16 codegen units to cut

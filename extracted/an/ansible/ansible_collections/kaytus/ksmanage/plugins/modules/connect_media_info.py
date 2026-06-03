@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: connect_media_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get remote images redirection information
 description:
    - Get remote images redirection information on kaytus Server.

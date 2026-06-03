@@ -247,6 +247,295 @@ fn snapshot_patch_remove_subtree() {
 }
 
 #[test]
+fn snapshot_patch_move_subtree() {
+    // #1666: the "move" verb for boundary spans. Field order after `type`:
+    // id, path, d, index. `d` is skipped when None.
+    let p = Patch::MoveSubtree {
+        id: "if-a3b1c2d4-0".to_string(),
+        path: vec![0],
+        d: Some("2y".to_string()),
+        index: 3,
+    };
+    let json = serde_json::to_string(&p).unwrap();
+    assert_eq!(
+        json,
+        r#"{"type":"MoveSubtree","id":"if-a3b1c2d4-0","path":[0],"d":"2y","index":3}"#
+    );
+}
+
+#[test]
+fn snapshot_patch_move_subtree_omits_d_when_none() {
+    let p = Patch::MoveSubtree {
+        id: "if-q-0".to_string(),
+        path: vec![],
+        d: None,
+        index: 0,
+    };
+    let serialized = serde_json::to_value(&p).unwrap();
+    assert!(
+        serialized.get("d").is_none(),
+        "MoveSubtree must omit `d` when None: {serialized}"
+    );
+}
+
+// ============================================================================
+// MessagePack round-trip tests (#1538)
+//
+// The snapshot tests above use `serde_json`, which encodes a struct as a
+// *map* of named fields — a missing optional key deserializes fine. That map
+// encoding is why the #1448 snapshot suite never caught #1538.
+//
+// `rmp_serde` (MessagePack) encodes a struct as a *positional array* for
+// compactness. `VNode.djust_id` has `skip_serializing_if = "Option::is_none"`,
+// so a `None` `djust_id` (every text node — see `parser.rs`) drops the
+// trailing array element, yielding a 5-element array. Without
+// `#[serde(default)]` the derived sequence-visitor `Deserialize` impl rejects
+// it: `invalid length 5, expected struct VNode with 6 elements`.
+//
+// These tests round-trip `VNode` through the EXACT msgpack path used by
+// `RustLiveView::serialize_msgpack` / `deserialize_msgpack`.
+// ============================================================================
+
+#[test]
+fn msgpack_round_trip_vnode_djust_id_none() {
+    // The #1538 case: a VNode with `djust_id: None` (every text node).
+    let v = elem("div");
+    assert_eq!(v.djust_id, None);
+    let bytes = rmp_serde::to_vec(&v).expect("msgpack serialize");
+    let restored: VNode = rmp_serde::from_slice(&bytes)
+        .expect("msgpack deserialize of djust_id-None VNode must not fail (#1538)");
+    assert_eq!(
+        restored, v,
+        "djust_id-None VNode must survive msgpack round-trip"
+    );
+}
+
+#[test]
+fn msgpack_round_trip_vnode_djust_id_some() {
+    // The control case: a VNode with `djust_id: Some(...)` (6-element array).
+    let v = elem_with_id("span", "1a");
+    assert_eq!(v.djust_id, Some("1a".to_string()));
+    let bytes = rmp_serde::to_vec(&v).expect("msgpack serialize");
+    let restored: VNode = rmp_serde::from_slice(&bytes).expect("msgpack deserialize");
+    assert_eq!(
+        restored, v,
+        "djust_id-Some VNode must survive msgpack round-trip"
+    );
+}
+
+#[test]
+fn msgpack_round_trip_nested_tree_mixed_djust_id() {
+    // A realistic tree: an element node (`djust_id: Some`) whose children
+    // mix an element child (`Some`) and text-node children (`None`) — the
+    // exact shape the HTML parser produces for any template containing text.
+    let text_child = VNode {
+        tag: "#text".to_string(),
+        attrs: HashMap::new(),
+        children: Vec::new(),
+        text: Some("hello".to_string()),
+        key: None,
+        djust_id: None,
+        cached_html: None,
+    };
+    assert_eq!(text_child.djust_id, None);
+
+    let elem_child = elem_with_id("strong", "2b");
+
+    let mut second_text = text_child.clone();
+    second_text.text = Some(" world".to_string());
+
+    let mut root = elem_with_id("p", "1a");
+    root.children = vec![text_child.clone(), elem_child, second_text];
+
+    let bytes = rmp_serde::to_vec(&root).expect("msgpack serialize");
+    let restored: VNode = rmp_serde::from_slice(&bytes)
+        .expect("msgpack deserialize of mixed-djust_id tree must not fail (#1538)");
+    assert_eq!(
+        restored, root,
+        "nested tree with mixed djust_id presence must survive msgpack round-trip"
+    );
+    // Sanity: the text-node children really did carry `djust_id: None`.
+    assert_eq!(restored.children[0].djust_id, None);
+    assert_eq!(restored.children[2].djust_id, None);
+    assert_eq!(restored.children[1].djust_id, Some("2b".to_string()));
+}
+
+// ============================================================================
+// Structural msgpack bug-class witnesses (#1541)
+//
+// #1538 (`VNode.djust_id`) and #1541 (`PatchResponse.{patches,html}`) are
+// instances of the same class: a plain `#[derive(Serialize, Deserialize)]`
+// struct with `#[serde(skip_serializing_if = "Option::is_none")]` on an
+// `Option<_>` field but no `#[serde(default)]`. Under MessagePack the struct
+// serializes as a positional array; a trailing `None` drops the element and
+// the sequence-visitor deserializer rejects the short array with
+// `invalid length N, expected struct X with M elements`.
+//
+// `PatchResponse` lives in `djust_live`, which depends on `djust_vdom`, so
+// importing it here would invert the dep graph. Instead these witnesses pin
+// the rule STRUCTURALLY in `djust_vdom`'s testable surface — any future plain
+// wire struct hitting the same pattern will fail the same way these
+// witnesses do, and the fix shape mirrors PR #1542 (#1538) byte-for-byte:
+// `#[serde(default, skip_serializing_if = "Option::is_none")]`.
+//
+// Issue #1456 tracks extending this suite with `rmp_serde` coverage for all
+// remaining wire shapes; this section is scoped to the bug class itself.
+// ============================================================================
+
+#[test]
+fn msgpack_skip_without_default_fails() {
+    // Witness without `default` — exhibits the #1538/#1541 failure class.
+    //
+    // Two shapes are tested: trailing-optional (#1538's VNode shape — error
+    // is "invalid length N, expected struct ... with M elements") and
+    // leading-optionals (#1541's PatchResponse shape — rmp-serde emits a
+    // shorter array whose visitor errors at the wrong-type position). Both
+    // fail; we don't pin the exact rmp-serde message, only that deserialize
+    // does not succeed.
+
+    // Shape A — trailing optional (VNode-style).
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct TrailingOptional {
+        name: String,
+        version: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        extra: Option<String>,
+    }
+    let v_a = TrailingOptional {
+        name: "x".to_string(),
+        version: 7,
+        extra: None,
+    };
+    let bytes_a = rmp_serde::to_vec(&v_a).expect("msgpack serialize");
+    assert!(
+        rmp_serde::from_slice::<TrailingOptional>(&bytes_a).is_err(),
+        "trailing-optional skip-without-default must fail to deserialize"
+    );
+
+    // Shape B — leading optionals (PatchResponse-style).
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct LeadingOptionals {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        a: Option<Vec<u8>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        b: Option<String>,
+        version: u64,
+    }
+    let v_b = LeadingOptionals {
+        a: None,
+        b: None,
+        version: 7,
+    };
+    let bytes_b = rmp_serde::to_vec(&v_b).expect("msgpack serialize");
+    assert!(
+        rmp_serde::from_slice::<LeadingOptionals>(&bytes_b).is_err(),
+        "leading-optionals skip-without-default must fail to deserialize"
+    );
+}
+
+#[test]
+fn msgpack_skip_with_default_works_for_trailing_optional_only() {
+    // The #1538 fix shape — `#[serde(default, skip_serializing_if = ...)]` —
+    // ONLY works for STRICTLY TRAILING optionals. This is the load-bearing
+    // empirical finding of #1541: blindly mirroring the #1538 fix onto a
+    // struct with leading optionals (PatchResponse's original shape) does
+    // NOT work. The correct fix for leading-optional structs is to remove
+    // `skip_serializing_if` entirely — see PatchResponse in
+    // `crates/djust_live/src/actors/messages.rs`.
+
+    // Shape A — trailing optional (VNode's shape — the #1538 fix works).
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct TrailingOptional {
+        name: String,
+        version: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        extra: Option<String>,
+    }
+    let v_a = TrailingOptional {
+        name: "x".to_string(),
+        version: 7,
+        extra: None,
+    };
+    let bytes_a = rmp_serde::to_vec(&v_a).expect("msgpack serialize");
+    let restored_a: TrailingOptional = rmp_serde::from_slice(&bytes_a)
+        .expect("trailing-optional skip-with-default must round-trip");
+    assert_eq!(restored_a, v_a);
+
+    // Shape B — leading optionals (PatchResponse's original shape). Adding
+    // `default` does NOT fix the bug class: with `a` skipped, the array's
+    // element 0 is now `b`'s value (or `version`'s, if both skip), which
+    // type-collides with `a: Option<Vec<u8>>`. The deserializer errors with
+    // "invalid type: ... expected a sequence" — `default` never fires
+    // because the deserializer is reading wrong-typed values at the wrong
+    // positional slots, not running out of elements.
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct LeadingOptionalsWithDefault {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        a: Option<Vec<u8>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        b: Option<String>,
+        version: u64,
+    }
+    let v_b = LeadingOptionalsWithDefault {
+        a: None,
+        b: None,
+        version: 7,
+    };
+    let bytes_b = rmp_serde::to_vec(&v_b).expect("msgpack serialize");
+    assert!(
+        rmp_serde::from_slice::<LeadingOptionalsWithDefault>(&bytes_b).is_err(),
+        "leading-optionals skip-with-default still fails — `default` does NOT \
+         repair positional-slot misalignment (#1541 finding — the #1538 fix \
+         does not generalize)"
+    );
+}
+
+#[test]
+fn msgpack_no_skip_round_trips_in_all_positions() {
+    // The #1541 fix shape — remove `skip_serializing_if` entirely. `None`
+    // is serialized as msgpack `nil` (1 byte), preserving positional slot
+    // alignment regardless of whether optionals are leading, interior, or
+    // trailing. Cost is at most N bytes per response (one per `None`
+    // field), negligible vs the patches/html payload.
+
+    // Same shape as PatchResponse (leading optionals).
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct NoSkip {
+        a: Option<Vec<u8>>,
+        b: Option<String>,
+        version: u64,
+    }
+
+    for v in [
+        NoSkip {
+            a: None,
+            b: None,
+            version: 1,
+        },
+        NoSkip {
+            a: None,
+            b: Some("h".into()),
+            version: 2,
+        },
+        NoSkip {
+            a: Some(vec![1, 2]),
+            b: None,
+            version: 3,
+        },
+        NoSkip {
+            a: Some(vec![1, 2]),
+            b: Some("h".into()),
+            version: 4,
+        },
+    ] {
+        let bytes = rmp_serde::to_vec(&v).expect("msgpack serialize");
+        let restored: NoSkip = rmp_serde::from_slice(&bytes)
+            .expect("no-skip variant must round-trip for every combination");
+        assert_eq!(restored, v);
+    }
+}
+
+#[test]
 fn snapshot_all_variants_round_trip_via_serde() {
     // Sanity: every variant we emit must also DESERIALIZE cleanly via
     // `serde_json::from_str`. (The client does this for testing; the

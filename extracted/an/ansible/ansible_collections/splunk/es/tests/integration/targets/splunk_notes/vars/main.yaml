@@ -1,0 +1,52 @@
+---
+# Test data for splunk_notes and splunk_notes_info integration tests
+
+# Finding used for testing notes
+test_finding:
+  title: "Finding for Notes Test"
+  description: "Test finding to test notes functionality"
+  security_domain: access
+  entity: "test_entity"
+  entity_type: user
+  finding_score: 25
+  urgency: medium
+  status: new
+
+# Investigation used for testing notes
+test_investigation:
+  name: "Investigation for Notes Test"
+  description: "Test investigation to test notes functionality"
+  status: new
+  owner: admin
+  urgency: medium
+  sensitivity: amber
+
+# Response plan used for testing task notes
+test_response_plan:
+  name: "Response Plan for Notes Test"
+  description: "Response plan used for task notes testing"
+  template_status: published
+  phases:
+    - name: "Test Phase"
+      tasks:
+        - name: "Test Task"
+          description: "Task for testing notes"
+          is_note_required: false
+          owner: unassigned
+
+# Note content used in tests
+note_content:
+  # Finding notes
+  finding_note_1: "First note on finding - initial investigation observation"
+  finding_note_1_updated: "First note on finding - UPDATED with new information"
+  finding_note_2: "Second note on finding - additional analysis"
+
+  # Investigation notes
+  investigation_note_1: "First note on investigation - starting analysis"
+  investigation_note_1_updated: "First note on investigation - UPDATED analysis"
+  investigation_note_2: "Second note on investigation - follow-up observation"
+
+  # Task notes
+  task_note_1: "First note on task - task progress update"
+  task_note_1_updated: "First note on task - UPDATED progress"
+  task_note_2: "Second note on task - additional task details"

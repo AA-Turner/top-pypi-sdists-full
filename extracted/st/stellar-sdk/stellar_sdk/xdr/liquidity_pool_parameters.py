@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -31,7 +30,7 @@ class LiquidityPoolParameters:
     def __init__(
         self,
         type: LiquidityPoolType,
-        constant_product: Optional[LiquidityPoolConstantProductParameters] = None,
+        constant_product: LiquidityPoolConstantProductParameters | None = None,
     ) -> None:
         self.type = type
         self.constant_product = constant_product

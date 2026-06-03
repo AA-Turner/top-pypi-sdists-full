@@ -1,5 +1,6 @@
 """Page breaking and layout for block-level and block-container boxes."""
 
+from functools import partial
 from math import inf
 
 from ..formatting_structure import boxes
@@ -9,7 +10,6 @@ from .flex import flex_layout
 from .float import avoid_collisions, float_layout, get_clearance
 from .grid import grid_layout
 from .inline import iter_line_boxes
-from .min_max import handle_min_max_width
 from .percent import percentage, resolve_percentages, resolve_position_percentages
 from .replaced import block_replaced_box_layout
 from .table import table_layout, table_wrapper_width
@@ -40,8 +40,7 @@ def block_level_layout(context, box, bottom_space, skip_stack, containing_block,
             # one of the ancestors breaks collapsing margins.
             # See test_margin_break_clearance.
             collapse_with_page = (
-                containing_block.is_for_root_element or
-                adjoining_margins)
+                containing_block.is_for_root_element or adjoining_margins)
             if collapse_with_page:
                 if box.style['margin_break'] == 'discard':
                     box.margin_top = 0
@@ -50,16 +49,17 @@ def block_level_layout(context, box, bottom_space, skip_stack, containing_block,
                         box.margin_top = 0
 
         collapsed_margin = collapse_margin([*adjoining_margins, box.margin_top])
-        box.clearance = get_clearance(context, box, collapsed_margin)
+        direction = containing_block.style['direction']
+        box.clearance = get_clearance(context, box, direction, collapsed_margin)
         if box.clearance is not None:
             top_border_edge = box.position_y + collapsed_margin + box.clearance
             box.position_y = top_border_edge - box.margin_top
             adjoining_margins = []
 
     return block_level_layout_switch(
-        context, box, bottom_space, skip_stack, containing_block,
-        page_is_empty, absolute_boxes, fixed_boxes, adjoining_margins,
-        first_letter_style, first_line_style, discard, max_lines)
+        context, box, bottom_space, skip_stack, containing_block, page_is_empty,
+        absolute_boxes, fixed_boxes, adjoining_margins, first_letter_style,
+        first_line_style, discard, max_lines)
 
 
 def block_level_layout_switch(context, box, bottom_space, skip_stack, containing_block,
@@ -141,8 +141,7 @@ def block_box_layout(context, box, bottom_space, skip_stack,
     return result
 
 
-@handle_min_max_width
-def block_level_width(box, containing_block):
+def block_level_width(box, containing_block, with_min_max=True):
     """Set the ``box`` width."""
     # 'cb' stands for 'containing block'
     if isinstance(containing_block, boxes.Box):
@@ -153,55 +152,56 @@ def block_level_width(box, containing_block):
         # TODO: what is the real text direction?
         direction = 'ltr'
 
-    # https://www.w3.org/TR/CSS21/visudet.html#blockwidth
+    padding_plus_border = (
+        box.padding_left + box.padding_right +
+        box.border_left_width + box.border_right_width)
 
-    # These names are waaay too long
-    margin_l = box.margin_left
-    margin_r = box.margin_right
-    padding_l = box.padding_left
-    padding_r = box.padding_right
-    border_l = box.border_left_width
-    border_r = box.border_right_width
-    width = box.width
-
-    # Only margin-left, margin-right and width can be 'auto'.
+    # See https://www.w3.org/TR/CSS21/visudet.html#blockwidth.
+    # Set width. Only margin-left, margin-right and width can be 'auto'.
     # We want:  width of containing block ==
     #               margin-left + border-left-width + padding-left + width
     #               + padding-right + border-right-width + margin-right
+    if box.width == 'auto':
+        box.width = cb_width - padding_plus_border
+        if box.margin_left != 'auto':
+            box.width -= box.margin_left
+        if box.margin_right != 'auto':
+            box.width -= box.margin_right
+    if with_min_max:
+        box.width = max(box.min_width, min(box.max_width, box.width))
 
-    paddings_plus_borders = padding_l + padding_r + border_l + border_r
-    if box.width != 'auto':
-        total = paddings_plus_borders + width
-        if margin_l != 'auto':
-            total += margin_l
-        if margin_r != 'auto':
-            total += margin_r
-        if total > cb_width:
-            if margin_l == 'auto':
-                margin_l = box.margin_left = 0
-            if margin_r == 'auto':
-                margin_r = box.margin_right = 0
-    if width != 'auto' and margin_l != 'auto' and margin_r != 'auto':
-        # The equation is over-constrained.
-        if direction == 'rtl' and not box.is_column:
-            box.position_x += (
-                cb_width - paddings_plus_borders - width - margin_r - margin_l)
-        # Do nothing in ltr.
-    if width == 'auto':
-        if margin_l == 'auto':
-            margin_l = box.margin_left = 0
-        if margin_r == 'auto':
-            margin_r = box.margin_right = 0
-        width = box.width = cb_width - (
-            paddings_plus_borders + margin_l + margin_r)
-    margin_sum = cb_width - paddings_plus_borders - width
-    if margin_l == margin_r == 'auto':
+    # Set auto margins to 0 for boxes larger than containing block.
+    margin_width = padding_plus_border + box.width
+    if box.margin_left != 'auto':
+        margin_width += box.margin_left
+    if box.margin_right != 'auto':
+        margin_width += box.margin_right
+    if margin_width > cb_width:
+        if box.margin_left == 'auto':
+            box.margin_left = 0
+        if box.margin_right == 'auto':
+            box.margin_right = 0
+
+    # Right-align right-to-left boxes.
+    if direction == 'rtl' and not box.is_column:
+        box.position_x += cb_width - padding_plus_border - box.width
+        if box.margin_left != 'auto':
+            box.position_x -= box.margin_left
+        if box.margin_right != 'auto':
+            box.position_x -= box.margin_right
+
+    # Set margins according to width.
+    margin_sum = cb_width - padding_plus_border - box.width
+    if box.margin_left == box.margin_right == 'auto':
         box.margin_left = margin_sum / 2
         box.margin_right = margin_sum / 2
-    elif margin_l == 'auto' and margin_r != 'auto':
-        box.margin_left = margin_sum - margin_r
-    elif margin_l != 'auto' and margin_r == 'auto':
-        box.margin_right = margin_sum - margin_l
+    elif box.margin_left == 'auto' and box.margin_right != 'auto':
+        box.margin_left = margin_sum - box.margin_right
+    elif box.margin_left != 'auto' and box.margin_right == 'auto':
+        box.margin_right = margin_sum - box.margin_left
+
+
+block_level_width.without_min_max = partial(block_level_width, with_min_max=False)
 
 
 def relative_positioning(box, containing_block):
@@ -519,7 +519,8 @@ def _in_flow_layout(context, box, index, child, new_children, page_is_empty,
                 new_collapsed_margin - old_collapsed_margin)
             for previous_new_child in new_children:
                 previous_new_child.translate(dy=collapsed_margin_difference)
-            clearance = get_clearance(context, child, new_collapsed_margin)
+            direction = box.style['direction']
+            clearance = get_clearance(context, child, direction, new_collapsed_margin)
             if clearance is not None:
                 for previous_new_child in new_children:
                     previous_new_child.translate(
@@ -553,6 +554,7 @@ def _in_flow_layout(context, box, index, child, new_children, page_is_empty,
         child for child in new_children
         if not isinstance(child, AbsolutePlaceholder))
 
+    child_position = child.position_x, child.position_y
     (new_child, resume_at, next_page, next_adjoining_margins,
      collapsing_through, max_lines) = block_level_layout(
          context, child, bottom_space, skip_stack, box, page_is_empty_with_no_children,
@@ -584,11 +586,13 @@ def _in_flow_layout(context, box, index, child, new_children, page_is_empty,
                 # Child border/padding/margin overflows the page area, do the layout
                 # again with a bottom_space value that includes them.
                 remove_placeholders(context, [new_child], absolute_boxes, fixed_boxes)
+                child.position_x, child.position_y = child_position
                 (new_child, resume_at, next_page, next_adjoining_margins,
                  collapsing_through, max_lines) = block_level_layout(
                      context, child, bottom_space, skip_stack, box,
                      page_is_empty_with_no_children, absolute_boxes, fixed_boxes,
-                     adjoining_margins, discard, max_lines)
+                     adjoining_margins, first_letter_style, first_line_style,
+                     discard, max_lines)
                 if new_child:
                     position_y = new_child.border_box_y() + new_child.border_height()
             else:
@@ -837,8 +841,9 @@ def block_container_layout(context, box, bottom_space, skip_stack, page_is_empty
     if last_in_flow_child is None:
         # No in-flow child in box, collapse its top and bottom margins.
         collapsed_margin = collapse_margin(adjoining_margins)
+        direction = box.style['direction']  # TODO: should be parent’s one instead
         if (box.height in ('auto', 0) and
-            get_clearance(context, box, collapsed_margin) is None and
+            get_clearance(context, box, direction, collapsed_margin) is None and
             all(value == 0 for value in (
                 box.min_height, box.border_top_width, box.padding_top,
                 box.border_bottom_width, box.padding_bottom))):

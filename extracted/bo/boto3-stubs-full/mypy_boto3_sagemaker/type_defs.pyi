@@ -173,6 +173,9 @@ from .literals import (
     InstanceTypeType,
     IPAddressTypeType,
     IsTrackingServerActiveType,
+    JobCategoryType,
+    JobSecondaryStatusType,
+    JobStatusType,
     JobTypeType,
     JoinSourceType,
     LabelingJobStatusType,
@@ -719,6 +722,8 @@ __all__ = (
     "CreateInferenceExperimentResponseTypeDef",
     "CreateInferenceRecommendationsJobRequestTypeDef",
     "CreateInferenceRecommendationsJobResponseTypeDef",
+    "CreateJobRequestTypeDef",
+    "CreateJobResponseTypeDef",
     "CreateLabelingJobRequestTypeDef",
     "CreateLabelingJobResponseTypeDef",
     "CreateMlflowAppRequestTypeDef",
@@ -867,6 +872,7 @@ __all__ = (
     "DeleteInferenceComponentInputTypeDef",
     "DeleteInferenceExperimentRequestTypeDef",
     "DeleteInferenceExperimentResponseTypeDef",
+    "DeleteJobRequestTypeDef",
     "DeleteMlflowAppRequestTypeDef",
     "DeleteMlflowAppResponseTypeDef",
     "DeleteMlflowTrackingServerRequestTypeDef",
@@ -998,6 +1004,10 @@ __all__ = (
     "DescribeInferenceExperimentResponseTypeDef",
     "DescribeInferenceRecommendationsJobRequestTypeDef",
     "DescribeInferenceRecommendationsJobResponseTypeDef",
+    "DescribeJobRequestTypeDef",
+    "DescribeJobResponseTypeDef",
+    "DescribeJobSchemaVersionRequestTypeDef",
+    "DescribeJobSchemaVersionResponseTypeDef",
     "DescribeLabelingJobRequestTypeDef",
     "DescribeLabelingJobResponseTypeDef",
     "DescribeLineageGroupRequestTypeDef",
@@ -1291,6 +1301,10 @@ __all__ = (
     "InstanceRequirementsEniConfigurationTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
+    "JobConfigSchemaVersionSummaryTypeDef",
+    "JobSecondaryStatusTransitionTypeDef",
+    "JobStepMetadataTypeDef",
+    "JobSummaryTypeDef",
     "JupyterLabAppImageConfigOutputTypeDef",
     "JupyterLabAppImageConfigTypeDef",
     "JupyterLabAppImageConfigUnionTypeDef",
@@ -1452,6 +1466,12 @@ __all__ = (
     "ListInferenceRecommendationsJobsRequestPaginateTypeDef",
     "ListInferenceRecommendationsJobsRequestTypeDef",
     "ListInferenceRecommendationsJobsResponseTypeDef",
+    "ListJobSchemaVersionsRequestPaginateTypeDef",
+    "ListJobSchemaVersionsRequestTypeDef",
+    "ListJobSchemaVersionsResponseTypeDef",
+    "ListJobsRequestPaginateTypeDef",
+    "ListJobsRequestTypeDef",
+    "ListJobsResponseTypeDef",
     "ListLabelingJobsForWorkteamRequestPaginateTypeDef",
     "ListLabelingJobsForWorkteamRequestTypeDef",
     "ListLabelingJobsForWorkteamResponseTypeDef",
@@ -1995,6 +2015,7 @@ __all__ = (
     "StopInferenceExperimentRequestTypeDef",
     "StopInferenceExperimentResponseTypeDef",
     "StopInferenceRecommendationsJobRequestTypeDef",
+    "StopJobRequestTypeDef",
     "StopLabelingJobRequestTypeDef",
     "StopMlflowTrackingServerRequestTypeDef",
     "StopMlflowTrackingServerResponseTypeDef",
@@ -3528,6 +3549,10 @@ class DeleteInferenceComponentInputTypeDef(TypedDict):
 class DeleteInferenceExperimentRequestTypeDef(TypedDict):
     Name: str
 
+class DeleteJobRequestTypeDef(TypedDict):
+    JobName: str
+    JobCategory: JobCategoryType
+
 class DeleteMlflowAppRequestTypeDef(TypedDict):
     Arn: str
 
@@ -3875,6 +3900,20 @@ class InferenceExperimentScheduleOutputTypeDef(TypedDict):
 
 class DescribeInferenceRecommendationsJobRequestTypeDef(TypedDict):
     JobName: str
+
+class DescribeJobRequestTypeDef(TypedDict):
+    JobName: str
+    JobCategory: JobCategoryType
+
+class JobSecondaryStatusTransitionTypeDef(TypedDict):
+    Status: JobSecondaryStatusType
+    StartTime: datetime
+    EndTime: NotRequired[datetime]
+    StatusMessage: NotRequired[str]
+
+class DescribeJobSchemaVersionRequestTypeDef(TypedDict):
+    JobCategory: JobCategoryType
+    JobConfigSchemaVersion: NotRequired[str]
 
 class DescribeLabelingJobRequestTypeDef(TypedDict):
     LabelingJobName: str
@@ -4617,6 +4656,22 @@ class IntegerParameterRangeTypeDef(TypedDict):
     MaxValue: str
     ScalingType: NotRequired[HyperParameterScalingTypeType]
 
+class JobConfigSchemaVersionSummaryTypeDef(TypedDict):
+    JobConfigSchemaVersion: str
+
+class JobStepMetadataTypeDef(TypedDict):
+    Arn: NotRequired[str]
+
+class JobSummaryTypeDef(TypedDict):
+    JobArn: str
+    JobName: str
+    JobCategory: JobCategoryType
+    JobStatus: JobStatusType
+    JobSecondaryStatus: JobSecondaryStatusType
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    EndTime: NotRequired[datetime]
+
 class KernelSpecTypeDef(TypedDict):
     Name: str
     DisplayName: NotRequired[str]
@@ -4686,6 +4741,11 @@ class ListInferenceRecommendationsJobStepsRequestTypeDef(TypedDict):
     StepType: NotRequired[Literal["BENCHMARK"]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListJobSchemaVersionsRequestTypeDef(TypedDict):
+    JobCategory: JobCategoryType
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class MlflowAppSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -5440,6 +5500,10 @@ class StopHyperParameterTuningJobRequestTypeDef(TypedDict):
 class StopInferenceRecommendationsJobRequestTypeDef(TypedDict):
     JobName: str
 
+class StopJobRequestTypeDef(TypedDict):
+    JobName: str
+    JobCategory: JobCategoryType
+
 class StopLabelingJobRequestTypeDef(TypedDict):
     LabelingJobName: str
 
@@ -5888,6 +5952,10 @@ class CreateInferenceRecommendationsJobResponseTypeDef(TypedDict):
     JobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateJobResponseTypeDef(TypedDict):
+    JobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateLabelingJobResponseTypeDef(TypedDict):
     LabelingJobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6123,6 +6191,12 @@ class DescribeImageVersionResponseTypeDef(TypedDict):
     Processor: ProcessorType
     Horovod: bool
     ReleaseNotes: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeJobSchemaVersionResponseTypeDef(TypedDict):
+    JobCategory: JobCategoryType
+    JobConfigSchemaVersion: str
+    JobConfigSchema: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePipelineDefinitionForExecutionResponseTypeDef(TypedDict):
@@ -6442,6 +6516,14 @@ class CreateImageRequestTypeDef(TypedDict):
     RoleArn: str
     Description: NotRequired[str]
     DisplayName: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateJobRequestTypeDef(TypedDict):
+    JobName: str
+    RoleArn: str
+    JobCategory: JobCategoryType
+    JobConfigSchemaVersion: str
+    JobConfigDocument: str
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreateMlflowAppRequestTypeDef(TypedDict):
@@ -7106,6 +7188,10 @@ class ListInferenceRecommendationsJobStepsRequestPaginateTypeDef(TypedDict):
     JobName: str
     Status: NotRequired[RecommendationJobStatusType]
     StepType: NotRequired[Literal["BENCHMARK"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListJobSchemaVersionsRequestPaginateTypeDef(TypedDict):
+    JobCategory: JobCategoryType
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMonitoringAlertsRequestPaginateTypeDef(TypedDict):
@@ -8116,6 +8202,31 @@ class ListInferenceRecommendationsJobsRequestTypeDef(TypedDict):
     ModelNameEquals: NotRequired[str]
     ModelPackageVersionArnEquals: NotRequired[str]
 
+class ListJobsRequestPaginateTypeDef(TypedDict):
+    JobCategory: JobCategoryType
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[SortByType]
+    SortOrder: NotRequired[SortOrderType]
+    StatusEquals: NotRequired[JobStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListJobsRequestTypeDef(TypedDict):
+    JobCategory: JobCategoryType
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[SortByType]
+    SortOrder: NotRequired[SortOrderType]
+    StatusEquals: NotRequired[JobStatusType]
+
 class ListLabelingJobsForWorkteamRequestPaginateTypeDef(TypedDict):
     WorkteamArn: str
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -9053,6 +9164,23 @@ InferenceExperimentSummaryTypeDef = TypedDict(
     },
 )
 
+class DescribeJobResponseTypeDef(TypedDict):
+    JobName: str
+    JobArn: str
+    RoleArn: str
+    JobCategory: JobCategoryType
+    JobConfigSchemaVersion: str
+    JobConfigDocument: str
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    EndTime: datetime
+    JobStatus: JobStatusType
+    SecondaryStatus: JobSecondaryStatusType
+    SecondaryStatusTransitions: list[JobSecondaryStatusTransitionTypeDef]
+    FailureReason: str
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeModelCardExportJobResponseTypeDef(TypedDict):
     ModelCardExportJobName: str
     ModelCardExportJobArn: str
@@ -9472,6 +9600,16 @@ class ParameterRangesOutputTypeDef(TypedDict):
     ContinuousParameterRanges: NotRequired[list[ContinuousParameterRangeTypeDef]]
     CategoricalParameterRanges: NotRequired[list[CategoricalParameterRangeOutputTypeDef]]
     AutoParameters: NotRequired[list[AutoParameterTypeDef]]
+
+class ListJobSchemaVersionsResponseTypeDef(TypedDict):
+    JobConfigSchemas: list[JobConfigSchemaVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListJobsResponseTypeDef(TypedDict):
+    JobSummaries: list[JobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class KernelGatewayImageConfigOutputTypeDef(TypedDict):
     KernelSpecs: list[KernelSpecTypeDef]
@@ -10248,6 +10386,7 @@ class PipelineExecutionStepMetadataTypeDef(TypedDict):
     BedrockModelImport: NotRequired[BedrockModelImportMetadataTypeDef]
     InferenceComponent: NotRequired[InferenceComponentMetadataTypeDef]
     Lineage: NotRequired[LineageMetadataTypeDef]
+    Job: NotRequired[JobStepMetadataTypeDef]
 
 class AutoMLCandidateTypeDef(TypedDict):
     CandidateName: str

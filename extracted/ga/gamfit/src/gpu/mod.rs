@@ -30,6 +30,7 @@ pub mod numerics_host;
 pub mod pirls_row;
 pub mod policy;
 pub mod polya_gamma;
+pub mod pool;
 pub mod profile;
 pub mod reml_trace;
 pub mod row_hessian_ops;
@@ -45,6 +46,7 @@ pub use device::GpuDeviceInfo;
 pub use error::GpuError;
 pub use memory::{DeviceBuffer, DeviceCsrMatrix, DeviceMatrix, DeviceVector};
 pub use policy::{GpuDispatchPolicy, MixedPrecisionPolicy};
+pub use pool::{balanced_partition, scatter_batched};
 pub use profile::{KernelStat, KernelStatsSnapshot};
 pub use runtime::GpuRuntime;
 
@@ -286,6 +288,14 @@ pub fn try_fast_ab(
     b: ndarray::ArrayView2<'_, f64>,
 ) -> Option<ndarray::Array2<f64>> {
     linalg::try_fast_ab(a, b)
+}
+#[inline]
+pub fn try_fast_atb_on_ordinal(
+    ordinal: usize,
+    a: ndarray::ArrayView2<'_, f64>,
+    b: ndarray::ArrayView2<'_, f64>,
+) -> Option<ndarray::Array2<f64>> {
+    linalg::try_fast_atb_on_ordinal(ordinal, a, b)
 }
 #[inline]
 pub fn try_fast_av(

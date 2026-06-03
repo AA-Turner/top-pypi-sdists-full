@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 
 from kanban_framework.cli.task_utils import _resolve
+from kanban_framework.infra.scheduler import Scheduler
 
 
 def cmd_create(args: list[str]) -> dict:
@@ -56,6 +57,8 @@ def cmd_create(args: list[str]) -> dict:
                         help="Skip auto knowledge search on create")
     parser.add_argument("--manual", action="store_true", default=False,
                         help="Create with scaffolded spec/plan templates, user edits spec then run")
+    parser.add_argument("--biz", type=str, default=None, dest="biz",
+                        help="Business context tag for knowledge isolation")
 
     parsed = parser.parse_args(filtered_args)
     title = " ".join(parsed.title) if parsed.title else "Untitled"
@@ -75,6 +78,8 @@ def cmd_create(args: list[str]) -> dict:
         is_lightweight = True
     elif task_mode == "quick":
         is_lightweight = True
+    elif task_mode and task_mode not in Scheduler.BUILTIN_MODE_NAMES:
+        is_lightweight = False  # custom modes define their own phase order
     if task_mode is None:
         task_mode = ai["recommended_mode"]
         is_lightweight = (task_mode in ("lightweight", "quick"))
@@ -107,7 +112,7 @@ def cmd_create(args: list[str]) -> dict:
     test_config = None
     test_level = parsed.test_level
     if test_level is None:
-        test_level = "quick" if (is_lightweight or task_mode == "lightweight") else "full"
+        test_level = "quick" if (is_lightweight or task_mode not in Scheduler.BUILTIN_MODE_NAMES or task_mode == "lightweight") else "full"
 
     if parsed.test_cmd or parsed.test_framework or parsed.coverage or test_level != "full":
         test_config = {
@@ -167,24 +172,36 @@ def cmd_create(args: list[str]) -> dict:
     if control_mode:
         tm.update(task.id, control_mode=control_mode)
 
+    # Apply biz_tag if provided
+    parsed_biz = parsed.biz
+    if parsed_biz:
+        tm.update(task.id, biz_tag=parsed_biz)
+
     mode_confirmation_pending = not user_specified_mode
     recommended_mode = task_mode or ("lightweight" if (is_lightweight or recommendation["use_lightweight"]) else "full")
     mode_msg = f"Mode: {recommended_mode}" if task_mode else f"Select mode (full/lightweight/custom/quick) before running"
 
     # Scan for custom modes from workflow.json + .kanban/workflows/ directory
-    available_modes = ["full", "lightweight", "quick", "custom"]
+    # Priority: custom modes first, then built-in modes (AskUserQuestion limits to 4)
+    custom_mode_names = []
     try:
         from kanban_framework.domain.workflow_loader import scan_workflows
         custom = scan_workflows(fs.kanban_dir)
-        # Also check workflow.json modes (may not have directory file yet)
         from kanban_framework.infra.config import Config
         cfg = Config(fs)
         wf_modes = cfg.workflow.get("modes", {})
         for name in sorted(set(list(custom.keys()) + list(wf_modes.keys()))):
-            if name not in ("full", "lightweight", "quick") and name not in available_modes:
-                available_modes.append(name)
+            if name not in Scheduler.BUILTIN_MODE_NAMES:
+                custom_mode_names.append(name)
     except Exception:
         pass
+
+    # Build available list: custom modes first, then built-ins, max 4 total
+    available_modes = list(custom_mode_names)
+    for builtin in ("lightweight", "quick", "full"):
+        if len(available_modes) >= 4:
+            break
+        available_modes.append(builtin)
 
     knowledge_hints = []
     if not parsed.draft and not parsed.no_knowledge:
@@ -192,8 +209,8 @@ def cmd_create(args: list[str]) -> dict:
             from kanban_framework.domain.knowledge import KnowledgeManager
             km = KnowledgeManager(fs)
             combined = f"{title} {desc}"
-            k_results = km.search_hybrid(combined, limit=10)
-            pitfall_results = km.search_by_intent("pitfall_check", combined, limit=5)
+            k_results = km.search_hybrid(combined, limit=10, biz_context=parsed_biz)
+            pitfall_results = km.search_by_intent("pitfall_check", combined, limit=5, biz_context=parsed_biz)
             # Infer project domains from existing entries for relevance filtering
             project_domains = set()
             try:

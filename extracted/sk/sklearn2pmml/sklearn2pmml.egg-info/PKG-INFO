@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: sklearn2pmml
-Version: 0.130.0
+Version: 0.130.1
 Summary: Python library for converting Scikit-Learn pipelines to PMML
 Home-page: https://github.com/jpmml/sklearn2pmml
-Download-URL: https://github.com/jpmml/sklearn2pmml/archive/0.130.0.tar.gz
+Download-URL: https://github.com/jpmml/sklearn2pmml/archive/0.130.1.tar.gz
 Author: Villu Ruusmann
 Author-email: villu.ruusmann@gmail.com
 License: GNU Affero General Public License (AGPL) version 3.0

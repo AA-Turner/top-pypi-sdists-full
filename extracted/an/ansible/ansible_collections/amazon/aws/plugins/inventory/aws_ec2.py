@@ -19,6 +19,13 @@ description:
 notes:
   - If no credentials are provided and the control node has an associated IAM instance profile then the
     role will be used for authentication.
+  - The C(tags) host variable is deprecated and will be removed in a release after 2026-12-01.
+    Use C(ec2_tags) instead to avoid conflicts with Ansible reserved variable names.
+  - The C(ec2_tags) host variable was added in version 11.2.0.
+  - The C(use_contrib_script_compatible_ec2_tag_keys) option is deprecated and will be removed in a release after 2026-12-01.
+    Use the C(ec2_tags) structure instead (e.g. use C(ec2_tags.TAGNAME) rather than C(ec2_tag_TAGNAME)).
+  - The C(use_contrib_script_compatible_sanitization) option is deprecated and will be removed in a release after 2026-12-01.
+    Use Ansible's default group name sanitization instead.
 author:
   - Sloane Hertel (@s-hertel)
 options:
@@ -103,7 +110,7 @@ options:
   use_contrib_script_compatible_sanitization:
     description:
       - By default this plugin is using a general group name sanitization to create safe and usable group names for use in Ansible.
-        This option allows you to override that, in efforts to allow migration from the old inventory script and
+        This option allows you to override that, in efforts to allow migration from the old C(ec2.py) inventory script and
         matches the sanitization of groups when the script's ``replace_dash_in_groups`` option is set to ``False``.
         To replicate behavior of ``replace_dash_in_groups = True`` with constructed groups,
         you will need to replace hyphens with underscores via the regex_replace filter for those entries.
@@ -111,12 +118,15 @@ options:
         otherwise the core engine will just use the standard sanitization on top.
       - This is not the default as such names break certain functionality as not all characters are valid Python identifiers
         which group names end up being used as.
+      - The use of this feature is deprecated and will be removed in a release after 2026-12-01.
+        Use Ansible's default group name sanitization instead.
     type: bool
     default: false
   use_contrib_script_compatible_ec2_tag_keys:
     description:
-      - Expose the host tags with ec2_tag_TAGNAME keys like the old ec2.py inventory script.
-      - The use of this feature is discouraged and we advise to migrate to the new ``tags`` structure.
+      - Expose the host tags with C(ec2_tag_TAGNAME) keys like the old C(ec2.py) inventory script.
+      - The use of this feature is deprecated and will be removed in a release after 2026-12-01.
+        Use the C(ec2_tags) structure instead (e.g. use C(ec2_tags.TAGNAME) rather than C(ec2_tag_TAGNAME)).
     type: bool
     default: false
     version_added: 1.5.0
@@ -225,7 +235,7 @@ keyed_groups:
     key: 'architecture'
   # Add hosts to tag_Name_Value groups for each Name/Value tag pair
   - prefix: tag
-    key: tags
+    key: ec2_tags
   # Add hosts to e.g. instance_type_z3_tiny
   - prefix: instance_type
     key: instance_type
@@ -233,13 +243,13 @@ keyed_groups:
   - key: 'security_groups|json_query("[].group_id")'
     prefix: 'security_groups'
   # Create a group for each value of the Application tag
-  - key: tags.Application
+  - key: ec2_tags.Application
     separator: ''
   # Create a group per region e.g. aws_region_us_east_2
   - key: placement.region
     prefix: aws_region
   # Create a group (or groups) based on the value of a custom tag "Role" and add them to a metagroup called "project"
-  - key: tags['Role']
+  - key: ec2_tags['Role']
     prefix: foo
     parent_group: "project"
 # Set individual variables with compose
@@ -277,7 +287,7 @@ filters:
   instance-state-name: running
 keyed_groups:
   - prefix: tag
-    key: tags
+    key: ec2_tags
 compose:
   ansible_host: public_dns_name
 groups:
@@ -337,7 +347,7 @@ from typing import Dict
 from typing import List
 from typing import Set
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 
 try:
     from ansible.template import trust_as_template
@@ -486,13 +496,15 @@ def _prepare_host_vars(
     use_contrib_script_compatible_ec2_tag_keys=False,
 ):
     host_vars = camel_dict_to_snake_dict(original_host_vars, ignore_list=["Tags"])
-    host_vars["tags"] = boto3_tag_list_to_ansible_dict(original_host_vars.get("Tags", []))
+    host_vars["ec2_tags"] = boto3_tag_list_to_ansible_dict(original_host_vars.get("Tags", []))
+    # ec2_tags is the new key, tags is deprecated but kept for backward compatibility
+    host_vars["tags"] = host_vars["ec2_tags"]
 
     # Allow easier grouping by region
     host_vars["placement"]["region"] = host_vars["placement"]["availability_zone"][:-1]
 
     if use_contrib_script_compatible_ec2_tag_keys:
-        for k, v in host_vars["tags"].items():
+        for k, v in host_vars["ec2_tags"].items():
             host_vars[f"ec2_tag_{k}"] = v
 
     if hostvars_prefix or hostvars_suffix:
@@ -670,7 +682,7 @@ class InventoryModule(AWSInventoryBase):
                 template_var = "{{%s|%s}}" % (hostname, jinja2_filter)
             if trust_as_template:
                 template_var = trust_as_template(template_var)
-            hostname = self.templar.template(variable=template_var, disable_lookups=False)
+            hostname = self.templar.template(variable=template_var)
         if isinstance(hostname, list) and return_single_hostname:
             hostname = hostname[0] if hostname else None
         return hostname
@@ -942,8 +954,11 @@ class InventoryModule(AWSInventoryBase):
     def parse(self, inventory, loader, path, cache=True):
         super().parse(inventory, loader, path, cache=cache)
 
-        if self.get_option("use_contrib_script_compatible_sanitization"):
-            self._sanitize_group_name = self._legacy_script_compatible_group_sanitization
+        self.display.deprecated(
+            "The 'tags' host variable is deprecated. Use 'ec2_tags' instead.",
+            date="2026-12-01",
+            collection_name="amazon.aws",
+        )
 
         # get user specifications
         regions = self.get_option("regions")
@@ -955,8 +970,27 @@ class InventoryModule(AWSInventoryBase):
 
         hostvars_prefix = self.get_option("hostvars_prefix")
         hostvars_suffix = self.get_option("hostvars_suffix")
+        use_contrib_script_compatible_sanitization = self.get_option("use_contrib_script_compatible_sanitization")
         use_contrib_script_compatible_ec2_tag_keys = self.get_option("use_contrib_script_compatible_ec2_tag_keys")
         use_ssm_inventory = self.get_option("use_ssm_inventory")
+
+        if use_contrib_script_compatible_sanitization:
+            self.display.deprecated(
+                "The 'use_contrib_script_compatible_sanitization' option is deprecated. "
+                "Use Ansible's default group name sanitization instead.",
+                date="2026-12-01",
+                collection_name="amazon.aws",
+            )
+
+            self._sanitize_group_name = self._legacy_script_compatible_group_sanitization
+
+        if use_contrib_script_compatible_ec2_tag_keys:
+            self.display.deprecated(
+                "The 'use_contrib_script_compatible_ec2_tag_keys' option is deprecated. "
+                "Use the 'ec2_tags' structure instead.",
+                date="2026-12-01",
+                collection_name="amazon.aws",
+            )
 
         if not all(isinstance(element, (dict, str)) for element in hostnames):
             self.fail_aws("Hostnames should be a list of dict and str.")

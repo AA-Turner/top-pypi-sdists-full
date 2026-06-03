@@ -1,4 +1,4 @@
-# Generated from german.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from german.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class GermanStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from german.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from german.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "y", "ä", "ö", "ü"}
@@ -309,11 +309,8 @@ class GermanStemmer(BaseStemmer):
             if self.cursor <= self.limit_backward:
                 raise lab0()
             self.cursor -= 1
-            try:
-                if self.cursor > self.limit_backward:
-                    raise lab1()
+            if self.cursor <= self.limit_backward:
                 raise lab0()
-            except lab1: pass
             self.slice_del()
         except lab0: pass
         self.cursor = self.limit - v_10

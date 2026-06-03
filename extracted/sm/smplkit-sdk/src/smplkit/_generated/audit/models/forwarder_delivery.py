@@ -30,9 +30,9 @@ class ForwarderDelivery:
         forwarder_id (UUID): Forwarder the delivery belongs to.
         event_id (UUID): Event that was being delivered.
         attempt_number (int): 1 for the initial delivery, incremented for each retry.
-        status (ForwarderDeliveryStatus): Delivery outcome. `SUCCEEDED` and `FAILED` are the live-delivery outcomes;
-            `FILTERED_OUT` is recorded when the forwarder's filter rejected the event; `SKIPPED_DO_NOT_FORWARD` is recorded
-            when the event was emitted with `do_not_forward=true`.
+        status (ForwarderDeliveryStatus): Delivery outcome. `SUCCEEDED` when the destination accepted the event,
+            `FAILED` when the delivery attempt did not succeed. Events that a forwarder's filter rejected are not recorded
+            as deliveries.
         request (ForwarderDeliveryRequestType0 | None | Unset): The HTTP request as it was sent to the destination.
             Header values are redacted.
         response_status (int | None | Unset): HTTP status code returned by the destination.

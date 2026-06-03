@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_pdisk
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set physical disk
 description:
    - Set physical disk on kaytus Server.

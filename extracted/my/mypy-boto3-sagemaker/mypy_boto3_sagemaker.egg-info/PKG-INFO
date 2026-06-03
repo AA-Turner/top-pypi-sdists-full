@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-sagemaker
-Version: 1.43.16
-Summary: Type annotations for boto3 SageMaker 1.43.16 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.20
+Summary: Type annotations for boto3 SageMaker 1.43.20 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SageMaker 1.43.16](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SageMaker 1.43.20](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.16' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.20' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -380,6 +380,8 @@ from mypy_boto3_sagemaker.paginator import (
     ListInferenceExperimentsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
     ListInferenceRecommendationsJobsPaginator,
+    ListJobSchemaVersionsPaginator,
+    ListJobsPaginator,
     ListLabelingJobsForWorkteamPaginator,
     ListLabelingJobsPaginator,
     ListLineageGroupsPaginator,
@@ -523,6 +525,10 @@ list_inference_recommendations_job_steps_paginator: ListInferenceRecommendations
 list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = (
     client.get_paginator("list_inference_recommendations_jobs")
 )
+list_job_schema_versions_paginator: ListJobSchemaVersionsPaginator = client.get_paginator(
+    "list_job_schema_versions"
+)
+list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
 list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = (
     client.get_paginator("list_labeling_jobs_for_workteam")
 )

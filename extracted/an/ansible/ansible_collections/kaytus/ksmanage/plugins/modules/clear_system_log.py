@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: clear_system_log
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Clear BMC system log
 description:
    - Clear BMC system log on kaytus Server.

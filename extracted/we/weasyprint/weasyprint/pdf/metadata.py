@@ -106,7 +106,8 @@ class DocumentMetadata:
         if version:
             element = SubElement(rdf, f'{{{NS["rdf"]}}}Description')
             element.attrib[f'{{{NS["rdf"]}}}about'] = ''
-            element.attrib[f'{{{NS[namespace]}}}part'] = str(version)
+            if not (variant == 'x' and version >= 4):
+                element.attrib[f'{{{NS[namespace]}}}part'] = str(version)
         if conformance:
             assert version
             if variant == 'x':
@@ -135,6 +136,9 @@ class DocumentMetadata:
                 if variant == 'a' and version == 4:
                     subelement = SubElement(element, f'{{{NS["pdfaid"]}}}rev')
                     subelement.text = '2020'
+                elif variant == 'ua' and version == 2:
+                    subelement = SubElement(element, f'{{{NS["pdfuaid"]}}}rev')
+                    subelement.text = '2024'
 
         element = SubElement(rdf, f'{{{NS["rdf"]}}}Description')
         element.attrib[f'{{{NS["rdf"]}}}about'] = ''
@@ -159,8 +163,8 @@ class DocumentMetadata:
         if self.description:
             element = SubElement(rdf, f'{{{NS["rdf"]}}}Description')
             element.attrib[f'{{{NS["rdf"]}}}about'] = ''
-            element = SubElement(element, f'{{{NS["dc"]}}}subject')
-            element = SubElement(element, f'{{{NS["rdf"]}}}Bag')
+            element = SubElement(element, f'{{{NS["dc"]}}}description')
+            element = SubElement(element, f'{{{NS["rdf"]}}}Alt')
             element = SubElement(element, f'{{{NS["rdf"]}}}li')
             element.attrib['xml:lang'] = 'x-default'
             element.text = self.description

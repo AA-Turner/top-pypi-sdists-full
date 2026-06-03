@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 3.3.1
+Version: 3.4.0
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -18,21 +18,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: fastmcp-slim[client,server]==3.3.1
+Requires-Dist: fastmcp-slim[client,server]==3.4.0
 Provides-Extra: anthropic
-Requires-Dist: fastmcp-slim[anthropic]==3.3.1; extra == 'anthropic'
+Requires-Dist: fastmcp-slim[anthropic]==3.4.0; extra == 'anthropic'
 Provides-Extra: apps
-Requires-Dist: fastmcp-slim[apps]==3.3.1; extra == 'apps'
+Requires-Dist: fastmcp-slim[apps]==3.4.0; extra == 'apps'
 Provides-Extra: azure
-Requires-Dist: fastmcp-slim[azure]==3.3.1; extra == 'azure'
+Requires-Dist: fastmcp-slim[azure]==3.4.0; extra == 'azure'
 Provides-Extra: code-mode
-Requires-Dist: fastmcp-slim[code-mode]==3.3.1; extra == 'code-mode'
+Requires-Dist: fastmcp-slim[code-mode]==3.4.0; extra == 'code-mode'
 Provides-Extra: gemini
-Requires-Dist: fastmcp-slim[gemini]==3.3.1; extra == 'gemini'
+Requires-Dist: fastmcp-slim[gemini]==3.4.0; extra == 'gemini'
 Provides-Extra: openai
-Requires-Dist: fastmcp-slim[openai]==3.3.1; extra == 'openai'
+Requires-Dist: fastmcp-slim[openai]==3.4.0; extra == 'openai'
 Provides-Extra: tasks
-Requires-Dist: fastmcp-slim[tasks]==3.3.1; extra == 'tasks'
+Requires-Dist: fastmcp-slim[tasks]==3.4.0; extra == 'tasks'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -57,7 +57,7 @@ Description-Content-Type: text/markdown
 [![Tests](https://github.com/PrefectHQ/fastmcp/actions/workflows/run-tests.yml/badge.svg)](https://github.com/PrefectHQ/fastmcp/actions/workflows/run-tests.yml)
 [![License](https://img.shields.io/github/license/PrefectHQ/fastmcp.svg)](https://github.com/PrefectHQ/fastmcp/blob/main/LICENSE)
 
-<a href="https://trendshift.io/repositories/13266" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13266" alt="prefecthq%2Ffastmcp | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/21461" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21461" alt="prefecthq%2Ffastmcp | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </div>
 
 ---
@@ -140,6 +140,9 @@ For full installation instructions, including verification and upgrading, see th
 - [Upgrading from FastMCP v2](https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2)
 - [Upgrading from the MCP Python SDK](https://gofastmcp.com/getting-started/upgrading/from-mcp-sdk)
 - [Upgrading from the low-level SDK](https://gofastmcp.com/getting-started/upgrading/from-low-level-sdk)
+
+> [!NOTE]
+> If `import fastmcp` fails right after a `pip` upgrade from FastMCP 3.2 or earlier, run `pip install --force-reinstall fastmcp`. See [Troubleshooting](https://gofastmcp.com/getting-started/installation#troubleshooting) for why this happens (`uv` is unaffected).
 
 ## 📚 Documentation
 

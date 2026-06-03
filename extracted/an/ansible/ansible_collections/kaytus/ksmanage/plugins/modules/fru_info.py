@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: fru_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get fru information
 description:
    - Get fru information on kaytus Server.

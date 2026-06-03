@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: support_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get support information
 description:
    - Get the kaytus Server support list information.

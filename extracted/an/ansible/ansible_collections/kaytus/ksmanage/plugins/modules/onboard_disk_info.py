@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: onboard_disk_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get onboard disks information
 description:
    - Get onboard disks information on kaytus Server.

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_boot_option
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set BIOS boot options
 description:
    - Set BIOS boot options on kaytus Server.

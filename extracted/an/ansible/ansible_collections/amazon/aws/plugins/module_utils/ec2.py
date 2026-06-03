@@ -866,6 +866,24 @@ def associate_iam_instance_profile(client, iam_instance_profile: Dict[str, str],
     ]
 
 
+# EC2 Instance Types
+class EC2InstanceTypeErrorHandler(AWSErrorHandler):
+    _CUSTOM_EXCEPTION = AnsibleEC2Error
+
+    # @classmethod
+    # def _is_missing(cls):
+    #     return is_boto3_error_code("InvalidInstanceType")
+
+
+@EC2InstanceTypeErrorHandler.list_error_handler("describe instance types", [])
+@AWSRetry.jittered_backoff()
+def describe_instance_types(
+    client, **params: Dict[str, Union[List[str], Dict[str, Union[str, List[str]]]]]
+) -> List[Dict[str, Any]]:
+    paginator = client.get_paginator("describe_instance_types")
+    return paginator.paginate(**params).build_full_result()["InstanceTypes"]
+
+
 # EC2 Key
 class EC2KeyErrorHandler(AWSErrorHandler):
     _CUSTOM_EXCEPTION = AnsibleEC2Error

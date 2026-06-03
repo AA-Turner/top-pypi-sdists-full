@@ -20,13 +20,12 @@ from esi.exceptions import HTTPClientError
 from esi.models import Token
 
 # Alliance Auth AFAT
-from afat import __title__
-from afat.handler import esi_handler
 from afat.models import Fat, FatLink, Log, Setting
-from afat.providers import AppLogger, esi
+from afat.providers.applogger import AppLogger
+from afat.providers.esi import ESIHandler, esi
 from afat.utils import get_or_create_character
 
-logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
+logger = AppLogger(my_logger=get_extension_logger(name=__name__))
 
 ESI_ERROR_LIMIT = 50
 ESI_TIMEOUT_ONCE_ERROR_LIMIT_REACHED = 60
@@ -229,7 +228,7 @@ def _check_for_esi_fleet(fatlink: FatLink) -> dict | None:
     )
 
     try:
-        fleet_from_esi = esi_handler.result(operation=operation, use_etag=False)
+        fleet_from_esi = ESIHandler.result(operation=operation, use_etag=False)
 
         logger.debug("Fleet from ESI: %s", fleet_from_esi)
         logger.debug("FAT Link ESI fleet ID: %s", fatlink.esi_fleet_id)
@@ -307,7 +306,7 @@ def _process_esi_fatlink(fatlink: FatLink) -> None:
     )
 
     try:
-        esi_fleet_member = esi_handler.result(operation=operation, use_etag=False)
+        esi_fleet_member = ESIHandler.result(operation=operation, use_etag=False)
     except Exception:  # pylint: disable=broad-exception-caught
         _esi_fatlinks_error_handling(
             error_key=FatLink.EsiError.NOT_FLEETBOSS, fatlink=fatlink

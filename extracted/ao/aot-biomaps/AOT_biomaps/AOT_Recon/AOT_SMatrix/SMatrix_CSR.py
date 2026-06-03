@@ -26,14 +26,14 @@ except ImportError:
 
 class SMatrix_CSR(SMatrix):
     """
-    Construction of a CSR matrix from a `manip` object.
+    Construction of a CSR matrix from a `experiment` object.
 
     Supports both CPU and GPU implementations:
     - On GPU: Uses CuPy for memory management and custom CUDA kernels (compiled from source)
     - On CPU: Uses NumPy arrays and CPU implementations
 
     Usage:
-        S = SMatrix_CSR(manip, device='gpu')  # or 'cpu'
+        S = SMatrix_CSR(experiment, device='gpu')  # or 'cpu'
         S.allocate()
 
     After allocate(), the following attributes are available:
@@ -44,8 +44,23 @@ class SMatrix_CSR(SMatrix):
     - For GPU: row_ptr_gpu, col_ind_gpu, values_gpu, norm_factor_inv_gpu
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, block_rows: int = 64, relative_threshold: float = 0.01,**kwargs):
+        """
+        Initialize CSR sparse matrix.
+        Args:
+            **kwargs: Arguments passed to base SMatrix class
+                - experiment: Experiment object containing AcousticFields
+                - device: 'cpu' or 'gpu:{gpu_id}' (optional, defaults to GPU if available)
+            block_rows: Number of rows to process per block when building on GPU (default: 64)
+            relative_threshold: Relative threshold for sparsity (default: 0.01)
+        """
         super().__init__(**kwargs)
+        self.matrix_type = SMatrixType.CSR
+        
+        # Hyperparameters
+        self.block_rows = block_rows
+        self.relative_threshold = relative_threshold
+        
         # Attributes specific to CSR
         self.row_ptr = None
         self.h_col_ind = None
@@ -79,7 +94,7 @@ class SMatrix_CSR(SMatrix):
                 global_row = b + r
                 n_idx = global_row // self.T
                 t_idx = global_row % self.T
-                dense_block_host[r, :] = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+                dense_block_host[r, :] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
             dense_block_gpu = cp.asarray(dense_block_host)
             row_nnz_gpu = cp.zeros(current_rows, dtype=np.int32)
@@ -117,7 +132,7 @@ class SMatrix_CSR(SMatrix):
                 global_row = b + r
                 n_idx = global_row // self.T
                 t_idx = global_row % self.T
-                dense_block_host[r, :] = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+                dense_block_host[r, :] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
             dense_block_gpu = cp.asarray(dense_block_host)
 
@@ -150,7 +165,7 @@ class SMatrix_CSR(SMatrix):
         for global_row in trange(num_rows, desc='Counting NNZ (CPU)'):
             n_idx = global_row // self.T
             t_idx = global_row % self.T
-            row = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+            row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
             row_max = np.max(np.abs(row))
             thr = row_max * self.relative_threshold
             nnz = np.count_nonzero(np.abs(row) > thr)
@@ -167,7 +182,7 @@ class SMatrix_CSR(SMatrix):
         for global_row in trange(num_rows, desc='Filling CSR (CPU)'):
             n_idx = global_row // self.T
             t_idx = global_row % self.T
-            row = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+            row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
             row_max = np.max(np.abs(row))
             thr = row_max * self.relative_threshold
 

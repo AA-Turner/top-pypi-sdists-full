@@ -15,6 +15,19 @@ class Phase(str, Enum):
     USER_DECISION = "user_decision"
     ARCHIVE = "archive"
 
+    @classmethod
+    def _missing_(cls, value):
+        """Allow custom phase names (e.g. from extensions.add_phases) to work as pseudo-members.
+
+        Returns a dynamic Phase instance so Phase("security_audit") succeeds
+        instead of raising ValueError. list(Phase) still returns only built-in members.
+        """
+        if isinstance(value, str):
+            obj = str.__new__(cls, value)
+            obj._name_ = value
+            obj._value_ = value
+            return obj
+
 
 class TaskStatus(str, Enum):
     DRAFT = "draft"
@@ -114,6 +127,7 @@ class Task:
     test_config: dict | None = None  # {framework, command, coverage, requirements}
     current_run_id: int = 0      # 当前活跃 run 的 ID，0 表示无活跃 run
     total_runs: int = 0          # 历史总 run 数
+    biz_tag: Optional[str] = None  # Business context for knowledge isolation
 
     @property
     def phase_id(self) -> str:

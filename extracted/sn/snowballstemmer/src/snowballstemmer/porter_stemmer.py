@@ -1,4 +1,4 @@
-# Generated from porter.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from porter.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class PorterStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from porter.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from porter.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "y"}
@@ -36,12 +36,8 @@ class PorterStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.bra = self.cursor
-        if among_var == 1:
-            self.slice_from("ss")
-        elif among_var == 2:
-            self.slice_from("i")
-        elif among_var == 3:
-            self.slice_del()
+        if among_var > 0:
+            self.slice_from(PorterStemmer.as_0[among_var - 1])
         return True
 
     def __r_Step_1b(self):
@@ -126,12 +122,7 @@ class PorterStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            self.slice_from("al")
-        elif among_var == 2:
-            self.slice_from("ic")
-        else:
-            self.slice_del()
+        self.slice_from(PorterStemmer.as_4[among_var - 1])
         return True
 
     def __r_Step_4(self):
@@ -325,6 +316,7 @@ class PorterStemmer(BaseStemmer):
         Among("sses", 0, 1),
         Among("ss", 0, -1)
     ]
+    as_0 = ("ss", "i", "")
 
     a_1 = [
         Among("", -1, 3),
@@ -381,6 +373,7 @@ class PorterStemmer(BaseStemmer):
         Among("ful", -1, 3),
         Among("ness", -1, 3)
     ]
+    as_4 = ("al", "ic", "")
 
     a_5 = [
         Among("ic", -1, 1),

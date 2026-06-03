@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_bios
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set BIOS setup attributes
 description:
    - Set BIOS setup attributes on kaytus Server.

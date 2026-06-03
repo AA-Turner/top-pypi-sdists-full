@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: hindsight-all
-Version: 0.7.1
+Version: 0.7.2
 Summary: Hindsight: Agent Memory That Works Like Human Memory - All-in-One Bundle
 Requires-Python: >=3.11
-Requires-Dist: hindsight-api-slim[all]==0.7.1
+Requires-Dist: hindsight-api-slim[all]==0.7.2
 Requires-Dist: hindsight-client>=0.0.7
 Requires-Dist: hindsight-embed>=0.1.0
 Provides-Extra: local-llm
-Requires-Dist: hindsight-api-slim[local-llm]==0.7.1; extra == 'local-llm'
+Requires-Dist: hindsight-api-slim[local-llm]==0.7.2; extra == 'local-llm'
 Provides-Extra: test
 Requires-Dist: pytest-asyncio>=0.21.0; extra == 'test'
 Requires-Dist: pytest>=7.0.0; extra == 'test'

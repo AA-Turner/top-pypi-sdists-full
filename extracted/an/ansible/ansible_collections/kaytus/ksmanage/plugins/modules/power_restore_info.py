@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: power_restore_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get power restore information
 description:
    - Get power restore information on kaytus Server.

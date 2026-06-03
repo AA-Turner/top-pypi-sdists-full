@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2023, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -12,7 +10,7 @@ author: Felix Fontein (@felixfontein)
 short_description: Look up DNS records as dictionaries
 version_added: 2.6.0
 requirements:
-  - dnspython >= 1.15.0 (maybe older versions also work)
+  - dnspython >= 2.0.0
 description:
   - Look up DNS records and return them as interpreted dictionaries.
 options:
@@ -465,22 +463,19 @@ from ansible.errors import AnsibleLookupError
 from ansible.module_utils.common.text.converters import to_text
 from ansible.plugins.lookup import LookupBase
 
-from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
+from ansible_collections.community.dns.plugins.module_utils._dnspython_records import (
     NAME_TO_RDTYPE,
     NAME_TO_REQUIRED_VERSION,
     convert_rdata_to_dict,
 )
-from ansible_collections.community.dns.plugins.module_utils.ips import is_ip_address
-from ansible_collections.community.dns.plugins.module_utils.resolver import (
+from ansible_collections.community.dns.plugins.module_utils._ips import is_ip_address
+from ansible_collections.community.dns.plugins.module_utils._resolver import (
     SimpleResolver,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.ips import (
-    assert_requirements_present as assert_requirements_present_ipaddress,
-)
-from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
+from ansible_collections.community.dns.plugins.plugin_utils._resolver import (
     assert_requirements_present as assert_requirements_present_dnspython,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
+from ansible_collections.community.dns.plugins.plugin_utils._resolver import (
     guarded_run,
 )
 
@@ -520,7 +515,7 @@ class LookupModule(LookupBase):
                     return []
                 return [convert_rdata_to_dict(data) for data in rrset]
             except dns.resolver.NXDOMAIN:
-                raise AnsibleLookupError(f"Got NXDOMAIN when querying {name}")
+                raise AnsibleLookupError(f"Got NXDOMAIN when querying {name}") from None
 
         return guarded_run(
             callback,
@@ -534,7 +529,9 @@ class LookupModule(LookupBase):
             try:
                 return resolver.resolve_addresses(server)
             except NXDOMAIN as exc:
-                raise AnsibleLookupError(f"Nameserver {server} does not exist ({exc})")
+                raise AnsibleLookupError(
+                    f"Nameserver {server} does not exist ({exc})"
+                ) from None
 
         return f
 
@@ -568,9 +565,6 @@ class LookupModule(LookupBase):
         server_addresses: list[str] | None = None
         if self.get_option("server"):
             server_addresses = []
-            assert_requirements_present_ipaddress(
-                "community.dns.lookup", "lookup_as_dict"
-            )
             servers: list[str] = self.get_option("server")
             for server in servers:
                 if is_ip_address(server):

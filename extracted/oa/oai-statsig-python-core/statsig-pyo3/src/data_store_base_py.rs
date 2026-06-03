@@ -1,12 +1,14 @@
 use async_trait::async_trait;
-use pyo3::types::{PyAny, PyAnyMethods, PyBytes, PyModule};
-use pyo3::{prelude::Bound, pyclass, pymethods, FromPyObject, Py};
+use pyo3::exceptions::PyTypeError;
+use pyo3::types::{PyAny, PyAnyMethods, PyBytes, PyDict, PyModule};
+use pyo3::{prelude::Bound, pyclass, pymethods, FromPyObject, Py, PyResult};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
     data_store_interface::{
-        DataStoreBytesResponse, DataStoreResponse, DataStoreTrait, RequestPath,
+        DataStoreBytesResponse, DataStoreGetBytesRequest, DataStoreResponse, DataStoreTrait,
+        RequestPath,
     },
-    log_e, StatsigErr,
+    log_e, log_w, StatsigErr,
 };
 
 use crate::safe_gil::SafeGil;
@@ -134,7 +136,34 @@ impl DataStoreTrait for DataStoreBasePy {
                         Err(_) => None,
                     };
 
-                    Ok(DataStoreResponse { result, time })
+                    let checksum: Option<String> = match py_obj.getattr("checksum") {
+                        Ok(checksum_attr) => {
+                            if checksum_attr.is_none() {
+                                None
+                            } else {
+                                checksum_attr.extract::<String>().ok()
+                            }
+                        }
+                        Err(_) => None,
+                    };
+
+                    let has_updates: Option<bool> = match py_obj.getattr("has_updates") {
+                        Ok(has_updates_attr) => {
+                            if has_updates_attr.is_none() {
+                                None
+                            } else {
+                                has_updates_attr.extract::<bool>().ok()
+                            }
+                        }
+                        Err(_) => None,
+                    };
+
+                    Ok(DataStoreResponse {
+                        result,
+                        time,
+                        checksum,
+                        has_updates,
+                    })
                 }
                 Err(e) => Err(StatsigErr::DataStoreFailure(e.to_string())),
             }
@@ -173,10 +202,19 @@ impl DataStoreTrait for DataStoreBasePy {
         })
     }
 
-    async fn get_bytes(&self, key: &str) -> Result<DataStoreBytesResponse, StatsigErr> {
+    async fn get_bytes(
+        &self,
+        key: &str,
+        request: DataStoreGetBytesRequest,
+    ) -> Result<DataStoreBytesResponse, StatsigErr> {
         if self.get_bytes_fn.is_none() {
             return Err(StatsigErr::BytesNotImplemented);
         }
+
+        let DataStoreGetBytesRequest {
+            since_time,
+            checksum,
+        } = request;
 
         let get_bytes_fn = self.get_bytes_fn.as_ref();
         SafeGil::run(|py| {
@@ -198,12 +236,64 @@ impl DataStoreTrait for DataStoreBasePy {
                 }
             };
 
-            let result = get_bytes_fn.call(py, (key.to_string(),), None);
+            let request_dict = PyDict::new(py);
+            request_dict
+                .set_item("since_time", since_time)
+                .map_err(|e| {
+                    log_e!(TAG, "Failed to build get_bytes request dict: {:?}", e);
+                    StatsigErr::DataStoreFailure("Failed to build get_bytes request".to_string())
+                })?;
+            request_dict
+                .set_item("checksum", checksum.as_ref())
+                .map_err(|e| {
+                    log_e!(TAG, "Failed to build get_bytes request dict: {:?}", e);
+                    StatsigErr::DataStoreFailure("Failed to build get_bytes request".to_string())
+                })?;
+
+            let request_payload = PyModule::import(py, "statsig_python_core.data_store")
+                .or_else(|_| PyModule::import(py, "statsig_python_core"))
+                .and_then(|module| module.getattr("DataStoreGetBytesRequest"))
+                .and_then(|request_type| request_type.call1((since_time, checksum.as_ref())));
+
+            if request_payload.is_err() {
+                log_w!(
+                    TAG,
+                    "Failed to construct DataStoreGetBytesRequest. Falling back to legacy get_bytes signature."
+                );
+            }
+
+            let result = match request_payload {
+                Ok(request_payload) => {
+                    get_bytes_fn.call(py, (key.to_string(), request_payload), None)
+                }
+                Err(_) => match since_time {
+                    Some(since_time) => {
+                        get_bytes_fn.call(py, (key.to_string(), Some(since_time)), None)
+                    }
+                    None => get_bytes_fn.call(py, (key.to_string(),), None),
+                },
+            };
+
+            let result = match result {
+                Ok(result) => Ok(result),
+                Err(err) => {
+                    if err.is_instance_of::<PyTypeError>(py) {
+                        match since_time {
+                            Some(since_time) => {
+                                get_bytes_fn.call(py, (key.to_string(), Some(since_time)), None)
+                            }
+                            None => get_bytes_fn.call(py, (key.to_string(),), None),
+                        }
+                    } else {
+                        Err(err)
+                    }
+                }
+            };
 
             match result {
                 Ok(py_obj) => {
-                    let py_obj = py_obj.bind(py);
-                    let result: Option<Vec<u8>> = match py_obj.getattr("result") {
+                    let result_obj = py_obj.bind(py);
+                    let result: Option<Vec<u8>> = match result_obj.getattr("result") {
                         Ok(result_attr) => {
                             if result_attr.is_none() {
                                 None
@@ -214,7 +304,7 @@ impl DataStoreTrait for DataStoreBasePy {
                         Err(_) => None,
                     };
 
-                    let time: Option<u64> = match py_obj.getattr("time") {
+                    let time: Option<u64> = match result_obj.getattr("time") {
                         Ok(time_attr) => {
                             if time_attr.is_none() {
                                 None
@@ -231,7 +321,34 @@ impl DataStoreTrait for DataStoreBasePy {
                         Err(_) => None,
                     };
 
-                    Ok(DataStoreBytesResponse { result, time })
+                    let checksum: Option<String> = match result_obj.getattr("checksum") {
+                        Ok(checksum_attr) => {
+                            if checksum_attr.is_none() {
+                                None
+                            } else {
+                                checksum_attr.extract::<String>().ok()
+                            }
+                        }
+                        Err(_) => None,
+                    };
+
+                    let has_updates: Option<bool> = match result_obj.getattr("has_updates") {
+                        Ok(has_updates_attr) => {
+                            if has_updates_attr.is_none() {
+                                None
+                            } else {
+                                has_updates_attr.extract::<bool>().ok()
+                            }
+                        }
+                        Err(_) => None,
+                    };
+
+                    Ok(DataStoreBytesResponse {
+                        result,
+                        time,
+                        checksum,
+                        has_updates,
+                    })
                 }
                 Err(e) => Err(StatsigErr::DataStoreFailure(e.to_string())),
             }
@@ -243,6 +360,7 @@ impl DataStoreTrait for DataStoreBasePy {
         key: &str,
         value: &[u8],
         time: Option<u64>,
+        checksum: Option<String>,
     ) -> Result<(), StatsigErr> {
         if self.set_bytes_fn.is_none() {
             return Err(StatsigErr::BytesNotImplemented);
@@ -267,15 +385,23 @@ impl DataStoreTrait for DataStoreBasePy {
                 }
             };
 
-            let value = PyBytes::new(py, value);
-            set_bytes_fn
-                .call(py, (String::from(key), value, time), None)
-                .map_err(|e| {
-                    log_e!(TAG, "Failed to call DataStoreBasePy.set_bytes: {:?}", e);
-                    StatsigErr::DataStoreFailure(
-                        "Failed to set_bytes in DataStoreBasePy".to_string(),
-                    )
-                })?;
+            let key = String::from(key);
+            let result: PyResult<Py<PyAny>> = match set_bytes_fn.call(
+                py,
+                (key.clone(), PyBytes::new(py, value), time, checksum.clone()),
+                None,
+            ) {
+                Ok(result) => Ok(result),
+                Err(err) if err.is_instance_of::<PyTypeError>(py) => {
+                    set_bytes_fn.call(py, (key, PyBytes::new(py, value), time), None)
+                }
+                Err(err) => Err(err),
+            };
+
+            result.map_err(|e| {
+                log_e!(TAG, "Failed to call DataStoreBasePy.set_bytes: {:?}", e);
+                StatsigErr::DataStoreFailure("Failed to set_bytes in DataStoreBasePy".to_string())
+            })?;
 
             Ok(())
         })

@@ -54,6 +54,10 @@ def ensure_schema(conn):
         conn.execute("ALTER TABLE entries ADD COLUMN steps TEXT DEFAULT NULL")
     if "benchmark" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN benchmark TEXT DEFAULT NULL")
+    if "biz_context" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN biz_context TEXT DEFAULT NULL")
+    if "effectiveness" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN effectiveness TEXT DEFAULT NULL")
 
     # Rebuild FTS5 with content_segmented column
     has_content_seg = False

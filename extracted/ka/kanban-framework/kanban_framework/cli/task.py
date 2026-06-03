@@ -300,6 +300,10 @@ def cmd_clean(args: list[str]) -> dict:
                 task_id = d.stem
                 d.unlink()
                 cleaned.append(task_id)
+        # Clean ghost directories (no task.json) in both tasks/ and archive/
+        for d in sorted(list(fs.kanban_dir.glob("tasks/TASK-*")) + list(fs.kanban_dir.glob("archive/TASK-*"))):
+            if d.is_dir() and not (d / "task.json").is_file():
+                shutil.rmtree(d)
         return {"cleaned": cleaned, "count": len(cleaned)}
 
     if "--before" in args:

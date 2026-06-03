@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.43.19"
+version = "1.43.20"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.43.19 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.43.20 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.19",
+    "boto3==1.43.20",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -423,6 +423,7 @@ all = [
     "mypy-boto3-sagemaker-geospatial>=1.43.0, <1.44.0",
     "mypy-boto3-sagemaker-metrics>=1.43.0, <1.44.0",
     "mypy-boto3-sagemaker-runtime>=1.43.0, <1.44.0",
+    "mypy-boto3-sagemakerjobruntime>=1.43.0, <1.44.0",
     "mypy-boto3-savingsplans>=1.43.0, <1.44.0",
     "mypy-boto3-scheduler>=1.43.0, <1.44.0",
     "mypy-boto3-schemas>=1.43.0, <1.44.0",
@@ -1558,6 +1559,9 @@ sagemaker-metrics = [
 ]
 sagemaker-runtime = [
     "mypy-boto3-sagemaker-runtime>=1.43.0, <1.44.0",
+]
+sagemakerjobruntime = [
+    "mypy-boto3-sagemakerjobruntime>=1.43.0, <1.44.0",
 ]
 savingsplans = [
     "mypy-boto3-savingsplans>=1.43.0, <1.44.0",

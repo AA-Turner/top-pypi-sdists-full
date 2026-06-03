@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -17,7 +18,12 @@ from .esi_client_stub import EsiClientStub
 
 
 def response_stub() -> SimpleNamespace:
-    return SimpleNamespace(headers={"Last-Modified": "Tue, 20 May 2025 13:24:00 GMT"})
+    return SimpleNamespace(
+        headers={
+            "Date": "Tue, 20 May 2025 13:24:00 GMT",
+            "Last-Modified": "Tue, 20 May 2025 13:24:00 GMT",
+        }
+    )
 
 
 def http_not_modified() -> HTTPNotModified:
@@ -276,15 +282,16 @@ class EveCharacterTestCase(TestCase):
             faction_name='Dummy Faction 1',
         )
 
-        my_character.update_character()
+        my_character.update_character_other()
         my_character.refresh_from_db()
         self.assertEqual(my_character.character_name, 'Bruce X. Wayne')
-        self.assertEqual(my_character.corporation_name, 'Dummy Corp 2')
-        self.assertFalse(my_character.faction_id)
+        self.assertEqual(my_character.corporation_name, 'Dummy Corp 1')
+        self.assertEqual(my_character.faction_id, 1337)
 
     @patch('allianceauth.eveonline.models.open_api_provider.get_character')
     def test_update_character_wo_object(self, mock_get_character) -> None:
         mock_get_character.side_effect = http_not_modified()
+        last_updated_other = datetime(2025, 5, 20, 13, 24, tzinfo=timezone.utc)
         my_character = EveCharacter.objects.create(
             character_id=1001,
             character_name='Bruce Wayne',
@@ -295,16 +302,24 @@ class EveCharacterTestCase(TestCase):
             alliance_name='Dummy Alliance 1',
             faction_id=1337,
             faction_name='Dummy Faction 1',
+            last_updated_other=last_updated_other,
         )
 
-        result = my_character.update_character()
+        result = my_character.update_character_other()
         my_character.refresh_from_db()
 
-        self.assertEqual(result, my_character)
+        mock_get_character.assert_called_once_with(
+            character_id=1001,
+            last_modified=last_updated_other,
+            use_etag=True,
+            force_refresh=False,
+        )
+        self.assertIs(result, my_character)
         self.assertEqual(my_character.character_name, 'Bruce Wayne')
+        self.assertEqual(my_character.last_updated_other, last_updated_other)
 
-    @patch('allianceauth.eveonline.models.open_api_provider.get_character')
-    def test_update_character_creates_missing_related_objects(self, mock_get_character) -> None:
+    @patch('allianceauth.eveonline.models.open_api_provider.get_affiliations')
+    def test_update_character_creates_missing_related_objects(self, mock_get_affiliations) -> None:
         my_character = EveCharacter.objects.create(
             character_id=1001,
             character_name='Bruce Wayne',
@@ -313,20 +328,15 @@ class EveCharacterTestCase(TestCase):
             corporation_ticker='DC1',
             alliance_id=None,
         )
-        mock_get_character.return_value = (
-            SimpleNamespace(
-                corporation_id=2002,
-                alliance_id=3001,
-                faction_id=1337,
-                birthday=None,
-                bloodline_id=None,
-                description='Updated description',
-                gender='Male',
-                name='Bruce Updated',
-                race_id=1,
-                security_status=0.0,
-                title='CEO',
-            ),
+        mock_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=1001,
+                    corporation_id=2002,
+                    alliance_id=3001,
+                    faction_id=1337,
+                )
+            ],
             response_stub(),
         )
 
@@ -654,7 +664,12 @@ class EveAllianceTestCase(TestCase):
         result = my_alliance.populate_alliance()
         corp.refresh_from_db()
 
-        self.assertEqual(result, my_alliance)
+        mock_get_alliance_corps.assert_called_once_with(
+            3001,
+            use_etag=True,
+            force_refresh=False,
+        )
+        self.assertIs(result, my_alliance)
         self.assertEqual(corp.alliance, my_alliance)
 
     @patch('allianceauth.eveonline.models.open_api_provider.get_alliance')
@@ -679,7 +694,7 @@ class EveAllianceTestCase(TestCase):
         )
         my_alliance.update_alliance()
         my_alliance.refresh_from_db()
-        self.assertEqual(int(my_alliance.executor_corp_id), 2004)
+        self.assertEqual(my_alliance.executor_corp_id, 2004)
 
         # potential bug
         # update_alliance() is only updateting executor_corp_id when object is given
@@ -718,22 +733,36 @@ class EveAllianceTestCase(TestCase):
 
         my_alliance.refresh_from_db()
         mock_create_faction.assert_called_once_with(faction_id=1337)
-        self.assertEqual(my_alliance.faction.faction_id, 1337)
+        faction_obj = my_alliance.faction
+        if faction_obj is None:
+            self.fail("Expected faction to be set after update_alliance()")
+        self.assertEqual(faction_obj.faction_id, 1337)
 
     @patch('allianceauth.eveonline.models.open_api_provider.get_alliance')
     def test_update_alliance_wo_object(self, mock_get_alliance) -> None:
         mock_get_alliance.side_effect = http_not_modified()
+        last_updated = datetime(2025, 5, 20, 13, 24, tzinfo=timezone.utc)
 
         my_alliance = EveAllianceInfo.objects.create(
             alliance_id=3001,
             alliance_name='Dummy Alliance 1',
             alliance_ticker='DA1',
-            executor_corp_id=2001
+            executor_corp_id=2001,
+            last_updated=last_updated,
         )
-        my_alliance.save()
-        my_alliance.update_alliance()
+        result = my_alliance.update_alliance()
         my_alliance.refresh_from_db()
-        self.assertEqual(int(my_alliance.executor_corp_id), 2001)
+
+        mock_get_alliance.assert_called_once_with(
+            alliance_id=3001,
+            last_modified=last_updated,
+            use_etag=True,
+            force_refresh=False,
+        )
+        self.assertIs(result, my_alliance)
+        self.assertEqual(my_alliance.executor_corp_id, 2001)
+        self.assertEqual(my_alliance.alliance_name, 'Dummy Alliance 1')
+        self.assertEqual(my_alliance.last_updated, last_updated)
 
         # potential bug
         # update_alliance() is only updateting executor_corp_id nothing else ???
@@ -933,10 +962,21 @@ class EveCorporationTestCase(TestCase):
     @patch('allianceauth.eveonline.models.open_api_provider.get_corporation')
     def test_update_corporation_no_object_w_alliance(self, mock_get_corporation) -> None:
         mock_get_corporation.side_effect = http_not_modified()
+        last_updated = datetime(2025, 5, 20, 13, 24, tzinfo=timezone.utc)
 
+        self.my_corp.last_updated = last_updated
         self.my_corp.save()
-        self.my_corp.update_corporation()
+        result = self.my_corp.update_corporation()
+
+        mock_get_corporation.assert_called_once_with(
+            corporation_id=2001,
+            last_modified=last_updated,
+            use_etag=True,
+            force_refresh=False,
+        )
+        self.assertIs(result, self.my_corp)
         self.assertEqual(self.my_corp.member_count, 42)
+        self.assertEqual(self.my_corp.last_updated, last_updated)
 
     @patch('allianceauth.eveonline.models.open_api_provider.get_corporation')
     def test_update_corporation_from_object_wo_alliance(self, mock_get_corporation) -> None:
@@ -1024,7 +1064,7 @@ class TestCharacterUpdate(TestCase):
             my_character.update_character()
             # then
             my_character.refresh_from_db()
-            self.assertEqual(my_character.character_name, "Bruce Wayne")
+            self.assertEqual(my_character.character_name, "not my name")
             self.assertEqual(my_character.corporation_id, 2001)
             self.assertEqual(my_character.corporation_name, "Wayne Technologies")
             self.assertEqual(my_character.corporation_ticker, "WTE")
@@ -1123,3 +1163,46 @@ class TestCharacterUpdate(TestCase):
 
         token_qs.delete.assert_not_called()
         self.assertFalse(mock_notify.called)
+
+    @patch("allianceauth.eveonline.models.open_api_provider.get_character")
+    def test_should_remove_tokens_when_updating_other_for_biomassed_character(
+        self,
+        mock_get_character,
+        mock_notify,
+    ) -> None:
+        user = AuthUtils.create_user("Bruce Wayne")
+        character_1666 = EveCharacter.objects.create(
+            character_id=1666,
+            character_name="Hal Jordan",
+            corporation_id=1000001,
+            corporation_name="Doomheim",
+            corporation_ticker="DOOM",
+            alliance_id=None,
+        )
+        token_1666 = Token.objects.create(
+            user=user,
+            character_id=1666,
+            character_name="Hal Jordan",
+            character_owner_hash="ABC123-1666",
+        )
+        mock_get_character.return_value = (
+            SimpleNamespace(
+                corporation_id=1000001,
+                name="Hal Jordan",
+                alliance_id=None,
+                faction_id=None,
+                birthday=None,
+                bloodline_id=None,
+                description="",
+                gender="",
+                race_id=None,
+                security_status=0.0,
+                title="",
+            ),
+            response_stub(),
+        )
+
+        character_1666.update_character_other(force_refresh=True)
+
+        self.assertNotIn(token_1666, user.token_set.all())
+        self.assertTrue(mock_notify.called)

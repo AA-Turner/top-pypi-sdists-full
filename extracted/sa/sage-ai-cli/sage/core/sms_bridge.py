@@ -1244,6 +1244,7 @@ class SAGEMessageBridge:
         self._phone_cache_refreshed_at = 0.0
         self._user_email = ""
         self._user_phone = ""
+        self._last_raw_output = ""
         global _active_bridge_instance
         _active_bridge_instance = self
 
@@ -1998,7 +1999,8 @@ class SAGEMessageBridge:
         # Find attachments if this was an execution
         local_attachments = []
         if is_execution:
-            paths_in_text = _extract_file_attachments(output, self.working_dir)
+            raw_for_attachments = getattr(self, "_last_raw_output", "") or output
+            paths_in_text = _extract_file_attachments(raw_for_attachments, self.working_dir)
             recent_files = _find_recent_files(self.working_dir, start_time)
             seen_files = set()
             for fp in paths_in_text + recent_files:
@@ -2242,6 +2244,7 @@ class SAGEMessageBridge:
                 
                 # Combine stdout and stderr for full context on failure
                 raw = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
+                self._last_raw_output = raw
                 
                 if result.returncode == 0:
                     out = _extract_final_answer(raw)
@@ -2447,7 +2450,8 @@ class SAGEMessageBridge:
         local_attachments = []
         uploaded_attachments = []
         if is_execution:
-            paths_in_text = _extract_file_attachments(output, self.working_dir)
+            raw_for_attachments = getattr(self, "_last_raw_output", "") or output
+            paths_in_text = _extract_file_attachments(raw_for_attachments, self.working_dir)
             recent_files = _find_recent_files(self.working_dir, start_time)
             seen_files = set()
             for fp in paths_in_text + recent_files:

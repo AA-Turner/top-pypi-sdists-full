@@ -1,4 +1,4 @@
-# Generated from armenian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from armenian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class ArmenianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from armenian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from armenian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"ա", "ե", "է", "ը", "ի", "ո", "ւ", "օ"}
@@ -38,9 +38,6 @@ class ArmenianStemmer(BaseStemmer):
         self.cursor = v_1
         return True
 
-    def __r_R2(self):
-        return self.I_p2 <= self.cursor
-
     def __r_adjective(self):
         self.ket = self.cursor
         if self.find_among_b(ArmenianStemmer.a_0) == 0:
@@ -70,7 +67,7 @@ class ArmenianStemmer(BaseStemmer):
         if self.find_among_b(ArmenianStemmer.a_3) == 0:
             return False
         self.bra = self.cursor
-        if not self.__r_R2():
+        if self.I_p2 > self.cursor:
             return False
         self.slice_del()
         return True

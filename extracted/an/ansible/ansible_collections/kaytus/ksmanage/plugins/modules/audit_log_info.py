@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: audit_log_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get BMC audit log information
 description:
    - Get BMC audit log information on kaytus Server.

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_connect_media
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Start/Stop virtual media Image
 description:
    - Start/Stop virtual media Image on kaytus Server.

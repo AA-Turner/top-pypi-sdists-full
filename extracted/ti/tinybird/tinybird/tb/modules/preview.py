@@ -6,6 +6,7 @@ from click.core import ParameterSource
 from tinybird.tb.client import TinyB
 from tinybird.tb.modules.cli import (
     cli,
+    ensure_valid_workspace_name,
     get_current_git_branch,
     sanitize_branch_name,
 )
@@ -16,7 +17,7 @@ from tinybird.tb.modules.project import Project
 
 
 def generate_preview_branch_name(git_branch: Optional[str]) -> str:
-    branch_part = sanitize_branch_name(git_branch or "")
+    branch_part = sanitize_branch_name(git_branch or "", enforce_workspace_prefix_rules=False)
     return f"tmp_ci_{branch_part or 'unknown'}"
 
 
@@ -113,7 +114,7 @@ def preview(ctx: click.Context, dry_run: bool, check: bool, name: Optional[str])
     output: str = obj.get("output", "human")
 
     git_branch = get_current_git_branch()
-    preview_name = name or generate_preview_branch_name(git_branch)
+    preview_name = ensure_valid_workspace_name(name) if name else generate_preview_branch_name(git_branch)
 
     if dry_run:
         click.echo(FeedbackManager.info(message=f"[dry-run] Preview target '{preview_name}' (cloud)"))

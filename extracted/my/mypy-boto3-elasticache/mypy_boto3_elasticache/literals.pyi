@@ -53,6 +53,8 @@ __all__ = (
     "DescribeUserGroupsPaginatorName",
     "DescribeUsersPaginatorName",
     "DestinationTypeType",
+    "DurabilityType",
+    "EffectiveDurabilityType",
     "ElastiCacheServiceName",
     "InputAuthenticationTypeType",
     "IpDiscoveryType",
@@ -76,6 +78,7 @@ __all__ = (
     "ServiceUpdateTypeType",
     "SlaMetType",
     "SourceTypeType",
+    "StorageEncryptionTypeType",
     "TransitEncryptionModeType",
     "UpdateActionStatusType",
     "WaiterName",
@@ -114,6 +117,8 @@ DescribeUpdateActionsPaginatorName = Literal["describe_update_actions"]
 DescribeUserGroupsPaginatorName = Literal["describe_user_groups"]
 DescribeUsersPaginatorName = Literal["describe_users"]
 DestinationTypeType = Literal["cloudwatch-logs", "kinesis-firehose"]
+DurabilityType = Literal["async", "default", "disabled", "sync"]
+EffectiveDurabilityType = Literal["async", "disabled", "sync"]
 InputAuthenticationTypeType = Literal["iam", "no-password-required", "password"]
 IpDiscoveryType = Literal["ipv4", "ipv6"]
 LogDeliveryConfigurationStatusType = Literal[
@@ -146,6 +151,7 @@ SourceTypeType = Literal[
     "user",
     "user-group",
 ]
+StorageEncryptionTypeType = Literal["none", "sse-elasticache", "sse-kms"]
 TransitEncryptionModeType = Literal["preferred", "required"]
 UpdateActionStatusType = Literal[
     "complete",
@@ -483,6 +489,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -510,6 +517,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

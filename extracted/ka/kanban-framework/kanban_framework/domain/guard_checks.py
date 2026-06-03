@@ -5,6 +5,7 @@ and Filesystem, returning CheckResult. Import via Guard._checks property.
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -19,6 +20,20 @@ class GuardChecks:
 
     Instantiated by Guard, shares the same fs/config references.
     """
+
+    def _get_mode_execute_guard(self, mode: str) -> dict:
+        """Read execute phase guard config for a specific mode."""
+        import json
+        try:
+            wf_file = self._fs.kanban_dir / "workflows" / f"{mode}.json"
+            if wf_file.is_file():
+                data = json.loads(wf_file.read_text(encoding="utf-8"))
+                for p in data.get("phases", []):
+                    if isinstance(p, dict) and p.get("id") == "execute":
+                        return p.get("guard", {})
+        except Exception:
+            pass
+        return {}
 
     def __init__(self, fs: Filesystem, config: Config):
         self._fs = fs
@@ -91,27 +106,55 @@ class GuardChecks:
         return CheckResult(passed=len(warnings) == 0, warnings=warnings)
 
     def check_knowledge_references(self, task: Task) -> CheckResult:
-        """Check spec.md and plan files contain knowledge references (K-NNN format)."""
+        """Verify knowledge_used.json exists, and spec/plan files reference K-NNN entries."""
         td = self._fs.task_dir(task.id)
-        ref_pattern = re.compile(r'[A-Za-z]*\d{3,}')
-        files_to_check = [td / "spec.md"]
-        plan_dir = td / "plan"
-        if plan_dir.is_dir():
-            files_to_check.extend(sorted(plan_dir.glob("*.md")))
+        failures = []
+        warnings = []
 
-        found_refs = set()
-        for f in files_to_check:
-            if not self._fs.file_exists(f):
-                continue
-            text = f.read_text(encoding="utf-8", errors="replace")
-            found_refs.update(ref_pattern.findall(text))
+        # 1. knowledge_used.json must exist and be non-empty
+        ku_path = td / "plan" / "knowledge_used.json"
+        if not self._fs.file_exists(ku_path):
+            failures.append("plan/knowledge_used.json missing — knowledge search not performed")
+        elif ku_path.stat().st_size == 0:
+            failures.append("plan/knowledge_used.json is empty — no knowledge entries matched")
+        else:
+            try:
+                data = json.loads(ku_path.read_text(encoding="utf-8"))
+                matched = data.get("matched", [])
+                if not matched:
+                    no_reason = data.get("no_match_reason", "")
+                    if no_reason:
+                        warnings.append(f"knowledge_used.json has no matches, reason: {no_reason}")
+                    else:
+                        failures.append("plan/knowledge_used.json has no matched entries and no reason given")
+            except (ValueError, OSError):
+                failures.append("plan/knowledge_used.json is malformed")
 
-        if found_refs:
-            return CheckResult(passed=True,
-                warnings=[f"Knowledge refs in artifacts: {sorted(found_refs)}"])
-        return CheckResult(passed=True,
-            warnings=["No knowledge references (K-NNN) found in spec.md or plan/*.md — "
-                       "task may lack knowledge base integration"])
+        # 2. spec.md or plan/*.md must contain K-NNN references
+        #    Skip this check when knowledge_used.json reports no matches with a reason
+        #    (e.g., empty knowledge base on new projects)
+        skip_ref_check = warnings and "no matches" in warnings[-1]
+        if not skip_ref_check:
+            ref_pattern = re.compile(r'\bK\d{3,}\b')
+            files_to_check = [td / "spec.md"]
+            plan_dir = td / "plan"
+            if plan_dir.is_dir():
+                files_to_check.extend(sorted(plan_dir.glob("*.md")))
+
+            found_refs = set()
+            for f in files_to_check:
+                if not self._fs.file_exists(f):
+                    continue
+                text = f.read_text(encoding="utf-8", errors="replace")
+                found_refs.update(ref_pattern.findall(text))
+
+            if found_refs:
+                warnings.append(f"Knowledge refs in artifacts: {sorted(found_refs)}")
+            else:
+                failures.append("No knowledge references (K-NNN) found in spec.md or plan/*.md — "
+                               "agent must document which knowledge entries were applied")
+
+        return CheckResult(passed=len(failures) == 0, failures=failures, warnings=warnings)
 
     def check_file(self, task: Task, filename: str) -> CheckResult:
         task_dir = self._fs.task_dir(task.id)
@@ -181,10 +224,14 @@ class GuardChecks:
         RED=FAIL (not PASS), proving tests were written before code.
         Quick and lightweight modes are exempt — only full mode requires TDD evidence.
         """
-        if getattr(task, 'mode', '') in ('quick', 'lightweight'):
+        mode = getattr(task, 'mode', '')
+        if mode in ('quick', 'lightweight') or task.lightweight:
             return CheckResult(passed=True)
-        if task.lightweight:
-            return CheckResult(passed=True)
+        # Custom modes without explicit TDD guard config are exempt
+        if mode and mode != 'full':
+            guard_cfg = self._get_mode_execute_guard(mode)
+            if 'tdd_evidence' not in guard_cfg.get('checks', []):
+                return CheckResult(passed=True)
         task_dir = self._fs.task_dir(task.id)
         iter_dir = self._fs.iteration_dir(task.id, task.iteration)
         # Search all common locations (#343)
@@ -276,8 +323,14 @@ class GuardChecks:
         Parses test_spec.md for UT-xxx identifiers, then searches test files
         in the worktree for those identifiers. Reports coverage ratio.
         """
-        if getattr(task, 'mode', '') == 'quick':
+        mode = getattr(task, 'mode', '')
+        if mode == 'quick':
             return CheckResult(passed=True)
+        # Custom modes without explicit test_spec_coverage guard config are exempt
+        if mode and mode not in ('full', 'quick'):
+            guard_cfg = self._get_mode_execute_guard(mode)
+            if 'test_spec_coverage' not in guard_cfg.get('checks', []):
+                return CheckResult(passed=True)
         task_dir = self._fs.task_dir(task.id)
         spec_file = task_dir / "test_spec.md"
         if not spec_file.is_file():

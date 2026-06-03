@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_ipv6
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set ipv6 information
 description:
    - Set ipv6 information on kaytus Server.

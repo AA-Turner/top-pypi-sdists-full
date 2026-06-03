@@ -32,6 +32,12 @@ class BridgeToken(BaseModel):
 
 
 class CredentialManager:
+    # Per-request HTTP timeout for the bridge/identity endpoints. A
+    # (connect, read) pair prevents slow or hung identity servers from
+    # pinning the calling thread indefinitely — the outer poll_timeout
+    # only caps the total polling loop, not individual requests.
+    _HTTP_TIMEOUT: Tuple[float, float] = (10.0, 30.0)
+
     def __init__(
         self,
         endpoint: str,
@@ -174,15 +180,32 @@ class CredentialManager:
             bridge_endpoint = (
                 f"{self.endpoint}/identity/bridge-token?clientId=rapidata-cli"
             )
-            response = requests.post(bridge_endpoint, verify=self.cert_path)
+            response = requests.post(
+                bridge_endpoint,
+                verify=self.cert_path,
+                timeout=self._HTTP_TIMEOUT,
+            )
             if not response.ok:
                 logger.error("Failed to get bridge tokens: %s", response.status_code)
                 return None
 
             data = response.json()
-            return BridgeToken(read_key=data["readKey"], write_key=data["writeKey"])
         except requests.RequestException as e:
             logger.error("Failed to get bridge tokens: %s", e)
+            return None
+        except ValueError as e:
+            # `response.json()` raises ValueError on malformed bodies.
+            logger.error("Bridge token response was not valid JSON: %s", e)
+            return None
+
+        try:
+            return BridgeToken(read_key=data["readKey"], write_key=data["writeKey"])
+        except (KeyError, TypeError) as e:
+            logger.error(
+                "Bridge token response missing expected keys (got: %s): %s",
+                list(data.keys()) if isinstance(data, dict) else type(data).__name__,
+                e,
+            )
             return None
 
     def _poll_read_key(self, read_key: str) -> Optional[str]:
@@ -193,7 +216,10 @@ class CredentialManager:
         while time.time() - start_time < self.poll_timeout:
             try:
                 response = requests.get(
-                    read_endpoint, params={"readKey": read_key}, verify=self.cert_path
+                    read_endpoint,
+                    params={"readKey": read_key},
+                    verify=self.cert_path,
+                    timeout=self._HTTP_TIMEOUT,
                 )
 
                 if response.status_code == 200:
@@ -228,6 +254,7 @@ class CredentialManager:
                 },
                 json={"displayName": display_name},
                 verify=self.cert_path,
+                timeout=self._HTTP_TIMEOUT,
             )
             response.raise_for_status()
             data = response.json()

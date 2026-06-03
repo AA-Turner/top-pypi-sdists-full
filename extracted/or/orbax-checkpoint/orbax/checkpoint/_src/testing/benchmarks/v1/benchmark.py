@@ -26,11 +26,12 @@ import jax
 from orbax.checkpoint import v1 as ocp
 from orbax.checkpoint._src.testing.benchmarks.core import core as benchmarks_core
 from orbax.checkpoint._src.testing.benchmarks.core import metric as metric_lib
+from orbax.checkpoint._src.testing.benchmarks.core import metric_jax_monitoring  # pylint: disable=unused-import
 
 
 def get_metrics_to_measure(options: BenchmarkOptions) -> list[str]:
   """Returns the list of metrics to measure."""
-  metrics = ["time", "rss", "io"]
+  metrics = ["time", "rss", "jax_monitoring"]
   if options.metric_tracemalloc_enabled:
     metrics.append("tracemalloc")
   if options.metric_tensorstore_enabled:
@@ -61,7 +62,6 @@ class BenchmarkOptions(benchmarks_core.BenchmarkOptions):
     use_replica_parallel: Whether to use replica parallel.
     enable_replica_parallel_separate_folder: Whether to enable replica parallel
       separate folder.
-    enable_trace: Whether to enable trace.
   """
 
   async_enabled: bool | Sequence[bool] = True
@@ -76,7 +76,6 @@ class BenchmarkOptions(benchmarks_core.BenchmarkOptions):
   use_replica_parallel: bool | Sequence[bool] = False
   enable_replica_parallel_separate_folder: bool | Sequence[bool] = False
   chunk_byte_size: int | None | Sequence[int | None] = None
-  enable_trace: bool = False
 
   def is_valid(self) -> bool:
     assert isinstance(self.use_replica_parallel, bool)
@@ -89,31 +88,27 @@ class BenchmarkOptions(benchmarks_core.BenchmarkOptions):
 
   @property
   def context(self) -> ocp.Context:
-    return ocp.Context(
-        array_options=ocp.options.ArrayOptions(
-            saving=ocp.options.ArrayOptions.Saving(
-                storage_options=ocp.options.ArrayOptions.Saving.StorageOptions(
-                    chunk_byte_size=self.chunk_byte_size,
-                ),
-                use_ocdbt=self.use_ocdbt,
-                use_zarr3=self.use_zarr3,
-                use_replica_parallel=self.use_replica_parallel,
-                use_compression=self.use_compression,
-                enable_replica_parallel_separate_folder=self.enable_replica_parallel_separate_folder,
-            ),
-            loading=ocp.options.ArrayOptions.Loading(
-                use_load_and_broadcast=self.use_load_and_broadcast,
-            ),
-        ),
-        memory_options=ocp.options.MemoryOptions(
-            write_concurrent_bytes=self.save_concurrent_gb * 1024**3
-            if self.save_concurrent_gb is not None
-            else None,
-            read_concurrent_bytes=self.restore_concurrent_gb * 1024**3
-            if self.restore_concurrent_gb is not None
-            else None,
-        ),
+    ctx = ocp.Context()
+    ctx.array.saving.storage_options.chunk_byte_size = self.chunk_byte_size
+    ctx.array.saving.use_ocdbt = self.use_ocdbt
+    ctx.array.saving.use_zarr3 = self.use_zarr3
+    ctx.array.saving.use_replica_parallel = self.use_replica_parallel
+    ctx.array.saving.use_compression = self.use_compression
+    ctx.array.saving.enable_replica_parallel_separate_folder = (
+        self.enable_replica_parallel_separate_folder
     )
+    ctx.array.loading.use_load_and_broadcast = self.use_load_and_broadcast
+    ctx.memory.write_concurrent_bytes = (
+        self.save_concurrent_gb * 1024**3
+        if self.save_concurrent_gb is not None
+        else None
+    )
+    ctx.memory.read_concurrent_bytes = (
+        self.restore_concurrent_gb * 1024**3
+        if self.restore_concurrent_gb is not None
+        else None
+    )
+    return ctx
 
 
 def clear_pytree(pytree: Any) -> Any:
@@ -159,29 +154,32 @@ class Benchmark(benchmarks_core.BenchmarksGenerator):
     logging.info("Benchmark options: %s", pprint.pformat(options))
     metrics_to_measure = get_metrics_to_measure(options)
 
+    save_trace = context.trace_path("save")
+    load_trace = context.trace_path("load")
+
     with ocp.Context(context=options.context):
-      if options.enable_trace:
-        jax.profiler.start_trace(context.path / "trace_save")
+      if save_trace is not None:
+        jax.profiler.start_trace(str(save_trace))
       if options.async_enabled:
         with metrics.measure("save_blocking", metrics_to_measure):
-          f = ocp.save_pytree_async(save_path, pytree)
+          f = ocp.save_async(save_path, pytree)
         with metrics.measure("save_background", metrics_to_measure):
           f.result()
       else:
         with metrics.measure("save_blocking", metrics_to_measure):
-          ocp.save_pytree(save_path, pytree)
+          ocp.save(save_path, pytree)
         with metrics.measure("save_background", metrics_to_measure):
           pass
       context.pytree = clear_pytree(context.pytree)
-      if options.enable_trace:
+      if save_trace is not None:
         jax.profiler.stop_trace()
 
-      if options.enable_trace:
-        jax.profiler.start_trace(context.path / "trace_load")
+      if load_trace is not None:
+        jax.profiler.start_trace(str(load_trace))
       with metrics.measure("load", metrics_to_measure):
-        restored_pytree = ocp.load_pytree(save_path, abstract_pytree)
+        restored_pytree = ocp.load(save_path, abstract_state=abstract_pytree)
       clear_pytree(restored_pytree)
-      if options.enable_trace:
+      if load_trace is not None:
         jax.profiler.stop_trace()
 
     return benchmarks_core.TestResult(metrics=metrics)

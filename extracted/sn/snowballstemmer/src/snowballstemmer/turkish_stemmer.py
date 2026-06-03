@@ -1,4 +1,4 @@
-# Generated from turkish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from turkish.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class TurkishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from turkish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from turkish.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_vowel = {"a", "e", "i", "o", "u", "ö", "ü", "ı"}
@@ -292,9 +292,6 @@ class TurkishStemmer(BaseStemmer):
         if self.find_among_b(TurkishStemmer.a_10) == 0:
             return False
         return self.__r_mark_suffix_with_optional_y_consonant()
-
-    def __r_mark_ki(self):
-        return self.eq_s_b("ki")
 
     def __r_mark_ncA(self):
         if not self.__r_check_vowel_harmony():
@@ -581,7 +578,7 @@ class TurkishStemmer(BaseStemmer):
 
     def __r_stem_suffix_chain_before_ki(self):
         self.ket = self.cursor
-        if not self.__r_mark_ki():
+        if not self.eq_s_b("ki"):
             return False
         while True:
             v_1 = self.limit - self.cursor

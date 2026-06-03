@@ -48,6 +48,12 @@ from blosc2.schema_compiler import _validate_column_name, schema_to_dict
 
 DEFAULT_BATCH_SIZE = 2048
 MAX_ELEMENT_WRITE_BATCH = 5_000_000  # cap on flattened elements yielded per write
+UNNAMED_ROOT_CAPACITY_SAFETY = 1.15  # first-batch estimates are often a little low
+# Target in-memory size of one Arrow read batch for the unnamed-root flatten
+# path.  Nested list<struct> batches amplify ~10x downstream (flatten + cast +
+# write buffers + Arrow pool), so an auto parquet batch size is capped to keep
+# this Arrow batch small enough that peak RSS stays well under ~1 GB.
+PARQUET_BATCH_ARROW_BUDGET = 48 * 2**20  # 48 MiB
 
 
 def require_pyarrow():
@@ -239,8 +245,39 @@ def build_parser() -> argparse.ArgumentParser:
             "coarsest lossless unit per column."
         ),
     )
+    parser.add_argument(
+        "--chunks",
+        type=int,
+        default=None,
+        help=(
+            "Chunk size (in rows) for all scalar columns in the imported CTable. "
+            "Overrides the automatic chunk size chosen by blosc2.compute_chunks_blocks(). "
+            "Only affects fixed-width scalar columns; list, varlen, and dictionary columns "
+            "use their own internal chunking."
+        ),
+    )
+    parser.add_argument(
+        "--blocks",
+        type=int,
+        default=None,
+        help=(
+            "Block size (in rows) for all scalar columns in the imported CTable. "
+            "Overrides the automatic block size chosen by blosc2.compute_chunks_blocks(). "
+            "Must be <= chunks; if omitted when --chunks is given, blosc2 picks a suitable block size."
+        ),
+    )
     parser.add_argument("--codec", type=str, default="ZSTD", choices=[c.name for c in blosc2.Codec])
     parser.add_argument("--clevel", type=int, default=5)
+    parser.add_argument(
+        "--reduce-mem",
+        action="store_true",
+        help=(
+            "Shrink an auto-chosen Parquet batch size so a single Arrow read batch fits a "
+            "small memory budget, lowering peak RSS at the cost of import speed. "
+            "Only affects auto batch sizing for unnamed-root list<struct<...>> flattening; "
+            "an explicit --batch-size is always left untouched."
+        ),
+    )
     parser.add_argument(
         "--mem-report",
         action="store_true",
@@ -290,6 +327,17 @@ def build_parser() -> argparse.ArgumentParser:
             "field (the Awkward Array / Chicago-taxi layout), flatten the outer list "
             "so that each element becomes a CTable row. Enabled by default; use "
             "--no-separate-nested-cols when closer Parquet schema fidelity is desired."
+        ),
+    )
+    parser.add_argument(
+        "--no-summary-index",
+        action="store_false",
+        dest="create_summary_index",
+        default=True,
+        help=(
+            "Disable automatic SUMMARY index creation on close. "
+            "By default, SUMMARY indexes are built for all eligible scalar columns, "
+            "which costs <0.1%% of column size and accelerates WHERE queries."
         ),
     )
     return parser
@@ -883,6 +931,10 @@ def print_import_plan(
     print(f"List serializer:       {args.list_serializer}")
     print(f"Codec / level:         {args.codec} / {args.clevel}")
     print(f"Use dict:              {args.use_dict}")
+    if args.chunks is not None:
+        print(f"Chunks:                {args.chunks:,}")
+    if args.blocks is not None:
+        print(f"Blocks:                {args.blocks:,}")
     trunc_global = getattr(args, "float_trunc_prec_global", None)
     trunc_columns = getattr(args, "float_trunc_prec_columns", {})
     if trunc_global is not None:
@@ -1017,7 +1069,28 @@ def _flatten_root_batches_with_progress(
             break
 
 
-def import_unnamed_root_separate_cols(
+def _apply_parquet_batch_memory_budget(args, sample, n_outer_sampled: int) -> None:
+    """Shrink an auto parquet batch size so one Arrow read batch fits the budget.
+
+    Nested list<struct> batches amplify several-fold downstream (flatten + cast
+    + write buffers + Arrow pool), so an auto-chosen parquet batch size is capped
+    to keep peak RSS well under ~1 GB.  An explicit --parquet-batch-size is left
+    untouched.
+
+    Opt-in via --reduce-mem: it trades import speed for lower peak RSS, so the
+    default keeps the original (larger) auto batch sizes.
+    """
+    if not getattr(args, "reduce_mem", False):
+        return
+    if not getattr(args, "parquet_batch_size_auto", False):
+        return
+    bytes_per_outer = sample.nbytes / n_outer_sampled
+    if bytes_per_outer > 0:
+        budget_rows = max(1, int(PARQUET_BATCH_ARROW_BUDGET / bytes_per_outer))
+        args.parquet_batch_size = min(args.parquet_batch_size, budget_rows)
+
+
+def import_unnamed_root_separate_cols(  # noqa: C901
     args,
     input_path: Path,
     output_path: Path,
@@ -1050,17 +1123,21 @@ def import_unnamed_root_separate_cols(
     estimated_batch_rows = None
     if total_parquet_rows is not None and total_parquet_rows > 0:
         try:
-            sample = next(
-                pf.iter_batches(batch_size=min(args.parquet_batch_size, total_parquet_rows)),
-                None,
-            )
+            # Sample only a few outer rows: enough for the per-outer-row ratio
+            # and byte estimate, while avoiding a large transient Arrow batch
+            # (which the Arrow pool would retain and inflate peak RSS).
+            sample_rows = min(args.parquet_batch_size, total_parquet_rows, 64)
+            sample = next(pf.iter_batches(batch_size=sample_rows), None)
             if sample is not None and len(sample) > 0:
                 n_outer_sampled = len(sample)
                 n_elems_sampled = len(sample.column(0).flatten())
                 avg_per_outer_row = n_elems_sampled / n_outer_sampled
+                _apply_parquet_batch_memory_budget(args, sample, n_outer_sampled)
                 estimated_batch_rows = max(1, round(args.parquet_batch_size * avg_per_outer_row))
                 estimate = round(total_parquet_rows * avg_per_outer_row)
-                if args.max_rows is not None:
+                if args.max_rows is None:
+                    estimate = round(estimate * UNNAMED_ROOT_CAPACITY_SAFETY)
+                else:
                     estimate = min(estimate, args.max_rows)
                 capacity_hint = max(1, estimate)
         except Exception:
@@ -1114,6 +1191,10 @@ def import_unnamed_root_separate_cols(
     print(f"List serializer:       {args.list_serializer}")
     print(f"Codec / level:         {args.codec} / {args.clevel}")
     print(f"Use dict:              {args.use_dict}")
+    if args.chunks is not None:
+        print(f"Chunks:                {args.chunks:,}")
+    if args.blocks is not None:
+        print(f"Blocks:                {args.blocks:,}")
     print()
 
     cparams = blosc2.CParams(codec=blosc2.Codec[args.codec], clevel=args.clevel, use_dict=args.use_dict)
@@ -1131,6 +1212,9 @@ def import_unnamed_root_separate_cols(
         blosc2_batch_size=args.blosc2_batch_size,
         blosc2_items_per_block=args.blosc2_items_per_block,
         list_serializer=args.list_serializer,
+        create_summary_index=args.create_summary_index,
+        chunks=args.chunks,
+        blocks=args.blocks,
     )
 
     maybe_memory_report(args, "after CTable import", pa)
@@ -1168,7 +1252,7 @@ def import_unnamed_root_separate_cols(
     return col_names
 
 
-def import_parquet_to_ctable(args, input_path: Path, output_path: Path):
+def import_parquet_to_ctable(args, input_path: Path, output_path: Path):  # noqa: C901
     if args.parquet_batch_size <= 0:
         raise ValueError("--parquet-batch-size must be positive")
     if args.blosc2_batch_size is not None and args.blosc2_batch_size <= 0:
@@ -1179,6 +1263,12 @@ def import_parquet_to_ctable(args, input_path: Path, output_path: Path):
         raise ValueError("--fixed-str-maxlen must be positive")
     if args.fixed_bytes_maxlen is not None and args.fixed_bytes_maxlen <= 0:
         raise ValueError("--fixed-bytes-maxlen must be positive")
+    if args.chunks is not None and args.chunks <= 0:
+        raise ValueError("--chunks must be positive")
+    if args.blocks is not None and args.blocks <= 0:
+        raise ValueError("--blocks must be positive")
+    if args.chunks is not None and args.blocks is not None and args.blocks > args.chunks:
+        raise ValueError("--blocks cannot be greater than --chunks")
     parse_float_trunc_prec_options(args)
     if args.max_rows is not None and args.max_rows < 0:
         raise ValueError("--max-rows must be non-negative")
@@ -1264,6 +1354,9 @@ def import_parquet_to_ctable(args, input_path: Path, output_path: Path):
         blosc2_items_per_block=args.blosc2_items_per_block,
         list_serializer=args.list_serializer,
         column_cparams=float_trunc_column_cparams or None,
+        create_summary_index=args.create_summary_index,
+        chunks=args.chunks,
+        blocks=args.blocks,
     )
     maybe_memory_report(args, "after CTable import", pa)
     store_original_arrow_metadata(ct, parquet_schema, import_schema, conversions, column_name_map)
@@ -1512,6 +1605,7 @@ def resolve_default_batch_sizes(args, *, parquet_specified: bool, blosc2_specifi
         # Parquet batches are outer rows, while Blosc2 batches are flattened
         # CTable rows.  Keep them independent so a large write batch does not
         # accidentally imply a huge Parquet read batch (and vice versa).
+        args.parquet_batch_size_auto = not parquet_specified
         if not parquet_specified:
             args.parquet_batch_size = average_parquet_row_group_size(args.input_path) or DEFAULT_BATCH_SIZE
         if not blosc2_specified:

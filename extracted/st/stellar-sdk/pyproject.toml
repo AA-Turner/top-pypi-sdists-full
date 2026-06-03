@@ -111,8 +111,36 @@ exclude_lines = [
     "pass",
 ]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["F", "I", "E", "W", "C4", "PIE", "RUF", "UP", "B", "SIM", "PT"]
+ignore = [
+    # Star imports are used both in package __init__ re-exports and in a
+    # handful of test files; suppress globally rather than per-file.
+    "F403",
+    "F405",
+    # Let `ruff format` own line length; the linter shouldn't double-flag.
+    "E501",
+    # Unicode lookalike warnings: the few "ambiguous" characters in this
+    # codebase live in legitimate multilingual test data and docstrings.
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+# `pytest.raises(ValueError)` without `match=` is fine here; some tests
+# only care that *any* ValueError is raised. The default require-match
+# list includes ValueError, which we don't want.
+raises-require-match-for = ["BaseException", "Exception"]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports in package __init__ modules (was --ignore-init-module-imports
+# under autoflake).
+"__init__.py" = ["F401"]
+# examples/* are illustrative scripts, not pytest tests.
+"examples/*" = ["PT"]
 
 [tool.pyright]
 include = ["stellar_sdk", "tests", "examples"]

@@ -1,37 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-arraydiff
-Version: 0.6.1
+Version: 0.7.0
 Summary: pytest plugin to help with comparing array output from tests
 Home-page: https://github.com/astropy/pytest-arraydiff
 Author: The Astropy Developers
 Author-email: astropy.team@gmail.com
-License: BSD
+License: BSD-3-Clause
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pytest>=4.6
+Requires-Dist: pytest>=6.2
 Requires-Dist: numpy
 Provides-Extra: test
 Requires-Dist: astropy; extra == "test"
 Requires-Dist: pandas; extra == "test"
-Requires-Dist: tables; extra == "test"
+Provides-Extra: test-hdf5
+Requires-Dist: tables; platform_machine != "arm64" and extra == "test-hdf5"
+Dynamic: license-file
 
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.5811772.svg
    :target: https://doi.org/10.5281/zenodo.5811772

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_event_log_policy
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set event log policy
 description:
    - Set event log policy on kaytus Server.

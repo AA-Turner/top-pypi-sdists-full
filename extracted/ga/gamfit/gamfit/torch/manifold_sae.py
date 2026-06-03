@@ -270,26 +270,91 @@ class ManifoldSAEConfig:
             raise ValueError("atom_manifold='product' requires intrinsic_rank >= 2")
 
     def closed_form_basis_kind(self) -> str:
-        """Map (atom_manifold, atom_basis) to the Rust ``atom_basis`` token."""
-        if self.atom_manifold == "circle":
+        """Map the ``(atom_manifold, atom_basis)`` pair to the Rust ``atom_basis``
+        token accepted by ``sae_manifold_fit_minimal``.
+
+        The closed-form SAE builder (``sae_build_atom_plans`` in
+        ``crates/gam-pyffi/src/lib.rs``) accepts exactly these atom-basis kinds:
+        ``periodic``, ``duchon``, ``sphere``, ``torus``, ``euclidean_patch``.
+        There is **no** closed-form ``bspline`` atom basis (B-splines exist only
+        as the 1-D ``basis_with_jet`` torch-side basis), so a ``bspline`` config
+        cannot be honored by ``.fit()`` and is rejected loudly rather than
+        silently coerced to ``duchon``.
+
+        The pairing is explicit because the manifold and the basis are not
+        independent: a ``circle`` is intrinsically periodic, a ``sphere`` uses
+        the spherical chart, and a ``cylinder`` (one periodic + one Euclidean
+        axis) is *not* a ``torus`` (two periodic axes). The closed-form builder
+        has no genuine cylinder atom, so a cylinder config is rejected rather
+        than misrepresented as a torus.
+        """
+        manifold, basis = self.atom_manifold, self.atom_basis
+        if manifold == "circle":
+            # Circle is intrinsically periodic; the user's basis choice (the
+            # forward-path B-spline/Duchon knob) does not apply to the
+            # closed-form periodic atom.
             return "periodic"
-        if self.atom_manifold == "sphere":
+        if manifold == "sphere":
             return "sphere"
-        if self.atom_manifold == "cylinder":
-            return "torus"
-        return "duchon"
+        if manifold == "product":
+            if basis == "bspline":
+                raise NotImplementedError(
+                    "closed-form .fit() has no B-spline atom basis; "
+                    f"unsupported (manifold, basis)={(manifold, basis)}. "
+                    "Use a torch training loop, or atom_basis='duchon'/'fourier'."
+                )
+            # Euclidean product patch (Duchon m-spline / radial). 'fourier' here
+            # selects the periodic angular treatment the builder folds into the
+            # Euclidean patch; 'duchon' is the native radial basis.
+            return "duchon"
+        # cylinder: one periodic + one non-periodic axis. The closed-form
+        # builder offers 'torus' (two periodic axes) and 'euclidean_patch', but
+        # neither is a faithful cylinder, so refuse rather than coerce.
+        raise NotImplementedError(
+            f"closed-form basis unsupported for {(manifold, basis)}: the "
+            "closed-form SAE builder has no cylinder (one periodic + one "
+            "Euclidean axis) atom; 'torus' would silently change the topology. "
+            "Use a torch training loop for cylinder atoms."
+        )
 
     def closed_form_assignment(self) -> str:
+        """Map the torch sparsity kind to the closed-form ``assignment`` token.
+
+        The closed-form path accepts ``ibp_map``, ``softmax``, and ``jumprelu``.
+        Note that ``softmax_topk`` is **not** mapped to ``softmax``: the torch
+        ``softmax_topk`` layer is an *independent* non-negative top-k gate
+        (softplus magnitude + hard top-k STE) that can turn **all** atoms off,
+        whereas row-``softmax`` is a competitive simplex whose mass always sums
+        to one and can never deselect every atom. Coercing one into the other
+        would make ``.fit()`` optimize a fundamentally different model than
+        backprop. The closest closed-form mode with the same semantics —
+        independent gates that can zero every atom, plus the existing post-hoc
+        hard top-k projection (forwarded via ``top_k`` in :meth:`fit`) — is
+        ``jumprelu`` (independent hard-thresholded gates). So ``softmax_topk``
+        maps to ``jumprelu``, aligning the closed-form objective with the torch
+        independent-topk gate.
+        """
         return {
             "ibp_gumbel": "ibp_map",
-            "softmax_topk": "softmax",
+            "softmax_topk": "jumprelu",
             "jumprelu": "jumprelu",
         }[self.sparsity.kind]
 
 
 @dataclass(frozen=True, slots=True)
 class ManifoldSAEOutput:
-    """Bundle returned by :class:`ManifoldSAE.forward`."""
+    """Bundle returned by :class:`ManifoldSAE.forward`.
+
+    ``amplitudes`` is the **honest** per-atom magnitude the decoder actually
+    applied — it equals the reconstruction code ``z`` (so an atom that
+    contributes nothing to ``x_hat`` reports a zero amplitude). For the
+    magnitude-carrying gates (``jumprelu`` / ``softmax_topk``) the raw,
+    *pre-mask* softplus activation — which is strictly positive even for atoms
+    the top-k / threshold dropped — is exposed separately as ``raw_magnitudes``
+    so interpretability code never mistakes a dropped atom for an active one.
+    For IBP-Gumbel the code factorizes as ``z = gate · amp``; there
+    ``raw_magnitudes`` is that separate ``amp`` magnitude.
+    """
 
     z: torch.Tensor
     x_hat: torch.Tensor
@@ -300,6 +365,7 @@ class ManifoldSAEOutput:
     assignments: torch.Tensor
     reml_score: torch.Tensor
     lambdas: torch.Tensor
+    raw_magnitudes: torch.Tensor
 
 
 # ---------------------------------------------------------------------------
@@ -368,8 +434,23 @@ def _basis_rust(
         return apply(t, "periodic", json.dumps({"n_harmonics": int(n_harm)}))
     if cfg.atom_manifold == "sphere":
         return apply(t, "sphere", json.dumps({}))
-    # Cylinder / product: the angular column drives the basis; remaining
-    # intrinsic coordinates enter through the amplitude path.
+    # Cylinder / product: the B-spline and Duchon arms are genuinely 1-D — the
+    # Rust `basis_with_jet` "bspline"/"duchon" kernels take a single intrinsic
+    # coordinate. Feeding them only `t[:, :1]` would make every remaining
+    # intrinsic coordinate dead (∂x̂/∂t_j ≡ 0 for j >= 1): a configured 2-D
+    # product/cylinder would silently collapse to a 1-D model. There is no
+    # tensor-product `basis_with_jet` kind to compose the per-axis bases here,
+    # so rather than silently fit a lower-dimensional model we refuse when more
+    # than one intrinsic coordinate is configured.
+    if int(cfg.intrinsic_rank) > 1:
+        raise NotImplementedError(
+            f"atom_manifold={cfg.atom_manifold!r} with intrinsic_rank="
+            f"{cfg.intrinsic_rank} and atom_basis={cfg.atom_basis!r} has no "
+            "full-dimensional torch basis: the 'bspline'/'duchon' basis_with_jet "
+            "kernels are 1-D, so the second and later intrinsic coordinates "
+            "would be silently dead. Use intrinsic_rank=1, or a manifold whose "
+            "basis is intrinsically multi-dimensional (sphere)."
+        )
     if cfg.atom_basis == "bspline":
         params = {
             "n_basis": int(cfg.n_basis_per_atom),
@@ -652,6 +733,18 @@ class ManifoldSAE(nn.Module):
         self._snapshot: dict[str, Any] = {}
         self._snapshot_locked: bool = False
         self._last_fit: _ClosedFormManifoldSAE | None = None
+        # Serialized closed-form fit. After ``.fit()`` the full solved state
+        # (decoder blocks, basis centers, anchors/coords, training data, fitted
+        # reconstruction, and every scalar the frozen-decoder OOS solve needs)
+        # is JSON-encoded via ``fit.to_dict()`` and stored here as a uint8 byte
+        # buffer so ``state_dict()`` carries it. An empty buffer means "no
+        # closed-form solve" (the gradient-trained path). The variable-length
+        # blob is reloaded by the overridden ``_load_from_state_dict`` below,
+        # which rebuilds ``self._last_fit`` so a reloaded module reproduces both
+        # in-sample and out-of-sample predictions.
+        self.register_buffer(
+            "_fit_blob", torch.zeros(0, dtype=torch.uint8), persistent=True
+        )
         self.reset_parameters()
         self.to(dtype=cfg.dtype)
 
@@ -712,41 +805,46 @@ class ManifoldSAE(nn.Module):
         reml_score = torch.tensor(float("nan"), dtype=x.dtype, device=x.device)
         lambdas = torch.exp(self.log_lambda).to(dtype=x.dtype, device=x.device)
 
+        # `amplitudes` is the magnitude the decoder actually used (== z): for the
+        # magnitude-carrying gates z is the top-k/threshold-masked code, so a
+        # dropped atom reports zero, not its raw softplus value. The raw softplus
+        # magnitude is preserved separately as `raw_magnitudes`.
         return ManifoldSAEOutput(
             z=z,
             x_hat=x_hat,
             positions=positions,
-            amplitudes=amp,
+            amplitudes=z,
             curves=curves,
             gate=gate_pre,
             assignments=assignments,
             reml_score=reml_score,
             lambdas=lambdas,
+            raw_magnitudes=amp,
         )
 
     def _forward_from_closed_form(self, x: torch.Tensor) -> ManifoldSAEOutput:
         # When .fit() has been called, the closed-form Rust solve is the source
-        # of truth: forward must reproduce fit.fitted exactly for in-sample x.
-        # The random encoder/anchors play no role because the closed-form solver
-        # does not produce an encoder to copy back into module parameters.
+        # of truth: forward must reproduce the fit exactly for in-sample x AND
+        # reconstruct genuinely-unseen rows out of sample.
+        #
+        # Both cases go through ``fit.converged_latents(x)``: it returns the
+        # stored training latents bit-exactly when x matches the training batch,
+        # and otherwise runs the frozen-decoder out-of-sample Newton solve
+        # (``sae_manifold_predict_oos``) — the SAME per-row latent inner problem
+        # the joint fit solved — holding the fitted decoder blocks / basis /
+        # anchors fixed, then applies the decoder to get x_hat. The random
+        # encoder/anchors play no role because the closed-form solver carries
+        # its own decoder; OOS reconstruction is the transductive encode-by-
+        # inner-solve, not an amortized encoder pass.
         fit = self._last_fit
         assert fit is not None
         F = int(self.cfg.n_atoms)
         d = int(self.cfg.intrinsic_rank)
         x_np = x.detach().cpu().numpy()
-        is_in_sample = (
-            fit.training_data.shape == x_np.shape
-            and np.allclose(x_np, fit.training_data)
-        )
-        if not is_in_sample:
-            raise NotImplementedError(
-                "ManifoldSAE.forward(x) after .fit() requires x to be the same "
-                "data .fit() was called on; for out-of-sample reconstruction "
-                "call fit.reconstruct(x) / fit.predict(x) on the returned fit."
-            )
-        fitted_np = np.asarray(fit.fitted, dtype=np.float64)
-        assignments_np = np.asarray(fit.assignments, dtype=np.float64)
-        coords_per_atom = [np.asarray(c, dtype=np.float64) for c in fit.coords[:F]]
+        latents = fit.converged_latents(x_np)
+        fitted_np = np.asarray(latents["fitted"], dtype=np.float64)
+        assignments_np = np.asarray(latents["assignments"], dtype=np.float64)
+        coords_per_atom = [np.asarray(c, dtype=np.float64) for c in latents["coords"][:F]]
         positions_np = np.stack(
             [c.reshape(c.shape[0], d) for c in coords_per_atom], axis=1
         )
@@ -760,23 +858,26 @@ class ManifoldSAE(nn.Module):
             self.cfg,
             self.duchon_centers if self.cfg.atom_basis == "duchon" else None,
         )
-        amp = torch.ones_like(assignments)
         z = assignments
         gate = assignments
         reml_score = torch.tensor(
             float(fit.reml_score), dtype=x.dtype, device=x.device
         )
         lambdas = torch.exp(self.log_lambda).to(dtype=x.dtype, device=x.device)
+        # The closed-form code *is* the assignment (the solver carries no
+        # separate softplus magnitude), so the honest per-atom amplitude — what
+        # the decoder applied — equals z, and there is no distinct raw magnitude.
         return ManifoldSAEOutput(
             z=z,
             x_hat=x_hat,
             positions=positions,
-            amplitudes=amp,
+            amplitudes=z,
             curves=curves,
             gate=gate,
             assignments=assignments,
             reml_score=reml_score,
             lambdas=lambdas,
+            raw_magnitudes=z,
         )
 
     def fit(
@@ -793,24 +894,34 @@ class ManifoldSAE(nn.Module):
         returned fit (also cached as ``self._last_fit``) is the source of truth.
         :meth:`forward` is rerouted through :meth:`_forward_from_closed_form`,
         which reconstructs ``x_hat`` / ``positions`` / ``assignments`` /
-        ``reml_score`` directly from the fit and ignores the module's
-        ``encoder`` and ``atom_raw_anchor`` parameters entirely. Only
-        ``decoder_blocks`` is copied back into the module's parameters; the
-        ``encoder`` and ``atom_raw_anchor`` remain at their pre-fit values and
-        carry no learned information.
+        ``reml_score`` from the fit and ignores the module's ``encoder`` /
+        ``atom_raw_anchor`` parameters: the closed-form solver carries its own
+        decoder and per-atom anchors, so there is no amortized encoder to copy
+        back. The solved ``decoder_blocks`` and (when the solve used a common
+        Duchon center set) the ``duchon_centers`` buffer are folded into the
+        module, and the full solved state is captured in the ``_fit_blob``
+        buffer for serialization.
 
-        Consequently a *solved* module must NOT be used for:
+        A solved module is genuinely usable:
 
-        * gradient training / fine-tuning (the encoder and anchor are stale, so
-          their gradients are meaningless and would corrupt the fit);
-        * serialization of the learned model (``state_dict`` does not capture the
-          closed-form solution — persist the returned fit instead);
-        * out-of-sample :meth:`forward` (the closed-form path requires the
-          in-sample ``x`` and raises ``NotImplementedError`` otherwise; use
-          ``fit.reconstruct(x)`` / ``fit.predict(x)`` for OOS inputs).
+        * **Out-of-sample forward.** ``module(x_new)`` for unseen rows works:
+          :meth:`_forward_from_closed_form` re-encodes new rows by solving the
+          per-row latent inner problem against the *fitted* decoder / basis /
+          anchors (the frozen-decoder Newton solve, ``sae_manifold_predict_oos``)
+          and applies the decoder — the transductive encode step. In-sample ``x``
+          still returns the exact closed-form reconstruction bit-for-bit.
+        * **Serialization.** ``state_dict()`` captures the full solved state in
+          the ``_fit_blob`` byte buffer (decoder blocks, per-atom basis centers /
+          anchors, fitted scalars, training data, and fitted reconstruction), so
+          ``load_state_dict(module.state_dict())`` into a fresh module rebuilds
+          ``self._last_fit`` and reproduces both in-sample and out-of-sample
+          predictions. (``fit.to_dict()`` / ``fit.save(...)`` remains available
+          to persist the fit object directly.)
 
-        The supported use is calling :meth:`forward` on the same in-sample ``x``
-        to obtain the closed-form outputs.
+        A solved module must still NOT be used for gradient training /
+        fine-tuning: the encoder and anchor are stale relative to the
+        closed-form decoder, so their gradients are meaningless and would
+        corrupt the fit. Build a fresh, unfitted module for gradient training.
         """
         if not isinstance(x, torch.Tensor):
             raise TypeError("ManifoldSAE.fit expects a torch.Tensor")
@@ -824,6 +935,38 @@ class ManifoldSAE(nn.Module):
             kwargs["learning_rate"] = float(learning_rate)
         if cfg.sparsity.target_k is not None:
             kwargs["top_k"] = int(cfg.sparsity.target_k)
+        # Regularizer parity: forward every weight the closed-form FFI honors,
+        # and refuse — loudly — any configured-nonzero regularizer it cannot,
+        # rather than silently dropping it (which would make two differently
+        # regularized configs produce identical fits).
+        #
+        # `decoder.ortho_weight` penalizes cross-correlation between the per-atom
+        # *decoder blocks* (R_g·R_hᵀ); the closed-form `block_orthogonality`
+        # knob instead orthogonalizes the latent "t" coordinate block — a
+        # different objective. Coercing one into the other would silently change
+        # the model, so a nonzero decoder ortho weight is unsupported here.
+        if cfg.decoder.ortho_weight > 0.0:
+            raise NotImplementedError(
+                "closed-form .fit() cannot honor DecoderConfig.ortho_weight: the "
+                "closed-form block-orthogonality penalty acts on the latent 't' "
+                "block, not on cross-atom decoder-block correlations, so it is a "
+                "different objective. Train with a torch loop (uses "
+                "decoder_ortho_penalty()), or set decoder.ortho_weight=0."
+            )
+        # The closed-form FFI exposes no decoder-monotonicity penalty at all.
+        if cfg.decoder.monotonicity_weight > 0.0:
+            raise NotImplementedError(
+                "closed-form .fit() has no decoder-monotonicity penalty "
+                "(DecoderConfig.monotonicity_weight > 0 is unsupported); train "
+                "with a torch loop (uses decoder_monotonicity_penalty()), or set "
+                "decoder.monotonicity_weight=0."
+            )
+        # The JumpReLU hard-gate threshold is part of the assignment objective:
+        # forward it on the jumprelu-assignment path (kind 'jumprelu' or, via
+        # closed_form_assignment(), 'softmax_topk'). For other assignments the
+        # threshold is meaningless and is not forwarded.
+        if cfg.closed_form_assignment() == "jumprelu":
+            kwargs["jumprelu_threshold"] = float(cfg.sparsity.jumprelu_threshold)
         fit = _closed_form_sae_manifold_fit(
             Z=to_numpy_f64(x),
             n_atoms=int(cfg.n_atoms),
@@ -842,6 +985,30 @@ class ManifoldSAE(nn.Module):
 
     @torch.no_grad()
     def _copy_fit_into_params(self, fit: _ClosedFormManifoldSAE) -> None:
+        """Fold the full solved state into params/buffers for serialization.
+
+        The solve's *reconstruction* pieces (decoder blocks + a common Duchon
+        center set, when the solve used one) are copied into the matching
+        ``decoder_blocks`` parameter and ``duchon_centers`` buffer so a reloaded
+        module's eager-path basis is consistent with the solve. The encoder and
+        ``atom_raw_anchor`` are intentionally **not** overwritten: the
+        closed-form solver carries its own decoder and anchors (per-atom
+        coordinates), so there is no encoder to fold in — out-of-sample forward
+        re-encodes by the frozen-decoder inner solve instead of an amortized
+        encoder pass.
+
+        The authoritative, fully self-contained state — decoder blocks AND
+        per-atom basis centers/anchors AND every fitted scalar (alpha, tau,
+        sparsity_strength, smoothness, learning_rate, max_iter, random_state)
+        AND the training data + fitted reconstruction — is captured by
+        JSON-encoding ``fit.to_dict()`` into the ``_fit_blob`` byte buffer. That
+        buffer round-trips through ``state_dict()`` and is decoded back into a
+        live ``self._last_fit`` by :meth:`_load_from_state_dict`, so a reloaded
+        module reproduces both in-sample and out-of-sample predictions without
+        needing the original Python fit object.
+        """
+        blob = json.dumps(fit.to_dict()).encode("utf-8")
+        self._fit_blob = torch.frombuffer(bytearray(blob), dtype=torch.uint8).clone()
         F = int(self.cfg.n_atoms)
         K = int(self.cfg.n_basis_per_atom)
         D = int(self.cfg.input_dim)
@@ -856,6 +1023,77 @@ class ManifoldSAE(nn.Module):
                 arr[:m_i, :d_i], dtype=new_blocks.dtype
             )
         self.decoder_blocks.copy_(new_blocks)
+        # Fold the solved Duchon centers into the shared eager-path buffer when
+        # the solve used a single common center set of width K, so a reloaded
+        # module's eager basis matches the solve. Heterogeneous per-atom centers
+        # cannot be represented by the shared (K,) buffer, but they are still
+        # serialized in full (per atom) inside ``_fit_blob`` and used by the
+        # closed-form forward path, so nothing is lost.
+        if self.cfg.atom_basis == "duchon":
+            centers = [c for c in fit._duchon_centers[:F] if c is not None]
+            if len(centers) == F:
+                stacked = [np.asarray(c, dtype=np.float64).reshape(-1) for c in centers]
+                if all(s.shape == (K,) for s in stacked) and all(
+                    np.allclose(s, stacked[0]) for s in stacked
+                ):
+                    self.duchon_centers.copy_(
+                        torch.as_tensor(stacked[0], dtype=self.duchon_centers.dtype)
+                    )
+
+    def _load_from_state_dict(
+        self,
+        state_dict: Mapping[str, Any],
+        prefix: str,
+        local_metadata: Mapping[str, Any],
+        strict: bool,
+        missing_keys: list[str],
+        unexpected_keys: list[str],
+        error_msgs: list[str],
+    ) -> None:
+        """Reload a serialized closed-form fit from the ``_fit_blob`` buffer.
+
+        ``_fit_blob`` is a variable-length byte tensor, so the default
+        ``load_state_dict`` (which ``copy_``-s into a fixed-shape buffer) would
+        raise on a size mismatch. We intercept it here: pop the blob, resize our
+        own buffer to match, copy the bytes, and decode it back into a live
+        :class:`gamfit._sae_manifold.ManifoldSAE` so the reloaded module's
+        :meth:`forward` again routes through :meth:`_forward_from_closed_form`
+        and reproduces in-sample and out-of-sample predictions. An empty blob
+        means the source module had no closed-form solve, so ``self._last_fit``
+        is cleared and the eager (gradient-trained) path is used.
+        """
+        blob_key = prefix + "_fit_blob"
+        blob_tensor: torch.Tensor | None = None
+        if blob_key in state_dict:
+            incoming = state_dict[blob_key]
+            blob_tensor = torch.as_tensor(incoming, dtype=torch.uint8).reshape(-1)
+            # The blob is variable length, so resize our registered buffer to
+            # match before the default loader runs. Substitute the cloned tensor
+            # back into the dict so the default machinery's shape-checked copy_
+            # is a same-shape no-op (and the key is not flagged missing).
+            self._fit_blob = blob_tensor.clone()
+            state_dict = dict(state_dict)
+            state_dict[blob_key] = self._fit_blob
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
+        if blob_tensor is not None:
+            self._rebuild_fit_from_blob(blob_tensor)
+
+    def _rebuild_fit_from_blob(self, blob: torch.Tensor) -> None:
+        """Decode ``blob`` into ``self._last_fit`` (or clear it when empty)."""
+        if blob.numel() == 0:
+            self._last_fit = None
+            return
+        raw = blob.detach().cpu().numpy().tobytes()
+        payload = json.loads(raw.decode("utf-8"))
+        self._last_fit = _ClosedFormManifoldSAE.from_dict(payload)
 
     @torch.no_grad()
     def lock_snapshot(self) -> None:

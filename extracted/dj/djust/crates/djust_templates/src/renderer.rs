@@ -374,6 +374,12 @@ pub fn render_node_with_loader<L: TemplateLoader>(
             let mut value = context.resolve(var_name).unwrap_or(Value::Null);
 
             // Apply filters (pass context so date/time can read DATE_FORMAT etc.)
+            //
+            // `runtime_safe` tracks whether the LAST filter produced a runtime
+            // ``SafeString`` (Django ``mark_safe`` / ``__html__``). A later
+            // plain-returning filter re-taints it (resets to false), matching
+            // Django's final-value escape semantics (#1660).
+            let mut runtime_safe = false;
             for (filter_name, arg) in filter_specs {
                 // Strip quotes from literal filter args at render time —
                 // the parser preserves quotes so the dep-tracking
@@ -384,13 +390,15 @@ pub fn render_node_with_loader<L: TemplateLoader>(
                 let original = arg.as_deref();
                 let arg_was_quoted = original.map(is_quoted_arg).unwrap_or(false);
                 let stripped = original.map(crate::parser::strip_filter_arg_quotes);
-                value = filters::apply_filter_full(
+                let (new_value, produced_safe) = filters::apply_filter_full_safe(
                     filter_name,
                     &value,
                     stripped,
                     Some(context),
                     arg_was_quoted,
                 )?;
+                value = new_value;
+                runtime_safe = produced_safe;
             }
 
             let text = value.to_string();
@@ -401,6 +409,10 @@ pub fn render_node_with_loader<L: TemplateLoader>(
             // 3. A filter that produces already-escaped/safe output is in the chain
             //    (built-in safe_output_filters list OR a custom filter
             //    registered with ``is_safe=True`` per #1121).
+            // 4. The final value is a runtime ``SafeString`` — a custom filter
+            //    ``mark_safe()``d its result at runtime without the static
+            //    ``is_safe=True`` flag (#1660). Additive: only ever marks MORE
+            //    values safe, and only when the LAST filter's output is safe.
             let safe_output_filters = [
                 "safe",
                 "safeseq",
@@ -413,7 +425,8 @@ pub fn render_node_with_loader<L: TemplateLoader>(
             let is_safe = filter_specs.iter().any(|(name, _)| {
                 safe_output_filters.contains(&name.as_str())
                     || crate::filter_registry::is_custom_filter_safe(name)
-            }) || context.is_safe(var_name);
+            }) || context.is_safe(var_name)
+                || runtime_safe;
             if is_safe {
                 Ok(text)
             } else if *in_attr {
@@ -442,17 +455,23 @@ pub fn render_node_with_loader<L: TemplateLoader>(
 
             let mut value = get_value(expr, context)?;
 
+            // See the Variable arm: track the LAST filter's runtime safeness so
+            // a custom filter that ``mark_safe()``s at runtime bypasses escaping
+            // (#1660); a later plain filter re-taints.
+            let mut runtime_safe = false;
             for (filter_name, arg) in filters {
                 let original = arg.as_deref();
                 let arg_was_quoted = original.map(is_quoted_arg).unwrap_or(false);
                 let stripped = original.map(crate::parser::strip_filter_arg_quotes);
-                value = filters::apply_filter_full(
+                let (new_value, produced_safe) = filters::apply_filter_full_safe(
                     filter_name,
                     &value,
                     stripped,
                     Some(context),
                     arg_was_quoted,
                 )?;
+                value = new_value;
+                runtime_safe = produced_safe;
             }
 
             let text = value.to_string();
@@ -468,7 +487,8 @@ pub fn render_node_with_loader<L: TemplateLoader>(
             let is_safe = filters.iter().any(|(name, _)| {
                 safe_output_filters.contains(&name.as_str())
                     || crate::filter_registry::is_custom_filter_safe(name)
-            }) || context.is_safe(expr);
+            }) || context.is_safe(expr)
+                || runtime_safe;
             if is_safe {
                 Ok(text)
             } else {
@@ -1658,6 +1678,21 @@ fn evaluate_condition(condition: &str, context: &Context) -> Result<bool> {
         }
     }
 
+    // Handle Django identity operators "is" / "is not" (Django 4.0+).
+    // " is not " MUST be checked before " is " because the former
+    // contains the latter as a substring. Space-padded markers avoid
+    // matching variable names that merely contain "is" (e.g. "analysis").
+    if let Some(pos) = condition.find(" is not ") {
+        let left = get_value(condition[..pos].trim(), context)?;
+        let right = get_value(condition[pos + 8..].trim(), context)?;
+        return Ok(!values_identity(&left, &right));
+    }
+    if let Some(pos) = condition.find(" is ") {
+        let left = get_value(condition[..pos].trim(), context)?;
+        let right = get_value(condition[pos + 4..].trim(), context)?;
+        return Ok(values_identity(&left, &right));
+    }
+
     // Handle >= (must be before > to avoid false match)
     if condition.contains(">=") {
         let parts: Vec<&str> = condition.split(">=").map(|s| s.trim()).collect();
@@ -1755,6 +1790,14 @@ fn get_value(expr: &str, context: &Context) -> Result<Value> {
                 (filter_part, None, false)
             };
 
+            // NOTE (#1672, parallel-path decision per CLAUDE.md #1646): this
+            // `get_value` pipe helper returns a bare `Value` and is used by the
+            // `{% firstof %}` / `{% cycle %}` emit path. It intentionally uses
+            // the plain `apply_filter_full` (not `apply_filter_full_safe`), so a
+            // custom filter that `mark_safe()`s at runtime is *over-escaped*
+            // here — fail-SAFE (no XSS), unlike the Variable/InlineIf arms which
+            // honour runtime safeness (#1660). Threading `(Value, bool)` out of
+            // `get_value` touches its many callers; deferred to #1672.
             value = filters::apply_filter_full(
                 filter_name,
                 &value,
@@ -1808,6 +1851,23 @@ fn values_equal(a: &Value, b: &Value) -> bool {
         (Value::Integer(a), Value::Integer(b)) => a == b,
         (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
         (Value::String(a), Value::String(b)) => a == b,
+        _ => false,
+    }
+}
+
+/// Django identity comparison for the `is` / `is not` template operators.
+///
+/// Mirrors Python's `is`: identity holds only for the singletons
+/// `None`, `True`, and `False`. Arbitrary equal values (`5 is 5`,
+/// `"a" is "a"`) are NOT contractually identical — CPython interning is
+/// an implementation detail templates must not rely on — so non-singleton
+/// types always return false. This is intentionally stricter than
+/// [`values_equal`].
+fn values_identity(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Null, Value::Null) => true,
+        (Value::Bool(a), Value::Bool(b)) => a == b,
+        // Non-singletons: Python `is` is not identity-stable; treat as false.
         _ => false,
     }
 }
@@ -3018,5 +3078,145 @@ mod tests {
         context.set("True".to_string(), Value::String("not a bool".to_string()));
         let val = get_value("True", &context).unwrap();
         assert_eq!(val.to_string(), "not a bool");
+    }
+
+    // ----- #1483: `is` / `is not` identity operators -----
+
+    fn render_if(template: &str, vars: Vec<(&str, Value)>) -> String {
+        let tokens = tokenize(template).unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        for (k, v) in vars {
+            context.set(k.to_string(), v);
+        }
+        render_nodes(&nodes, &context).unwrap()
+    }
+
+    #[test]
+    fn test_values_identity() {
+        // Null/Null -> true (Python `None is None`)
+        assert!(values_identity(&Value::Null, &Value::Null));
+        // Bool/Bool -> matches value (Python `True is True`, `False is False`)
+        assert!(values_identity(&Value::Bool(true), &Value::Bool(true)));
+        assert!(values_identity(&Value::Bool(false), &Value::Bool(false)));
+        assert!(!values_identity(&Value::Bool(true), &Value::Bool(false)));
+        // Mismatched singletons -> false
+        assert!(!values_identity(&Value::Null, &Value::Bool(false)));
+        assert!(!values_identity(&Value::Bool(true), &Value::Null));
+        // Non-singletons -> always false (CPython interning is not contractual)
+        assert!(!values_identity(&Value::Integer(5), &Value::Integer(5)));
+        assert!(!values_identity(&Value::Float(1.0), &Value::Float(1.0)));
+        assert!(!values_identity(
+            &Value::String("a".to_string()),
+            &Value::String("a".to_string())
+        ));
+    }
+
+    #[test]
+    fn test_if_is_none_true() {
+        let result = render_if(
+            "{% if val is None %}empty{% else %}filled{% endif %}",
+            vec![("val", Value::Null)],
+        );
+        assert_eq!(result, "empty");
+    }
+
+    #[test]
+    fn test_if_is_none_false() {
+        // 0 is not None — identity, not truthiness
+        let result = render_if(
+            "{% if val is None %}empty{% else %}filled{% endif %}",
+            vec![("val", Value::Integer(0))],
+        );
+        assert_eq!(result, "filled");
+    }
+
+    #[test]
+    fn test_if_is_not_none_true() {
+        let result = render_if(
+            "{% if some_float is not None %}set{% else %}unset{% endif %}",
+            vec![("some_float", Value::Float(12.3))],
+        );
+        assert_eq!(result, "set");
+    }
+
+    #[test]
+    fn test_if_is_not_none_false() {
+        let result = render_if(
+            "{% if val is not None %}set{% else %}unset{% endif %}",
+            vec![("val", Value::Null)],
+        );
+        assert_eq!(result, "unset");
+    }
+
+    #[test]
+    fn test_if_is_true_singleton() {
+        let result = render_if(
+            "{% if flag is True %}yes{% else %}no{% endif %}",
+            vec![("flag", Value::Bool(true))],
+        );
+        assert_eq!(result, "yes");
+    }
+
+    #[test]
+    fn test_if_is_false_singleton() {
+        let result = render_if(
+            "{% if flag is False %}off{% else %}on{% endif %}",
+            vec![("flag", Value::Bool(false))],
+        );
+        assert_eq!(result, "off");
+    }
+
+    #[test]
+    fn test_if_is_not_true() {
+        let result = render_if(
+            "{% if flag is not True %}not-true{% else %}true{% endif %}",
+            vec![("flag", Value::Bool(false))],
+        );
+        assert_eq!(result, "not-true");
+    }
+
+    #[test]
+    fn test_if_is_non_singleton_not_identical() {
+        // Python identity semantics: `5 is 5` does NOT contractually hold.
+        let result = render_if(
+            "{% if a is b %}same{% else %}diff{% endif %}",
+            vec![("a", Value::Integer(5)), ("b", Value::Integer(5))],
+        );
+        assert_eq!(result, "diff");
+    }
+
+    #[test]
+    fn test_if_is_combined_with_and() {
+        // `is` / `is not` compose with the lower-precedence `and`.
+        let result = render_if(
+            "{% if a is not None and b is None %}match{% else %}nomatch{% endif %}",
+            vec![("a", Value::Integer(7)), ("b", Value::Null)],
+        );
+        assert_eq!(result, "match");
+    }
+
+    #[test]
+    fn test_if_is_not_checked_before_is() {
+        // Substring-ordering invariant: `x is not None` must be parsed as
+        // `x  (is not)  None`, NOT `x  (is)  (not None)`. With val set to a
+        // non-None value, `is not None` -> true. If " is " matched first,
+        // the right operand would be "not None" and resolve incorrectly.
+        let result = render_if(
+            "{% if val is not None %}set{% else %}unset{% endif %}",
+            vec![("val", Value::Integer(1))],
+        );
+        assert_eq!(result, "set");
+    }
+
+    #[test]
+    fn test_if_variable_named_with_is_substring_no_false_match() {
+        // A variable named "analysis" contains "is" but must not false-match
+        // the operator branch — space-padding guards against this.
+        let result = render_if(
+            "{% if analysis %}has-analysis{% else %}none{% endif %}",
+            vec![("analysis", Value::Bool(true))],
+        );
+        assert_eq!(result, "has-analysis");
     }
 }

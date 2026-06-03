@@ -1,4 +1,3 @@
-use chrono::{DateTime, NaiveDateTime};
 use fancy_regex::Regex as FancyRegex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{
@@ -9,6 +8,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use crate::{
     interned_string::InternedString, interned_values::InternedStore, log_e, unwrap_or_return,
+    value_parsing::try_parse_timestamp,
 };
 use crate::{user::user_value::UserValueRef, DynamicValue};
 
@@ -276,8 +276,9 @@ impl MemoizedEvaluatorValue {
 // - ua_parser
 impl From<String> for MemoizedEvaluatorValue {
     fn from(value: String) -> Self {
+        let int_value = value.parse::<i64>().ok();
         MemoizedEvaluatorValue {
-            timestamp_value: try_parse_timestamp(&value),
+            timestamp_value: try_parse_timestamp(&value, int_value),
             float_value: value.parse::<f64>().ok(),
             string_value: Some(DynamicString::from(value)),
             ..MemoizedEvaluatorValue::new(EvaluatorValueType::String)
@@ -388,22 +389,6 @@ impl PartialEq for MemoizedEvaluatorValue {
             && self.array_value == other.array_value
             && self.object_value == other.object_value
     }
-}
-
-fn try_parse_timestamp(s: &str) -> Option<i64> {
-    if let Ok(ts) = s.parse::<i64>() {
-        return Some(ts);
-    }
-
-    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
-        return Some(dt.timestamp_millis());
-    }
-
-    if let Ok(ndt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
-        return Some(ndt.and_utc().timestamp_millis());
-    }
-
-    None
 }
 
 #[macro_export]

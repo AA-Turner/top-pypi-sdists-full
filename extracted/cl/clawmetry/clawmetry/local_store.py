@@ -904,6 +904,13 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_ext_api_calls_ts   ON external_api_calls(ts)",
     "CREATE INDEX IF NOT EXISTS idx_ext_api_calls_host ON external_api_calls(host, ts)",
+    # Named source for out-loop / production agents (clawmetry.track.set_source).
+    "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS source VARCHAR",
+    # Cost attribution for out-loop LLM calls (interceptor llm_call events).
+    "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS cost_usd DOUBLE",
+    "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS input_tokens INTEGER",
+    "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS output_tokens INTEGER",
+    "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS model VARCHAR",
 ]
 
 
@@ -5199,6 +5206,117 @@ class LocalStore:
                 "data", "created_at"]
         return _decode_data_blob_rows(self._fetch(sql, params), cols)
 
+    def query_session_errors(self, session_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
+        """Context graph — the error->cause edge for a session: the spans that
+        ended in an error (OTel status ERROR or a failed tool), each with its
+        parent span so the upstream decision that led to the failure is one hop
+        away. Read-only, best-effort -> []. (Spans come from OTel-instrumented
+        runs; the per-session tool-failure rate covers the non-OTel case.)
+        """
+        if not session_id:
+            return []
+        sql = """
+            SELECT span_id, parent_span_id, tool_name, status, status_code, status_message
+            FROM spans
+            WHERE session_id = ?
+              AND (UPPER(COALESCE(status_code, '')) = 'ERROR'
+                   OR LOWER(COALESCE(status, '')) IN ('error', 'failed', 'failure'))
+            ORDER BY start_ts DESC
+            LIMIT ?
+        """
+        try:
+            rows = self._fetch(sql, [str(session_id), int(limit)])
+        except Exception:
+            return []
+        out: list[dict[str, Any]] = []
+        for sp, parent, tool, status, scode, smsg in rows:
+            out.append({
+                "span_id": sp,
+                "parent_span_id": parent,
+                "tool_name": tool or "",
+                "status": status or scode or "error",
+                "message": (smsg or "")[:300],
+            })
+        return out
+
+    def query_subagent_cost_rollup(self, *, limit: int = 2000) -> list[dict[str, Any]]:
+        """Per-parent sub-agent cost rollup in ONE pass: for each session that
+        spawned sub-agents, the total $ + count its children spent. Lets the
+        session chip show the TRUE cost of an ask (its own spend + the fan-out
+        it caused) without an N-query recursive walk per row. One level deep —
+        the common, glanceable case. Read-only, best-effort -> [].
+        """
+        sql = """
+            SELECT parent_session_id,
+                   ROUND(SUM(COALESCE(cost_usd, 0)), 6) AS child_cost,
+                   COUNT(*) AS child_count
+            FROM subagents
+            WHERE parent_session_id IS NOT NULL AND parent_session_id != ''
+            GROUP BY parent_session_id
+            ORDER BY child_cost DESC
+            LIMIT ?
+        """
+        try:
+            rows = self._fetch(sql, [int(limit)])
+        except Exception:
+            return []
+        return [
+            {"parent_session_id": p, "child_cost_usd": float(c or 0.0), "child_count": int(n or 0)}
+            for (p, c, n) in rows
+        ]
+
+    def query_session_lineage(self, session_id: str, *, max_depth: int = 25) -> list[dict[str, Any]]:
+        """Context-graph traversal — the decision-lineage tree rooted at a session.
+
+        Walks the parent->subagent edges (``subagents.parent_session_id`` ->
+        ``subagent_id``) with a DuckDB ``WITH RECURSIVE`` CTE and returns every
+        node in the fan-out with its own cost/outcome, so one ask's full
+        delegation tree + the cost it incurred downstream is a single
+        round-trip. This is the first materialized projection of the context
+        graph (no new tables — edges are JOINs over existing rows). Read-only,
+        best-effort -> []. The ``max_depth`` guard makes cyclic data safe.
+        """
+        if not session_id:
+            return []
+        sql = """
+        WITH RECURSIVE tree(node_id, parent_id, depth) AS (
+            SELECT CAST(? AS VARCHAR), CAST(NULL AS VARCHAR), 0
+          UNION ALL
+            SELECT s.subagent_id, s.parent_session_id, t.depth + 1
+            FROM subagents s
+            JOIN tree t ON s.parent_session_id = t.node_id
+            WHERE t.depth < ?
+        )
+        SELECT t.node_id, t.parent_id, t.depth,
+               sub.task, sub.status, sub.cost_usd, sub.token_count,
+               ses.cost_usd, ses.outcome, ses.agent_type, ses.total_tokens
+        FROM tree t
+        LEFT JOIN subagents sub ON sub.subagent_id = t.node_id
+        LEFT JOIN sessions ses ON ses.session_id = t.node_id
+        ORDER BY t.depth, t.node_id
+        """
+        try:
+            rows = self._fetch(sql, [str(session_id), int(max_depth)])
+        except Exception:
+            return []
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            node_id, parent_id, depth, task, status, sub_cost, sub_tok, ses_cost, outcome, agent_type, ses_tok = r
+            cost = ses_cost if ses_cost is not None else (sub_cost or 0.0)
+            tok = ses_tok if ses_tok is not None else (sub_tok or 0)
+            out.append({
+                "session_id": node_id,
+                "parent_id": parent_id,
+                "depth": int(depth or 0),
+                "task": task or "",
+                "status": status or "",
+                "cost_usd": round(float(cost or 0.0), 6),
+                "token_count": int(tok or 0),
+                "outcome": outcome or "",
+                "runtime": agent_type or "",
+            })
+        return out
+
     def query_subagents(
         self,
         *,
@@ -6509,9 +6627,13 @@ class LocalStore:
         out: list[dict[str, Any]] = []
         for agg in per_session.values():
             mt = agg.pop("_model_tokens", {})
-            agg["primary_model"] = (
-                max(mt.items(), key=lambda kv: kv[1])[0] if mt else ""
-            )
+            _ranked = sorted(mt.items(), key=lambda kv: kv[1], reverse=True)
+            agg["primary_model"] = _ranked[0][0] if _ranked else ""
+            # Silent model-mix / fallback: a session that ran on >1 model the
+            # user never chose (a downgrade/fallback no CLI flags). Expose the
+            # count + the secondary (fallback) model so the UI can flag it.
+            agg["model_count"] = len([m for m, t in mt.items() if t > 0])
+            agg["secondary_model"] = _ranked[1][0] if len(_ranked) > 1 else ""
             agg["total_tokens"] = (
                 agg["input_tokens"] + agg["output_tokens"]
                 + agg["cache_read_tokens"] + agg["cache_write_tokens"]
@@ -8245,8 +8367,9 @@ class LocalStore:
         with self._write_lock:
             self._conn.execute("""
                 INSERT INTO external_api_calls
-                    (id, node_id, ts, host, url, method, status_code, latency_ms, library)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, node_id, ts, host, url, method, status_code, latency_ms,
+                     library, source, cost_usd, input_tokens, output_tokens, model)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO NOTHING
             """, [
                 row_id,
@@ -8258,6 +8381,11 @@ class LocalStore:
                 ev.get("status_code"),
                 ev.get("latency_ms"),
                 ev.get("library") or "",
+                ev.get("source") or "",
+                float(ev.get("cost_usd") or 0.0),
+                int(ev.get("input_tokens") or 0),
+                int(ev.get("output_tokens") or 0),
+                ev.get("model") or "",
             ])
 
     def query_external_calls(
@@ -8274,11 +8402,13 @@ class LocalStore:
         session's ``started_at`` and ``updated_at`` are returned (time-window
         attribution — no ABI changes to the interceptor required)."""
         cols = ["id", "node_id", "ts", "host", "url", "method",
-                "status_code", "latency_ms", "library"]
+                "status_code", "latency_ms", "library", "source",
+                "cost_usd", "input_tokens", "output_tokens", "model"]
         if session_id:
             sql = """
                 SELECT e.id, e.node_id, e.ts, e.host, e.url, e.method,
-                       e.status_code, e.latency_ms, e.library
+                       e.status_code, e.latency_ms, e.library, e.source,
+                       e.cost_usd, e.input_tokens, e.output_tokens, e.model
                 FROM external_api_calls e
                 JOIN sessions s ON (
                     e.ts >= s.started_at
@@ -8302,7 +8432,8 @@ class LocalStore:
             where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
             sql = f"""
                 SELECT id, node_id, ts, host, url, method,
-                       status_code, latency_ms, library
+                       status_code, latency_ms, library, source,
+                       cost_usd, input_tokens, output_tokens, model
                 FROM external_api_calls {where}
                 ORDER BY ts DESC LIMIT ?
             """

@@ -1,6 +1,9 @@
 mod utils;
-use std::{fs, path::PathBuf, sync::Arc};
-use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};
+use std::sync::Arc;
+use utils::{
+    mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi},
+    mock_specs_adapter::MockSpecsAdapter,
+};
 
 use statsig_rust::{
     networking::{NetworkClient, RequestArgs},
@@ -8,35 +11,19 @@ use statsig_rust::{
 };
 
 const SDK_KEY: &str = "secret-key";
-async fn setup() -> MockScrapi {
-    let mock_scrapi = MockScrapi::new().await;
-
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("tests/data/eval_proj_dcs.json");
-    let dcs = fs::read_to_string(path).expect("Unable to read file");
-
-    mock_scrapi
-        .stub(EndpointStub {
-            method: Method::GET,
-            response: StubData::String(dcs),
-            delay_ms: 3,
-            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
-        })
-        .await;
-
-    mock_scrapi
-}
 
 #[tokio::test]
 async fn test_initialize_timeout() {
     let user = StatsigUser::with_user_id("my_user".to_string());
-    let scrapi = setup().await;
     let statsig = Statsig::new(
         SDK_KEY,
         Some(Arc::new(StatsigOptions {
-            specs_url: Some(scrapi.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
+            specs_adapter: Some(Arc::new(MockSpecsAdapter::delayed(
+                "tests/data/eval_proj_dcs.json",
+                200,
+            ))),
             environment: Some("development".to_string()),
-            init_timeout_ms: Some(2),
+            init_timeout_ms: Some(20),
             specs_sync_interval_ms: Some(1),
             output_log_level: Some(statsig_rust::output_logger::LogLevel::Debug),
             ..StatsigOptions::new()
@@ -46,7 +33,7 @@ async fn test_initialize_timeout() {
     let res = statsig.initialize().await;
     assert!(res.is_err());
     let err = res.unwrap_err();
-    assert!(err.to_string().contains("Initialization Error"));
+    assert!(err.to_string().contains("Initialization Error"), "{err}");
 
     let result = statsig.get_feature_gate(&user, "public_dev_only");
 

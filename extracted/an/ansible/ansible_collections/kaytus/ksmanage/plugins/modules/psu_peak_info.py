@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: psu_peak_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get psu peak information
 description:
    - Get psu peak information on kaytus Server.

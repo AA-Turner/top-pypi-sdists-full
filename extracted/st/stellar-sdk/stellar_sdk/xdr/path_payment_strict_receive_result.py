@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -52,8 +51,8 @@ class PathPaymentStrictReceiveResult:
     def __init__(
         self,
         code: PathPaymentStrictReceiveResultCode,
-        success: Optional[PathPaymentStrictReceiveResultSuccess] = None,
-        no_issuer: Optional[Asset] = None,
+        success: PathPaymentStrictReceiveResultSuccess | None = None,
+        no_issuer: Asset | None = None,
     ) -> None:
         self.code = code
         self.success = success

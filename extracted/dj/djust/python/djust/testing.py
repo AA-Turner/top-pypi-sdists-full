@@ -356,6 +356,119 @@ class LiveViewTestClient:
             patches_list = []
         return (html, patches_list, version)
 
+    def _build_mounted_instance(self, **mount_kwargs: Any) -> Any:
+        """Construct + mount a FRESH view instance with a fresh request/session.
+
+        Mirrors :meth:`mount` but returns a standalone instance instead of
+        storing it on ``self`` — used by parity checks that must compare two
+        independent instances (as production does: one for the HTTP request,
+        one for the WebSocket mount).
+        """
+        from django.contrib.auth.models import AnonymousUser
+        from django.contrib.sessions.backends.db import SessionStore
+
+        instance = self.view_class()
+        request = self.request_factory.get("/")
+        request.user = self.user or AnonymousUser()
+        request.session = SessionStore()
+        instance.request = request
+        if hasattr(instance, "_initialize_temporary_assigns"):
+            instance._initialize_temporary_assigns()
+        instance.mount(request, **mount_kwargs)
+        return instance
+
+    @staticmethod
+    def _djroot_djids(html: str) -> list:
+        """Extract the ordered ``dj-id`` sequence from the ``dj-root`` subtree."""
+        m = re.search(r"<[^>]*\bdj-root\b", html)
+        subtree = html[m.start() :] if m else html
+        return re.findall(r'dj-id="([^"]+)"', subtree)
+
+    def assert_http_ws_djid_parity(self, **mount_kwargs: Any) -> list:
+        """Assert the HTTP-GET and WebSocket-mount render paths assign the same
+        ``dj-id`` baseline for this view (#1642).
+
+        In production the initial HTTP ``GET`` renders the DOM the browser holds
+        (``render_full_template``) and then establishes a VDOM baseline
+        (``render_with_diff``); a *separate* instance handles the WebSocket
+        mount and establishes its OWN baseline via ``render_with_diff``. The
+        first WS event diffs against that baseline and ships patches keyed by
+        ``dj-id``. If the two baselines assign divergent ``dj-id``s, the first
+        event's patches miss ``d``-resolution and fall back to path traversal —
+        the ``getNodeByPath → null`` failure shape investigated in #1641.
+
+        This builds two independent instances (HTTP-shaped and WS-shaped),
+        exercises ``render_full_template`` on the HTTP one (so the real
+        initial-page path runs), and asserts the two ``render_with_diff``
+        baselines carry an identical ordered ``dj-id`` sequence in the
+        ``dj-root`` subtree. Returns that sequence.
+
+        Note: the server's initial HTML carries no ``dj-id`` attributes on the
+        ``dj-root`` content (they are stamped during diffing and by the client
+        on load); the load-bearing invariant this pins is that the diff-time
+        assignment is identical across the two independent instances. The
+        #1370 fix made ``render_full_template`` reuse the same Rust view the WS
+        path diffs, which is what keeps these aligned — this harness locks that
+        against regression.
+        """
+        # HTTP-GET-shaped instance: render the browser DOM, then the baseline.
+        http = self._build_mounted_instance(**mount_kwargs)
+        http.get_template()
+        http.render_full_template(http.request)  # exercise the real initial-page path
+        http_html, _, _ = http.render_with_diff(http.request)
+        http_ids = self._djroot_djids(http_html)
+
+        # WebSocket-mount-shaped instance: independent baseline.
+        ws = self._build_mounted_instance(**mount_kwargs)
+        ws.get_template()
+        ws_html, _, _ = ws.render_with_diff(ws.request)
+        ws_ids = self._djroot_djids(ws_html)
+
+        assert http_ids == ws_ids, (
+            "HTTP-GET vs WebSocket-mount dj-id divergence for "
+            f"{self.view_class.__name__} (#1641/#1642): the two render paths "
+            f"assign different dj-id baselines, so the first WS event's patches "
+            f"would miss d-resolution and fall back to path traversal.\n"
+            f"  HTTP baseline: {http_ids}\n  WS   baseline: {ws_ids}"
+        )
+        return http_ids
+
+    def assert_allowlisted(self) -> None:
+        """Assert this view's path is permitted by ``LIVEVIEW_ALLOWED_MODULES``.
+
+        The WebSocket mount path rejects any view whose path isn't allowlisted,
+        after which the client silently degrades to full-page HTTP re-renders —
+        a misconfiguration ``mount()`` does NOT surface (it just instantiates
+        the class), so a URL-routed view can be 100% green in the unit suite yet
+        broken in the browser (#1674). Call this in a test to fail fast on the
+        gap (pairs with the ``djust.V005`` system check, which now also walks
+        URL-routed views).
+
+        Matches the runtime enforcement exactly: a NON-empty allowlist is
+        required, and a view is permitted when an allowed entry is a PREFIX of
+        its view path. An unset or empty allowlist means allow-all, so this is a
+        no-op in that case.
+
+        Raises:
+            AssertionError: If the allowlist is non-empty and no entry is a
+                prefix of this view's path.
+        """
+        from django.conf import settings
+
+        allowed = getattr(settings, "LIVEVIEW_ALLOWED_MODULES", None)
+        if not allowed:
+            return
+        module = getattr(self.view_class, "__module__", "") or ""
+        view_path = f"{module}.{getattr(self.view_class, '__name__', '')}"
+        if not any(view_path.startswith(m) or module.startswith(m) for m in allowed):
+            raise AssertionError(
+                f"{self.view_class.__name__}'s module '{module}' is not permitted "
+                f"by LIVEVIEW_ALLOWED_MODULES {list(allowed)} — its WebSocket mount "
+                f"would be rejected and events would silently fall back to "
+                f"full-page HTTP re-renders. Add '{module}' (or a prefix) to "
+                f"LIVEVIEW_ALLOWED_MODULES in settings (#1674)."
+            )
+
     def assert_state(self, **expected: Any) -> None:
         """
         Assert state variables match expected values.
@@ -995,6 +1108,46 @@ def create_test_view(view_class: Type, user: Optional[Any] = None, **mount_param
     client = LiveViewTestClient(view_class, user=user)
     client.mount(**mount_params)
     return client.view_instance
+
+
+def assert_all_routed_liveviews_allowlisted() -> None:
+    """Assert EVERY URL-routed LiveView's module is permitted by the allowlist.
+
+    A single unit-test guard for the #1674 gap: a routed LiveView forgotten
+    from ``LIVEVIEW_ALLOWED_MODULES`` is invisible to per-view tests (which
+    instantiate the class directly, bypassing the mount allowlist) and nearly
+    invisible at runtime (it silently degrades to HTTP fallback). Drop this in
+    one test and the whole app is covered.
+
+    Walks the root URLconf via the same discovery the ``djust.V005`` system
+    check uses (single source of truth), and applies the same prefix matching
+    as the WebSocket mount enforcement. No-op when the allowlist is unset/empty
+    (allow-all).
+
+    Raises:
+        AssertionError: listing every routed view whose path no allowlist entry
+            is a prefix of.
+    """
+    from django.conf import settings
+
+    from djust.checks import _routed_liveview_classes
+
+    allowed = getattr(settings, "LIVEVIEW_ALLOWED_MODULES", None)
+    if not allowed:
+        return
+    missing = []
+    for view_class in _routed_liveview_classes():
+        module = getattr(view_class, "__module__", "") or ""
+        view_path = f"{module}.{getattr(view_class, '__name__', '')}"
+        if not any(view_path.startswith(m) or module.startswith(m) for m in allowed):
+            missing.append(view_path)
+    if missing:
+        raise AssertionError(
+            "URL-routed LiveViews not permitted by LIVEVIEW_ALLOWED_MODULES "
+            f"{list(allowed)} — their WebSocket mounts would be rejected and "
+            f"events would silently fall back to HTTP: {sorted(set(missing))}. "
+            "Add the missing module(s) to LIVEVIEW_ALLOWED_MODULES (#1674)."
+        )
 
 
 # ============================================================================

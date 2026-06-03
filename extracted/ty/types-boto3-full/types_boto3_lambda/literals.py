@@ -75,6 +75,7 @@ __all__ = (
     "OperationTypeType",
     "PackageTypeType",
     "PaginatorName",
+    "PropagateTagsModeType",
     "ProvisionedConcurrencyStatusEnumType",
     "PublishedVersionActiveWaiterName",
     "RecursiveLoopType",
@@ -213,6 +214,7 @@ OperationStatusType = Literal[
 ]
 OperationTypeType = Literal["CALLBACK", "CHAINED_INVOKE", "CONTEXT", "EXECUTION", "STEP", "WAIT"]
 PackageTypeType = Literal["Image", "Zip"]
+PropagateTagsModeType = Literal["Explicit", "None"]
 ProvisionedConcurrencyStatusEnumType = Literal["FAILED", "IN_PROGRESS", "READY"]
 PublishedVersionActiveWaiterName = Literal["published_version_active"]
 RecursiveLoopType = Literal["Allow", "Terminate"]
@@ -685,6 +687,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

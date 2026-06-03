@@ -49,6 +49,7 @@ class V2ClusterUpdateParams(object):
         'no_proxy': 'str',
         'user_managed_networking': 'bool',
         'additional_ntp_source': 'str',
+        'ntp_sources': 'str',
         'olm_operators': 'list[OperatorCreateParams]',
         'hyperthreading': 'str',
         'network_type': 'str',
@@ -82,6 +83,7 @@ class V2ClusterUpdateParams(object):
         'no_proxy': 'no_proxy',
         'user_managed_networking': 'user_managed_networking',
         'additional_ntp_source': 'additional_ntp_source',
+        'ntp_sources': 'ntp_sources',
         'olm_operators': 'olm_operators',
         'hyperthreading': 'hyperthreading',
         'network_type': 'network_type',
@@ -96,7 +98,7 @@ class V2ClusterUpdateParams(object):
         'load_balancer': 'load_balancer'
     }
 
-    def __init__(self, name=None, base_dns_domain=None, cluster_network_cidr=None, platform=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, ingress_vips=None, api_vip_dns_name=None, machine_network_cidr=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=None, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=None, additional_ntp_source=None, olm_operators=None, hyperthreading=None, network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, name=None, base_dns_domain=None, cluster_network_cidr=None, platform=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, ingress_vips=None, api_vip_dns_name=None, machine_network_cidr=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=None, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, olm_operators=None, hyperthreading=None, network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
         """V2ClusterUpdateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
@@ -117,6 +119,7 @@ class V2ClusterUpdateParams(object):
         self._no_proxy = None
         self._user_managed_networking = None
         self._additional_ntp_source = None
+        self._ntp_sources = None
         self._olm_operators = None
         self._hyperthreading = None
         self._network_type = None
@@ -167,6 +170,8 @@ class V2ClusterUpdateParams(object):
             self.user_managed_networking = user_managed_networking
         if additional_ntp_source is not None:
             self.additional_ntp_source = additional_ntp_source
+        if ntp_sources is not None:
+            self.ntp_sources = ntp_sources
         if olm_operators is not None:
             self.olm_operators = olm_operators
         if hyperthreading is not None:
@@ -611,6 +616,29 @@ class V2ClusterUpdateParams(object):
         """
 
         self._additional_ntp_source = additional_ntp_source
+
+    @property
+    def ntp_sources(self):
+        """Gets the ntp_sources of this V2ClusterUpdateParams.  # noqa: E501
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for the cluster hosts.  # noqa: E501
+
+        :return: The ntp_sources of this V2ClusterUpdateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._ntp_sources
+
+    @ntp_sources.setter
+    def ntp_sources(self, ntp_sources):
+        """Sets the ntp_sources of this V2ClusterUpdateParams.
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for the cluster hosts.  # noqa: E501
+
+        :param ntp_sources: The ntp_sources of this V2ClusterUpdateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._ntp_sources = ntp_sources
 
     @property
     def olm_operators(self):

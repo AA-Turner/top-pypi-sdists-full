@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -37,10 +36,10 @@ class HostFunction:
     def __init__(
         self,
         type: HostFunctionType,
-        invoke_contract: Optional[InvokeContractArgs] = None,
-        create_contract: Optional[CreateContractArgs] = None,
-        wasm: Optional[bytes] = None,
-        create_contract_v2: Optional[CreateContractArgsV2] = None,
+        invoke_contract: InvokeContractArgs | None = None,
+        create_contract: CreateContractArgs | None = None,
+        wasm: bytes | None = None,
+        create_contract_v2: CreateContractArgsV2 | None = None,
     ) -> None:
         _expect_max_length = 4294967295
         if wasm and len(wasm) > _expect_max_length:

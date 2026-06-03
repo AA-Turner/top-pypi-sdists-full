@@ -49,7 +49,7 @@ class SimpleRequestsClient(BaseSyncClient):
         try:
             resp = requests.get(url=url, params=params, headers=HEADERS)
         except (RequestException, NewConnectionError) as err:
-            raise ConnectionError(err)
+            raise ConnectionError(err) from err
         return Response(
             status_code=resp.status_code,
             text=resp.text,
@@ -74,7 +74,7 @@ class SimpleRequestsClient(BaseSyncClient):
         try:
             resp = requests.post(url=url, data=data, json=json_data, headers=HEADERS)
         except (RequestException, NewConnectionError) as err:
-            raise ConnectionError(err)
+            raise ConnectionError(err) from err
         return Response(
             status_code=resp.status_code,
             text=resp.text,
@@ -92,10 +92,10 @@ class SimpleRequestsClient(BaseSyncClient):
         :param params: the request params
         :return: None
         """
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def close(self):
-        pass  # pragma: no cover
+        pass
 
     def __repr__(self):
         return "<SimpleRequestsClient>"

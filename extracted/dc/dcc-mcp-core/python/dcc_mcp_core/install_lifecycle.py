@@ -16,7 +16,6 @@ from pathlib import Path
 import re
 import shutil
 import sys
-import tempfile
 from typing import Any
 from typing import Dict
 from typing import Iterable
@@ -25,36 +24,33 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
-from ._install_lifecycle_process import entry_runtime_alive as _entry_runtime_alive
 from ._install_lifecycle_process import is_windows_lock_error as _is_windows_lock_error
 from ._install_lifecycle_process import terminate_pid as _terminate_pid
+from ._install_lifecycle_readiness import probe_sidecar_tool
+from ._install_lifecycle_readiness import sidecar_readiness_status
+from ._install_lifecycle_readiness import wait_for_sidecar_ready
+from ._install_lifecycle_runtime import DISPATCH_STATUS_BOOTING
+from ._install_lifecycle_runtime import DISPATCH_STATUS_METADATA_KEY
+from ._install_lifecycle_runtime import DISPATCH_STATUS_READY
+from ._install_lifecycle_runtime import DISPATCH_STATUS_UNAVAILABLE
+from ._install_lifecycle_runtime import REGISTRY_ENV
+from ._install_lifecycle_runtime import ROLE_METADATA_KEY
+from ._install_lifecycle_runtime import ROLE_PER_DCC_SIDECAR
+from ._install_lifecycle_runtime import default_registry_dir
+from ._install_lifecycle_runtime import query_runtime_state
 from ._install_lifecycle_sidecar import build_sidecar_command
 from ._install_lifecycle_sidecar import launch_sidecar
+from ._install_lifecycle_sidecar import sidecar_host_rpc_dispatch_contract
 
-ROLE_METADATA_KEY = "dcc_mcp_role"
-ROLE_PER_DCC_SIDECAR = "per-dcc-sidecar"
-REGISTRY_ENV = "DCC_MCP_REGISTRY_DIR"
-REGISTRY_FILE = "services.json"
 REZ_CACHE_ROOT_ENV = "DCC_MCP_REZ_LOCAL_CACHE_ROOT"
 DEPLOYMENT_MODE_ENV = "DCC_MCP_DEPLOYMENT_MODE"
 
 DEFAULT_DEPLOYMENT_PACKAGES = ("dcc_mcp_core", "dcc_mcp_server")
-_INSTALL_ROOT_KEYS = (
-    "install_root",
-    "adapter_root",
-    "adapter_install_root",
-    "package_root",
-    "root_path",
-    "dcc_mcp_core_root",
-    "dcc_mcp_server_root",
-)
-_VERSION_KEYS = {
+_RUNTIME_VERSION_KEYS = {
     "core": ("dcc_mcp_core_version", "core_version"),
     "server": ("dcc_mcp_server_version", "server_version"),
     "adapter": ("adapter_version", "dcc_mcp_adapter_version"),
 }
-_RESTART_COMMAND_KEYS = ("restart_command", "dcc_mcp_restart_command")
-_LAUNCH_COMMAND_KEYS = ("launch_command", "dcc_mcp_launch_command")
 
 _NATIVE_SUFFIXES = tuple(
     sorted(
@@ -66,6 +62,10 @@ _NATIVE_SUFFIXES = tuple(
 
 __all__ = [
     "DEPLOYMENT_MODE_ENV",
+    "DISPATCH_STATUS_BOOTING",
+    "DISPATCH_STATUS_METADATA_KEY",
+    "DISPATCH_STATUS_READY",
+    "DISPATCH_STATUS_UNAVAILABLE",
     "REGISTRY_ENV",
     "ROLE_METADATA_KEY",
     "ROLE_PER_DCC_SIDECAR",
@@ -75,17 +75,16 @@ __all__ = [
     "launch_sidecar",
     "main",
     "plan_runtime_updates",
+    "probe_sidecar_tool",
     "query_runtime_state",
     "resolve_deployment_layout",
     "safe_remove_tree",
     "safe_replace_tree",
+    "sidecar_host_rpc_dispatch_contract",
+    "sidecar_readiness_status",
     "stop_runtime_entries",
+    "wait_for_sidecar_ready",
 ]
-
-
-def default_registry_dir() -> str:
-    """Return the shared FileRegistry directory without importing ``_core``."""
-    return os.environ.get(REGISTRY_ENV) or str(Path(tempfile.gettempdir()) / "dcc-mcp-registry")
 
 
 def _to_path(path: Any) -> Optional[Path]:
@@ -105,124 +104,6 @@ def _path_under(path: Optional[Path], root: Optional[Path]) -> bool:
     except ValueError:
         return False
     return True
-
-
-def _normalise_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
-    metadata = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
-    sidecar_pid = _parse_int(metadata.get("sidecar_pid"))
-    parent_pid = _parse_int(entry.get("pid"))
-    runtime_pid = sidecar_pid if sidecar_pid is not None else parent_pid
-    sentinel_path = entry.get("sentinel_path")
-    runtime_alive = _entry_runtime_alive(sentinel_path, runtime_pid)
-    host = str(entry.get("host") or "127.0.0.1")
-    port = _parse_int(entry.get("port")) or 0
-    mcp_url = metadata.get("mcp_url") or (f"http://{host}:{port}/mcp" if port else None)
-    role = str(metadata.get(ROLE_METADATA_KEY) or "runtime")
-
-    install_roots = []
-    for key in _INSTALL_ROOT_KEYS:
-        value = metadata.get(key)
-        if value:
-            install_roots.append(str(value))
-    versions = {
-        "core": _metadata_value(metadata, "core"),
-        "server": _metadata_value(metadata, "server"),
-        "adapter": entry.get("adapter_version") or _metadata_value(metadata, "adapter"),
-    }
-    restart_command = _first_present(metadata, _RESTART_COMMAND_KEYS)
-    launch_command = _first_present(metadata, _LAUNCH_COMMAND_KEYS)
-
-    return {
-        "dcc_type": entry.get("dcc_type"),
-        "instance_id": entry.get("instance_id"),
-        "display_name": entry.get("display_name"),
-        "role": role,
-        "status": entry.get("status", "available"),
-        "host": host,
-        "port": port,
-        "mcp_url": mcp_url,
-        "parent_pid": parent_pid,
-        "sidecar_pid": sidecar_pid,
-        "runtime_pid": runtime_pid,
-        "runtime_alive": runtime_alive,
-        "sentinel_path": str(sentinel_path) if sentinel_path not in (None, "") else None,
-        "version": entry.get("version"),
-        "adapter_version": entry.get("adapter_version"),
-        "adapter_dcc": entry.get("adapter_dcc") or metadata.get("adapter_dcc"),
-        "versions": versions,
-        "restartable": bool(sidecar_pid or restart_command or launch_command),
-        "restart_command": restart_command,
-        "launch_command": launch_command,
-        "metadata": metadata,
-        "install_roots": install_roots,
-    }
-
-
-def _metadata_value(metadata: Dict[str, Any], component: str) -> Any:
-    return _first_present(metadata, _VERSION_KEYS.get(component, ()))
-
-
-def _first_present(metadata: Dict[str, Any], keys: Iterable[str]) -> Any:
-    for key in keys:
-        value = metadata.get(key)
-        if value not in (None, ""):
-            return value
-    return None
-
-
-def _parse_int(value: Any) -> Optional[int]:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return None
-    return parsed if parsed > 0 else None
-
-
-def _read_registry_entries(registry_dir: Optional[Any] = None) -> List[Dict[str, Any]]:
-    base = _to_path(registry_dir) or Path(default_registry_dir())
-    path = base / REGISTRY_FILE
-    if not path.exists():
-        return []
-    with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
-
-
-def query_runtime_state(
-    registry_dir: Optional[Any] = None,
-    *,
-    dcc_type: Optional[str] = None,
-    role: Optional[str] = None,
-    install_root: Optional[Any] = None,
-    include_dead: bool = True,
-) -> Dict[str, Any]:
-    """Read registered DCC runtimes from ``services.json`` using stdlib only."""
-    root = _to_path(install_root)
-    entries = []
-    for raw in _read_registry_entries(registry_dir):
-        entry = _normalise_entry(raw)
-        if dcc_type and entry.get("dcc_type") != dcc_type:
-            continue
-        if role and entry.get("role") != role:
-            continue
-        if root is not None:
-            roots = [_to_path(item) for item in entry.get("install_roots", [])]
-            if not any(_path_under(item, root) or _path_under(root, item) for item in roots):
-                continue
-        if not include_dead and entry.get("runtime_alive") is False:
-            continue
-        entries.append(entry)
-
-    return {
-        "success": True,
-        "registry_dir": str(_to_path(registry_dir) or Path(default_registry_dir())),
-        "total": len(entries),
-        "alive_count": sum(1 for entry in entries if entry.get("runtime_alive") is True),
-        "dead_count": sum(1 for entry in entries if entry.get("runtime_alive") is False),
-        "entries": entries,
-    }
 
 
 def resolve_deployment_layout(
@@ -607,8 +488,16 @@ def _entry_version(entry: Dict[str, Any], component: str) -> Optional[str]:
     if component == "adapter" and entry.get("adapter_version") not in (None, ""):
         return str(entry.get("adapter_version"))
     metadata = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
-    value = _metadata_value(metadata, component)
+    value = _runtime_metadata_version(metadata, component)
     return str(value) if value not in (None, "") else None
+
+
+def _runtime_metadata_version(metadata: Dict[str, Any], component: str) -> Any:
+    for key in _RUNTIME_VERSION_KEYS.get(component, ()):
+        value = metadata.get(key)
+        if value not in (None, ""):
+            return value
+    return None
 
 
 def _compare_version(current: Optional[str], target: Optional[str]) -> str:
@@ -792,6 +681,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     launch = sub.add_parser("launch-sidecar", help="Start a sidecar without importing _core.")
     _add_sidecar_launch_args(launch)
     launch.add_argument("--foreground", action="store_true", help="Do not detach the sidecar on Windows.")
+    launch.add_argument("--poll-interval-secs", type=float, default=0.25)
+    _add_sidecar_probe_args(launch)
+    launch.add_argument(
+        "--wait-ready-timeout-secs",
+        type=float,
+        help="Optionally wait for dispatch readiness after spawning the sidecar.",
+    )
+
+    ready = sub.add_parser("sidecar-ready", help="Check per-DCC sidecar dispatch readiness.")
+    _add_sidecar_ready_args(ready)
 
     plan = sub.add_parser("plan-update", help="Plan restart actions for mixed runtime versions.")
     plan.add_argument("--registry-dir")
@@ -847,10 +746,49 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     if args.command == "sidecar-command":
         return _print_json(build_sidecar_command(**_sidecar_launch_kwargs(args)))
     if args.command == "launch-sidecar":
+        try:
+            probe_arguments = _parse_probe_args(args.probe_args_json)
+        except ValueError as exc:
+            return _print_json(_failed("invalid_probe_args", str(exc), None))
         return _print_json(
             launch_sidecar(
                 **_sidecar_launch_kwargs(args),
                 detached=not args.foreground,
+                wait_ready_timeout_secs=args.wait_ready_timeout_secs,
+                poll_interval_secs=args.poll_interval_secs,
+                probe_tool=args.probe_tool,
+                probe_arguments=probe_arguments,
+                probe_timeout_secs=args.probe_timeout_secs,
+            )
+        )
+    if args.command == "sidecar-ready":
+        try:
+            probe_arguments = _parse_probe_args(args.probe_args_json)
+        except ValueError as exc:
+            return _print_json(_failed("invalid_probe_args", str(exc), None))
+        if args.timeout_secs > 0:
+            return _print_json(
+                wait_for_sidecar_ready(
+                    args.registry_dir,
+                    dcc_type=args.dcc_type,
+                    instance_id=args.instance_id,
+                    host_rpc=args.host_rpc,
+                    timeout_secs=args.timeout_secs,
+                    poll_interval_secs=args.poll_interval_secs,
+                    probe_tool=args.probe_tool,
+                    probe_arguments=probe_arguments,
+                    probe_timeout_secs=args.probe_timeout_secs,
+                )
+            )
+        return _print_json(
+            sidecar_readiness_status(
+                args.registry_dir,
+                dcc_type=args.dcc_type,
+                instance_id=args.instance_id,
+                host_rpc=args.host_rpc,
+                probe_tool=args.probe_tool,
+                probe_arguments=probe_arguments,
+                probe_timeout_secs=args.probe_timeout_secs,
             )
         )
     if args.command == "plan-update":
@@ -893,6 +831,34 @@ def _add_sidecar_launch_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--connect-timeout-secs", type=int)
     parser.add_argument("--no-ensure-gateway", action="store_true")
     parser.add_argument("--legacy-gateway-election", action="store_true")
+    parser.add_argument(
+        "--require-dispatch-capable",
+        action="store_true",
+        help="Fail if --host-rpc cannot prove production sidecar tool dispatch.",
+    )
+    parser.add_argument(
+        "--extra-sidecar-arg",
+        action="append",
+        dest="extra_args",
+        help="Append a raw argument to the dcc-mcp-server sidecar argv.",
+    )
+
+
+def _add_sidecar_ready_args(parser: argparse.ArgumentParser, *, include_timeout: bool = True) -> None:
+    parser.add_argument("--registry-dir")
+    parser.add_argument("--dcc-type", "--dcc", dest="dcc_type")
+    parser.add_argument("--instance-id")
+    parser.add_argument("--host-rpc")
+    if include_timeout:
+        parser.add_argument("--timeout-secs", type=float, default=0.0)
+    parser.add_argument("--poll-interval-secs", type=float, default=0.25)
+    _add_sidecar_probe_args(parser)
+
+
+def _add_sidecar_probe_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--probe-tool", help="Optional read-only tool slug to call before reporting ready.")
+    parser.add_argument("--probe-args-json", help="JSON object arguments for --probe-tool.")
+    parser.add_argument("--probe-timeout-secs", type=float, default=3.0)
 
 
 def _sidecar_launch_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
@@ -913,7 +879,18 @@ def _sidecar_launch_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
         "connect_timeout_secs": args.connect_timeout_secs,
         "no_ensure_gateway": args.no_ensure_gateway,
         "legacy_gateway_election": args.legacy_gateway_election,
+        "require_dispatch_capable": args.require_dispatch_capable,
+        "extra_args": args.extra_args,
     }
+
+
+def _parse_probe_args(value: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not value:
+        return None
+    probe_arguments = json.loads(value)
+    if not isinstance(probe_arguments, dict):
+        raise ValueError("--probe-args-json must decode to a JSON object")
+    return probe_arguments
 
 
 if __name__ == "__main__":

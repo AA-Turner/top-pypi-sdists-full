@@ -6,7 +6,7 @@ members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-act
 resolver = "2"
 
 [workspace.package]
-version = "0.17.50" # x-release-please-version
+version = "0.17.51" # x-release-please-version
 edition = "2024"
 rust-version = "1.95"
 authors = ["Hal Long <hal.long@outlook.com>"]
@@ -37,6 +37,7 @@ dcc-mcp-http-server = { path = "crates/dcc-mcp-http-server" }
 dcc-mcp-http-py = { path = "crates/dcc-mcp-http-py" }
 dcc-mcp-cli = { path = "crates/dcc-mcp-cli" }
 dcc-mcp-server = { path = "crates/dcc-mcp-server" }
+dcc-mcp-sidecar = { path = "crates/dcc-mcp-sidecar" }
 dcc-mcp-workflow = { path = "crates/dcc-mcp-workflow" }
 dcc-mcp-scheduler = { path = "crates/dcc-mcp-scheduler" }
 dcc-mcp-artefact = { path = "crates/dcc-mcp-artefact" }

@@ -1,4 +1,4 @@
-# Generated from irish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from irish.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class IrishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from irish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from irish.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "á", "é", "í", "ó", "ú"}
@@ -47,30 +47,8 @@ class IrishStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.ket = self.cursor
-        if among_var == 1:
-            self.slice_del()
-        elif among_var == 2:
-            self.slice_from("f")
-        elif among_var == 3:
-            self.slice_from("s")
-        elif among_var == 4:
-            self.slice_from("b")
-        elif among_var == 5:
-            self.slice_from("c")
-        elif among_var == 6:
-            self.slice_from("d")
-        elif among_var == 7:
-            self.slice_from("g")
-        elif among_var == 8:
-            self.slice_from("p")
-        elif among_var == 9:
-            self.slice_from("t")
-        else:
-            self.slice_from("m")
+        self.slice_from(IrishStemmer.as_0[among_var - 1])
         return True
-
-    def __r_RV(self):
-        return self.I_pV <= self.cursor
 
     def __r_R1(self):
         return self.I_p1 <= self.cursor
@@ -123,7 +101,7 @@ class IrishStemmer(BaseStemmer):
             return False
         self.bra = self.cursor
         if among_var == 1:
-            if not self.__r_RV():
+            if self.I_pV > self.cursor:
                 return False
             self.slice_del()
         else:
@@ -177,6 +155,7 @@ class IrishStemmer(BaseStemmer):
         Among("th", -1, 9),
         Among("ts", -1, 3)
     ]
+    as_0 = ("", "f", "s", "b", "c", "d", "g", "p", "t", "m")
 
     a_1 = [
         Among("íochta", -1, 1),

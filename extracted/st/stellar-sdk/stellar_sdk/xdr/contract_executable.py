@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -31,7 +30,7 @@ class ContractExecutable:
     def __init__(
         self,
         type: ContractExecutableType,
-        wasm_hash: Optional[Hash] = None,
+        wasm_hash: Hash | None = None,
     ) -> None:
         self.type = type
         self.wasm_hash = wasm_hash

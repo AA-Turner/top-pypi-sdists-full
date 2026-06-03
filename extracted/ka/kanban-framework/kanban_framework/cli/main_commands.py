@@ -128,15 +128,15 @@ def _cmd_help(args: list[str], cmd_map: dict) -> dict:
     return {"commands": sorted(cmd_map.keys())}
 
 
-_STABLE_VERSION = "0.75.2"
+_STABLE_VERSION = "0.123.0"
 
 def _cmd_update(args: list[str]) -> dict:
     """Upgrade kanban-framework and sync skill files.
 
     Channels:
-      --channel stable (default) → v0.75.2 — last stable before workflow redesign
-      --channel latest            → latest PyPI version (v0.96+)
-      --channel dev               → latest pre-release
+      --channel stable (default) → v0.115.0
+      --channel latest           → latest PyPI version
+      --channel dev              → latest pre-release
     """
     import subprocess as _sp
 

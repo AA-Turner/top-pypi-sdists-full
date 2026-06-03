@@ -2262,6 +2262,9 @@ RuntimeContextTypeDef = TypedDict(
         "ServiceName": NotRequired[str],
         "CommandLineExample": NotRequired[str],
         "ThreatFilePath": NotRequired[str],
+        "FileOperation": NotRequired[str],
+        "FilePath": NotRequired[str],
+        "RelatedFilePaths": NotRequired[list[str]],
     },
 )
 

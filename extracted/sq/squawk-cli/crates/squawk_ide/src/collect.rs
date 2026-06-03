@@ -102,14 +102,12 @@ fn resolved_to_column_ptrs(
                 .map(|(name, _ty)| (name, None))
                 .collect()
         }
-        ResolvedTableName::SelectInto(select_into) => select_into
-            .select_clause()
-            .and_then(|c| c.target_list())
-            .map(|t| target_list_columns_with_types(&t))
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(name, _ty)| (name, None))
-            .collect(),
+        ResolvedTableName::SelectInto(select_into) => {
+            select_into_columns_with_types(db, file, &select_into)
+                .into_iter()
+                .map(|(name, _ty)| (name, None))
+                .collect()
+        }
         ResolvedTableName::View(create_view_like) => {
             view_like_columns_with_types(db, file, &create_view_like)
                 .into_iter()
@@ -199,11 +197,9 @@ fn resolved_to_columns_with_types(
         ResolvedTableName::TableAs(create_table_as) => {
             select_columns_with_types(db, file, &create_table_as.query())
         }
-        ResolvedTableName::SelectInto(select_into) => select_into
-            .select_clause()
-            .and_then(|c| c.target_list())
-            .map(|t| target_list_columns_with_types(&t))
-            .unwrap_or_default(),
+        ResolvedTableName::SelectInto(select_into) => {
+            select_into_columns_with_types(db, file, &select_into)
+        }
         ResolvedTableName::View(create_view_like) => {
             view_like_columns_with_types(db, file, &create_view_like)
         }
@@ -217,6 +213,27 @@ pub(crate) fn create_table_as_columns_with_types(
 ) -> Vec<(Name, Option<Type>)> {
     for file in list_files(db, file) {
         let columns = select_columns_with_types(db, file, &create_table_as.query());
+        if !columns.is_empty() {
+            return columns;
+        }
+    }
+
+    vec![]
+}
+
+pub(crate) fn select_into_columns_with_types(
+    db: &dyn Db,
+    file: File,
+    select_into: &ast::SelectInto,
+) -> Vec<(Name, Option<Type>)> {
+    let Some(target_list) = select_into.select_clause().and_then(|c| c.target_list()) else {
+        return vec![];
+    };
+    let from_clause = select_into.from_clause();
+
+    for file in list_files(db, file) {
+        let columns =
+            target_list_columns_with_types_in_file(db, file, &target_list, from_clause.as_ref());
         if !columns.is_empty() {
             return columns;
         }
@@ -280,45 +297,7 @@ fn select_columns_with_types(
             target_list_columns_with_types_in_file(db, file, &target_list, from_clause.as_ref())
         }
         ast::SelectVariant::Values(values) => columns_from_values(values),
-        ast::SelectVariant::Table(table) => {
-            let Some(path) = table.relation_name().and_then(|r| r.path()) else {
-                return vec![];
-            };
-            let Some((schema, table_name)) = name::schema_and_name_path(&path) else {
-                return vec![];
-            };
-            let name_ref = path.segment().and_then(|s| s.name_ref());
-            let position = table.syntax().text_range().start();
-            let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
-            // Try CTE resolution first since resolve_table_name doesn't handle CTEs
-            if let Some((ptr, kind)) =
-                resolve_table_like(db, name_ref.as_ref(), &table_name, &schemas, file)
-            {
-                let tree = parse(db, file).tree();
-                let node = ptr.to_node(tree.syntax());
-                match kind {
-                    LocationKind::Table => {
-                        if let Some(with_table) = node.ancestors().find_map(ast::WithTable::cast) {
-                            return with_table_columns_with_types(db, file, with_table);
-                        }
-                        if let Some(t) = node.ancestors().find_map(ast::CreateTableLike::cast) {
-                            return table_columns(db, file, &t);
-                        }
-                    }
-                    LocationKind::View => {
-                        if let Some(v) = node.ancestors().find_map(ast::CreateViewLike::cast) {
-                            return view_like_columns_with_types(db, file, &v);
-                        }
-                    }
-                    _ => (),
-                }
-            }
-            // Fall back to builtins for schema-qualified names
-            if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
-                return resolved_to_columns_with_types(db, resolved.file_id, resolved.value, 0);
-            }
-            vec![]
-        }
+        ast::SelectVariant::Table(table) => table_query_columns_with_types(db, file, table),
         ast::SelectVariant::SelectInto(select_into) => {
             let Some(target_list) = select_into.select_clause().and_then(|c| c.target_list())
             else {
@@ -334,6 +313,51 @@ fn select_columns_with_types(
             select_columns_with_types(db, file, &compound.lhs())
         }
     }
+}
+
+fn table_query_columns_with_types(
+    db: &dyn Db,
+    file: File,
+    table: &ast::Table,
+) -> Vec<(Name, Option<Type>)> {
+    let Some(path) = table.relation_name().and_then(|r| r.path()) else {
+        return vec![];
+    };
+    let Some((schema, table_name)) = name::schema_and_name_path(&path) else {
+        return vec![];
+    };
+    let Some(name_ref) = path.segment().and_then(|s| s.name_ref()) else {
+        return vec![];
+    };
+    let position = name_ref.syntax().text_range().start();
+    let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+    // Try CTE resolution first since resolve_table_name doesn't handle CTEs
+    if let Some((ptr, kind)) = resolve_table_like(db, Some(&name_ref), &table_name, &schemas, file)
+    {
+        let tree = parse(db, file).tree();
+        let node = ptr.to_node(tree.syntax());
+        match kind {
+            LocationKind::Table => {
+                if let Some(with_table) = node.ancestors().find_map(ast::WithTable::cast) {
+                    return with_table_columns_with_types(db, file, with_table);
+                }
+                if let Some(t) = node.ancestors().find_map(ast::CreateTableLike::cast) {
+                    return table_columns(db, file, &t);
+                }
+            }
+            LocationKind::View => {
+                if let Some(v) = node.ancestors().find_map(ast::CreateViewLike::cast) {
+                    return view_like_columns_with_types(db, file, &v);
+                }
+            }
+            _ => (),
+        }
+    }
+    // Fall back to builtins for schema-qualified names
+    if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
+        return resolved_to_columns_with_types(db, resolved.file_id, resolved.value, 0);
+    }
+    vec![]
 }
 
 fn columns_from_returning_clause_with_types(
@@ -497,6 +521,10 @@ fn with_table_query_columns_with_types(
         return columns_from_values(&values);
     }
 
+    if let ast::WithQuery::Table(table) = query {
+        return table_query_columns_with_types(db, file, &table);
+    }
+
     if let Some(columns) = columns_from_returning_clause_with_types(db, file, &query) {
         return columns;
     }
@@ -563,6 +591,12 @@ fn column_type_at_location(db: &dyn Db, def: Location) -> Option<Type> {
         }
         ast_nav::ParentSouce::ParenSelect(paren_select) => {
             paren_select_columns_with_types(db, def.file, &paren_select)
+                .into_iter()
+                .find(|(n, _)| *n == column_name)
+                .and_then(|(_, t)| t)
+        }
+        ast_nav::ParentSouce::SelectInto(select_into) => {
+            select_into_columns_with_types(db, def.file, &select_into)
                 .into_iter()
                 .find(|(n, _)| *n == column_name)
                 .and_then(|(_, t)| t)
@@ -701,21 +735,11 @@ fn columns_for_star_from_table_ptr(
         Some(ast_nav::ParentSouce::ParenSelect(paren_select)) => {
             paren_select_columns_with_types(db, file, &paren_select)
         }
+        Some(ast_nav::ParentSouce::SelectInto(select_into)) => {
+            select_into_columns_with_types(db, file, &select_into)
+        }
         None => vec![],
     }
-}
-
-fn target_list_columns_with_types(target_list: &ast::TargetList) -> Vec<(Name, Option<Type>)> {
-    let mut columns = vec![];
-    for target in target_list.targets() {
-        if let Some((col_name, _node)) = ColumnName::from_target(target.clone())
-            && let Some(col_name_str) = col_name.to_string()
-        {
-            let ty = target.expr().and_then(|e| infer_type_from_expr(&e));
-            columns.push((Name::from_string(col_name_str), ty));
-        }
-    }
-    columns
 }
 
 pub(crate) fn paren_select_columns_with_types(
@@ -734,8 +758,6 @@ fn select_variant_columns_with_types(
     file: File,
     select_variant: &ast::SelectVariant,
 ) -> Vec<(Name, Option<Type>)> {
-    let tree = parse(db, file).tree();
-    let root = tree.syntax();
     match select_variant {
         ast::SelectVariant::Values(values) => columns_from_values(values),
         ast::SelectVariant::Select(select) => {
@@ -767,40 +789,7 @@ fn select_variant_columns_with_types(
             };
             select_variant_columns_with_types(db, file, &lhs)
         }
-        ast::SelectVariant::Table(table) => {
-            let Some(path) = table.relation_name().and_then(|r| r.path()) else {
-                return vec![];
-            };
-            let Some((schema, table_name)) = name::schema_and_name_path(&path) else {
-                return vec![];
-            };
-            let name_ref = path.segment().and_then(|segment| segment.name_ref());
-            let position = table.syntax().text_range().start();
-            let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
-            let Some((ptr, kind)) =
-                resolve_table_like(db, name_ref.as_ref(), &table_name, &schemas, file)
-            else {
-                return vec![];
-            };
-            let node = ptr.to_node(root);
-            match kind {
-                LocationKind::View => node
-                    .ancestors()
-                    .find_map(ast::CreateViewLike::cast)
-                    .map(|v| view_like_columns_with_types(db, file, &v))
-                    .unwrap_or_default(),
-                LocationKind::Table => {
-                    if let Some(with_table) = node.ancestors().find_map(ast::WithTable::cast) {
-                        return with_table_columns_with_types(db, file, with_table);
-                    }
-                    node.ancestors()
-                        .find_map(ast::CreateTableLike::cast)
-                        .map(|t| table_columns(db, file, &t))
-                        .unwrap_or_default()
-                }
-                _ => vec![],
-            }
-        }
+        ast::SelectVariant::Table(table) => table_query_columns_with_types(db, file, table),
     }
 }
 
@@ -855,6 +844,12 @@ pub(crate) fn star_column_names(db: &dyn Db, file: File, table_ptr: &SyntaxNodeP
                 return columns;
             }
             return star_column_names_from_paren_select(db, file, &paren_select);
+        }
+        Some(ast_nav::ParentSouce::SelectInto(select_into)) => {
+            select_into_columns_with_types(db, file, &select_into)
+                .into_iter()
+                .map(|(name, _ty)| name)
+                .collect()
         }
         None => vec![],
     }

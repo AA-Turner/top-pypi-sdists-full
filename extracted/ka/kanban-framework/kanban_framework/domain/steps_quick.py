@@ -5,11 +5,11 @@ from kanban_framework.domain.steps_types import StepDef
 QUICK_STEPS: dict[str, list[StepDef]] = {
     "execute": [
         StepDef("execute.pitfall_check", "踩坑预警：搜索相关踩坑记录",
-                actions=["kanban knowledge hybrid \"$task_title 踩坑 注意事项 错误\" --json --summary-only",
+                actions=["kanban knowledge hybrid \"$task_title 踩坑 注意事项 错误\" --biz $biz_tag --json --summary-only",
                          "检查是否有与当前任务相关的已知踩坑记录",
                          "将匹配到的踩坑写入 $task_dir/pitfall_warnings.md"]),
         StepDef("execute.tech_review", "技术方案评审：多方案时模型推理比较+用户确认",
-                actions=["kanban knowledge hybrid \"$task_title 技术方案 实现 approach best-practice\" --json --summary-only",
+                actions=["kanban knowledge hybrid \"$task_title 技术方案 实现 approach best-practice\" --biz $biz_tag --json --summary-only",
                          "对搜索结果中 category 为 最佳实践/架构/优化 的条目进一步分析",
                          "如有相关条目，用 kanban knowledge get <id> --json 取完整内容",
                          "将条目归类为不同技术方案（不同实现路径或技术选型）",
@@ -27,10 +27,14 @@ QUICK_STEPS: dict[str, list[StepDef]] = {
                     "你是 kanban 任务 $task_id 的执行 Agent（quick 模式）。\n"
                     "直接根据任务描述执行代码修改，无需规划或评审。\n\n"
                     "参考文件：$task_dir/task.json（任务描述）\n"
+                    "           $task_dir/spec.md（如有，需求设计文档）\n"
+                    "           $task_dir/task_breakdown.json（如有，按子任务逐个执行）\n"
                     "踩坑预警：$task_dir/pitfall_warnings.md（如有）\n"
                     "技术方案选择：$task_dir/tech_choice.md（如有，优先按此方案执行）\n\n"
                     "任务边界：\n"
-                    "- 直接修改代码完成任务目标\n"
+                    "- 如果 task_breakdown.json 存在，按子任务逐个执行并记录完成状态\n"
+                    "- 如果不存在，直接根据 task.json 描述执行\n"
+                    "- 修改代码完成任务目标\n"
                     "- 运行测试确认修改正确\n"
                     "- 产出 execution_summary.md 保存到 $task_dir/\n"
                     "- 完成后立即停止\n"

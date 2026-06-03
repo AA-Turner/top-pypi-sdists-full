@@ -45,6 +45,7 @@ class SystemPrompt(Prompt):
     PLANNER = auto()
     DIAGNOSTIC = auto()
     GEMMA4 = auto()
+    GEMMA4_SLIM = auto()
 
 
 class UtilityPrompt(Prompt):

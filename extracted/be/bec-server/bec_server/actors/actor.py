@@ -2,13 +2,14 @@
 
 import time
 from abc import ABC, abstractmethod
-from threading import Event
+from threading import Event, RLock
+from typing import Callable
 
 from bec_lib.actors import ActorActionTable
 from bec_lib.client import BECClient
 from bec_lib.endpoints import EndpointInfo, MessageEndpoints
 from bec_lib.logger import bec_logger
-from bec_lib.messages import ProcedureWorkerStatus
+from bec_lib.messages import BeamlineStateMessage, BlStateStatus, ProcedureWorkerStatus
 from bec_server.procedures.oop_worker_base import push_status
 
 logger = bec_logger.logger
@@ -65,17 +66,24 @@ class SubscriptionActor(ActorBase):
     def __init__(self, client: BECClient, name: str, exec_id: str):
         super().__init__(client, name, exec_id)
         self._endpoints = self.default_monitor_endpoints()
+        self._stopped = False
         self.last_evaluated = 0
 
         logger.info(f"Setting up {self.__class__.__name__}: {self._endpoints}.")
         for endpoint in self._endpoints:
             logger.info(f"Connecting {self.__class__.__name__} to '{endpoint.endpoint}'")
-            client.connector.register(endpoint, cb=self.evaluate)
+            for cb in self.default_monitor_callbacks():
+                client.connector.register(endpoint, cb=cb)
 
     def default_monitor_endpoints(self) -> set[EndpointInfo]:
         return set()
 
+    def default_monitor_callbacks(self) -> list[Callable]:
+        return [self.evaluate]
+
     def evaluate(self, *_, **__):
+        if self._stopped:
+            return
         if (now := time.monotonic()) < self.last_evaluated + self.min_delay_s:
             return
         logger.info(f"{self.__class__.__name__} triggered")
@@ -86,8 +94,85 @@ class SubscriptionActor(ActorBase):
         self.push_status(ProcedureWorkerStatus.RUNNING)
         try:
             self.stop_event.wait()
+            self.stop()
         except KeyboardInterrupt:
             self.push_status(ProcedureWorkerStatus.IDLE)
+
+    def stop(self, *_):
+        self._stopped = True
+        for endpoint in self._endpoints:
+            for cb in self.default_monitor_callbacks():
+                try:
+                    self.client.connector.unregister(endpoint, cb=cb)
+                except Exception as e:
+                    logger.error(
+                        f"{self.__class__} {self.__qualname__} failed to unregister {cb} from {endpoint}: {e}"
+                    )
+
+
+class BlStateActor(SubscriptionActor):
+    """
+    Base for actors which respond to changes in beamline states.
+
+    If all current values of states in state_table match the value in the table,
+    self.all_match_action() is called. If not, self.some_mismatch_action() is called.
+    """
+
+    state_table: dict[str, BlStateStatus]
+
+    def __init__(self, client: BECClient, name: str, exec_id: str):
+        self.state_table_lock = RLock()
+        self.action_table = {
+            self.all_states_match: self.all_match_action,
+            self.not_all_states_match: self.some_mismatch_action,
+        }
+        super().__init__(client, name, exec_id)
+        self.state_cache: dict[str, BlStateStatus] = {}
+        self._update_cache()
+        self.evaluate()
+
+    def _update_cache(self):
+        with self.state_table_lock:
+            to_remove = []
+            for state in self.state_table:
+                status = self.client.beamline_states.get_status_by_name(state)
+                if status is None:
+                    logger.warning(f"Beamline state actor could not get the status of {state}!")
+                    to_remove.append(state)
+                    continue
+                self.state_cache[state] = status
+            for state in to_remove:
+                logger.warning(f"Removing {state} from watched states.")
+                del self.state_table[state]
+
+    def all_states_match(self, client: BECClient):
+        with self.state_table_lock:
+            for state, status in self.state_table.items():
+                if self.state_cache.get(state) != status:
+                    logger.info(f"Beamline state {state} out of bounds: expected={status}")
+                    return False
+            return True
+
+    def not_all_states_match(self, client: BECClient):
+        return not self.all_states_match(client)
+
+    def all_match_action(self, client: BECClient):
+        pass
+
+    def some_mismatch_action(self, client: BECClient):
+        pass
+
+    def default_monitor_endpoints(self) -> set[EndpointInfo]:
+        return {MessageEndpoints.beamline_state(state) for state in self.state_table}
+
+    def evaluate(self, msg_dict: dict | None = None):
+        """If evaluate is triggered as a callback to a received beamline state stream message, it
+        will update the cache before executing the evaluation. If it is called without an argument
+        it will evaluate based on the current cache of beamline states."""
+        if msg_dict is not None:
+            msg: BeamlineStateMessage = msg_dict["data"]
+            self.state_cache[msg.name] = msg.status
+        return super().evaluate()
 
 
 class PollingActor(ActorBase):

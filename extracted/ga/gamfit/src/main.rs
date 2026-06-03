@@ -699,6 +699,10 @@ enum FamilyArg {
     #[value(alias = "nb", alias = "negbin", alias = "negative_binomial")]
     NegativeBinomial,
     GammaLog,
+    #[value(alias = "tw")]
+    Tweedie,
+    #[value(alias = "beta-regression")]
+    Beta,
     RoystonParmar,
     TransformationNormal,
 }
@@ -2623,20 +2627,12 @@ fn run_predict_unified(
 ) -> Result<(), String> {
     let fit_for_predict = fit_result_from_saved_model_for_prediction(model)?;
     let model_class = model.predict_model_class();
-    let family = model.likelihood();
-    // Binomial with any standard (Logit/Probit/CLogLog/Sas/BetaLogistic)
-    // link uses a nonlinear inverse-link — prediction needs the nonlinear
-    // path. State-carrying links (Sas(state), BetaLogistic(state),
-    // Mixture, LatentCLogLog) likewise nonlinear; covered below.
-    let nonlinear = matches!(
-        (&family.response, &family.link),
-        (ResponseFamily::Binomial, InverseLink::Standard(_))
-            | (ResponseFamily::Binomial, InverseLink::Sas(_))
-            | (ResponseFamily::Binomial, InverseLink::BetaLogistic(_))
-            | (ResponseFamily::Binomial, InverseLink::Mixture(_))
-            | (ResponseFamily::Binomial, InverseLink::LatentCLogLog(_))
-    ) || model.has_link_wiggle()
-        || model.has_baseline_time_wiggle();
+    // Binomial standard/SAS/BetaLogistic/Mixture/LatentCLogLog links and any
+    // link/baseline-time wiggle have a curved inverse link, so the default
+    // point prediction must be the posterior mean rather than the plug-in.
+    // The predicate is owned by `FittedModel` so the CLI and the Python FFI
+    // path share one definition (SPEC: posterior mean is always the default).
+    let nonlinear = model.prediction_uses_posterior_mean();
     let sigma_opt = if model_class == PredictModelClass::GaussianLocationScale {
         predictor
             .predict_noise_scale(pred_input)
@@ -6874,6 +6870,8 @@ fn family_arg_name(arg: FamilyArg) -> &'static str {
         FamilyArg::PoissonLog => "poisson-log",
         FamilyArg::NegativeBinomial => "negative-binomial",
         FamilyArg::GammaLog => "gamma-log",
+        FamilyArg::Tweedie => "tweedie",
+        FamilyArg::Beta => "beta",
         FamilyArg::RoystonParmar => "royston-parmar",
         FamilyArg::TransformationNormal => "transformation-normal",
     }
@@ -8206,6 +8204,8 @@ fn family_arg_canonical_name(arg: FamilyArg) -> Option<&'static str> {
         FamilyArg::PoissonLog => Some("poisson"),
         FamilyArg::NegativeBinomial => Some("negative-binomial"),
         FamilyArg::GammaLog => Some("gamma"),
+        FamilyArg::Tweedie => Some("tweedie"),
+        FamilyArg::Beta => Some("beta"),
         FamilyArg::RoystonParmar => Some("royston-parmar"),
         FamilyArg::TransformationNormal => Some("transformation-normal"),
     }
@@ -8547,17 +8547,6 @@ fn build_model_summary(
         ResponseFamily::Gaussian | ResponseFamily::Gamma
     );
     let residual_df = (y.len() as f64 - fit.edf_total().unwrap_or(fit.beta.len() as f64)).max(1.0);
-    let dispersion_phi = match family.response {
-        ResponseFamily::Gaussian => fit.standard_deviation * fit.standard_deviation,
-        ResponseFamily::Gamma => fit.likelihood_scale.fixed_phi().unwrap_or_else(|| {
-            if fit.standard_deviation.is_finite() && fit.standard_deviation > 0.0 {
-                1.0 / fit.standard_deviation
-            } else {
-                1.0
-            }
-        }),
-        _ => 1.0,
-    };
     let two_sided_parametric_p = |z: f64| -> Option<f64> {
         if !z.is_finite() {
             return None;
@@ -8743,7 +8732,6 @@ fn build_model_summary(
                     coeff_range: term.coeff_range.clone(),
                     edf,
                     nullspace_dim: term.nullspace_dims.iter().copied().sum::<usize>(),
-                    dispersion: dispersion_phi,
                     residual_df,
                     scale: if scale_is_estimated {
                         SmoothTestScale::Estimated
@@ -10177,6 +10165,7 @@ mod tests {
         let y_binary = array![0.0, 1.0, 1.0, 0.0];
         let y_count = array![0.0, 1.0, 2.0, 3.0, 4.0];
         let y_positive = array![0.5, 1.5, 2.5, 3.5];
+        let y_unit = array![0.1, 0.3, 0.6, 0.9];
 
         let logit = LinkChoice {
             mode: LinkMode::Strict,
@@ -10244,6 +10233,22 @@ mod tests {
                 None,
                 None,
                 &y_positive,
+                ResponseColumnKind::Numeric,
+            ),
+            // Tweedie on non-negative continuous y; Beta on unit-interval y.
+            // Both reach the canonical resolver verbatim via the CLI adapter.
+            (
+                FamilyArg::Tweedie,
+                None,
+                None,
+                &y_positive,
+                ResponseColumnKind::Numeric,
+            ),
+            (
+                FamilyArg::Beta,
+                None,
+                None,
+                &y_unit,
                 ResponseColumnKind::Numeric,
             ),
             // Link-implied families. Log link on integer-valued y → Poisson;

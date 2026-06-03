@@ -1,4 +1,4 @@
-# Generated from portuguese.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from portuguese.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class PortugueseStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from portuguese.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from portuguese.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "á", "â", "é", "ê", "í", "ó", "ô", "ú"}
@@ -135,9 +135,6 @@ class PortugueseStemmer(BaseStemmer):
     def __r_RV(self):
         return self.I_pV <= self.cursor
 
-    def __r_R1(self):
-        return self.I_p1 <= self.cursor
-
     def __r_R2(self):
         return self.I_p2 <= self.cursor
 
@@ -164,7 +161,7 @@ class PortugueseStemmer(BaseStemmer):
                 return False
             self.slice_from("ente")
         elif among_var == 5:
-            if not self.__r_R1():
+            if self.I_p1 > self.cursor:
                 return False
             self.slice_del()
             v_1 = self.limit - self.cursor

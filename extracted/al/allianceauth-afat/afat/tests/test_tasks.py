@@ -616,7 +616,7 @@ class TestCheckForEsiFleet(BaseTestCase):
 
         self.assertIsNone(result)
         mock_error_handling.assert_called_once_with(
-            error_key=FatLink.EsiError.NOT_IN_FLEET, fatlink=mock_fatlink
+            error_key=FatLink.EsiError.NO_FLEET, fatlink=mock_fatlink
         )
 
     @patch("afat.utils.esi.__class__.client", new_callable=MagicMock)

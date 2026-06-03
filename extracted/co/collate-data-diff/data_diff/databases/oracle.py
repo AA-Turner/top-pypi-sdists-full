@@ -128,7 +128,7 @@ class Dialect(
     def md5_as_int(self, s: str) -> str:
         # standard_hash is faster than DBMS_CRYPTO.Hash
         # TODO: Find a way to use UTL_RAW.CAST_TO_BINARY_INTEGER ?
-        return f"to_number(substr(standard_hash({s}, 'MD5'), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS}), 'xxxxxxxxxxxxxxx') - {CHECKSUM_OFFSET}"
+        return f"to_number(substr(standard_hash({s}, 'MD5'), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS}), 'xxxxxxxxxxxxxxx') - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"standard_hash({s}, 'MD5')"
@@ -145,7 +145,7 @@ class Dialect(
             truncated = f"to_char({value}, 'YYYY-MM-DD HH24:MI:SS.FF{coltype.precision}')"
         else:
             truncated = f"to_char({value}, 'YYYY-MM-DD HH24:MI:SS.')"
-        return f"RPAD({truncated}, {TIMESTAMP_PRECISION_POS+6}, '0')"
+        return f"RPAD({truncated}, {TIMESTAMP_PRECISION_POS + 6}, '0')"
 
     def normalize_number(self, value: str, coltype: FractionalType) -> str:
         # FM999.9990

@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
 from .base import DEFAULT_XDR_MAX_DEPTH, String
-from .constants import *
+from .constants import SC_SPEC_DOC_LIMIT
 from .sc_spec_udt_union_case_v0 import SCSpecUDTUnionCaseV0
 
 __all__ = ["SCSpecUDTUnionV0"]
@@ -33,7 +32,7 @@ class SCSpecUDTUnionV0:
         doc: bytes,
         lib: bytes,
         name: bytes,
-        cases: List[SCSpecUDTUnionCaseV0],
+        cases: list[SCSpecUDTUnionCaseV0],
     ) -> None:
         _expect_max_length = SC_SPEC_DOC_LIMIT
         if doc and len(doc) > _expect_max_length:

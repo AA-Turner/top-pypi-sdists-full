@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -34,9 +33,9 @@ class LedgerCloseMeta:
     def __init__(
         self,
         v: int,
-        v0: Optional[LedgerCloseMetaV0] = None,
-        v1: Optional[LedgerCloseMetaV1] = None,
-        v2: Optional[LedgerCloseMetaV2] = None,
+        v0: LedgerCloseMetaV0 | None = None,
+        v1: LedgerCloseMetaV1 | None = None,
+        v2: LedgerCloseMetaV2 | None = None,
     ) -> None:
         self.v = v
         self.v0 = v0

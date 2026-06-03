@@ -153,7 +153,10 @@ impl<'a> Parser<'a> {
         if self.current_token.is_some() {
             self.current_span.start.offset
         } else {
-            self.input.len()
+            // Important decision: EOF keeps `current_span` on the last real token;
+            // use that token end so skipped trailing comments are not retained in
+            // persistent function source snapshots.
+            self.current_span.end.offset
         }
     }
 
@@ -176,6 +179,27 @@ impl<'a> Parser<'a> {
             )));
         }
         self.fuel -= 1;
+        Ok(())
+    }
+
+    /// Consume multiple parser fuel units for lexer work that can scale with input size.
+    /// THREAT[TM-DOS-064]: Heredoc rest-of-line re-injection copies command suffixes;
+    /// charge each copied character so repeated heredocs cannot hide quadratic work
+    /// outside parser fuel accounting.
+    fn tick_units(&mut self, units: usize) -> Result<()> {
+        if let Some(timeout) = self.timeout
+            && self.started_at.elapsed() > timeout
+        {
+            return Err(Error::ResourceLimit(LimitExceeded::ParserTimeout(timeout)));
+        }
+        if self.fuel < units {
+            let used = self.max_fuel;
+            return Err(Error::parse(format!(
+                "parser fuel exhausted ({} operations, max {})",
+                used, self.max_fuel
+            )));
+        }
+        self.fuel -= units;
         Ok(())
     }
 
@@ -208,6 +232,10 @@ impl<'a> Parser<'a> {
 
     /// Parse the input and return the AST.
     pub fn parse(mut self) -> Result<Script> {
+        self.parse_script()
+    }
+
+    fn parse_script(&mut self) -> Result<Script> {
         // Check if the very first token is an error
         self.check_error_token()?;
 
@@ -404,7 +432,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse redirections that follow a compound command (>, >>, 2>, etc.)
-    fn parse_trailing_redirects(&mut self) -> Vec<Redirect> {
+    fn parse_trailing_redirects(&mut self) -> Result<Vec<Redirect>> {
         let mut redirects = Vec::new();
         loop {
             match &self.current_token {
@@ -579,7 +607,10 @@ impl<'a> Parser<'a> {
                         | Some(tokens::Token::QuotedGlobWord(w)) => (w.clone(), true),
                         _ => break,
                     };
-                    let content = self.lexer.read_heredoc_with_strip(&delimiter, strip_tabs);
+                    let (content, rest_of_line_chars) = self
+                        .lexer
+                        .read_heredoc_with_strip_metered(&delimiter, strip_tabs);
+                    self.tick_units(rest_of_line_chars)?;
                     let content = if strip_tabs {
                         let had_trailing_newline = content.ends_with('\n');
                         let mut stripped: String = content
@@ -618,7 +649,7 @@ impl<'a> Parser<'a> {
                 _ => break,
             }
         }
-        redirects
+        Ok(redirects)
     }
 
     /// Parse a compound command and any trailing redirections
@@ -627,7 +658,7 @@ impl<'a> Parser<'a> {
         parser: impl FnOnce(&mut Self) -> Result<CompoundCommand>,
     ) -> Result<Option<Command>> {
         let compound = parser(self)?;
-        let redirects = self.parse_trailing_redirects();
+        let redirects = self.parse_trailing_redirects()?;
         Ok(Some(Command::Compound(compound, redirects)))
     }
 
@@ -1304,44 +1335,52 @@ impl<'a> Parser<'a> {
     /// name. Otherwise the command starts immediately and the default name
     /// "COPROC" is used.
     fn parse_coproc(&mut self) -> Result<CompoundCommand> {
-        let start_span = self.current_span;
-        self.advance(); // consume 'coproc'
-        self.skip_newlines()?;
+        self.tick()?;
+        self.push_depth()?;
 
-        // Determine if next token is a NAME (simple word that is NOT a compound-
-        // command keyword and is followed by a compound command start).
-        let (name, consumed_name) = if let Some(tokens::Token::Word(w)) = &self.current_token {
-            let word = w.clone();
-            let is_compound_keyword = matches!(
-                word.as_str(),
-                "if" | "for" | "while" | "until" | "case" | "select" | "time" | "coproc"
-            );
-            let next_is_compound_start = matches!(
-                self.peek_next(),
-                Some(tokens::Token::LeftBrace) | Some(tokens::Token::LeftParen)
-            );
-            if !is_compound_keyword && next_is_compound_start {
-                self.advance(); // consume the NAME
-                self.skip_newlines()?;
-                (word, true)
+        let result = (|| {
+            let start_span = self.current_span;
+            self.advance(); // consume 'coproc'
+            self.skip_newlines()?;
+
+            // Determine if next token is a NAME (simple word that is NOT a compound-
+            // command keyword and is followed by a compound command start).
+            let (name, consumed_name) = if let Some(tokens::Token::Word(w)) = &self.current_token {
+                let word = w.clone();
+                let is_compound_keyword = matches!(
+                    word.as_str(),
+                    "if" | "for" | "while" | "until" | "case" | "select" | "time" | "coproc"
+                );
+                let next_is_compound_start = matches!(
+                    self.peek_next(),
+                    Some(tokens::Token::LeftBrace) | Some(tokens::Token::LeftParen)
+                );
+                if !is_compound_keyword && next_is_compound_start {
+                    self.advance(); // consume the NAME
+                    self.skip_newlines()?;
+                    (word, true)
+                } else {
+                    ("COPROC".to_string(), false)
+                }
             } else {
                 ("COPROC".to_string(), false)
-            }
-        } else {
-            ("COPROC".to_string(), false)
-        };
+            };
 
-        let _ = consumed_name;
+            let _ = consumed_name;
 
-        // Parse the command body (could be simple, compound, or pipeline)
-        let body = self.parse_pipeline()?;
-        let body = body.ok_or_else(|| self.error("coproc: missing command"))?;
+            // Parse the command body (could be simple, compound, or pipeline)
+            let body = self.parse_pipeline()?;
+            let body = body.ok_or_else(|| self.error("coproc: missing command"))?;
 
-        Ok(CompoundCommand::Coproc(ast::CoprocCommand {
-            name,
-            body: Box::new(body),
-            span: start_span.merge(self.current_span),
-        }))
+            Ok(CompoundCommand::Coproc(ast::CoprocCommand {
+                name,
+                body: Box::new(body),
+                span: start_span.merge(self.current_span),
+            }))
+        })();
+
+        self.pop_depth();
+        result
     }
 
     /// Check if current token is ;; (case terminator)
@@ -2188,7 +2227,10 @@ impl<'a> Parser<'a> {
             _ => return Err(Error::parse("expected delimiter after <<".to_string())),
         };
 
-        let content = self.lexer.read_heredoc_with_strip(&delimiter, strip_tabs);
+        let (content, rest_of_line_chars) = self
+            .lexer
+            .read_heredoc_with_strip_metered(&delimiter, strip_tabs);
+        self.tick_units(rest_of_line_chars)?;
 
         // Strip leading tabs for <<-
         let content = if strip_tabs {
@@ -2747,14 +2789,38 @@ impl<'a> Parser<'a> {
                     .source_slice(body_start_offset, body_end_offset)
                     .unwrap_or_default();
 
-                // THREAT[TM-DOS-021]: Propagate parent parser limits to child parser
-                // to prevent depth limit bypass via nested process substitution.
-                // Child inherits remaining depth budget and fuel from parent.
-                let remaining_depth = self.max_depth.saturating_sub(self.current_depth);
-                let inner_parser = Parser::with_limits(&cmd_str, remaining_depth, self.fuel);
-                let commands = match inner_parser.parse() {
-                    Ok(script) => script.commands,
-                    Err(_) => Vec::new(),
+                // THREAT[TM-DOS-021]: Charge nested process-substitution parsers
+                // against the same depth/fuel/timeout budget. A fresh child parser
+                // without inherited current depth or fuel debit lets repeated `<(...)`
+                // recurse until stack overflow before normal parser limits fire.
+                if self.current_depth >= self.max_depth {
+                    return Err(Error::parse(format!(
+                        "AST nesting too deep ({} levels, max {})",
+                        self.current_depth + 1,
+                        self.max_depth
+                    )));
+                }
+                let mut inner_parser = Parser::with_limits_and_timeout(
+                    &cmd_str,
+                    self.max_depth,
+                    self.fuel,
+                    self.timeout,
+                );
+                inner_parser.current_depth = self.current_depth + 1;
+                inner_parser.started_at = self.started_at;
+                let commands = match inner_parser.parse_script() {
+                    Ok(script) => {
+                        self.fuel = inner_parser.fuel;
+                        script.commands
+                    }
+                    Err(err) if Self::is_parser_budget_error(&err) => {
+                        self.fuel = inner_parser.fuel;
+                        return Err(err);
+                    }
+                    Err(_) => {
+                        self.fuel = inner_parser.fuel;
+                        Vec::new()
+                    }
                 };
 
                 Ok(Word {
@@ -2764,6 +2830,17 @@ impl<'a> Parser<'a> {
                 })
             }
             _ => Err(self.error("expected word")),
+        }
+    }
+
+    fn is_parser_budget_error(err: &Error) -> bool {
+        match err {
+            Error::ResourceLimit(_) => true,
+            Error::Parse { message, .. } => {
+                message.starts_with("AST nesting too deep")
+                    || message.starts_with("parser fuel exhausted")
+            }
+            _ => false,
         }
     }
 
@@ -3948,6 +4025,83 @@ mod tests {
             AssignmentValue::Scalar(word) => assert_eq!(word.to_string(), "a+=b"),
             AssignmentValue::Array(_) => panic!("expected scalar assignment"),
         }
+    }
+
+    fn nested_process_substitution(levels: usize) -> String {
+        let mut script = String::from("cat ");
+        for _ in 0..levels {
+            script.push_str("<(cat ");
+        }
+        script.push_str("echo x");
+        for _ in 0..levels {
+            script.push_str("; )");
+        }
+        script
+    }
+
+    #[test]
+    fn test_nested_process_substitution_within_budget_parses() {
+        let script = nested_process_substitution(3);
+        let parser = Parser::with_limits(&script, 8, 1_000);
+        parser
+            .parse()
+            .expect("nested process substitution within budget should parse");
+    }
+
+    #[test]
+    fn test_nested_process_substitution_consumes_depth_budget() {
+        let script = nested_process_substitution(5);
+        let parser = Parser::with_limits(&script, 4, 10_000);
+        let err = parser
+            .parse()
+            .expect_err("nested process substitution must not bypass AST depth");
+        assert!(
+            err.to_string().contains("AST nesting too deep"),
+            "expected AST depth error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_nested_process_substitution_consumes_fuel_budget() {
+        let script = nested_process_substitution(8);
+        let parser = Parser::with_limits(&script, 100, 8);
+        let err = parser
+            .parse()
+            .expect_err("nested process substitution must not get fresh parser fuel");
+        assert!(
+            err.to_string().contains("parser fuel exhausted"),
+            "expected parser fuel error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_nested_coproc_respects_ast_depth_limit() {
+        let parser = Parser::with_limits("coproc coproc echo x", 1, usize::MAX);
+        let err = parser.parse().unwrap_err();
+        assert!(
+            err.to_string().contains("AST nesting too deep"),
+            "expected controlled AST depth error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_nested_coproc_consumes_parser_fuel() {
+        let parser = Parser::with_limits("coproc coproc echo x", 100, 3);
+        let err = parser.parse().unwrap_err();
+        assert!(
+            err.to_string().contains("parser fuel exhausted"),
+            "expected controlled parser fuel error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_chained_heredoc_reinjection_consumes_parser_fuel() {
+        let script = ": <<E && : <<E && : <<E\nE\nE\nE\n";
+        let err = Parser::with_fuel(script, 12).parse().unwrap_err();
+        assert!(
+            err.to_string().contains("parser fuel exhausted"),
+            "expected heredoc rest-of-line reinjection to consume parser fuel, got: {err}"
+        );
     }
 
     #[test]

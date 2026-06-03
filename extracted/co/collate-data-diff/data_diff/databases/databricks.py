@@ -85,7 +85,7 @@ class Dialect(BaseDialect):
         return tuple(i for i in path if i is not None)
 
     def md5_as_int(self, s: str) -> str:
-        return f"cast(conv(substr(md5({s}), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS}), 16, 10) as decimal(38, 0)) - {CHECKSUM_OFFSET}"
+        return f"cast(conv(substr(md5({s}), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS}), 16, 10) as decimal(38, 0)) - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"md5({s})"

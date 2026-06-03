@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Copyright (c) 2021 Felix Fontein
 # Copyright (c) 2020 Markus Bergholz <markuman+spambelongstogoogle@gmail.com>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -31,13 +29,13 @@ options:
     version_added: 3.0.0
 
 extends_documentation_fragment:
-  - community.dns.hetzner
-  - community.dns.hetzner.plugin
-  - community.dns.hetzner.record_type_choices_records_inventory
-  - community.dns.hetzner.record_type_seealso
-  - community.dns.hetzner.zone_id_type
-  - community.dns.inventory_records
-  - community.dns.options.record_transformation
+  - community.dns._hetzner
+  - community.dns._hetzner.plugin
+  - community.dns._hetzner.record_type_choices_records_inventory
+  - community.dns._hetzner.record_type_seealso
+  - community.dns._hetzner.zone_id_type
+  - community.dns._inventory_records
+  - community.dns._options.record_transformation
   - community.library_inventory_filtering_v1.inventory_filter
 
 notes:
@@ -72,27 +70,35 @@ hetzner_token: >-
   {{ (lookup('community.sops.sops', 'keys/hetzner.sops.yml') | from_yaml).hetzner_dns_token }}
 """
 
+import typing as t
 
-from ansible_collections.community.dns.plugins.module_utils.hetzner.api import (
+from ansible_collections.community.dns.plugins.module_utils._hetzner.api import (
     create_hetzner_api,
     create_hetzner_provider_information,
 )
-from ansible_collections.community.dns.plugins.module_utils.http import OpenURLHelper
-from ansible_collections.community.dns.plugins.plugin_utils.inventory.records import (
+from ansible_collections.community.dns.plugins.module_utils._http import OpenURLHelper
+from ansible_collections.community.dns.plugins.plugin_utils._inventory.records import (
     RecordsInventoryModule,
 )
-from ansible_collections.community.dns.plugins.plugin_utils.templated_options import (
+from ansible_collections.community.dns.plugins.plugin_utils._templated_options import (
     TemplatedOptionProvider,
 )
+
+if t.TYPE_CHECKING:
+    from ..module_utils._provider import ProviderInformation  # pragma: no cover
+    from ..module_utils._zone_record_api import ZoneRecordAPI  # pragma: no cover
+    from ..module_utils._zone_record_set_api import ZoneRecordSetAPI  # pragma: no cover
 
 
 class InventoryModule(RecordsInventoryModule):
     NAME = "community.dns.hetzner_dns_records"
     VALID_ENDINGS = ("hetzner_dns.yaml", "hetzner_dns.yml")
 
-    def setup_api(self) -> None:
+    def setup_api(self) -> tuple[ProviderInformation, ZoneRecordAPI | ZoneRecordSetAPI]:
         option_provider = TemplatedOptionProvider(self, self.templar)
-        self.provider_information = create_hetzner_provider_information(
+        provider_information = create_hetzner_provider_information(
             option_provider=option_provider
         )
-        self.api = create_hetzner_api(option_provider, OpenURLHelper())
+        return provider_information, create_hetzner_api(
+            option_provider, OpenURLHelper()
+        )

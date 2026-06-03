@@ -50,7 +50,7 @@ class Dialect(PostgresqlDialect):
         return super().type_repr(t)
 
     def md5_as_int(self, s: str) -> str:
-        return f"strtol(substring(md5({s}), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS}), 16)::decimal(38) - {CHECKSUM_OFFSET}"
+        return f"strtol(substring(md5({s}), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS}), 16)::decimal(38) - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"md5({s})"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-structures
-Version: 4.0.0
+Version: 4.0.1
 Summary: App for managing Eve Online structures with Alliance Auth.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.10

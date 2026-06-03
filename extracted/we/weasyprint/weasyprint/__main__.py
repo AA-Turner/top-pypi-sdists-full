@@ -74,7 +74,7 @@ class Parser(argparse.ArgumentParser):
                 data[-1] = '\n\n'
                 data.append(f'  {args["help"][0].upper()}{args["help"][1:]}.\n\n')
                 if 'choices' in args:
-                    choices = ", ".join(args['choices'])
+                    choices = ', '.join(args['choices'])
                     data.append(f'  Possible choices: {choices}.\n\n')
                 if action == 'append':
                     data.append('  This option can be passed multiple times.\n\n')
@@ -115,9 +115,11 @@ group.add_argument(
     '--custom-metadata', action='store_true',
     help='include custom HTML meta tags in PDF metadata')
 group.add_argument(
+    '--output-intent',
+    help='srgb, device-cmyk, or CSS identifier of the output intent color space')
+group.add_argument(
     '-p', '--presentational-hints', action='store_true',
     help='follow HTML presentational hints')
-group.add_argument('--srgb', action='store_true', help='include sRGB color profile')
 group.add_argument(
     '--optimize-images', action='store_true',
     help='optimize size of embedded images with no quality loss')
@@ -160,6 +162,7 @@ group.add_argument(
     help='abort document rendering on any HTTP error')
 
 group = PARSER.add_argument_group('command-line logging options')
+group = group.add_mutually_exclusive_group()
 group.add_argument(
     '-v', '--verbose', action='store_true',
     help='show warnings and information messages')
@@ -209,22 +212,16 @@ def main(argv=None, stdout=None, stdin=None, HTML=HTML):  # noqa: N803
     options = {
         key: value for key, value in vars(args).items() if key in DEFAULT_OPTIONS}
 
-    # Default to logging to stderr.
-    if args.debug:
-        LOGGER.setLevel(logging.DEBUG)
-    elif args.verbose:
-        LOGGER.setLevel(logging.INFO)
     if not args.quiet:
-        handler = logging.StreamHandler()
         if args.debug:
-            # Add extra information when debug logging
-            handler.setFormatter(
-                logging.Formatter(
-                    '%(levelname)s: %(filename)s:%(lineno)d '
-                    '(%(funcName)s): %(message)s'))
-        else:
-            handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-        LOGGER.addHandler(handler)
+            LOGGER.setLevel(logging.DEBUG)
+        elif args.verbose:
+            LOGGER.setLevel(logging.INFO)
+        logging.basicConfig(format=
+            '%(levelname)s: %(name)s %(filename)s:%(lineno)d '
+            '(%(funcName)s): %(message)s'
+            if args.debug else '%(levelname)s: %(message)s',
+            level=logging.DEBUG if args.debug else None)
 
     html = HTML(
         source, base_url=args.base_url, encoding=args.encoding,

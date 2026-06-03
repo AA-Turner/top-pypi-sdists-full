@@ -35,6 +35,10 @@ DEFAULT_GUARD_DEVICE_SCOPES = (
     "guard:runtime.session.write",
     "guard:offline_access",
 )
+CI_SAFE_GUARD_DEVICE_SCOPES = (
+    "guard:runtime.sync",
+    "guard:offline_access",
+)
 CONNECT_COMMAND = "hol-guard connect"
 CONNECT_STATUS_COMMAND = "hol-guard connect status"
 CONNECT_REPAIR_COMMAND = "hol-guard connect repair"
@@ -336,6 +340,10 @@ def build_device_authorization_request_body(
     )
 
 
+def _resolve_guard_device_scopes(*, ci_safe: bool) -> tuple[str, ...]:
+    return CI_SAFE_GUARD_DEVICE_SCOPES if ci_safe else DEFAULT_GUARD_DEVICE_SCOPES
+
+
 def _require_string(payload: dict[str, object], key: str) -> str:
     value = str(payload.get(key) or "").strip()
     if not value:
@@ -549,17 +557,22 @@ def run_guard_device_connect_command(
     sleep=time.sleep,
     now: str | None = None,
     announce_copy=None,
+    open_browser=None,
+    ci_safe: bool = False,
+    machine_label: str | None = None,
 ) -> dict[str, object]:
     device = store.get_device_metadata()
     _, allowed_origin = resolve_connect_url(connect_url)
     oauth_client = resolve_guard_oauth_client_config(allowed_origin)
     dpop_key_material = generate_dpop_key_pair()
+    resolved_machine_label = machine_label.strip() if isinstance(machine_label, str) else ""
     request_body = build_device_authorization_request_body(
         machine_id=str(device["installation_id"]),
-        machine_label=str(device["device_label"]),
+        machine_label=resolved_machine_label or str(device["device_label"]),
         runtime_id=HEADLESS_RUNTIME_ID,
         runtime_label=HEADLESS_RUNTIME_LABEL,
         client_id=oauth_client.client_id,
+        scopes=_resolve_guard_device_scopes(ci_safe=ci_safe),
     )
     response = request_device_authorization(
         oauth_client.device_authorization_endpoint,
@@ -567,6 +580,13 @@ def run_guard_device_connect_command(
     )
     payload = build_device_authorization_copy_payload(response)
     payload["connect_mode"] = "device_code"
+    if open_browser is not None:
+        next_action = payload.get("next_action")
+        target = next_action.get("target") if isinstance(next_action, dict) else None
+        opened = False
+        if isinstance(target, str) and target:
+            opened = bool(open_browser(target))
+        payload["browser_opened"] = opened
     if announce_copy is not None:
         announce_copy(payload)
     device_code = str(response.get("device_code") or "").strip()

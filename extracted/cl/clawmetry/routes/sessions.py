@@ -2027,6 +2027,7 @@ def _try_local_store_subagents(_rows=None):
             "depth":            int(extra.get("depth") or 1),
             "parent":           r.get("parent_session_id") or extra.get("spawnedBy"),
             "totalTokens":      token_count,
+            "costUsd":          round(float(r.get("cost_usd") or 0.0), 4),
             "runtime":          runtime,
             "runtimeMs":        runtime_ms,
             "startedAt":        spawned_at_ms or updated_at_ms,
@@ -2417,6 +2418,29 @@ def _check_integrity(subagents):
     return violations
 
 
+@bp_sessions.route("/api/orchestration")
+def api_orchestration():
+    """Compact orchestration status board — agent cards with cost and model tags.
+
+    Wraps the subagents DuckDB fast-path (same source as /api/subagents) and
+    adds a per-agent ``costUsd`` field for the status-board panel rendered
+    above the subagent tree. Returns an empty board when the local store is
+    unavailable so the existing tree view still works via its own fallback.
+    """
+    fast = _try_local_store_subagents()
+    agents = (fast or {}).get("subagents", [])
+    counts = (fast or {}).get("counts", {})
+    total_cost_usd = round(sum(a.get("costUsd", 0.0) for a in agents), 4)
+    return jsonify({
+        "agents": agents,
+        "summary": {
+            "total":          counts.get("total", 0),
+            "active":         counts.get("active", 0),
+            "total_cost_usd": total_cost_usd,
+        },
+    })
+
+
 @bp_sessions.route("/api/subagents/integrity")
 def api_subagents_integrity():
     """Validate subagent state-machine: orphans, cycles, duplicate completions.
@@ -2594,6 +2618,252 @@ def _try_local_store_delegation_tree():
         "total_chain_cost_usd": round(total_chain_cost, 4),
         "_source":              "local_store",
     }
+
+
+def _derive_waste_summary(sessions: list) -> dict:
+    """Fleet-level 'recoverable spend' — the blog's framework as a real number.
+
+    Aggregates the per-session cost-intel rows (from cost-breakdown) into a
+    breakdown of where the bill is going to waste: reasoning tax, low cache,
+    failing tools, compaction thrash, silent model fallbacks. Pure (testable).
+    Counts are honest (a session is flagged once per category it trips); the
+    reasoning figure is a real $ sum, the rest are session counts the operator
+    can drill into. We deliberately do NOT invent a single 'you saved $X' total.
+    """
+    sessions = sessions or []
+    total_cost = sum(float(s.get("cost_usd") or 0.0) for s in sessions)
+    reasoning = round(sum(float(s.get("reasoning_cost_usd") or 0.0) for s in sessions), 4)
+    low_cache, failing, compacting, mixed, flagged = [], [], [], [], set()
+    reread, reread_usd = [], 0.0
+    for s in sessions:
+        sid = s.get("session_id")
+        chp = s.get("cache_hit_pct")
+        if chp is not None and chp < 40 and (s.get("cost_usd") or 0) > 0:
+            low_cache.append(sid); flagged.add(sid)
+        # Re-read tax: paid more to rebuild the prompt cache than reuse saved.
+        cwc = s.get("cache_write_cost_usd")
+        if cwc and float(cwc) > 0.005 and float(cwc) > float(s.get("cache_saved_usd") or 0.0):
+            reread.append(sid); reread_usd += float(cwc); flagged.add(sid)
+        if (s.get("tool_error_pct") or 0) >= 20:
+            failing.append(sid); flagged.add(sid)
+        if (s.get("compaction_count") or 0) >= 2:
+            compacting.append(sid); flagged.add(sid)
+        if s.get("model_mix"):
+            mixed.append(sid); flagged.add(sid)
+        if (s.get("reasoning_cost_usd") or 0) > 0 and s.get("cost_usd") and (s["reasoning_cost_usd"] / s["cost_usd"]) > 0.25:
+            flagged.add(sid)
+    return {
+        "total_cost_usd": round(total_cost, 4),
+        "session_count": len(sessions),
+        "flagged_session_count": len(flagged),
+        "reasoning_cost_usd": reasoning,
+        "reasoning_pct_of_cost": round(reasoning / total_cost * 100, 1) if total_cost else 0.0,
+        "low_cache_sessions": len(low_cache),
+        "reread_tax_sessions": len(reread),
+        "reread_tax_usd": round(reread_usd, 4),
+        "tool_failing_sessions": len(failing),
+        "compaction_heavy_sessions": len(compacting),
+        "model_fallback_sessions": len(mixed),
+    }
+
+
+@bp_sessions.route("/api/waste-summary")
+def api_waste_summary():
+    """Fleet 'recoverable spend' breakdown — where the agent bill is going to
+    waste across recent sessions (reasoning tax, low cache, failing tools,
+    compaction thrash, silent model fallbacks). The cost-intel cluster rolled
+    up to the fleet level; the productivity-gains framework as a live number.
+    """
+    try:
+        cb = _try_local_store_cost_breakdown() or {"sessions": []}
+        sessions = cb.get("sessions", [])
+    except Exception:
+        sessions = []
+    return jsonify(_derive_waste_summary(sessions))
+
+
+_WASTE_RECOMMENDATIONS = {
+    "reasoning_heavy": "Reasoning is over a quarter of this session's cost — billed like output but with no visible deliverable. Lower the reasoning effort, or use a cheaper model for routine work.",
+    "cache_poor": "Low cache hit — context is being re-sent at full price every turn. Keep the system prompt stable and reuse the session so the prompt cache stays warm.",
+    "tools_failing": "A tool came back a real error on 20%+ of calls — you're paying tokens on the retries. Fix or remove the failing tool.",
+    "compaction_thrash": "This session auto-compacted repeatedly, re-summarising (and re-billing) the context each time. Work in a smaller context window.",
+    "reread_tax": "This session paid more to REBUILD the prompt cache than reuse saved — the cache's 5-minute TTL expired between turns, so it re-derived context that never changed. Keep the session warm (a heartbeat or batched turns inside the TTL) so the cache is read at ~0.1x instead of re-written at full price.",
+    "model_fallback": "This session silently ran on more than one model — a downgrade/upcharge you didn't choose. Pin the model you actually want.",
+    "fanned_out": "This ask spawned sub-agents, so its true cost includes everything they spent (see the fan-out figure) — not just this session's own line.",
+    "policy_denied": "A tool call was denied by governance. Review the policy if it blocked legitimate work.",
+}
+
+
+def _derive_session_insight(sess: dict, lineage: list) -> dict:
+    """Unify the per-session cost-intel + the lineage fan-out into ONE decision
+    insight: the TRUE cost of an ask (its own spend + everything its sub-agents
+    spent) plus the waste flags that fired. The context graph's per-session
+    answer — no single flat tab gives it. Pure function (so it's testable).
+    """
+    sess = sess or {}
+    lineage = lineage or []
+    cost = float(sess.get("cost_usd") or 0.0)
+    children = [n for n in lineage if (n.get("depth") or 0) > 0]
+    downstream = round(sum(float(n.get("cost_usd") or 0.0) for n in children), 6)
+    flags: list[str] = []
+    rc = sess.get("reasoning_cost_usd")
+    if rc and cost and (rc / cost) > 0.25:
+        flags.append("reasoning_heavy")
+    chp = sess.get("cache_hit_pct")
+    if chp is not None and chp < 40:
+        flags.append("cache_poor")
+    # Cache re-read tax (sharper than cache_poor): you paid MORE to rebuild the
+    # cache than reuse saved — the 5-min TTL expired between turns and the
+    # context was re-derived. Fires on the cost heuristic (write cost dwarfs
+    # savings) OR on direct evidence: turns that idled past the TTL (≥2).
+    cwc = sess.get("cache_write_cost_usd")
+    csv = float(sess.get("cache_saved_usd") or 0.0)
+    expiry = int(sess.get("cache_expiry_count") or 0)
+    if (cwc and float(cwc) > 0.005 and float(cwc) > csv) or expiry >= 2:
+        flags.append("reread_tax")
+    if (sess.get("tool_error_pct") or 0) >= 20:
+        flags.append("tools_failing")
+    if (sess.get("compaction_count") or 0) >= 2:
+        flags.append("compaction_thrash")
+    if sess.get("model_mix"):
+        flags.append("model_fallback")
+    if children:
+        flags.append("fanned_out")
+    return {
+        "cost_usd": round(cost, 6),
+        "reasoning_cost_usd": sess.get("reasoning_cost_usd"),
+        "cache_hit_pct": sess.get("cache_hit_pct"),
+        "cache_write_cost_usd": sess.get("cache_write_cost_usd"),
+        "cache_saved_usd": sess.get("cache_saved_usd"),
+        "cache_expiry_count": sess.get("cache_expiry_count"),
+        "tool_error_pct": sess.get("tool_error_pct"),
+        "compaction_count": sess.get("compaction_count"),
+        "model_mix": bool(sess.get("model_mix")),
+        "subagent_count": len(children),
+        "downstream_cost_usd": downstream,
+        "true_cost_usd": round(cost + downstream, 6),
+        "waste_flags": flags,
+    }
+
+
+def _session_governance(approvals: list, guardrails: list, session_id: str) -> dict:
+    """Context graph — the decision->approval / decision->guardrail edges for one
+    session: which tool calls were gated, and how they were decided. Joins the
+    approval queue (by requestor_session_id) with NeMo guardrail verdicts (by
+    session_id) into the session's governance lineage. Pure (testable).
+    """
+    _DENY = {"deny", "denied", "reject", "rejected", "block", "blocked"}
+    appr = [
+        {"kind": "approval", "action": a.get("action"),
+         "decision": a.get("decision") or a.get("status") or "", "reason": a.get("decision_reason") or "",
+         "status": a.get("status") or ""}
+        for a in (approvals or []) if a.get("requestor_session_id") == session_id
+    ]
+    grd = [
+        {"kind": "guardrail", "action": g.get("action"), "rule": g.get("rule_name"),
+         "verdict": g.get("verdict") or ""}
+        for g in (guardrails or []) if g.get("session_id") == session_id
+    ]
+    denied = sum(1 for a in appr if str(a.get("decision", "")).lower() in _DENY) \
+        + sum(1 for g in grd if str(g.get("verdict", "")).lower() in _DENY)
+    return {
+        "approvals": appr,
+        "guardrails": grd,
+        "decision_count": len(appr) + len(grd),
+        "denied_count": denied,
+    }
+
+
+@bp_sessions.route("/api/session-governance/<path:session_id>")
+def api_session_governance(session_id):
+    """Context graph — a session's governance lineage: its approval decisions +
+    NeMo guardrail verdicts (decision->approval / decision->guardrail edges).
+    """
+    try:
+        approvals = _ls_call("query_approvals", limit=500) or []
+    except Exception:
+        approvals = []
+    try:
+        guardrails = _ls_call("query_guardrail_events", limit=500) or []
+    except Exception:
+        guardrails = []
+    out = _session_governance(approvals, guardrails, session_id)
+    out["session_id"] = session_id
+    return jsonify(out)
+
+
+@bp_sessions.route("/api/session-insight/<path:session_id>")
+def api_session_insight(session_id):
+    """Context graph — the unified per-session decision insight: true cost
+    (own + sub-agent fan-out) + the waste flags that fired, joining the
+    cost-intel cluster with the lineage traversal in one answer.
+    """
+    try:
+        cb = _try_local_store_cost_breakdown() or {"sessions": []}
+        sess = next((s for s in cb.get("sessions", []) if s.get("session_id") == session_id), {})
+    except Exception:
+        sess = {}
+    try:
+        lineage = _ls_call("query_session_lineage", session_id=session_id) or []
+    except Exception:
+        lineage = []
+    out = _derive_session_insight(sess, lineage)
+    # Fold in the governance lineage so this is the COMPLETE per-session graph
+    # answer (cost + waste + fan-out + policy) — one call powers the card.
+    try:
+        gov = _session_governance(
+            _ls_call("query_approvals", limit=500) or [],
+            _ls_call("query_guardrail_events", limit=500) or [],
+            session_id,
+        )
+        out["governance"] = {"decision_count": gov["decision_count"], "denied_count": gov["denied_count"]}
+        if gov["denied_count"] > 0:
+            out["waste_flags"].append("policy_denied")
+    except Exception:
+        out["governance"] = {"decision_count": 0, "denied_count": 0}
+    # Turn the waste flags into actionable advice — what to DO, not just what
+    # happened. This is what makes the decision insight useful, not just a readout.
+    out["recommendations"] = [
+        {"flag": f, "text": _WASTE_RECOMMENDATIONS[f]}
+        for f in out.get("waste_flags", []) if f in _WASTE_RECOMMENDATIONS
+    ]
+    out["session_id"] = session_id
+    return jsonify(out)
+
+
+@bp_sessions.route("/api/session-errors/<path:session_id>")
+def api_session_errors(session_id):
+    """Context graph — the error->cause edge: this session's failed spans, each
+    with its parent span (the upstream decision one hop away)."""
+    try:
+        errors = _ls_call("query_session_errors", session_id=session_id) or []
+    except Exception:
+        errors = []
+    return jsonify({"session_id": session_id, "errors": errors, "error_count": len(errors)})
+
+
+@bp_sessions.route("/api/session-lineage/<path:session_id>")
+def api_session_lineage(session_id):
+    """Context graph — first view: the decision-lineage tree rooted at a session.
+
+    The full subagent fan-out of one ask + the cost each branch incurred,
+    traversed recursively over the existing subagent edges (no new tables). The
+    seed of the temporal decision graph that unifies Brain/Tracing/Subagents.
+    """
+    try:
+        nodes = _ls_call("query_session_lineage", session_id=session_id) or []
+    except Exception:
+        nodes = []
+    root_cost = next((n.get("cost_usd", 0.0) for n in nodes if n.get("depth") == 0), 0.0)
+    downstream = round(sum(n.get("cost_usd", 0.0) for n in nodes if (n.get("depth") or 0) > 0), 6)
+    return jsonify({
+        "session_id": session_id,
+        "nodes": nodes,
+        "node_count": len(nodes),
+        "root_cost_usd": round(float(root_cost or 0.0), 6),
+        "downstream_cost_usd": downstream,
+        "total_cost_usd": round(float(root_cost or 0.0) + downstream, 6),
+    })
 
 
 @bp_sessions.route("/api/delegation-tree")
@@ -2846,6 +3116,89 @@ def _try_local_store_cost_breakdown():
             "day": day,
             "start_ts": start_ts,
         })
+    # Merge per-session cost-intelligence (reasoning-tax $, cache-hit %) that the
+    # daemon stashed on the sessions-table metadata. query_sessions (above)
+    # aggregates events and can't see the per-session token split, so we read it
+    # from the sessions table here and graft it onto the matching rows.
+    try:
+        meta_rows = _ls_call("query_sessions_table", limit=1000) or []
+        intel = {}
+        for mr in meta_rows:
+            md = mr.get("metadata") or {}
+            if isinstance(md, dict) and any(md.get(k) is not None for k in ("reasoningCostUsd", "cacheHitPct", "toolErrorPct", "compactionCount", "cacheExpiryCount")):
+                intel[mr.get("session_id") or ""] = md
+        if intel:
+            for row in result:
+                md = intel.get(row["session_id"])
+                if not md:
+                    continue
+                if md.get("reasoningCostUsd") is not None:
+                    row["reasoning_cost_usd"] = md["reasoningCostUsd"]
+                if md.get("cacheHitPct") is not None:
+                    row["cache_hit_pct"] = md["cacheHitPct"]
+                if md.get("toolErrorPct") is not None:
+                    row["tool_error_pct"] = md["toolErrorPct"]
+                if md.get("compactionCount") is not None:
+                    row["compaction_count"] = md["compactionCount"]
+                if md.get("cacheExpiryCount") is not None:
+                    row["cache_expiry_count"] = md["cacheExpiryCount"]
+    except Exception:
+        pass
+    # Cache-hit % (for the event-usage runtimes: OpenClaw / Claude Code) + the
+    # silent model-mix flag, from the existing per-session cost-split aggregator.
+    # Family runtimes get cache % from the metadata above; this covers the rest
+    # and adds the >1-model fallback flag for any session.
+    try:
+        by_id = {r["session_id"]: r for r in result}
+        for sr in (_ls_call("query_cost_split", limit=1000) or []):
+            row = by_id.get(sr.get("session_id") or "")
+            if not row:
+                continue
+            if row.get("cache_hit_pct") is None and sr.get("cache_hit_ratio_pct") is not None:
+                row["cache_hit_pct"] = sr["cache_hit_ratio_pct"]
+            if int(sr.get("model_count") or 0) > 1:
+                row["model_mix"] = True
+                row["primary_model"] = sr.get("primary_model") or ""
+                row["secondary_model"] = sr.get("secondary_model") or ""
+    except Exception:
+        pass
+    # Sub-agent fan-out cost — the TRUE cost of an ask = its own cost + what its
+    # children spent (one GROUP BY, not an N-query recursive walk). Context graph.
+    try:
+        roll = {r["parent_session_id"]: r for r in (_ls_call("query_subagent_cost_rollup", limit=2000) or [])}
+        for row in result:
+            rr = roll.get(row["session_id"])
+            if rr and rr.get("child_cost_usd", 0) > 0:
+                row["downstream_cost_usd"] = rr["child_cost_usd"]
+                row["subagent_count"] = rr.get("child_count") or 0
+    except Exception:
+        pass
+    # Governance lineage counts per session — tool calls gated by the approval
+    # queue + NeMo guardrails, and how many were denied/blocked. Context graph.
+    try:
+        _DENY = {"deny", "denied", "reject", "rejected", "block", "blocked"}
+        gov: dict = {}
+        for a in (_ls_call("query_approvals", limit=1000) or []):
+            sid = a.get("requestor_session_id")
+            if not sid:
+                continue
+            d = gov.setdefault(sid, {"n": 0, "deny": 0}); d["n"] += 1
+            if str(a.get("decision", "")).lower() in _DENY:
+                d["deny"] += 1
+        for g in (_ls_call("query_guardrail_events", limit=1000) or []):
+            sid = g.get("session_id")
+            if not sid:
+                continue
+            d = gov.setdefault(sid, {"n": 0, "deny": 0}); d["n"] += 1
+            if str(g.get("verdict", "")).lower() in _DENY:
+                d["deny"] += 1
+        for row in result:
+            gv = gov.get(row["session_id"])
+            if gv and gv["n"] > 0:
+                row["governance_count"] = gv["n"]
+                row["governance_denied"] = gv["deny"]
+    except Exception:
+        pass
     result.sort(key=lambda x: x["cost_usd"], reverse=True)
     top10 = result[:10]
     total_cost = sum(r["cost_usd"] for r in result)

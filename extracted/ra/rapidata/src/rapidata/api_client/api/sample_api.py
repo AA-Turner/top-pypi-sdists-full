@@ -979,6 +979,7 @@ class SampleApi:
         self,
         participant_id: Annotated[StrictStr, Field(description="The id of the participant to query samples for.")],
         fill_missing: Annotated[Optional[StrictBool], Field(description="Whether to fill missing samples with placeholders.")] = None,
+        tags: Annotated[Optional[List[StrictStr]], Field(description="The tags to filter the samples by; a sample matches when any of its prompt tags is in this list.")] = None,
         page: Annotated[Optional[StrictInt], Field(description="The 1-based page index.")] = None,
         page_size: Annotated[Optional[StrictInt], Field(description="The number of items per page.")] = None,
         sort: Annotated[Optional[List[StrictStr]], Field(description="Sort fields. Prefix with - for descending order (e.g. -created_at).")] = None,
@@ -1004,6 +1005,8 @@ class SampleApi:
         :type participant_id: str
         :param fill_missing: Whether to fill missing samples with placeholders.
         :type fill_missing: bool
+        :param tags: The tags to filter the samples by; a sample matches when any of its prompt tags is in this list.
+        :type tags: List[str]
         :param page: The 1-based page index.
         :type page: int
         :param page_size: The number of items per page.
@@ -1039,6 +1042,7 @@ class SampleApi:
         _param = self._participant_participant_id_samples_get_serialize(
             participant_id=participant_id,
             fill_missing=fill_missing,
+            tags=tags,
             page=page,
             page_size=page_size,
             sort=sort,
@@ -1072,6 +1076,7 @@ class SampleApi:
         self,
         participant_id: Annotated[StrictStr, Field(description="The id of the participant to query samples for.")],
         fill_missing: Annotated[Optional[StrictBool], Field(description="Whether to fill missing samples with placeholders.")] = None,
+        tags: Annotated[Optional[List[StrictStr]], Field(description="The tags to filter the samples by; a sample matches when any of its prompt tags is in this list.")] = None,
         page: Annotated[Optional[StrictInt], Field(description="The 1-based page index.")] = None,
         page_size: Annotated[Optional[StrictInt], Field(description="The number of items per page.")] = None,
         sort: Annotated[Optional[List[StrictStr]], Field(description="Sort fields. Prefix with - for descending order (e.g. -created_at).")] = None,
@@ -1097,6 +1102,8 @@ class SampleApi:
         :type participant_id: str
         :param fill_missing: Whether to fill missing samples with placeholders.
         :type fill_missing: bool
+        :param tags: The tags to filter the samples by; a sample matches when any of its prompt tags is in this list.
+        :type tags: List[str]
         :param page: The 1-based page index.
         :type page: int
         :param page_size: The number of items per page.
@@ -1132,6 +1139,7 @@ class SampleApi:
         _param = self._participant_participant_id_samples_get_serialize(
             participant_id=participant_id,
             fill_missing=fill_missing,
+            tags=tags,
             page=page,
             page_size=page_size,
             sort=sort,
@@ -1165,6 +1173,7 @@ class SampleApi:
         self,
         participant_id: Annotated[StrictStr, Field(description="The id of the participant to query samples for.")],
         fill_missing: Annotated[Optional[StrictBool], Field(description="Whether to fill missing samples with placeholders.")] = None,
+        tags: Annotated[Optional[List[StrictStr]], Field(description="The tags to filter the samples by; a sample matches when any of its prompt tags is in this list.")] = None,
         page: Annotated[Optional[StrictInt], Field(description="The 1-based page index.")] = None,
         page_size: Annotated[Optional[StrictInt], Field(description="The number of items per page.")] = None,
         sort: Annotated[Optional[List[StrictStr]], Field(description="Sort fields. Prefix with - for descending order (e.g. -created_at).")] = None,
@@ -1190,6 +1199,8 @@ class SampleApi:
         :type participant_id: str
         :param fill_missing: Whether to fill missing samples with placeholders.
         :type fill_missing: bool
+        :param tags: The tags to filter the samples by; a sample matches when any of its prompt tags is in this list.
+        :type tags: List[str]
         :param page: The 1-based page index.
         :type page: int
         :param page_size: The number of items per page.
@@ -1225,6 +1236,7 @@ class SampleApi:
         _param = self._participant_participant_id_samples_get_serialize(
             participant_id=participant_id,
             fill_missing=fill_missing,
+            tags=tags,
             page=page,
             page_size=page_size,
             sort=sort,
@@ -1253,6 +1265,7 @@ class SampleApi:
         self,
         participant_id,
         fill_missing,
+        tags,
         page,
         page_size,
         sort,
@@ -1267,6 +1280,7 @@ class SampleApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'tags': 'multi',
             'sort': 'multi',
         }
 
@@ -1286,6 +1300,10 @@ class SampleApi:
         if fill_missing is not None:
             
             _query_params.append(('fillMissing', fill_missing))
+            
+        if tags is not None:
+            
+            _query_params.append(('tags', tags))
             
         if page is not None:
             

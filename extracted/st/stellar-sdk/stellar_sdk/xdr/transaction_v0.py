@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List, Optional
 
 from xdrlib3 import Packer, Unpacker
 
 from .base import DEFAULT_XDR_MAX_DEPTH
-from .constants import *
+from .constants import MAX_OPS_PER_TX
 from .memo import Memo
 from .operation import Operation
 from .sequence_number import SequenceNumber
@@ -47,9 +46,9 @@ class TransactionV0:
         source_account_ed25519: Uint256,
         fee: Uint32,
         seq_num: SequenceNumber,
-        time_bounds: Optional[TimeBounds],
+        time_bounds: TimeBounds | None,
         memo: Memo,
-        operations: List[Operation],
+        operations: list[Operation],
         ext: TransactionV0Ext,
     ) -> None:
         _expect_max_length = MAX_OPS_PER_TX
@@ -150,11 +149,9 @@ class TransactionV0:
             "source_account_ed25519": self.source_account_ed25519.to_json_dict(),
             "fee": self.fee.to_json_dict(),
             "seq_num": self.seq_num.to_json_dict(),
-            "time_bounds": (
-                self.time_bounds.to_json_dict()
-                if self.time_bounds is not None
-                else None
-            ),
+            "time_bounds": self.time_bounds.to_json_dict()
+            if self.time_bounds is not None
+            else None,
             "memo": self.memo.to_json_dict(),
             "operations": [item.to_json_dict() for item in self.operations],
             "ext": self.ext.to_json_dict(),

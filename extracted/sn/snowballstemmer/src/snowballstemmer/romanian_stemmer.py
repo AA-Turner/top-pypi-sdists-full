@@ -1,4 +1,4 @@
-# Generated from romanian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from romanian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class RomanianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from romanian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from romanian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "â", "î", "ă"}
@@ -186,14 +186,8 @@ class RomanianStemmer(BaseStemmer):
             break
         return True
 
-    def __r_RV(self):
-        return self.I_pV <= self.cursor
-
     def __r_R1(self):
         return self.I_p1 <= self.cursor
-
-    def __r_R2(self):
-        return self.I_p2 <= self.cursor
 
     def __r_step_0(self):
         self.ket = self.cursor
@@ -254,7 +248,7 @@ class RomanianStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.bra = self.cursor
-        if not self.__r_R2():
+        if self.I_p2 > self.cursor:
             return False
         if among_var == 1:
             self.slice_del()
@@ -303,7 +297,7 @@ class RomanianStemmer(BaseStemmer):
         if self.find_among_b(RomanianStemmer.a_6) == 0:
             return False
         self.bra = self.cursor
-        if not self.__r_RV():
+        if self.I_pV > self.cursor:
             return False
         self.slice_del()
         return True

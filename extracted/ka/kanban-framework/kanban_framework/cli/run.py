@@ -123,7 +123,7 @@ def cmd_run(args: list[str]) -> dict:
     }
     # Include step info for the new phase
     from kanban_framework.domain.steps import _get_steps
-    mode = task.mode if task.mode not in ("full", "lightweight", "quick") else ("quick" if task.mode == "quick" else ("lightweight" if lw else "full"))
+    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else ("lightweight" if lw else "full"))
     steps_map = _get_steps(mode)
     phase_steps = steps_map.get(new_phase_str, [])
     if not phase_steps:

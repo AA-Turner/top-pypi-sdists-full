@@ -1,3 +1,4 @@
+;(function () {
 // djust - WebSocket + HTTP Fallback Client
 
 // ============================================================================
@@ -888,13 +889,32 @@ class LiveViewWebSocket {
                 const hasDataDjAttrs = data.has_ids === true;
                 if (this.skipMountHtml) {
                     // Content already rendered by HTTP GET - don't replace innerHTML
-                    // If server HTML has dj-id attributes, stamp them onto existing DOM
-                    // This preserves whitespace (e.g. in code blocks) that innerHTML would destroy
+                    // #1610: morph the prerender DOM against the WS-mount HTML so
+                    // any WS-context-divergent state (presence count,
+                    // _websocket_session_id-keyed values, per-connection state)
+                    // reaches the user. morphChildren preserves keyed nodes by
+                    // id, so the dj-id stamp pass is folded into the morph.
+                    // morphChildren is the same helper used by
+                    // handleEmbeddedUpdate (~line 1127) and the html_recovery
+                    // path (~line 641).
                     if (hasDataDjAttrs && data.html) {
-                        if (globalThis.djustDebug) console.log('[LiveView] Stamping dj-id attributes onto pre-rendered DOM');
-                        _stampDjIds(data.html); // codeql[js/xss] -- html is server-rendered by the trusted Django/Rust template engine
+                        const _morphContainer = document.querySelector('[dj-view]:not([dj-sticky-root])')
+                                            || document.querySelector('[dj-root]');
+                        if (_morphContainer) {
+                            const _morphTemp = document.createElement('div');
+                            // codeql[js/xss] -- html is server-rendered by the trusted Django/Rust template engine
+                            _morphTemp.innerHTML = data.html;
+                            morphChildren(_morphContainer, _morphTemp);
+                            if (globalThis.djustDebug) console.log('[LiveView] Morphed pre-rendered DOM against WS-mount HTML (#1610)');
+                        } else {
+                            // Fallback: no [dj-view]/[dj-root] container found
+                            // (unusual). Stamp dj-ids so subsequent ID-based
+                            // patches still resolve.
+                            _stampDjIds(data.html); // codeql[js/xss] -- html is server-rendered by the trusted Django/Rust template engine
+                            if (globalThis.djustDebug) console.log('[LiveView] No dj-view container — fell back to dj-id stamp');
+                        }
                     } else {
-                        if (globalThis.djustDebug) console.log('[LiveView] Skipping mount HTML - using pre-rendered content');
+                        if (globalThis.djustDebug) console.log('[LiveView] Skipping mount HTML - no dj-id attrs to apply');
                     }
                     this.skipMountHtml = false;
                     // Sticky LiveViews (Phase C Fix F1): the skipMountHtml
@@ -2948,9 +2968,13 @@ function parseSingleArgument(value) {
     return value;
 }
 
-// Export for global access and testing
+// Export for global access and testing. Explicit exports are required now
+// that the bundle is IIFE-wrapped (#1635) — top-level functions are no longer
+// implicit globals, so anything callable from outside the bundle (tests,
+// re-init hooks) must be attached to the namespace here.
 window.djust = window.djust || {};
 window.djust.parseEventHandler = parseEventHandler;
+window.djust.initReactCounters = initReactCounters;
 
 /**
  * Extract parameters from element data-* attributes with optional type coercion.
@@ -5086,6 +5110,11 @@ function generateCacheRequestId() {
     return `cache_${Date.now()}_${++cacheRequestCounter}`;
 }
 
+// One-time guard so the actionable HTTP-fallback warning (#1674) fires once
+// per session, not on every degraded event. Function-scoped within the bundle
+// IIFE (#1635).
+let _djustHttpFallbackWarned = false;
+
 // Main Event Handler
 async function handleEvent(eventName, params = {}) {
     if (globalThis.djustDebug) {
@@ -5259,7 +5288,21 @@ async function handleEvent(eventName, params = {}) {
         return;
     }
 
-    // Fallback to HTTP
+    // Fallback to HTTP. Emit an actionable, NON-debug-gated warning ONCE per
+    // session (#1674): a URL-routed LiveView missing from
+    // LIVEVIEW_ALLOWED_MODULES has its WebSocket mount rejected and silently
+    // degrades to full-page HTTP re-renders that *look* like the app works.
+    // The server intentionally returns a generic "View not found" (no allowlist
+    // detail leaked), so the client points the developer at the likely cause.
+    if (!_djustHttpFallbackWarned) {
+        _djustHttpFallbackWarned = true;
+        console.warn(
+            '[LiveView] Events are falling back to full-page HTTP re-renders '
+            + '(WebSocket unavailable, or the view\'s mount was rejected). '
+            + 'If this is your own LiveView, check that its module is listed in '
+            + 'LIVEVIEW_ALLOWED_MODULES in your Django settings.'
+        );
+    }
     if (globalThis.djustDebug) console.log('[LiveView] WebSocket unavailable, falling back to HTTP');
 
     try {
@@ -5335,6 +5378,36 @@ function isDjIfComment(text) {
     // NOT match `dj-iffy`, `dj-if-extra`, `dj-ifid=...` — only a literal
     // space or tab after `dj-if` qualifies, mirroring the server predicate.
     return trimmed.startsWith('dj-if ') || trimmed.startsWith('dj-if\t');
+}
+
+/**
+ * Single source of truth for "does this child node count toward VDOM child
+ * indices" (#1655). Both the path walker (``getNodeByPath``) and the index
+ * resolver (``getSignificantChildren``) MUST agree, or index-based patches
+ * (InsertChild/RemoveChild/MoveChild) land on the wrong node — the #1640 bug,
+ * which existed because the two had independently-written copies of this rule
+ * that drifted. Mirrors `crates/djust_vdom/src/parser.rs`:
+ *   - elements always count;
+ *   - text nodes count unless ASCII-whitespace-only (NBSP   is
+ *     significant), except inside whitespace-preserving elements
+ *     (<pre>/<code>/<textarea>) where ALL text counts (preserveWhitespace=true);
+ *   - ONLY dj-if-family boundary comments count; the Rust parser drops every
+ *     other HTML comment, so a plain <!-- comment --> must NOT shift indices.
+ *
+ * @param {Node} child
+ * @param {boolean} [preserveWhitespace=false] — true inside pre/code/textarea.
+ * @returns {boolean}
+ */
+function isSignificantChild(child, preserveWhitespace = false) {
+    if (child.nodeType === Node.ELEMENT_NODE) return true;
+    if (child.nodeType === Node.TEXT_NODE) {
+        if (preserveWhitespace) return true;
+        return (/[^ \t\n\r\f]/.test(child.textContent));
+    }
+    if (child.nodeType === Node.COMMENT_NODE) {
+        return isDjIfComment(child.textContent);
+    }
+    return false;
 }
 
 /**
@@ -5492,25 +5565,12 @@ function getNodeByPath(path, djustId = null, rootEl = null) {
 
     for (let i = 0; i < path.length; i++) {
         const index = path[i]; // eslint-disable-line security/detect-object-injection -- path is a server-provided integer array
-        const children = Array.from(node.childNodes).filter(child => {
-            if (child.nodeType === Node.ELEMENT_NODE) return true;
-            if (child.nodeType === Node.TEXT_NODE) {
-                // Preserve non-breaking spaces (\u00A0) as significant, matching Rust VDOM parser.
-                // Only filter out ASCII whitespace-only text nodes (space, tab, newline, CR).
-                // JS \s includes \u00A0, so we use an explicit ASCII whitespace pattern instead.
-                return (/[^ \t\n\r\f]/.test(child.textContent));
-            }
-            // Only include `dj-if`-family comments — the Rust VDOM
-            // parser preserves these for diffing stability (#559) and for
-            // boundary markers (#1358 Iter 1) but drops all other HTML
-            // comments. Regular comments (<!-- Hero Section --> etc.) must
-            // be excluded to keep path indices aligned. The predicate
-            // mirrors `crates/djust_vdom/src/parser.rs:494-499`.
-            if (child.nodeType === Node.COMMENT_NODE) {
-                return isDjIfComment(child.textContent);
-            }
-            return false;
-        });
+        // Shared significant-child predicate (#1655) — MUST match
+        // getSignificantChildren so path-based and index-based patch resolution
+        // agree (the #1640 drift). Path traversal never preserves whitespace.
+        const children = Array.from(node.childNodes).filter((child) =>
+            isSignificantChild(child)
+        );
 
         if (index >= children.length) {
             if (globalThis.djustDebug || window.DEBUG_MODE) {
@@ -6425,20 +6485,11 @@ function getSignificantChildren(node) {
     // Check if we're inside a whitespace-preserving element
     const preserveWhitespace = isWhitespacePreserving(node);
 
-    return Array.from(node.childNodes).filter(child => {
-        if (child.nodeType === Node.ELEMENT_NODE) return true;
-        if (child.nodeType === Node.TEXT_NODE) {
-            // Preserve all text nodes inside pre/code/textarea
-            if (preserveWhitespace) return true;
-            // Preserve non-breaking spaces (\u00A0) as significant, matching Rust VDOM parser.
-            // Only filter out ASCII whitespace-only text nodes.
-            return (/[^ \t\n\r\f]/.test(child.textContent));
-        }
-        // Include comment nodes — the Rust VDOM parser preserves <!--dj-if-->
-        // placeholders and counts them in child indices (#559).
-        if (child.nodeType === Node.COMMENT_NODE) return true;
-        return false;
-    });
+    // Shared significant-child predicate (#1655) — see getNodeByPath; passing
+    // preserveWhitespace keeps the pre/code/textarea behavior.
+    return Array.from(node.childNodes).filter((child) =>
+        isSignificantChild(child, preserveWhitespace)
+    );
 }
 
 /**
@@ -6707,15 +6758,92 @@ function applyInsertSubtree(patch, rootEl = null) {
     return true;
 }
 
+/**
+ * Apply a `MoveSubtree` patch: locate the dj-if marker pair by id, detach the
+ * whole `<!--dj-if id="X"-->...<!--/dj-if-->` range, and re-insert it at
+ * `index` among the parent's significant children (#1666).
+ *
+ * The "move" verb for boundary spans — the markers are id-less `#comment`
+ * nodes, so a plain `MoveChild` can't target them. Unlike Remove+Insert, this
+ * preserves the inner nodes' identity (and any state/focus tied to inner
+ * dj-ids). Applied AFTER the path/index child ops so the surrounding siblings
+ * are in their final positions and `index` resolves against the new-frame.
+ *
+ * Patch shape: `{type: 'MoveSubtree', id, path: [parent path], d: <parent
+ * dj-id?>, index: N}`.
+ *
+ * @param {Object} patch
+ * @param {HTMLElement|null} rootEl — optional scoping root.
+ * @returns {boolean}
+ */
+function applyMoveSubtree(patch, rootEl = null) {
+    const targetId = String(patch.id || '');
+    if (!targetId) {
+        console.warn('[LiveView] MoveSubtree patch missing id, skipping');
+        return false;
+    }
+    const open = _findDjIfOpenMarker(targetId, rootEl);
+    if (!open) {
+        // Marker absent — nothing to move. Idempotent no-op (a prior patch in
+        // the batch may have torn it down); returning false would trigger the
+        // recovery-HTML fallback for a semantically-fine state.
+        if (globalThis.djustDebug) {
+            console.log(
+                '[LiveView] MoveSubtree: marker absent id=%s (idempotent no-op)',
+                sanitizeIdForLog(targetId)
+            );
+        }
+        return true;
+    }
+    const close = _findDjIfCloseMarker(open);
+    if (!close) {
+        console.warn('[LiveView] MoveSubtree: close marker not found id=%s', sanitizeIdForLog(targetId));
+        return false;
+    }
+    const parent = getNodeByPath(patch.path, patch.d, rootEl);
+    if (!parent || parent.nodeType !== 1) {
+        console.warn('[LiveView] MoveSubtree: parent not found path=%s id=%s',
+            Array.isArray(patch.path) ? patch.path.map(Number).join('/') : 'invalid',
+            sanitizeIdForLog(targetId));
+        return false;
+    }
+    // Collect the marker range (open..close inclusive, sibling order).
+    const range = [];
+    let cursor = open;
+    while (cursor) {
+        range.push(cursor);
+        if (cursor === close) break;
+        cursor = cursor.nextSibling;
+    }
+    // Detach from the current parent, then re-insert at the target index among
+    // the parent's significant children (computed AFTER detachment).
+    const curParent = open.parentNode;
+    for (const node of range) {
+        if (node.parentNode === curParent) curParent.removeChild(node);
+    }
+    const children = getSignificantChildren(parent);
+    const refChild = (typeof patch.index === 'number' ? children[patch.index] : null) || null;
+    const fragment = document.createDocumentFragment();
+    for (const node of range) fragment.appendChild(node);
+    if (refChild) {
+        parent.insertBefore(fragment, refChild);
+    } else {
+        parent.appendChild(fragment);
+    }
+    return true;
+}
+
 // Export for testing
 window.djust._applyRemoveSubtree = applyRemoveSubtree;
 window.djust._applyInsertSubtree = applyInsertSubtree;
+window.djust._applyMoveSubtree = applyMoveSubtree;
 window.djust._findDjIfOpenMarker = _findDjIfOpenMarker;
 window.djust._findDjIfCloseMarker = _findDjIfCloseMarker;
 window.djust._extractDjIfMarkerId = _extractDjIfMarkerId;
 
 // Export for testing
 window.djust.getSignificantChildren = getSignificantChildren;
+window.djust.isSignificantChild = isSignificantChild;
 window.djust._applySinglePatch = applySinglePatch;
 window.djust._stampDjIds = _stampDjIds;
 window.djust._getNodeByPath = getNodeByPath;
@@ -6809,21 +6937,41 @@ window.djust._groupConsecutiveInserts = groupConsecutiveInserts;
  *
  * Phases:
  *   -2: RemoveSubtree (tear down keyed subtrees first)
- *   -1: InsertSubtree (add keyed subtrees before any path indices apply)
  *    0: RemoveChild (descending index within same parent)
  *    1: MoveChild
  *    2: InsertChild
- *    3: SetText, SetAttribute, other node-targeting patches
+ *    3: MoveSubtree + InsertSubtree (boundary-span ops, INTERLEAVED by
+ *       ascending target index — see below)
+ *    4: SetText, SetAttribute, other node-targeting patches
+ *
+ * Boundary-span ordering (#1678): InsertSubtree was historically phase -1
+ * (before path ops), but its `index` is a FINAL-structure index. When a tab
+ * activates whose body is a NESTED conditional (e.g. `{% if ideas %}{% if
+ * has_cards %}{% kanban %}{% else %}{% empty_state %}{% endif %}{% endif %}`),
+ * the differ emits MoveSubtree(outer boundary) + InsertSubtree(inner boundary)
+ * where the inner index assumes the outer is already at its final position.
+ * Running InsertSubtree before MoveSubtree inserted the inner span as a
+ * SIBLING of the outer boundary instead of NESTED inside it — the client's
+ * flat marker tree then diverged from the server's by one significant child,
+ * so a later positional `SetText` landed on a dj-if comment marker →
+ * html_recovery (#1678). With flat indices there is no linear phase order that
+ * satisfies #1370 (Insert-before-path), #1666 (Move-after-path) AND #1678
+ * (Insert-after-Move) simultaneously. The break: keep the boundary-span ops
+ * (Move + Insert) in a single phase AFTER the child ops (#1666), and apply
+ * them in ASCENDING target-index order so each lower-index op builds the
+ * correct prefix before a higher-index op resolves against it (the outer
+ * boundary is repositioned before the nested insert lands inside it).
  */
 function _sortPatches(patches) {
     function patchPhase(p) {
         switch (p.type) {
             case 'RemoveSubtree': return -2;
-            case 'InsertSubtree': return -1;
             case 'RemoveChild':   return 0;
             case 'MoveChild':     return 1;
             case 'InsertChild':   return 2;
-            default:              return 3;
+            case 'MoveSubtree':   return 3;
+            case 'InsertSubtree': return 3;
+            default:              return 4;
         }
     }
     patches.sort(function(a, b) {
@@ -6835,6 +6983,15 @@ function _sortPatches(patches) {
             const pA = JSON.stringify(a.path);
             const pB = JSON.stringify(b.path);
             if (pA === pB) return b.index - a.index;
+        }
+        // Within the boundary-span phase, apply by ASCENDING target index so a
+        // moved outer boundary is positioned before a nested insert lands
+        // inside it (#1678). Indices are parent-absolute significant-child
+        // positions in the final tree.
+        if (phaseA === 3) {
+            const ai = typeof a.index === 'number' ? a.index : 0;
+            const bi = typeof b.index === 'number' ? b.index : 0;
+            return ai - bi;
         }
         return 0;
     });
@@ -6854,10 +7011,13 @@ function applySinglePatch(patch, rootEl = null) {
     // marker id, not by path/d resolution. Short-circuit before the
     // generic `getNodeByPath` call so the dispatcher doesn't try to
     // resolve a non-applicable path.
-    if (patch && (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree')) {
+    if (patch && (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree' || patch.type === 'MoveSubtree')) {
         try {
             if (patch.type === 'RemoveSubtree') {
                 return applyRemoveSubtree(patch, rootEl);
+            }
+            if (patch.type === 'MoveSubtree') {
+                return applyMoveSubtree(patch, rootEl);
             }
             return applyInsertSubtree(patch, rootEl);
         } catch (error) {
@@ -7304,15 +7464,24 @@ function _applyPatchesInner(patches, rootEl = null) {
     let failedCount = 0;
     let successCount = 0;
 
-    // id-based patches (RemoveSubtree, InsertSubtree) don't have a `path`
-    // field — they locate their target by marker id. Apply them directly
-    // before the path-grouped batching pass; they must not enter
-    // groupPatchesByParent which assumes patch.path exists.
+    // id-based patches don't have a `path` field — they locate their target by
+    // marker id. RemoveSubtree (phase -2) tears down keyed subtrees up front.
+    // InsertSubtree + MoveSubtree (phase 3) are DEFERRED together and applied
+    // by ascending target index AFTER the path/index child ops settle — so a
+    // moved outer boundary is repositioned before a nested insert lands inside
+    // it (#1678; see _sortPatches phase doc). They must not enter
+    // groupPatchesByParent, which assumes patch.path exists.
     const pathPatches = [];
+    const boundarySpanPatches = [];
     for (const patch of patches) {
-        if (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree') {
+        if (patch.type === 'RemoveSubtree') {
+            // Phase -2: tear down keyed subtrees first.
             const ok = applySinglePatch(patch, rootEl);
             if (ok) { successCount++; } else { failedCount++; }
+        } else if (patch.type === 'InsertSubtree' || patch.type === 'MoveSubtree') {
+            // Phase 3: defer — boundary-span ops apply after child ops, by
+            // ascending index (#1666 + #1678).
+            boundarySpanPatches.push(patch);
         } else {
             pathPatches.push(patch);
         }
@@ -7410,6 +7579,20 @@ function _applyPatchesInner(patches, rootEl = null) {
                 failedCount++;
             }
         }
+    }
+
+    // Phase 3 (#1666 + #1678): apply boundary-span ops (MoveSubtree +
+    // InsertSubtree) AFTER all path/index child ops above have settled the
+    // surrounding siblings, in ASCENDING target index so a moved outer
+    // boundary is repositioned before a nested insert lands inside it. Each
+    // op's `index` then resolves against the new-frame significant children.
+    boundarySpanPatches.sort(function (a, b) {
+        const ai = typeof a.index === 'number' ? a.index : 0;
+        const bi = typeof b.index === 'number' ? b.index : 0;
+        return ai - bi;
+    });
+    for (const patch of boundarySpanPatches) {
+        if (applySinglePatch(patch, rootEl)) { successCount++; } else { failedCount++; }
     }
 
     if (failedCount > 0) {
@@ -9237,6 +9420,21 @@ window.djust.getActiveStreams = getActiveStreams;
             }
         }
 
+        // pushState forbids cross-origin URLs (the browser throws
+        // SecurityError). When data.path is an absolute URL whose origin
+        // differs from the current page, fall back to a full-page
+        // navigation — that's the caller's intent. (#1599)
+        if (newUrl.origin !== window.location.origin) {
+            if (globalThis.djustDebug) {
+                console.log(
+                    '[LiveView] live_patch cross-origin → full-page nav: %s',
+                    newUrl.toString(),
+                );
+            }
+            window.location.href = newUrl.toString();
+            return;
+        }
+
         const method = data.replace ? 'replaceState' : 'pushState';
         // eslint-disable-next-line security/detect-object-injection
         window.history[method]({ djust: true }, '', newUrl.toString());
@@ -9262,6 +9460,26 @@ window.djust.getActiveStreams = getActiveStreams;
                     newUrl.searchParams.set(key, String(value));
                 }
             }
+        }
+
+        // pushState forbids cross-origin URLs (the browser throws
+        // SecurityError). When data.path is an absolute URL whose origin
+        // differs from the current page (e.g. a dj-navigate link pointing
+        // at a sister site), fall back to a full-page navigation. (#1599)
+        if (newUrl.origin !== window.location.origin) {
+            if (globalThis.djustDebug) {
+                console.log(
+                    '[LiveView] live_redirect cross-origin → full-page nav: %s',
+                    newUrl.toString(),
+                );
+            }
+            // Stop the page-loading bar we started above; the full nav
+            // will trigger the browser's own progress indicator.
+            if (window.djust.pageLoading && window.djust.pageLoading.enabled) {
+                window.djust.pageLoading.stop?.();
+            }
+            window.location.href = newUrl.toString();
+            return;
         }
 
         const method = data.replace ? 'replaceState' : 'pushState';
@@ -15394,4 +15612,420 @@ globalThis.djust.djTransitionGroup = {
   } else {
     _autoFillOnDOMReady();
   }
+})();
+// ============================================================================
+// keyboard-nav — keyboard interaction for djust-native components (#1522)
+// ============================================================================
+//
+// Adds W3C ARIA Authoring-Practices keyboard behavior to the four
+// djust-native templatetag components (the `dj-*` class family emitted by
+// python/djust/components/templatetags/djust_components.py):
+//
+//   - Modal / dialog  — focus trap (Tab / Shift+Tab wrap) + Esc-to-close.
+//   - Tablist         — ArrowLeft/Right roving tabindex + Home/End.
+//   - Accordion       — ArrowUp/Down focus movement + Home/End.
+//   - Dropdown menu   — ArrowUp/Down roving + Home/End + Esc-to-close.
+//
+// CSP-strict (Action #183): one delegated `keydown` listener on `document`
+// — no inline <script>, no inline handlers. Delegation survives morphdom
+// re-renders for free (the listener stays on `document`). A single
+// document-level MutationObserver handles the one thing delegation cannot:
+// moving focus into a modal when it appears, and restoring focus to the
+// previously-focused element when it is removed.
+//
+// The Bootstrap-flavoured `_simple.py` component classes (data-bs-toggle
+// markup) are intentionally OUT OF SCOPE — those are Bootstrap-JS driven.
+
+(function () {
+    // Selector for keyboard-reachable controls, in DOM order.
+    const FOCUSABLE_SELECTOR = [
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+
+    // Stack of currently-open modal dialogs (top = most recently opened).
+    // Each entry: { el: <dialog element>, returnFocus: <element|null> }.
+    const _dialogStack = [];
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+
+    function _isDialog(el) {
+        if (!el || el.nodeType !== 1) return false;
+        return el.getAttribute('role') === 'dialog' ||
+            (el.classList && el.classList.contains('dj-modal'));
+    }
+
+    // All keyboard-reachable descendants of `container`, in DOM order.
+    // jsdom has no layout engine, so we deliberately do NOT filter on
+    // `offsetParent` / computed visibility — that would be unreliable in
+    // tests and is a best-effort filter at most in real browsers.
+    function _focusable(container) {
+        return Array.prototype.slice.call(
+            container.querySelectorAll(FOCUSABLE_SELECTOR)
+        );
+    }
+
+    // Dispatch a server event by reading the event name off an element's
+    // `dj-click` attribute. handleEvent is defined globally by
+    // 11-event-handler.js (same usage as 35-dj-dialog.js).
+    function _dispatchFrom(el) {
+        if (!el) return false;
+        const name = el.getAttribute('dj-click');
+        if (!name) return false;
+        if (typeof handleEvent === 'function') {
+            handleEvent(name, { _targetElement: el });
+            return true;
+        }
+        return false;
+    }
+
+    // The currently top-most open dialog, or null.
+    function _topDialog() {
+        return _dialogStack.length
+            ? _dialogStack[_dialogStack.length - 1].el
+            : null;
+    }
+
+    // Wrap-around index arithmetic. Covers index 0, mid, len-1 and the
+    // out-of-range cases at both ends (CLAUDE.md #1199).
+    function _wrapIndex(i, len) {
+        if (len <= 0) return 0;
+        return ((i % len) + len) % len;
+    }
+
+    // First / last element of a list.
+    function _firstOf(list) {
+        return list.length ? list[0] : null;
+    }
+    function _lastOf(list) {
+        return list.length ? list[list.length - 1] : null;
+    }
+
+    // Element at wrapped index `i` of `list`.
+    function _at(list, i) {
+        return list[_wrapIndex(i, list.length)];
+    }
+
+    // -----------------------------------------------------------------------
+    // Focus trap — modal / role="dialog"
+    // -----------------------------------------------------------------------
+
+    function _trapFocus(dialog, e) {
+        const focusables = _focusable(dialog);
+        if (focusables.length === 0) {
+            // No focusable children: trap focus on the container itself.
+            e.preventDefault();
+            if (dialog.getAttribute('tabindex') === null) {
+                dialog.setAttribute('tabindex', '-1');
+            }
+            dialog.focus();
+            return;
+        }
+        const first = _firstOf(focusables);
+        const last = _lastOf(focusables);
+        const active = dialog.ownerDocument.activeElement;
+        if (e.shiftKey && active === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && active === last) {
+            e.preventDefault();
+            first.focus();
+        }
+        // Mid-list Tab: let the browser advance naturally.
+    }
+
+    // Esc inside a modal — dispatch the modal's configured close event so
+    // server state stays in sync (mirrors 35-dj-dialog.js reverse-sync).
+    function _closeModal(dialog) {
+        const closer = dialog.querySelector('.dj-modal__close[dj-click]') ||
+            dialog.querySelector('[dj-click]');
+        return _dispatchFrom(closer);
+    }
+
+    // -----------------------------------------------------------------------
+    // Roving — generic next/prev focus movement over a list of elements
+    // -----------------------------------------------------------------------
+
+    // Move focus among `elements` based on the pressed key. `rove` controls
+    // whether tabindex is juggled (tablist) or focus is moved only
+    // (accordion / dropdown menu). Returns true if the key was handled.
+    function _moveFocus(elements, current, key, forwardKeys, backKeys, rove) {
+        if (elements.length === 0) return false;
+        const idx = elements.indexOf(current);
+        let target = null;
+        if (forwardKeys.indexOf(key) !== -1) {
+            target = _at(elements, (idx < 0 ? -1 : idx) + 1);
+        } else if (backKeys.indexOf(key) !== -1) {
+            target = _at(elements, (idx < 0 ? 0 : idx) - 1);
+        } else if (key === 'Home') {
+            target = _firstOf(elements);
+        } else if (key === 'End') {
+            target = _lastOf(elements);
+        }
+        if (!target) return false;
+        if (rove) {
+            // Exactly one element in the tab order at a time.
+            elements.forEach(function (el) {
+                el.setAttribute('tabindex', el === target ? '0' : '-1');
+            });
+        }
+        target.focus();
+        return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Per-pattern handlers
+    // -----------------------------------------------------------------------
+
+    function _handleTablist(tablist, target, e) {
+        const tabs = Array.prototype.slice.call(
+            tablist.querySelectorAll('[role="tab"]')
+        );
+        const current = target.closest('[role="tab"]');
+        if (!current) return false;
+        if (_moveFocus(tabs, current, e.key,
+            ['ArrowRight', 'ArrowDown'], ['ArrowLeft', 'ArrowUp'], true)) {
+            e.preventDefault();
+            return true;
+        }
+        return false;
+    }
+
+    function _handleAccordion(accordion, target, e) {
+        const triggers = Array.prototype.slice.call(
+            accordion.querySelectorAll('.dj-accordion__trigger')
+        );
+        const current = target.closest('.dj-accordion__trigger');
+        if (!current) return false;
+        // Focus-movement only — accordion headers keep their native tab
+        // order (no tabindex juggling, per W3C APG).
+        if (_moveFocus(triggers, current, e.key,
+            ['ArrowDown'], ['ArrowUp'], false)) {
+            e.preventDefault();
+            return true;
+        }
+        return false;
+    }
+
+    // True when a dropdown is in its open state. The dropdown templatetag
+    // emits a bare `data-open` attribute when open
+    // (djust_components.py:368/386); `hasAttribute` also matches the
+    // `data-open="true"` form used by other component variants.
+    function _dropdownOpen(dropdown) {
+        return !!dropdown && dropdown.hasAttribute('data-open');
+    }
+
+    const _MENUITEM_SELECTOR =
+        '[role="menuitem"], a[href], button:not([disabled])';
+
+    function _handleDropdown(dropdown, target, e) {
+        const menu = dropdown.querySelector('[role="menu"]');
+        const trigger = dropdown.querySelector('.dj-dropdown__trigger');
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            _dispatchFrom(trigger);
+            if (trigger) trigger.focus();
+            return true;
+        }
+        if (!menu) return false;
+        const menuitems = Array.prototype.slice.call(
+            menu.querySelectorAll(_MENUITEM_SELECTOR)
+        );
+        if (menuitems.length === 0) return false;
+        // First Arrow/Home/End from the trigger focuses an item.
+        const current = target.closest('[role="menuitem"], a[href], button');
+        if (!current || menuitems.indexOf(current) === -1) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' ||
+                e.key === 'Home' || e.key === 'End') {
+                e.preventDefault();
+                const wantLast = e.key === 'ArrowUp' || e.key === 'End';
+                const item = wantLast ? _lastOf(menuitems) : _firstOf(menuitems);
+                item.focus();
+                return true;
+            }
+            return false;
+        }
+        if (_moveFocus(menuitems, current, e.key,
+            ['ArrowDown'], ['ArrowUp'], false)) {
+            e.preventDefault();
+            return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Delegated keydown dispatcher
+    // -----------------------------------------------------------------------
+
+    function _handleKeydown(e) {
+        const target = e.target;
+        if (!target || typeof target.closest !== 'function') return;
+
+        // 1. Modal / dialog — most specific. Focus trap + Esc-to-close.
+        const dialog = target.closest('[role="dialog"], .dj-modal');
+        if (dialog && _isDialog(dialog)) {
+            // With nested dialogs the trap always acts on the TOP dialog.
+            const top = _topDialog() || dialog;
+            // A dropdown nested INSIDE this dialog still needs arrow roving
+            // and Esc-to-close (#1533). `closest` matches a dropdown that is
+            // a descendant of the dialog; `dialog.contains` makes the intent
+            // explicit (and guards a dropdown outside the dialog subtree).
+            const innerDropdown = target.closest('.dj-dropdown');
+            const dropdownInDialog =
+                innerDropdown && dialog.contains(innerDropdown);
+            // Tab is handled FIRST and returned — the focus trap is always
+            // dialog-scoped and must never fall through to the dropdown.
+            if (e.key === 'Tab') {
+                _trapFocus(top, e);
+                return;
+            }
+            if (e.key === 'Escape') {
+                // An open inner dropdown consumes Esc first (close the
+                // dropdown, refocus its trigger); a closed/absent dropdown
+                // lets Esc close the dialog as before.
+                if (dropdownInDialog && _dropdownOpen(innerDropdown)) {
+                    e.preventDefault();
+                    _handleDropdown(innerDropdown, target, e);
+                    return;
+                }
+                e.preventDefault();
+                _closeModal(top);
+                return;
+            }
+            // Arrow / Home / End — route to a nested dropdown if present.
+            if (dropdownInDialog &&
+                _handleDropdown(innerDropdown, target, e)) {
+                return;
+            }
+            // The dialog still swallows non-dropdown arrow keys (unchanged).
+            return;
+        }
+
+        // 2. Dropdown — Arrow roving + Esc.
+        const dropdown = target.closest('.dj-dropdown');
+        if (dropdown && _handleDropdown(dropdown, target, e)) return;
+
+        // 3. Tablist — Arrow roving.
+        const tablist = target.closest('[role="tablist"]');
+        if (tablist && _handleTablist(tablist, target, e)) return;
+
+        // 4. Accordion — Arrow focus movement.
+        const accordion = target.closest('.dj-accordion');
+        if (accordion && _handleAccordion(accordion, target, e)) return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modal presence observer — focus-in on open, focus-restore on close
+    // -----------------------------------------------------------------------
+
+    function _onDialogAdded(dialog) {
+        const tracked = _dialogStack.some(function (entry) {
+            return entry.el === dialog;
+        });
+        if (tracked) return;
+        const doc = dialog.ownerDocument;
+        const returnFocus = doc.activeElement;
+        _dialogStack.push({ el: dialog, returnFocus: returnFocus });
+        const focusables = _focusable(dialog);
+        if (focusables.length > 0) {
+            _firstOf(focusables).focus();
+        } else {
+            if (dialog.getAttribute('tabindex') === null) {
+                dialog.setAttribute('tabindex', '-1');
+            }
+            dialog.focus();
+        }
+    }
+
+    function _onDialogRemoved(dialog) {
+        let idx = -1;
+        for (let i = _dialogStack.length - 1; i >= 0; i--) {
+            // eslint-disable-next-line security/detect-object-injection
+            if (_dialogStack[i].el === dialog) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0) return;
+        const entry = _dialogStack.splice(idx, 1)[0];
+        if (entry.returnFocus &&
+            typeof entry.returnFocus.focus === 'function' &&
+            entry.returnFocus.isConnected) {
+            entry.returnFocus.focus();
+        } else if (document.body &&
+                   typeof document.body.focus === 'function') {
+            // The recorded return target was removed from the DOM while
+            // the dialog was open (e.g. a morphdom patch replaced the
+            // opener's region). Focusing a detached node is a silent
+            // no-op, which would strand keyboard focus; fall back to the
+            // document body so focus lands somewhere reachable (#1532).
+            document.body.focus();
+        }
+    }
+
+    function _scanForDialogs(node, onFound) {
+        if (node.nodeType !== 1) return;
+        if (_isDialog(node)) onFound(node);
+        if (typeof node.querySelectorAll === 'function') {
+            const nested = node.querySelectorAll('[role="dialog"], .dj-modal');
+            nested.forEach(function (n) {
+                if (_isDialog(n)) onFound(n);
+            });
+        }
+    }
+
+    function _installObserver() {
+        const doc = document;
+        // Initial pass — dialogs present at page load.
+        const initial = doc.querySelectorAll('[role="dialog"], .dj-modal');
+        initial.forEach(function (el) {
+            if (_isDialog(el)) _onDialogAdded(el);
+        });
+
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                if (m.type !== 'childList') return;
+                m.addedNodes.forEach(function (n) {
+                    _scanForDialogs(n, _onDialogAdded);
+                });
+                m.removedNodes.forEach(function (n) {
+                    _scanForDialogs(n, _onDialogRemoved);
+                });
+            });
+        });
+        observer.observe(doc.documentElement, {
+            childList: true,
+            subtree: true,
+        });
+    }
+
+    function _init() {
+        document.addEventListener('keydown', _handleKeydown, false);
+        _installObserver();
+    }
+
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _init);
+        } else {
+            _init();
+        }
+    }
+
+    // Small test surface (mirrors 35-dj-dialog.js).
+    globalThis.djust = globalThis.djust || {};
+    globalThis.djust.keyboardNav = {
+        _handleKeydown: _handleKeydown,
+        _focusable: _focusable,
+        _wrapIndex: _wrapIndex,
+        _dialogStack: _dialogStack,
+    };
+})();
+
 })();

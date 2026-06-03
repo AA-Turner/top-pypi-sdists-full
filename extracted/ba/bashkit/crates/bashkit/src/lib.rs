@@ -478,7 +478,7 @@ pub use scripted_tool::{
     AsyncToolCallback, CallbackKind, DiscoverTool, DiscoveryMode, ScriptedCommandInvocation,
     ScriptedCommandKind, ScriptedExecutionTrace, ScriptedTool, ScriptedToolBuilder,
     ScriptingToolSet, ScriptingToolSetBuilder, ToolArgs, ToolCallback, ToolDef, ToolDefExtension,
-    ToolDefExtensionBuilder,
+    ToolDefExtensionBuilder, ToolDefInvocationTrace,
 };
 #[cfg(feature = "scripted_tool")]
 pub use tool_def::{AsyncToolExec, SyncToolExec, ToolImpl};
@@ -545,6 +545,34 @@ use std::sync::Arc;
 fn env_opt_in_enabled(env: &HashMap<String, String>, key: &str) -> bool {
     env.get(key)
         .is_some_and(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+}
+
+// Keep streaming callback cleanup cancellation-safe: Python bindings expose this
+// future to cancellable asyncio tasks, so cleanup must run from Drop.
+struct OutputCallbackGuard {
+    interpreter: *mut Interpreter,
+}
+
+// SAFETY: the guard only clears the callback through the unique Bash execution
+// borrow that created it; moving the future between executor threads does not
+// create shared access to the interpreter.
+unsafe impl Send for OutputCallbackGuard {}
+
+impl OutputCallbackGuard {
+    fn install(interpreter: &mut Interpreter, callback: OutputCallback) -> Self {
+        interpreter.set_output_callback(callback);
+        Self { interpreter }
+    }
+}
+
+impl Drop for OutputCallbackGuard {
+    fn drop(&mut self) {
+        // SAFETY: the guard is created from `&mut self.interpreter` inside a
+        // Bash execution future. That future keeps exclusive access to the same
+        // Bash until it is completed or dropped, so clearing this field here does
+        // not race with another mutable interpreter access.
+        unsafe { (*self.interpreter).clear_output_callback() };
+    }
 }
 
 /// Main entry point for Bashkit.
@@ -724,7 +752,9 @@ impl Bash {
         // (REPL, agent commands, short shell snippets) the threadpool hop
         // dominated startup latency. The threshold matches the input byte
         // size; above it we keep the original behavior so very large scripts
-        // can be pre-empted.
+        // can be pre-empted. Only consulted on native targets (the wasm path
+        // below always parses inline).
+        #[cfg(not(target_family = "wasm"))]
         const SPAWN_BLOCKING_THRESHOLD: usize = 16 * 1024;
 
         // On WASM, tokio::task::spawn_blocking and tokio::time::timeout don't
@@ -818,15 +848,20 @@ impl Bash {
         self.interpreter.load_history().await;
 
         let exec_start = std::time::Instant::now();
-        // THREAT[TM-DOS-057]: Wrap execution with timeout to prevent sleep/blocking bypass
+        // THREAT[TM-DOS-057]: Wrap execution with timeout to prevent sleep/blocking bypass.
+        // Only the native path arms the tokio timeout; wasm has no reliable timer driver.
+        #[cfg(not(target_family = "wasm"))]
         let execution_timeout = self.interpreter.limits().timeout;
         #[cfg(not(target_family = "wasm"))]
         let result =
             match tokio::time::timeout(execution_timeout, self.interpreter.execute(&ast)).await {
                 Ok(r) => r,
-                Err(_elapsed) => Err(Error::ResourceLimit(LimitExceeded::Timeout(
-                    execution_timeout,
-                ))),
+                Err(_elapsed) => {
+                    self.interpreter.clear_transient_stdin();
+                    Err(Error::ResourceLimit(LimitExceeded::Timeout(
+                        execution_timeout,
+                    )))
+                }
             };
         #[cfg(target_family = "wasm")]
         let result = self.interpreter.execute(&ast).await;
@@ -949,10 +984,8 @@ impl Bash {
         output_callback: OutputCallback,
         extensions: ExecutionExtensions,
     ) -> Result<ExecResult> {
-        self.interpreter.set_output_callback(output_callback);
-        let result = self.exec_with_extensions(script, extensions).await;
-        self.interpreter.clear_output_callback();
-        result
+        let _guard = OutputCallbackGuard::install(&mut self.interpreter, output_callback);
+        self.exec_with_extensions(script, extensions).await
     }
 
     /// Return a shared cancellation token.
@@ -1159,10 +1192,11 @@ impl Bash {
         (c.session_commands, c.session_exec_calls)
     }
 
-    /// Restore session-level counters to resume a session across Bash instances.
+    /// Merge session-level counters to resume a session across Bash instances.
     ///
     /// This is used by external tool hosts to persist cumulative session counters
-    /// across fresh Bash instances created per tool call.
+    /// across fresh Bash instances created per tool call. Counters are monotonic:
+    /// restoring lower values never reduces already-consumed session budget.
     pub fn restore_session_counters(&mut self, session_commands: u64, session_exec_calls: u64) {
         self.interpreter
             .restore_session_counters(session_commands, session_exec_calls);
@@ -3132,6 +3166,21 @@ mod tests {
         let mut bash = Bash::new();
         let result = bash.exec("echo hello | cat").await.unwrap();
         assert_eq!(result.stdout, "hello\n");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_timed_out_bash_c_does_not_leak_stdin_to_next_exec() {
+        let limits = ExecutionLimits::new().timeout(std::time::Duration::from_millis(1));
+        let mut bash = Bash::builder().limits(limits).build();
+
+        let timed_out = bash.exec("printf secret | bash -c 'sleep 10'").await;
+        assert!(matches!(
+            timed_out,
+            Err(Error::ResourceLimit(LimitExceeded::Timeout(_)))
+        ));
+
+        let result = bash.exec("cat").await.unwrap();
+        assert_eq!(result.stdout, "");
     }
 
     #[tokio::test]
@@ -6272,6 +6321,40 @@ echo missing fi"#,
         let mut bash = Bash::new();
         let result = bash.exec("for i in a b c; do echo $i; done").await.unwrap();
         assert_eq!(result.stdout, "a\nb\nc\n");
+    }
+
+    #[tokio::test]
+    async fn test_exec_streaming_cancel_clears_callback() {
+        use std::time::Duration;
+
+        let chunks = Arc::new(Mutex::new(Vec::new()));
+        let chunks_cb = chunks.clone();
+        let mut bash = Bash::new();
+
+        let timed_out = tokio::time::timeout(
+            Duration::from_millis(10),
+            bash.exec_streaming(
+                "sleep 1; echo should-not-run",
+                Box::new(move |stdout, stderr| {
+                    chunks_cb
+                        .lock()
+                        .unwrap()
+                        .push((stdout.to_string(), stderr.to_string()));
+                }),
+            ),
+        )
+        .await;
+
+        assert!(timed_out.is_err(), "streaming execution should time out");
+
+        let result = bash.exec("echo later-run").await.unwrap();
+
+        assert_eq!(result.stdout, "later-run\n");
+        assert_eq!(
+            *chunks.lock().unwrap(),
+            Vec::<(String, String)>::new(),
+            "cancelled streaming callback must not receive later output"
+        );
     }
 
     #[tokio::test]

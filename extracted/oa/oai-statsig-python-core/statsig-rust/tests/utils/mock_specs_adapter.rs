@@ -85,6 +85,7 @@ impl MockSpecsAdapter {
             source: SpecsSource::Bootstrap,
             received_at: Utc::now().timestamp_millis() as u64,
             source_api: None,
+            has_updates: None,
         };
 
         self.listener

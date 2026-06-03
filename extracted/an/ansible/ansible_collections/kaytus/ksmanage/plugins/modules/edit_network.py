@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_network
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set network information
 description:
    - Set network information on kaytus Server.

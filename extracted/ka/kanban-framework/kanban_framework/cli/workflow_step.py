@@ -8,6 +8,7 @@ step execution parameters.
 from __future__ import annotations
 
 from kanban_framework.infra.filesystem import Filesystem
+from kanban_framework.infra.scheduler import Scheduler
 from kanban_framework.domain.task import TaskManager
 from kanban_framework.domain.workflow import WorkflowEngine
 from kanban_framework.cli.run_helpers import _resolve, _auto_track_step
@@ -66,6 +67,21 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
             from kanban_framework.domain.step_progress import save_progress
             save_progress(fs, task_id, progress)
 
+    # Auto-decider: parse decision result and suggest action
+    if status == "completed":
+        from kanban_framework.domain.auto_decide import should_auto_decide, parse_auto_decision
+        from kanban_framework.domain.auto_decide import _decide_mode
+        try:
+            task = tm.show(task_id)
+            if should_auto_decide(task, step_id):
+                decide_mode = _decide_mode(task)
+                decision = parse_auto_decision(
+                    fs.task_dir(task_id), task.iteration, decide_mode)
+                if decision:
+                    result["auto_decision"] = decision
+        except Exception:
+            pass
+
     return result
 
 
@@ -75,7 +91,7 @@ def _check_step_artifacts(fs: Filesystem, cfg, task_id: str, step_id: str) -> di
     quick = False
     try:
         from kanban_framework.domain.task import TaskManager
-        tm = TaskManager(fs)
+        tm = TaskManager(fs, cfg)
         task = tm.show(task_id)
         quick = getattr(task, 'mode', '') == 'quick'
         step_def = find_step_def(step_id, lightweight=getattr(task, 'lightweight', False), quick=quick)
@@ -142,25 +158,16 @@ def handle_steps(args: list[str], fs: Filesystem, tm: TaskManager,
     from kanban_framework.types import Phase
 
     # Load extensions for custom phases/steps
-    mode = task.mode if task.mode not in ("full", "lightweight", "quick") else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
+    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
     quick = task.mode == "quick"
-    base_steps = _get_steps(mode)
+    base_steps = _get_steps(mode)  # _get_steps already applies extensions
     base_order = _get_phase_order(task.lightweight, quick=quick, mode=task.mode,
                                    kanban_dir=cfg._fs.kanban_dir if cfg else None)
     str_order = [p.value if isinstance(p, Phase) else str(p) for p in base_order]
-    custom_order = None
-    custom_steps = None
-    wf = cfg.workflow
-    if wf.get("extensions"):
-        from kanban_framework.domain.workflow_extensions import WorkflowExtension
-        ext = WorkflowExtension(wf)
-        if not ext.validate():
-            custom_order = ext.build_phase_order(str_order, mode=mode)
-            custom_steps = ext.build_step_map(base_steps, mode=mode)
-
     dag = build_step_dag(
         lightweight=task.lightweight, quick=quick,
-        custom_order=custom_order, custom_steps=custom_steps,
+        mode=mode, kanban_dir=fs.kanban_dir,
+        custom_steps=base_steps, custom_order=str_order,
     )
     progress = load_progress(fs, task.id)
     completed = {k for k, v in progress.get("steps", {}).items() if v.get("status") == "completed"}
@@ -204,9 +211,19 @@ def handle_run_step(args: list[str], fs: Filesystem, tm: TaskManager,
         prompt = prompt.replace("$task_dir", str(td))
         prompt = prompt.replace("$report_dir", str(iter_dir))
         prompt = prompt.replace("$iteration", str(task.iteration))
+        prompt = prompt.replace("$biz_tag", task.biz_tag or "")
+        prompt = prompt.replace("$title", task.title or "")
+        prompt = prompt.replace("$description", task.description or "")
+        prompt = prompt.replace("$phase", task.phase_id or "")
+        prompt = prompt.replace("$mode", task.mode or "")
+    # Auto-decider: inject spawn_prompt for user_action steps when auto_mode enabled
+    if not prompt and step_def.user_action:
+        from kanban_framework.domain.auto_decide import should_auto_decide, build_auto_decide_prompt
+        if should_auto_decide(task, step_id):
+            prompt = build_auto_decide_prompt(task, step_id, fs)
     from kanban_framework.domain.state_machine import _inject_knowledge_json
     actions = _inject_knowledge_json(
-        [a.replace("$task_id", task.id) for a in step_def.actions])
+        [a.replace("$task_id", task.id).replace("$biz_tag", task.biz_tag or "") for a in step_def.actions])
     # Map kanban-* agent types to Claude Code subagent_type
     kanban_type = step_def.agent_type or ""
     subagent_type = "general-purpose" if kanban_type.startswith("kanban-") else kanban_type

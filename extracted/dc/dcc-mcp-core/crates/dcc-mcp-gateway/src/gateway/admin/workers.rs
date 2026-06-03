@@ -17,9 +17,56 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 
-use crate::gateway::http_registration::entry_mcp_url;
+use crate::gateway::http_registration::{MCP_URL_METADATA_KEY, entry_mcp_url};
 use crate::gateway::state::GatewayState;
-use dcc_mcp_transport::discovery::types::ServiceEntry;
+use dcc_mcp_transport::discovery::types::{ServiceEntry, ServiceStatus};
+
+const DISPATCH_STATUS_METADATA_KEY: &str = "dispatch_status";
+const DISPATCH_READY_AT_UNIX_METADATA_KEY: &str = "dispatch_ready_at_unix";
+const HOST_RPC_URI_METADATA_KEY: &str = "host_rpc_uri";
+const HOST_RPC_SCHEME_METADATA_KEY: &str = "host_rpc_scheme";
+const GATEWAY_RUNTIME_MODE_METADATA_KEY: &str = "gateway_runtime_mode";
+const GATEWAY_GUARDIAN_ENABLED_METADATA_KEY: &str = "gateway_guardian_enabled";
+const GATEWAY_RECOVERY_DRIVER_METADATA_KEY: &str = "gateway_recovery_driver";
+const REGISTRATION_REFRESH_MODE_METADATA_KEY: &str = "registration_refresh_mode";
+const DISPATCH_STATUS_READY: &str = "ready";
+const GATEWAY_RECOVERY_DRIVER_DAEMON_GUARDIAN: &str = "daemon_guardian";
+const GATEWAY_RECOVERY_DRIVER_EMBEDDED_ELECTION: &str = "embedded_election";
+const GATEWAY_RECOVERY_DRIVER_NONE: &str = "none";
+const REGISTRATION_REFRESH_MODE_FILE_REGISTRY_HEARTBEAT: &str = "file_registry_heartbeat";
+
+fn metadata_text(e: &ServiceEntry, key: &str) -> Option<String> {
+    e.metadata
+        .get(key)
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn metadata_bool(e: &ServiceEntry, key: &str) -> bool {
+    e.metadata
+        .get(key)
+        .map(String::as_str)
+        .map(str::trim)
+        .is_some_and(|value| matches!(value.to_ascii_lowercase().as_str(), "true" | "1" | "yes"))
+}
+
+fn gateway_recovery_driver(
+    e: &ServiceEntry,
+    runtime_mode: Option<&str>,
+    guardian_enabled: bool,
+) -> String {
+    metadata_text(e, GATEWAY_RECOVERY_DRIVER_METADATA_KEY).unwrap_or_else(|| {
+        if guardian_enabled {
+            GATEWAY_RECOVERY_DRIVER_DAEMON_GUARDIAN.to_string()
+        } else if runtime_mode == Some("embedded-fallback") {
+            GATEWAY_RECOVERY_DRIVER_EMBEDDED_ELECTION.to_string()
+        } else {
+            GATEWAY_RECOVERY_DRIVER_NONE.to_string()
+        }
+    })
+}
 
 /// Build a single Worker JSON record from a `ServiceEntry`.
 ///
@@ -50,6 +97,18 @@ fn entry_to_worker_json(e: &ServiceEntry, gs: &GatewayState) -> Value {
         .duration_since(e.registered_at)
         .map(|d| d.as_secs())
         .unwrap_or(0);
+    let dispatch_status = metadata_text(e, DISPATCH_STATUS_METADATA_KEY);
+    let dispatch_has_mcp_url = metadata_text(e, MCP_URL_METADATA_KEY).is_some();
+    let dispatch_ready = dispatch_status.as_deref() == Some(DISPATCH_STATUS_READY)
+        && dispatch_has_mcp_url
+        && matches!(e.status, ServiceStatus::Available | ServiceStatus::Busy)
+        && !stale;
+    let gateway_runtime_mode = metadata_text(e, GATEWAY_RUNTIME_MODE_METADATA_KEY);
+    let gateway_guardian_enabled = metadata_bool(e, GATEWAY_GUARDIAN_ENABLED_METADATA_KEY);
+    let recovery_driver =
+        gateway_recovery_driver(e, gateway_runtime_mode.as_deref(), gateway_guardian_enabled);
+    let registration_refresh_mode = metadata_text(e, REGISTRATION_REFRESH_MODE_METADATA_KEY)
+        .unwrap_or_else(|| REGISTRATION_REFRESH_MODE_FILE_REGISTRY_HEARTBEAT.to_string());
 
     json!({
         "instance_id":          e.instance_id.to_string(),
@@ -70,6 +129,15 @@ fn entry_to_worker_json(e: &ServiceEntry, gs: &GatewayState) -> Value {
         "scene":                e.scene,
         "failure_reason":       e.metadata.get("failure_reason").cloned(),
         "failure_stage":        e.metadata.get("failure_stage").cloned(),
+        "dispatch_status":      dispatch_status,
+        "dispatch_ready":       dispatch_ready,
+        "dispatch_ready_at_unix": metadata_text(e, DISPATCH_READY_AT_UNIX_METADATA_KEY),
+        "host_rpc_uri":         metadata_text(e, HOST_RPC_URI_METADATA_KEY),
+        "host_rpc_scheme":      metadata_text(e, HOST_RPC_SCHEME_METADATA_KEY),
+        "gateway_runtime_mode":  gateway_runtime_mode,
+        "gateway_guardian_enabled": gateway_guardian_enabled,
+        "gateway_recovery_driver": recovery_driver,
+        "registration_refresh_mode": registration_refresh_mode,
         "metadata":             e.metadata,
         // CPU / memory not yet available — see module docs.
         "cpu_percent":          Value::Null,

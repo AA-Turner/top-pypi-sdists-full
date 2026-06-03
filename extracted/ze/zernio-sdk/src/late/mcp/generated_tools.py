@@ -2028,6 +2028,7 @@ def register_generated_tools(mcp, _get_client):
         goal: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
+        budget_level: str = "adset",
         currency: str | None = None,
         headline: str | None = None,
         long_headline: str | None = None,
@@ -2055,9 +2056,14 @@ def register_generated_tools(mcp, _get_client):
         behaviors: list[dict[str, Any]] | None = None,
         income_tier: str | None = None,
         languages: list[str] | None = None,
+        placements: dict[str, Any] | None = None,
         saved_targeting_id: str | None = None,
         special_ad_categories: list[str] | None = None,
         end_date: str | None = None,
+        start_date: str | None = None,
+        instagram_account_id: str | None = None,
+        dynamic_creative: dict[str, Any] | None = None,
+        placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str = "display",
         keywords: list[str] | None = None,
@@ -2084,6 +2090,14 @@ def register_generated_tools(mcp, _get_client):
                 goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` requires `promotedObject.pixelId` + `promotedObject.customEventType`; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
                 budget_amount: Required on legacy + multi-creative shapes. Inherited on attach.
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach.
+                budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
+          - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the
+            ad set. This is the back-compatible behaviour — omit this field to keep it.
+          - `campaign`: CBO (Campaign Budget Optimization / Advantage Campaign Budget). The
+            budget AND `bidStrategy` are set on the CAMPAIGN, and Meta distributes spend
+            across ad sets automatically.
+        Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
+        this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
                 currency
                 headline: Required for Meta, Google, Pinterest, and LinkedIn on legacy + attach shapes (skip for multi-creative — use `creatives[].headline`). Ignored for TikTok and X/Twitter. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400. On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title.
                 long_headline: Google Display only — defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided.
@@ -2128,6 +2142,15 @@ def register_generated_tools(mcp, _get_client):
         `top_10`; rejected on LinkedIn, X, and Pinterest. On Meta, income targeting is incompatible
         with housing/employment/credit `specialAdCategories`.
                 languages: Language codes (e.g. ['en']). Restricts the audience by language.
+                placements: Meta only. Manual ad placements. Omit for automatic placements (Meta's default,
+        recommended for most cases — Meta optimises delivery across all eligible surfaces).
+        When set, restricts delivery to the chosen surfaces, mapped onto the ad set's
+        `targeting.{publisher_platforms, facebook_positions, instagram_positions,
+        messenger_positions, audience_network_positions, threads_positions,
+        whatsapp_positions, device_platforms}`. Enum membership is validated here; Meta
+        additionally enforces co-selection rules (e.g. some positions require their parent
+        publisher platform) and returns an actionable error which we surface. Non-Meta
+        platforms reject this field.
                 saved_targeting_id: ID of a `saved_targeting` audience (created via POST /v1/ads/audiences). When set, its stored
         TargetingSpec is expanded as the base targeting; inline fields on this body merge on top. Lets you
         reuse a named targeting preset without re-sending every field.
@@ -2135,6 +2158,30 @@ def register_generated_tools(mcp, _get_client):
         political/social-issue ads (Meta enforces restricted targeting for these). Note: setting a special
         category disables income/zip targeting on Meta.
                 end_date: Required for lifetime budgets
+                start_date: Meta only. Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the
+        ad set's `start_time`. When omitted the ad starts delivering immediately. For lifetime
+        budgets Meta also requires `endDate`. (Same `schedule.startDate` semantics already
+        available on `POST /v1/ads/boost`.)
+                instagram_account_id: Meta only. Override the Instagram account the ad is delivered as — pass an Instagram
+        Business Account ID (e.g. 17841...), mapped to the creative's `instagram_user_id`.
+        When omitted we auto-resolve the IG account linked to the connected Facebook Page
+        (the existing default). Useful when a Page has more than one eligible IG account.
+                dynamic_creative: Meta only. Dynamic Creative: supply a POOL of assets and Meta auto-combines and
+        optimises them into the best-performing variations within a single ad (mapped to the
+        creative's `asset_feed_spec`). When set, the top-level single-creative fields
+        (`imageUrl`, `headline`, `body`, `linkUrl`, `callToAction`) are ignored. Mutually
+        exclusive with the `creatives[]` multi-creative shape. Meta limits: ≤10 images,
+        ≤5 bodies / titles / descriptions.
+                placement_assets: Meta only. Placement asset customization: pin a SPECIFIC image to each placement
+        group on a SINGLE ad (e.g. a 9:16 image on Stories/Reels and a 4:5 on Feed). This
+        is the same thing Meta Ads Manager produces with "different creative per placement",
+        mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. It is
+        deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (the two are
+        mutually exclusive, and it cannot be combined with `creatives[]` or `adSetId`). The
+        shared copy (headline, body, link, CTA) comes from the top-level single-creative
+        fields (`headline`, `body`, `linkUrl`, `callToAction`) since only the image varies by
+        placement. Each rule's `placements` accepts the same fields as the top-level
+        `placements` object; Meta enforces co-selection rules and returns an actionable error.
                 audience_id: Custom audience ID for targeting
                 campaign_type: Google only
                 keywords: Google Search only
@@ -2218,6 +2265,7 @@ def register_generated_tools(mcp, _get_client):
                 goal=goal,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
+                budget_level=budget_level,
                 currency=currency,
                 headline=headline,
                 long_headline=long_headline,
@@ -2245,9 +2293,14 @@ def register_generated_tools(mcp, _get_client):
                 behaviors=behaviors,
                 income_tier=income_tier,
                 languages=languages,
+                placements=placements,
                 saved_targeting_id=saved_targeting_id,
                 special_ad_categories=special_ad_categories,
                 end_date=end_date,
+                start_date=start_date,
+                instagram_account_id=instagram_account_id,
+                dynamic_creative=dynamic_creative,
+                placement_assets=placement_assets,
                 audience_id=audience_id,
                 campaign_type=campaign_type,
                 keywords=keywords,
@@ -4287,6 +4340,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         name: str,
         dm_message: str,
+        trigger: str = "comment",
         platform_post_id: str | None = None,
         post_id: str | None = None,
         post_title: str | None = None,
@@ -4294,13 +4348,16 @@ def register_generated_tools(mcp, _get_client):
         match_mode: str = "contains",
         buttons: list[dict[str, Any]] | None = None,
         comment_reply: str | None = None,
+        link_tracking: bool = True,
+        click_tag: str | None = None,
     ) -> str:
         """Create comment-to-DM automation
 
         Args:
             profile_id: (required)
             account_id: Instagram or Facebook account ID (required)
-            platform_post_id: Platform media/post ID. Omit for an account-wide (any-post) automation.
+            trigger: What fires the automation. 'comment' (keyword comment on a post) or 'story_reply' (keyword reply to an Instagram story). For 'story_reply', platformPostId is the story media id (omit for any story).
+            platform_post_id: Platform media/post ID (or story media id when trigger=story_reply). Omit for an account-wide (any-post / any-story) automation.
             post_id: Zernio post ID. Required only when also targeting a specific post via platformPostId.
             post_title: Post content snippet for display
             name: Automation label (required)
@@ -4308,12 +4365,15 @@ def register_generated_tools(mcp, _get_client):
             match_mode
             dm_message: DM text to send to commenter. Max 640 chars when buttons are set, otherwise ~1000. (required)
             buttons: Optional inline DM buttons (1-3). Phone buttons are Facebook-only. Omit or pass [] for a plain-text DM.
-            comment_reply: Optional public reply to the comment"""
+            comment_reply: Optional public reply to the comment
+            link_tracking: Wrap link buttons in the DM in a tracked redirect so clicks are counted (Link Clicks / CTR). Pass false to send links exactly as written. Defaults to on.
+            click_tag: Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences."""
         client = _get_client()
         try:
             response = client.comment_automations.create_comment_automation(
                 profile_id=profile_id,
                 account_id=account_id,
+                trigger=trigger,
                 platform_post_id=platform_post_id,
                 post_id=post_id,
                 post_title=post_title,
@@ -4323,6 +4383,8 @@ def register_generated_tools(mcp, _get_client):
                 dm_message=dm_message,
                 buttons=buttons,
                 comment_reply=comment_reply,
+                link_tracking=link_tracking,
+                click_tag=click_tag,
             )
             return _format_response(response)
         except Exception as e:
@@ -4366,6 +4428,8 @@ def register_generated_tools(mcp, _get_client):
         dm_message: str | None = None,
         buttons: list[dict[str, Any]] | None = None,
         comment_reply: str | None = None,
+        link_tracking: bool | None = None,
+        click_tag: str | None = None,
         is_active: bool | None = None,
     ) -> str:
         """Update automation settings
@@ -4378,6 +4442,8 @@ def register_generated_tools(mcp, _get_client):
             dm_message
             buttons: Inline DM buttons (1-3). Pass [] to clear all buttons.
             comment_reply
+            link_tracking: Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched.
+            click_tag: Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it.
             is_active"""
         client = _get_client()
         try:
@@ -4389,6 +4455,8 @@ def register_generated_tools(mcp, _get_client):
                 dm_message=dm_message,
                 buttons=buttons,
                 comment_reply=comment_reply,
+                link_tracking=link_tracking,
+                click_tag=click_tag,
                 is_active=is_active,
             )
             return _format_response(response)
@@ -6185,6 +6253,403 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.discord.get_discord_channels(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Send a Discord Direct Message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_send_discord_direct_message(
+        account_id: str,
+        user_id: str,
+        content: str | None = None,
+        embeds: list[dict[str, Any]] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+        tts: bool | None = None,
+    ) -> str:
+        """Send a Discord Direct Message
+
+        Args:
+            account_id: SocialAccount _id of the connected Discord account the bot speaks as. Caller must own the account (directly or via team membership). (required)
+            user_id: Discord snowflake ID of the recipient (15-21 digits). (required)
+            content: Message text, up to 2,000 characters.
+            embeds: Up to 10 Discord embeds. Same shape as channel-post embeds (title, description, color, fields, etc.). See DiscordPlatformData.embeds for the embed object schema.
+            attachments: Up to 10 media attachments. Each is `{ type: image|video|gif|document, url, filename?, mimeType?, size? }`.
+            tts: Send as text-to-speech message."""
+        client = _get_client()
+        try:
+            response = client.discord.send_discord_direct_message(
+                account_id=account_id,
+                user_id=user_id,
+                content=content,
+                embeds=embeds,
+                attachments=attachments,
+                tts=tts,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Discord guild roles",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def discord_list_discord_guild_roles(guild_id: str, account_id: str) -> str:
+        """List Discord guild roles
+
+        Args:
+            guild_id: Discord guild snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this guild (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.list_discord_guild_roles(
+                guild_id=guild_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Discord guild members",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def discord_list_discord_guild_members(
+        guild_id: str, account_id: str, limit: int = 100, after: str | None = None
+    ) -> str:
+        """List Discord guild members
+
+        Args:
+            guild_id: (required)
+            account_id: (required)
+            limit: Page size (1-1000).
+            after: Snowflake of the last member from the previous page."""
+        client = _get_client()
+        try:
+            response = client.discord.list_discord_guild_members(
+                guild_id=guild_id, account_id=account_id, limit=limit, after=after
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Assign a role to a guild member",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_add_discord_member_role(
+        guild_id: str, user_id: str, role_id: str, account_id: str
+    ) -> str:
+        """Assign a role to a guild member
+
+        Args:
+            guild_id: (required)
+            user_id: Discord user snowflake to assign the role to. (required)
+            role_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.add_discord_member_role(
+                guild_id=guild_id,
+                user_id=user_id,
+                role_id=role_id,
+                account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a role from a guild member",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_remove_discord_member_role(
+        guild_id: str, user_id: str, role_id: str, account_id: str
+    ) -> str:
+        """Remove a role from a guild member
+
+        Args:
+            guild_id: (required)
+            user_id: (required)
+            role_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.remove_discord_member_role(
+                guild_id=guild_id,
+                user_id=user_id,
+                role_id=role_id,
+                account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List pinned messages in a Discord channel",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def discord_list_discord_pinned_messages(channel_id: str, account_id: str) -> str:
+        """List pinned messages in a Discord channel
+
+        Args:
+            channel_id: Discord channel snowflake. (required)
+            account_id: SocialAccount _id of any Discord account in the same guild. (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.list_discord_pinned_messages(
+                channel_id=channel_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Pin a Discord message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_pin_discord_message(
+        channel_id: str, message_id: str, account_id: str
+    ) -> str:
+        """Pin a Discord message
+
+        Args:
+            channel_id: (required)
+            message_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.pin_discord_message(
+                channel_id=channel_id, message_id=message_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unpin a Discord message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_unpin_discord_message(
+        channel_id: str, message_id: str, account_id: str
+    ) -> str:
+        """Unpin a Discord message
+
+        Args:
+            channel_id: (required)
+            message_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.unpin_discord_message(
+                channel_id=channel_id, message_id=message_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Discord scheduled events",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def discord_list_discord_scheduled_events(
+        guild_id: str, account_id: str, with_user_count: bool | None = None
+    ) -> str:
+        """List Discord scheduled events
+
+        Args:
+            guild_id: (required)
+            account_id: (required)
+            with_user_count: Include user_count on each event."""
+        client = _get_client()
+        try:
+            response = client.discord.list_discord_scheduled_events(
+                guild_id=guild_id,
+                account_id=account_id,
+                with_user_count=with_user_count,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a Discord scheduled event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_create_discord_scheduled_event(
+        guild_id: str,
+        account_id: str,
+        name: str,
+        starts_at: str,
+        entity: dict[str, Any] | None,
+        description: str | None = None,
+        image_data_uri: str | None = None,
+    ) -> str:
+        """Create a Discord scheduled event
+
+        Args:
+            guild_id: (required)
+            account_id: (required)
+            name: (required)
+            description
+            starts_at: ISO 8601 start time. Must be in the future. (required)
+            entity: (required)
+            image_data_uri: Optional cover image as a base64 data URI."""
+        client = _get_client()
+        try:
+            response = client.discord.create_discord_scheduled_event(
+                guild_id=guild_id,
+                account_id=account_id,
+                name=name,
+                description=description,
+                starts_at=starts_at,
+                entity=entity,
+                image_data_uri=image_data_uri,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a Discord scheduled event",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def discord_get_discord_scheduled_event(
+        guild_id: str, event_id: str, account_id: str
+    ) -> str:
+        """Get a Discord scheduled event
+
+        Args:
+            guild_id: (required)
+            event_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.get_discord_scheduled_event(
+                guild_id=guild_id, event_id=event_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a Discord scheduled event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_update_discord_scheduled_event(
+        guild_id: str,
+        event_id: str,
+        account_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+        location: str | None = None,
+        status: str | None = None,
+        image_data_uri: str | None = None,
+    ) -> str:
+        """Update a Discord scheduled event
+
+        Args:
+            guild_id: (required)
+            event_id: (required)
+            account_id: (required)
+            name
+            description
+            starts_at
+            ends_at
+            location: For external events.
+            status: Status transition. Most common: 'cancelled' to cancel an event.
+            image_data_uri"""
+        client = _get_client()
+        try:
+            response = client.discord.update_discord_scheduled_event(
+                guild_id=guild_id,
+                event_id=event_id,
+                account_id=account_id,
+                name=name,
+                description=description,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                location=location,
+                status=status,
+                image_data_uri=image_data_uri,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a Discord scheduled event",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_delete_discord_scheduled_event(
+        guild_id: str, event_id: str, account_id: str
+    ) -> str:
+        """Delete a Discord scheduled event
+
+        Args:
+            guild_id: (required)
+            event_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.delete_discord_scheduled_event(
+                guild_id=guild_id, event_id=event_id, account_id=account_id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -10587,6 +11052,7 @@ def register_generated_tools(mcp, _get_client):
         nodes: list[dict[str, Any]] | None = None,
         edges: list[dict[str, Any]] | None = None,
         entry_node_id: str | None = None,
+        account_id: str | None = None,
     ) -> str:
         """Update workflow
 
@@ -10596,7 +11062,8 @@ def register_generated_tools(mcp, _get_client):
             description
             nodes
             edges
-            entry_node_id"""
+            entry_node_id
+            account_id: Reassign the workflow to a different `SocialAccount`. `platform` and `profileId` are derived server-side from the new account (the client never sends them directly). The account must belong to the caller's workspace and be on a workflow-supported platform (whatsapp, instagram, facebook, telegram, twitter, bluesky, reddit). Changing this triggers a graph revalidation against the new platform."""
         client = _get_client()
         try:
             response = client.workflows.update_workflow(
@@ -10606,6 +11073,7 @@ def register_generated_tools(mcp, _get_client):
                 nodes=nodes,
                 edges=edges,
                 entry_node_id=entry_node_id,
+                account_id=account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -10726,6 +11194,117 @@ def register_generated_tools(mcp, _get_client):
                 to=to,
                 conversation_id=conversation_id,
                 text=text,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an execution's timeline",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def workflows_list_workflow_execution_events(
+        workflow_id: str, execution_id: str
+    ) -> str:
+        """Get an execution's timeline
+
+        Args:
+            workflow_id: (required)
+            execution_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.workflows.list_workflow_execution_events(
+                workflow_id=workflow_id, execution_id=execution_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Duplicate a workflow",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workflows_duplicate_workflow(workflow_id: str) -> str:
+        """Duplicate a workflow
+
+        Args:
+            workflow_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.workflows.duplicate_workflow(workflow_id=workflow_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a workflow's version history",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def workflows_list_workflow_versions(workflow_id: str) -> str:
+        """List a workflow's version history
+
+        Args:
+            workflow_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.workflows.list_workflow_versions(workflow_id=workflow_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a specific workflow version",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def workflows_get_workflow_version(workflow_id: str, version: int) -> str:
+        """Get a specific workflow version
+
+        Args:
+            workflow_id: (required)
+            version: (required)"""
+        client = _get_client()
+        try:
+            response = client.workflows.get_workflow_version(
+                workflow_id=workflow_id, version=version
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Restore a previous workflow version",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workflows_restore_workflow_version(workflow_id: str, version: int) -> str:
+        """Restore a previous workflow version
+
+        Args:
+            workflow_id: (required)
+            version: (required)"""
+        client = _get_client()
+        try:
+            response = client.workflows.restore_workflow_version(
+                workflow_id=workflow_id, version=version
             )
             return _format_response(response)
         except Exception as e:

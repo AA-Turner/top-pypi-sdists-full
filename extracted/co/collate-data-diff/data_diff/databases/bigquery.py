@@ -158,7 +158,7 @@ class Dialect(BaseDialect):
         return tuple(i for i in path if i is not None)
 
     def md5_as_int(self, s: str) -> str:
-        return f"cast(cast( ('0x' || substr(TO_HEX(md5({s})), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS})) as int64) as numeric) - {CHECKSUM_OFFSET}"
+        return f"cast(cast( ('0x' || substr(TO_HEX(md5({s})), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS})) as int64) as numeric) - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"md5({s})"
@@ -189,9 +189,7 @@ class Dialect(BaseDialect):
             return f"FORMAT_TIMESTAMP('%F %H:%M:%E6S', {value})"
 
         timestamp6 = f"FORMAT_TIMESTAMP('%F %H:%M:%E6S', {value})"
-        return (
-            f"RPAD(LEFT({timestamp6}, {TIMESTAMP_PRECISION_POS+coltype.precision}), {TIMESTAMP_PRECISION_POS+6}, '0')"
-        )
+        return f"RPAD(LEFT({timestamp6}, {TIMESTAMP_PRECISION_POS + coltype.precision}), {TIMESTAMP_PRECISION_POS + 6}, '0')"
 
     def normalize_number(self, value: str, coltype: FractionalType) -> str:
         return f"format('%.{coltype.precision}f', {value})"

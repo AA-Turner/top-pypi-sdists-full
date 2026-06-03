@@ -1412,6 +1412,18 @@ class PutBucketStorageClassOutput(ResponseInfo):
         super(PutBucketStorageClassOutput, self).__init__(resp)
 
 
+class PutBucketQuotaOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutBucketQuotaOutput, self).__init__(resp)
+
+
+class GetBucketQuotaOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetBucketQuotaOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.storage_quota = get_value(data, 'StorageQuota', int)
+
+
 class GetBucketLocationOutput(ResponseInfo):
     def __init__(self, resp):
         super(GetBucketLocationOutput, self).__init__(resp)

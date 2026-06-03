@@ -52,7 +52,9 @@ async def _proxy_worker_stream(worker: dict, prompt_kwargs: dict):
     import httpx
 
     url = worker["url"].rstrip("/") + "/infer/stream"
-    timeout = httpx.Timeout(600.0, connect=10.0)
+    # Short connect timeout so a genuinely-dead worker fails over to local fast;
+    # long read timeout because generation itself can take a while.
+    timeout = httpx.Timeout(600.0, connect=4.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream("POST", url, json=prompt_kwargs) as resp:
@@ -91,13 +93,44 @@ def chat_iter_sync(agen):
         loop.close()
 
 
+def _resolve_max_new_tokens(body: ChatBody) -> int:
+    """Default to the model's full context when the client didn't cap it.
+
+    A tool, not a service — so when max_new_tokens is omitted we give the model
+    as much room as it has. The worker auto-continues past this per-call cap, so
+    this is the per-pass budget, not a hard ceiling on total output.
+    """
+    if body.max_new_tokens:
+        return body.max_new_tokens
+    try:
+        from abstract_hugpy.imports.config.main import get_model_config
+        cfg = get_model_config(body.model_key) if body.model_key else None
+        ctx = getattr(cfg, "model_max_length", None)
+        if ctx and int(ctx) > 0:
+            return int(ctx)
+    except Exception:
+        pass
+    # Fall back to the global default cap.
+    try:
+        from abstract_hugpy.imports.src.constants.constants import DEFAULT_MAX_TOKENS
+        return int(DEFAULT_MAX_TOKENS)
+    except Exception:
+        return 4096
+
+
 async def stream_events(body: ChatBody):
     from abstract_hugpy.managers.dispatch import execute_prompt
 
-    prompt_kwargs = {
-        "max_new_tokens": body.max_new_tokens,
-    }
-
+    prompt_kwargs = {}
+    if body.max_new_tokens:
+        # Explicit cap from the client -> honor it (bounded, per-call).
+        prompt_kwargs["max_new_tokens"] = body.max_new_tokens
+    else:
+        # No cap requested -> run unbounded: the runner generates chunk-by-chunk
+        # until the model naturally stops, so the response is never truncated by
+        # a token limit. (Per-chunk size uses the model's context.)
+        prompt_kwargs["unbounded"] = True
+        prompt_kwargs["max_new_tokens"] = _resolve_max_new_tokens(body)
 
     if body.model_key:
         prompt_kwargs["model_key"] = body.model_key
@@ -118,6 +151,22 @@ async def stream_events(body: ChatBody):
     if body.images:
         prompt_kwargs["images"] = body.images
 
+    # Text-only chat to a multi-task (e.g. vision) model: route to its
+    # text-generation task instead of the default image-text-to-text, so a
+    # plain prompt uses the text runner. The vision runner requires an image
+    # and would otherwise fail validation. Only do this when no image is given
+    # and the model actually lists text-generation.
+    if not body.images and not body.file and body.model_key:
+        try:
+            from abstract_hugpy.imports.config.main import get_model_config
+            cfg = get_model_config(body.model_key)
+            tasks = getattr(cfg, "tasks", None) or []
+            primary = getattr(cfg, "primary_task", None)
+            if primary != "text-generation" and "text-generation" in tasks:
+                prompt_kwargs["task"] = "text-generation"
+        except Exception:
+            pass
+
     logger.info("prompt_kwargs == %s", prompt_kwargs)
 
     # ── GPU worker offload ────────────────────────────────────────────────
@@ -129,15 +178,36 @@ async def stream_events(body: ChatBody):
     worker = None
     if offloadable:
         try:
-            from ..imports.utils.workers import pick_worker_for_model
+            from ..imports.utils.workers import pick_worker_for_model, list_workers
             worker = pick_worker_for_model(body.model_key)
-        except Exception:
+            if worker:
+                logger.info("offload: picked worker %s (%s) status=%s for model=%s",
+                            worker.get("name"), worker.get("url"),
+                            worker.get("status"), body.model_key)
+            else:
+                # Say WHY no worker was picked — the usual cause of "runs local".
+                try:
+                    pool = list_workers()
+                except Exception:
+                    pool = []
+                summary = [
+                    {"name": w.get("name"), "status": w.get("status"),
+                     "models": w.get("models")} for w in pool
+                ]
+                logger.info("offload: no worker for model=%s; pool=%s", body.model_key, summary)
+        except Exception as exc:
+            logger.warning("offload: pick_worker_for_model failed: %s", exc)
             worker = None
+    else:
+        logger.info("offload: skipped (no model_key on request)")
 
     if worker:
         # Attach this worker's per-assignment spill override (if any) so the
         # worker loads the model with the operator's chosen GPU/CPU split.
         worker_kwargs = dict(prompt_kwargs)
+        if body.request_id:
+            # Worker-only: lets the browser cancel via /infer/cancel/<id>.
+            worker_kwargs["request_id"] = body.request_id
         try:
             from ..imports.utils.workers import spill_for
             spill = spill_for(worker.get("id"), body.model_key)

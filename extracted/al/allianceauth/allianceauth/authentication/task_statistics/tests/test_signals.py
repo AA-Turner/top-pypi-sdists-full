@@ -29,8 +29,11 @@ class TestTaskSignals(TestCase):
         # when
         with patch(
             "allianceauth.eveonline.tasks.EveCharacter.objects.update_character"
-        ) as mock_update:
+        ) as mock_update, patch(
+            "allianceauth.eveonline.tasks.EveCharacter.objects.update_character_other"
+        ) as mock_update_other:
             mock_update.return_value = None
+            mock_update_other.return_value = None
             update_character.delay(1)
         # then
         self.assertEqual(succeeded_tasks.count(), 1)

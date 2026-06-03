@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-train
-Version: 1.12.0
+Version: 1.13.0
 Summary: Open source library for training and deploying models on Amazon SageMaker.
 Author: Amazon Web Services
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: sagemaker-core>=2.12.0
+Requires-Dist: sagemaker-core>=2.13.0
 Requires-Dist: graphene<4,>=3
 Requires-Dist: typing_extensions>=4.9.0
 Requires-Dist: tblib>=1.7.0
@@ -26,6 +26,12 @@ Requires-Dist: jinja2<4.0,>=3.0
 Requires-Dist: sagemaker-mlflow<1.0.0,>=0.0.1
 Requires-Dist: mlflow<4.0.0,>=3.0.0
 Requires-Dist: nest_asyncio>=1.5.0
+Requires-Dist: requests>=2.28.0
+Requires-Dist: pydantic>=2.0.0
+Provides-Extra: rft-strands
+Requires-Dist: strands-agents; extra == "rft-strands"
+Provides-Extra: rft-langchain
+Requires-Dist: httpx>=0.24.0; extra == "rft-langchain"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

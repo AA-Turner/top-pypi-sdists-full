@@ -161,6 +161,8 @@ class APIDriver:
                 self.client.configure_table(
                     table_id=self._table_id(action.table_ref), **action.new
                 )
+                self._table_raw.cache_clear()  # pragma: no cover
+                self._checks_for_table.cache_clear()  # pragma: no cover
         elif isinstance(action, CheckAction):
             if action.new and action.check_id:  # Update a system check
                 self.client.update_check(
@@ -224,9 +226,10 @@ class APIDriver:
             if action.check_id or action.check_ref:
                 check_id = (
                     action.check_id
-                    or self._checks_for_table_by_ref(action.table_ref)[
-                        action.check_ref
-                    ]["check_id"]
+                    or self._checks_for_table_by_ref(action.table_ref)
+                    .get(action.check_ref, {})
+                    .get("check_id")
+                    or self.get_system_check_id(action.table_ref, action.check_ref)
                 )
                 self.client.replace_labels_for_check(
                     table_id=table_id,
@@ -263,9 +266,10 @@ class APIDriver:
             if (action.check_id or action.check_ref) and action.table_ref:
                 check_id = (
                     action.check_id
-                    or self._checks_for_table_by_ref(action.table_ref)[
-                        action.check_ref
-                    ]["check_id"]
+                    or self._checks_for_table_by_ref(action.table_ref)
+                    .get(action.check_ref, {})
+                    .get("check_id")
+                    or self.get_system_check_id(action.table_ref, action.check_ref)
                 )
                 self.client.update_check(
                     table_id=self._table_id(action.table_ref),
@@ -275,7 +279,7 @@ class APIDriver:
             elif action.table_ref:
                 # Get existing table config to preserve time column settings
                 table_info = self._table_raw(action.table_ref)
-                config = table_info.get("config", {})
+                config = table_info.get("config") or {}  # pragma: no cover
 
                 self.client.configure_table(
                     table_id=self._table_id(action.table_ref),

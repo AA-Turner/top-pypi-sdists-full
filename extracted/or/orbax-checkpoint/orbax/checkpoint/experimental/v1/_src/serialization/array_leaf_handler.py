@@ -98,6 +98,7 @@ def _create_v0_saving_paraminfo(
       name=param.name,
       parent_dir=serialization_context.parent_dir.path,
       byte_limiter=serialization_context.byte_limiter,
+      device_host_byte_limiter=serialization_context.device_host_byte_limiter,
       is_ocdbt_checkpoint=saving_options.use_ocdbt,
       use_zarr3=saving_options.use_zarr3,
       use_compression=saving_options.use_compression,
@@ -196,7 +197,9 @@ class ArrayLeafHandler(types.LeafHandler[jax.Array, AbstractShardedArray]):
       *,
       context: context_lib.Context | None = None,
   ):
-    self._context = context_lib.get_context(context)
+    self._context = (
+        context if context is not None else context_lib.get_context()
+    )
     self._handler_impl = _create_v0_array_handler(
         self._context,
     )

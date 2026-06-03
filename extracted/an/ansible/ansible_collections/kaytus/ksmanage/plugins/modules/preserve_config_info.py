@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: preserve_config_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get preserve config information
 description:
    - Get preserve config information on kaytus Server.

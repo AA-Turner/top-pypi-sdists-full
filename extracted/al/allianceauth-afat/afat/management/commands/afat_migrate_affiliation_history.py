@@ -7,7 +7,7 @@ from django.core.management import BaseCommand
 
 # Alliance Auth AFAT
 from afat.models import Fat
-from afat.providers import esi
+from afat.providers.esi import esi
 
 
 def get_input(text) -> str:
@@ -39,7 +39,7 @@ class Command(BaseCommand):
         """
 
         self.stdout.write(
-            msg=f"Querying ESI for corporation history for character with ID {character_id} …"
+            msg=f"Querying ESI for corporation history for character with ID {character_id}…"
         )
 
         return esi.client.Character.GetCharactersCharacterIdCorporationhistory(
@@ -57,7 +57,7 @@ class Command(BaseCommand):
         """
 
         self.stdout.write(
-            msg=f"Querying ESI for alliance history for corporation with ID {corporation_id} …"
+            msg=f"Querying ESI for alliance history for corporation with ID {corporation_id}…"
         )
 
         return esi.client.Corporation.GetCorporationsCorporationIdAlliancehistory(
@@ -82,7 +82,7 @@ class Command(BaseCommand):
         # Fix affiliation in statistics
         for loop_count, fat in enumerate(all_fats):
             self.stdout.write(
-                msg=f"Migrating affiliation data for FAT ID {fat.pk} ({loop_count + 1}/{fats_total}) …"
+                msg=f"Migrating affiliation data for FAT ID {fat.pk} ({loop_count + 1}/{fats_total})…"
             )
 
             if fat.character.character_id not in cache_character_corp_history:
@@ -143,7 +143,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):  # pylint: disable=unused-argument
         """
-        Ask before running …
+        Ask before running…
 
         :param args:
         :param options:

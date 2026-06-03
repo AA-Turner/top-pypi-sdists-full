@@ -1,13 +1,10 @@
-from collections.abc import AsyncIterator
-import types
 from functools import partial
 from contextlib import asynccontextmanager, ExitStack
 
-from asyncgui import _current_task, _sleep_forever, move_on_when, ExclusiveEvent, _wait_args
+from asyncgui import move_on_when, ExclusiveEvent
 
 
-@types.coroutine
-def event(event_dispatcher, event_name, *, filter=None, stop_dispatching=False):
+async def event(event_dispatcher, event_name, *, filter=None, stop_dispatching=False):
     '''
     Returns an :class:`~collections.abc.Awaitable` that can be used to wait for:
 
@@ -40,18 +37,18 @@ def event(event_dispatcher, event_name, *, filter=None, stop_dispatching=False):
 
       This only works for events not for properties.
     '''
-    task = (yield _current_task)[0][0]
-    bind_id = event_dispatcher.fbind(event_name, partial(_event_callback, filter, task._step, stop_dispatching))
+    e = ExclusiveEvent()
+    bind_id = event_dispatcher.fbind(event_name, partial(_event_callback, filter, e.fire, stop_dispatching))
     assert bind_id  # check if binding succeeded
     try:
-        return (yield _sleep_forever)[0]
+        return await e.wait_args()
     finally:
         event_dispatcher.unbind_uid(event_name, bind_id)
 
 
-def _event_callback(filter, task_step, stop_dispatching, *args, **kwargs):
+def _event_callback(filter, callback, stop_dispatching, *args, **kwargs):
     if (filter is None) or filter(*args, **kwargs):
-        task_step(*args)
+        callback(*args)
         return stop_dispatching
 
 
@@ -74,7 +71,35 @@ class event_freq:
     .. code-block::
 
         __, touch = await event(widget, 'on_touch_down')
-        async with event_freq(widget, 'on_touch_move', filter=lambda w, t: t is touch) as on_touch_move:
+
+        with event_freq(widget, "on_touch_move", filter=lambda w, t: t is touch) as on_touch_move:
+            while True:
+                await on_touch_move()
+                ...
+
+    When listening for an ``on_touch_move`` event, you will often also want to listen for an ``on_touch_up`` event,
+    which leads to deeply nested code:
+
+    .. code-block::
+
+        __, touch = await event(widget, "on_touch_down")
+
+        def is_the_same_touch(w, t, touch=touch):
+            return t is touch
+        async with move_on_when(event(widget, "on_touch_up", filter=is_the_same_touch)):
+            with event_freq(widget, "on_touch_move", filter=is_the_same_touch) as on_touch_move:
+                while True:
+                    await on_touch_move()
+                    ...
+
+    To mitigate this, ``event_freq`` can also be used as an async context manager, making the above code less nested:
+
+    .. code-block::
+
+        async with (
+            move_on_when(event(widget, "on_touch_up", filter=is_the_same_touch)),
+            event_freq(widget, "on_touch_move", filter=is_the_same_touch) as on_touch_move,
+        ):
             while True:
                 await on_touch_move()
                 ...
@@ -84,35 +109,33 @@ class event_freq:
     .. versionchanged:: 0.9.0
         The ``free_to_await`` parameter was added.
 
-    The ``free_to_await`` parameter:
+    .. versionchanged:: 0.11.0
 
-    If set to False (the default), the only permitted async operation within the with-block is ``await xxx()``,
-    where ``xxx`` is the identifier specified in the as-clause. To lift this restriction, set ``free_to_await`` to
-    True — at the cost of slightly reduced performance.
+        * This can be used as either a synchronous or an asynchronous context manager.
+          Prefer the synchronous form, as it has less overhead.
+        * The ``free_to_await`` parameter was removed. You can treat it as if it were always set to True.
     '''
-    __slots__ = ('_disp', '_name', '_filter', '_stop', '_bind_id', '_free_to_await')
+    __slots__ = ("_disp", "_name", "_filter", "_stop", "_bind_id", )
 
-    def __init__(self, event_dispatcher, event_name, *, filter=None, stop_dispatching=False, free_to_await=False):
+    def __init__(self, event_dispatcher, event_name, *, filter=None, stop_dispatching=False):
         self._disp = event_dispatcher
         self._name = event_name
         self._filter = filter
         self._stop = stop_dispatching
-        self._free_to_await = free_to_await
 
-    @types.coroutine
-    def __aenter__(self):
-        if self._free_to_await:
-            e = ExclusiveEvent()
-            self._bind_id = self._disp.fbind(self._name, partial(_event_callback, self._filter, e.fire, self._stop))
-            return e.wait_args
-        else:
-            task = (yield _current_task)[0][0]
-            self._bind_id = self._disp.fbind(
-                self._name, partial(_event_callback, self._filter, task._step, self._stop))
-            return _wait_args
+    def __enter__(self):
+        e = ExclusiveEvent()
+        self._bind_id = self._disp.fbind(self._name, partial(_event_callback, self._filter, e.fire, self._stop))
+        return e.wait_args
+
+    def __exit__(self, *args):
+        self._disp.unbind_uid(self._name, self._bind_id)
+
+    async def __aenter__(self):
+        return self.__enter__()
 
     async def __aexit__(self, *args):
-        self._disp.unbind_uid(self._name, self._bind_id)
+        return self.__exit__(*args)
 
 
 class suppress_event:
@@ -202,79 +225,139 @@ class block_touch_events:
         self._dispatcher.unbind(on_touch_down=f, on_touch_move=f, on_touch_up=f)
 
 
-async def rest_of_touch_events(widget, touch, *, stop_dispatching=False, grab=True) -> AsyncIterator[None]:
+@asynccontextmanager
+async def rest_of_touch_events(widget, touch, *, stop_dispatching=False, grab=True):
     '''
-    Returns an async iterator that yields None on each ``on_touch_move`` event
-    and stops when the corresponding ``on_touch_up`` event occurs.
+    Returns an async context manager that helps to await both ``on_touch_move`` and
+    ``on_touch_up`` events at the same time.
 
     .. code-block::
 
-        async for __ in rest_of_touch_events(widget, touch):
-            print('on_touch_move')
-        print('on_touch_up')
+        async with rest_of_touch_events(widget, touch) as on_touch_move:
+            while True:
+                await on_touch_move()
+                print("touch moved")
+        print("touch ended")
 
-    :param grab: If set to ``False``, this API will not rely on ``touch.grab()``, which means there is no guarantee
+    :param grab:
+        If set to ``False``, this API will not rely on ``touch.grab()``, which means there is no guarantee
         that all events from the given touch will be delivered to the widget, as documented in
-        `grabbing-touch-events`_. If the corresponding ``on_touch_up`` event is not delivered, the iterator will wait
-        indefinitely for it. Do not set this to ``False`` unless you know what you are doing.
-    :param stop_dispatching: Whether to stop dispatching non-grabbed touch events corresponding to the given touch.
-                             (Grabbed events are always stopped if the ``grab`` is ``True``.)
-                             For details, see `event-bubbling`_.
+        `grabbing-touch-events`_. If the corresponding ``on_touch_up`` event is not delivered, the
+        ``await on_touch_move()`` line will wait indefinitely for it.
+        Do not set this to ``False`` unless you know what you are doing.
 
-    .. warning::
-        You should not use this when Kivy is running in async mode. Use :func:`rest_of_touch_events_cm` instead.
+    :param stop_dispatching:
+        Whether to stop dispatching non-grabbed touch events corresponding to the given touch.
+        (Grabbed touch events are always stopped if the ``grab`` is ``True``, and are never stopped
+        if the ``grab`` is ``False``.) For details, see `event-bubbling`_.
 
-    .. versionchanged:: 0.9.0
-        The ``timeout`` parameter was removed.
+    .. versionadded:: 0.9.1
 
-    .. versionchanged:: 0.9.1
-        The ``grab`` parameter was added.
+    .. versionchanged:: 0.11.0
+
+        * The ``free_to_await`` parameter was removed. You can treat it as if it were always set to True.
+        * The API renamed from ``rest_of_touch_events_cm`` to ``rest_of_touch_events``.
+          The original ``rest_of_touch_events`` was removed.
 
     .. _grabbing-touch-events: https://kivy.org/doc/master/guide/inputs.html#grabbing-touch-events
     .. _event-bubbling: https://kivy.org/doc/master/api-kivy.uix.widget.html#widget-touch-event-bubbling
     '''
-    async with rest_of_touch_events_cm(widget, touch, stop_dispatching=stop_dispatching, grab=grab) as on_touch_move:
-        while True:
-            await on_touch_move()
-            yield
-
-
-@asynccontextmanager
-async def rest_of_touch_events_cm(widget, touch, *, stop_dispatching=False, free_to_await=False, grab=True):
-    '''
-    A variant of :func:`rest_of_touch_events`.
-    This version is more verbose, but remains safe even when Kivy is running in async mode.
-
-    .. code-block::
-
-        async with rest_of_touch_events_cm(widget, touch) as on_touch_move:
-            while True:
-                await on_touch_move()
-                print('on_touch_move')
-        print('on_touch_up')
-
-    .. versionadded:: 0.9.1
-    '''
-    def is_the_same_touch(w, t, touch=touch):
-        return t is touch
     with ExitStack() as stack:
+        ec = stack.enter_context
+
+        if stop_dispatching:
+            if grab:
+                def filter(w, t, touch=touch):
+                    return t is touch
+            else:
+                def filter(w, t, touch=touch):
+                    return t is touch and t.grab_current is not w
+        elif grab:
+            def filter(w, t, touch=touch):
+                return t is touch and t.grab_current is w
+        else:
+            filter = None
+        if filter is not None:
+            se = partial(suppress_event, widget, filter=filter)
+            ec(se("on_touch_up"))
+            ec(se("on_touch_move"))
+
         if grab:
             touch.grab(widget)
             stack.callback(touch.ungrab, widget)
-            if stop_dispatching:
-                ec = stack.enter_context
-                se = partial(suppress_event, widget, filter=is_the_same_touch)
-                ec(se('on_touch_up'))
-                ec(se('on_touch_move'))
 
             def filter(w, t, touch=touch):
                 return t is touch and t.grab_current is w
             stop_dispatching = True
         else:
-            filter = is_the_same_touch
-        async with (
-            move_on_when(event(widget, 'on_touch_up', filter=filter, stop_dispatching=stop_dispatching)),
-            event_freq(widget, 'on_touch_move', filter=filter, stop_dispatching=stop_dispatching,
-                       free_to_await=free_to_await) as on_touch_move,
-        ):
+            def filter(w, t, touch=touch):
+                return t is touch and t.grab_current is None
+
+        on_touch_move = ec(event_freq(widget, "on_touch_move", filter=filter, stop_dispatching=stop_dispatching))
+        async with move_on_when(event(widget, "on_touch_up", filter=filter, stop_dispatching=stop_dispatching)):
             yield on_touch_move
+
+
+@asynccontextmanager
+async def visibility_aware_touch_events(widget, touch, *, stop_dispatching=False):
+    '''
+    (experimental)
+    :func:`rest_of_touch_events` with awareness of whether the touch is currently within
+    the widget's visible area. This can be useful when a widget is clipped by other
+    widgets and you need to know whether the touch is inside the portion that is
+    actually visible.
+
+    .. code-block::
+
+        __, touch = await event(widget, "on_touch_down")
+        was_inside = widget.collide_point(*touch.pos)
+
+        async with visibility_aware_touch_events(widget, touch) as on_touch_move:
+            while True:
+                is_inside = await on_touch_move()
+                if is_inside:
+                    if was_inside:
+                        print("Touch moved while staying within the visible area")
+                    else:
+                        print("Touch moved from outside to inside the visible area")
+                else:
+                    if was_inside:
+                        print("Touch moved from inside to outside the visible area")
+                    else:
+                        print("Touch moved while staying outside the visible area")
+                was_inside = is_inside
+        print("Touch ended.")
+
+    .. warning::
+        Since :class:`~kivy.uix.scrollview.ScrollView` does not dispatch touch events
+        to its children for touches that start outside it, this API will not work
+        properly if a ScrollView is in the target widget's parent hierarchy and the
+        touch starts outside the ScrollView.
+
+    .. versionadded:: 0.11.0
+    '''
+    e = ExclusiveEvent()
+    inside = False
+
+    def on_touch_move(w, t, touch=touch, collide_point=widget.collide_point, fire=e.fire,
+                      stop_dispatching=stop_dispatching):
+        nonlocal inside
+        if t is not touch:
+            return
+        if t.grab_current is w:
+            fire(inside)
+            inside = False
+            return True
+        inside = collide_point(*t.pos)
+        return stop_dispatching
+
+    with ExitStack() as stack:
+        touch.grab(widget)
+        stack.callback(touch.ungrab, widget)
+        stack.callback(widget.unbind_uid, "on_touch_move", widget.fbind("on_touch_move", on_touch_move))
+        if stop_dispatching:
+            stack.enter_context(suppress_event(widget, "on_touch_up", filter=lambda w, t: t is touch))
+        async with move_on_when(
+            event(widget, "on_touch_up", filter=lambda w, t: t is touch and t.grab_current is w, stop_dispatching=True)
+        ):
+            yield e.wait_args_0

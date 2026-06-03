@@ -1,14 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2022, Felix Fontein <felix@fontein.de>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
-
-__metaclass__ = type
-
+from __future__ import annotations
 
 DOCUMENTATION = r"""
 module: nameserver_info
@@ -17,9 +12,9 @@ version_added: 2.6.0
 description:
   - Retrieve all nameservers that are responsible for a DNS name.
 extends_documentation_fragment:
-  - community.dns.attributes
-  - community.dns.attributes.info_module
-  - community.dns.attributes.idempotent_not_modify_state
+  - community.dns._attributes
+  - community.dns._attributes.info_module
+  - community.dns._attributes.idempotent_not_modify_state
 author:
   - Felix Fontein (@felixfontein)
 options:
@@ -65,7 +60,7 @@ options:
     elements: str
     version_added: 2.7.0
 requirements:
-  - dnspython >= 1.15.0 (maybe older versions also work)
+  - dnspython >= 2.0.0
 """
 
 EXAMPLES = r"""
@@ -116,51 +111,51 @@ results:
         - ns3.example.org
 """
 
+import typing as t
+
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.community.dns.plugins.module_utils.resolver import (
+from ansible_collections.community.dns.plugins.module_utils._resolver import (
     ResolveDirectlyFromNameServers,
     assert_requirements_present,
     guarded_run,
 )
 
 
-def main():
+def main() -> None:
     module = AnsibleModule(
         argument_spec={
-            'name': {'required': True, 'type': 'list', 'elements': 'str'},
-            'resolve_addresses': {'type': 'bool', 'default': False},
-            'query_retry': {'type': 'int', 'default': 3},
-            'query_timeout': {'type': 'float', 'default': 10},
-            'always_ask_default_resolver': {'type': 'bool', 'default': True},
-            'servfail_retries': {'type': 'int', 'default': 0},
-            'server': {'type': 'list', 'elements': 'str'},
+            "name": {"required": True, "type": "list", "elements": "str"},
+            "resolve_addresses": {"type": "bool", "default": False},
+            "query_retry": {"type": "int", "default": 3},
+            "query_timeout": {"type": "float", "default": 10},
+            "always_ask_default_resolver": {"type": "bool", "default": True},
+            "servfail_retries": {"type": "int", "default": 0},
+            "server": {"type": "list", "elements": "str"},
         },
         supports_check_mode=True,
     )
     assert_requirements_present(module)
 
-    names = module.params['name']
-    resolve_addresses = module.params['resolve_addresses']
+    names = module.params["name"]
+    resolve_addresses = module.params["resolve_addresses"]
 
     resolver = ResolveDirectlyFromNameServers(
-        timeout=module.params['query_timeout'],
-        timeout_retries=module.params['query_retry'],
-        servfail_retries=module.params['servfail_retries'],
-        always_ask_default_resolver=module.params['always_ask_default_resolver'],
-        server_addresses=module.params['server'],
+        timeout=module.params["query_timeout"],
+        timeout_retries=module.params["query_retry"],
+        servfail_retries=module.params["servfail_retries"],
+        always_ask_default_resolver=module.params["always_ask_default_resolver"],
+        server_addresses=module.params["server"],
     )
-    results = [None] * len(names)
-    for index, name in enumerate(names):
-        results[index] = {
-            'name': name,
-        }
+    results: list[dict[str, t.Any]] = [{"name": name} for name in names]
 
     def f():
         for index, name in enumerate(names):
-            results[index]['nameservers'] = sorted(resolver.resolve_nameservers(name, resolve_addresses=resolve_addresses))
+            results[index]["nameservers"] = sorted(
+                resolver.resolve_nameservers(name, resolve_addresses=resolve_addresses)
+            )
 
-    guarded_run(f, module, generate_additional_results=lambda: {'results': results})
+    guarded_run(f, module, generate_additional_results=lambda: {"results": results})
     module.exit_json(results=results)
 
 

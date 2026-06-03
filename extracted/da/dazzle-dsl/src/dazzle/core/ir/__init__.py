@@ -120,6 +120,7 @@ from .domain import (
     ExampleRecord,
     GraphEdgeSpec,
     GraphNodeSpec,
+    ManagedBy,
     PermissionKind,
     PermissionRule,
     PolicyEffect,
@@ -854,6 +855,7 @@ from .workspaces import (
     ToneBandSpec,
     WorkspaceAccessLevel,
     WorkspaceAccessSpec,
+    WorkspacePrimaryActionSpec,
     WorkspaceRegion,
     WorkspaceSpec,
 )
@@ -907,6 +909,7 @@ __all__ = [
     "BulkFormat",
     "ConstraintKind",
     "Constraint",
+    "ManagedBy",
     "AuthContext",
     "VisibilityRule",
     "PolicyEffect",
@@ -982,6 +985,7 @@ __all__ = [
     "RowActionSpec",
     "StatusListEntrySpec",
     "ToneBandSpec",
+    "WorkspacePrimaryActionSpec",
     "WorkspaceRegion",
     "WorkspaceSpec",
     # Experiences

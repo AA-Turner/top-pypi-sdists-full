@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: ldap_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get ldap information
 description:
    - Get ldap information on kaytus Server.

@@ -1,4 +1,4 @@
-# Generated from catalan.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from catalan.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class CatalanStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from catalan.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from catalan.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_v = {"a", "e", "i", "o", "u", "à", "á", "è", "é", "í", "ï", "ò", "ó", "ú", "ü"}

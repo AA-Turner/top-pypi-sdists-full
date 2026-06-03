@@ -37,6 +37,7 @@ import os
 import sys
 import json
 import time
+import uuid
 import socket
 import logging
 import argparse
@@ -49,6 +50,10 @@ import urllib.error
 from flask import Flask, request, jsonify, Response, stream_with_context
 
 logger = logging.getLogger("abstract_hugpy.worker_agent")
+
+# request_id -> asyncio.Event, so POST /infer/cancel can stop an in-flight
+# stream mid-generation. Populated by _stream_sync, tripped by the cancel route.
+_CANCELS: dict = {}
 
 
 # ---------------------------------------------------------------------------
@@ -126,11 +131,81 @@ def _detect_gpus_torch() -> list[dict]:
         return []
 
 
+def torch_cuda_status() -> dict:
+    """Whether *torch* can actually use CUDA — distinct from nvidia-smi seeing a
+    card. Inference runs on the GPU only when ``torch.cuda.is_available()`` is
+    True; a CPU-only torch build (or a torch/CUDA-driver mismatch) leaves a
+    perfectly good GPU unused. Surfaced in /health so this is diagnosable.
+    """
+    try:
+        import torch
+        available = bool(torch.cuda.is_available())
+        return {
+            "available": available,
+            "device_count": torch.cuda.device_count() if available else 0,
+            "device_name": torch.cuda.get_device_name(0) if available else None,
+            "torch_version": getattr(torch, "__version__", None),
+            "cuda_version": getattr(getattr(torch, "version", None), "cuda", None),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def llama_cpp_cuda_status() -> dict:
+    """Whether *llama.cpp* (GGUF backend) was built with GPU offload support.
+
+    ``n_gpu_layers`` is silently ignored when llama-cpp-python is the CPU-only
+    wheel, so a GGUF model runs entirely on CPU even though autofit picked GPU
+    layers. ``llama_supports_gpu_offload()`` is the definitive build check.
+    """
+    try:
+        import llama_cpp
+        supports = None
+        try:
+            supports = bool(llama_cpp.llama_supports_gpu_offload())
+        except Exception:
+            pass
+        return {
+            "installed": True,
+            "version": getattr(llama_cpp, "__version__", None),
+            "supports_gpu_offload": supports,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"installed": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
 def _safe_int(value) -> int | None:
     try:
         return int(str(value).strip())
     except (TypeError, ValueError):
         return None
+
+
+def _local_ip_toward(central_url: str) -> str | None:
+    """The worker's own LAN IP on the route it uses to reach central.
+
+    Opening a UDP socket toward central (no packets are actually sent on
+    connect) makes the kernel pick the source address it WOULD use — i.e. the
+    worker's real outbound IP (e.g. 192.168.1.128), not loopback/127.0.1.1.
+
+    This is what we advertise, because central can't derive it reliably: when
+    the worker reaches central via a public domain, NAT hairpinning makes the
+    source IP central sees the router's address (192.168.1.1), not the worker's.
+    """
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(central_url)
+        host = parsed.hostname or central_url
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(2.0)
+            s.connect((host, port))
+            ip = s.getsockname()[0]
+        if ip and not ip.startswith("127."):
+            return ip
+    except OSError:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -168,11 +243,111 @@ def _ensure_present(payload: dict, central_url: str | None) -> None:
     if not model_key:
         return
     try:
-        from .provision import ensure_model_present
+        from .provision import ensure_model_present, ensure_model_registered
 
-        ensure_model_present(model_key, central_url)
+        # Learn the model from central if the worker wasn't built with it, then
+        # run inference against the canonical local key.
+        canonical = ensure_model_registered(model_key, central_url)
+        if canonical and canonical != model_key:
+            payload["model_key"] = canonical
+        ensure_model_present(payload.get("model_key"), central_url)
     except Exception as exc:
         logger.warning("provisioning check for %s failed: %s", model_key, exc)
+
+
+def _ensure_present_streaming(payload: dict, central_url: str | None):
+    """Provision the model, yielding SSE 'status' events with download progress.
+
+    Yields encoded SSE lines (status/error). Returns normally once the model is
+    present (or was already). Throttled so we don't flood the stream.
+    """
+    model_key = payload.get("model_key")
+    if not model_key:
+        return
+    try:
+        from .provision import (
+            ensure_model_present, ensure_model_registered, model_is_local,
+        )
+
+        # Learn the model from central first, then work the rest of the stream
+        # against the canonical local key (so resolution/loading can find it).
+        canonical = ensure_model_registered(model_key, central_url)
+        if canonical and canonical != model_key:
+            payload["model_key"] = canonical
+            model_key = canonical
+
+        if model_is_local(model_key):
+            return  # nothing to do; go straight to generation
+
+        yield _sse({"type": "status", "stage": "provision",
+                    "message": f"fetching {model_key}…", "progress": 0.0})
+
+        # provision runs in a worker thread; it pushes (done,total,fname) onto a
+        # queue that we drain into throttled SSE status events from this thread.
+        import queue
+        import threading
+
+        q: "queue.Queue" = queue.Queue()
+        result = {"ok": False, "err": None}
+
+        def _progress(done, total, fname):
+            q.put((done, total, fname))
+
+        def _run():
+            try:
+                result["ok"] = ensure_model_present(model_key, central_url, progress=_progress)
+            except Exception as exc:  # pragma: no cover
+                result["err"] = exc
+            finally:
+                q.put(None)  # sentinel: done
+
+        th = threading.Thread(target=_run, daemon=True)
+        th.start()
+
+        last_emit = 0.0
+        while True:
+            item = q.get()
+            if item is None:
+                break
+            done, total, fname = item
+            now = time.time()
+            # Emit at most ~3x/sec, but always emit the first/last.
+            if now - last_emit < 0.33 and done < (total or 1):
+                continue
+            last_emit = now
+            frac = (done / total) if total else 0.0
+            yield _sse({
+                "type": "status", "stage": "provision",
+                "message": f"downloading {model_key} ({_human(done)}/{_human(total)})",
+                "progress": round(frac, 4),
+                "done_bytes": done, "total_bytes": total, "file": fname,
+            })
+        th.join(timeout=1.0)
+
+        if result["err"] is not None:
+            yield _sse({"type": "error",
+                        "message": f"provisioning failed: {result['err']}"})
+            return
+        if not result["ok"]:
+            yield _sse({"type": "error",
+                        "message": f"could not fetch model {model_key} from central or HF"})
+            return
+        yield _sse({"type": "status", "stage": "provision",
+                    "message": "model ready, loading…", "progress": 1.0})
+    except Exception as exc:
+        logger.warning("streaming provisioning for %s failed: %s", model_key, exc)
+
+
+def _human(n) -> str:
+    if not n:
+        return "?"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    v = float(n)
+    i = 0
+    while v >= 1024 and i < len(units) - 1:
+        v /= 1024
+        i += 1
+    return f"{v:.1f} {units[i]}"
 
 
 def _materialize_file(payload: dict) -> str | None:
@@ -266,18 +441,45 @@ def _apply_spill(spill: dict | None) -> None:
         os.environ[env_name] = str(val)
 
 
-def _sse(payload: dict) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+def _sse(payload: dict) -> bytes:
+    # werkzeug's WSGI server asserts the app yields bytes, not str — so encode
+    # here. (gunicorn is more lenient, but the worker runs the dev server.)
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
 
-def _stream_sync(payload: dict):
-    """Drive dispatch.execute_prompt_stream (async gen) from Flask's sync ctx."""
+# How many continuation passes we'll chain before giving up, so a runaway
+# model can't loop forever. Each pass produces up to the per-call token cap.
+_MAX_CONTINUATIONS = int(os.environ.get("WORKER_MAX_CONTINUATIONS", "20"))
+
+# At a continuation seam, a model often re-emits the tail of the previous part.
+# We look for an overlap up to this many characters and drop it.
+_SEAM_WINDOW = int(os.environ.get("WORKER_SEAM_WINDOW", "400"))
+
+
+def _overlap_len(prev_tail: str, seg: str) -> int:
+    """Longest suffix of prev_tail that is also a prefix of seg.
+
+    Used to strip a continuation seam where the model repeats text it already
+    produced. Exact match (verbatim repetition is by far the common case).
+    """
+    maxk = min(len(prev_tail), len(seg))
+    for k in range(maxk, 0, -1):
+        if prev_tail.endswith(seg[:k]):
+            return k
+    return 0
+
+
+def _run_one_pass(loop, payload: dict, cancel_event=None):
+    """Run a single execute_prompt_stream pass.
+
+    Yields ('token', text) tuples and finishes by setting the returned dict's
+    'finish_reason' + accumulated 'text'. Generator returns the result dict.
+    ``cancel_event`` lets the request be stopped mid-stream.
+    """
     from abstract_hugpy.managers.dispatch import execute_prompt_stream
 
-    tmp = _materialize_file(payload)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    agen = execute_prompt_stream(**payload)
+    agen = execute_prompt_stream(cancel_event=cancel_event, **payload)
+    finish = "stop"
     try:
         while True:
             try:
@@ -286,21 +488,154 @@ def _stream_sync(payload: dict):
                 break
             etype = getattr(event, "type", None)
             if etype == "token":
-                yield _sse({"type": "token", "text": getattr(event, "text", "")})
+                yield ("token", getattr(event, "text", ""))
             elif etype == "done":
-                yield _sse(
-                    {
-                        "type": "done",
-                        "finish_reason": getattr(event, "finish_reason", None) or "stop",
-                    }
-                )
-                return
+                finish = getattr(event, "finish_reason", None) or "stop"
+                break
             elif etype == "error":
-                yield _sse({"type": "error", "message": getattr(event, "message", "run failed")})
-                return
-        # Stream ended without an explicit done — synthesize one.
-        yield _sse({"type": "done", "finish_reason": "stop"})
+                yield ("error", getattr(event, "message", "run failed"))
+                return {"finish_reason": "error"}
+    except Exception as exc:
+        # The runner raised instead of emitting an error event (e.g. a model
+        # that needs infra this worker doesn't have). Convert to a clean error
+        # event so the user sees a message, not a crashed stream / traceback.
+        logger.warning("generation failed: %s: %s", type(exc).__name__, exc)
+        yield ("error", f"{type(exc).__name__}: {exc}")
+        return {"finish_reason": "error"}
     finally:
+        try:
+            loop.run_until_complete(agen.aclose())
+        except Exception:
+            pass
+    return {"finish_reason": finish}
+
+
+def _stream_sync(payload: dict, request_id: str | None = None):
+    """Drive generation from Flask's sync ctx, with auto-continuation.
+
+    When a pass stops because it hit the token cap (finish_reason == 'length' /
+    'max_tokens'), we feed what was produced back as context and continue, so a
+    response longer than any single token allowance still comes out complete.
+    Emits 'status' events between continuation segments. The browser just keeps
+    appending 'token' text, so continuation is seamless to the user.
+
+    ``request_id`` registers an asyncio cancel Event so POST /infer/cancel can
+    stop this stream mid-generation.
+    """
+    tmp = _materialize_file(payload)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # Register a cancel Event for this request so /infer/cancel can trip it.
+    cancel_event = asyncio.Event()
+    if request_id:
+        _CANCELS[request_id] = cancel_event
+
+    # finish reasons that mean "ran out of room", i.e. continue.
+    CONTINUE_ON = {"length", "max_tokens"}
+
+    # Normalize to a messages list so we can append assistant partials.
+    messages = payload.get("messages")
+    if not messages:
+        messages = [{"role": "user", "content": payload.get("prompt", "")}]
+    base_kwargs = {k: v for k, v in payload.items() if k not in ("messages", "prompt")}
+
+    try:
+        full_text = ""
+        for attempt in range(_MAX_CONTINUATIONS + 1):
+            if cancel_event.is_set():
+                yield _sse({"type": "done", "finish_reason": "cancelled"})
+                return
+            pass_kwargs = dict(base_kwargs)
+            pass_kwargs["messages"] = messages
+            if attempt > 0:
+                yield _sse({"type": "status", "stage": "generate",
+                            "message": f"continuing (part {attempt + 1})…",
+                            "segment": attempt + 1})
+
+            gen = _run_one_pass(loop, pass_kwargs, cancel_event=cancel_event)
+            seg_text = ""        # raw text this pass produced (for the next prompt)
+            errored = False
+
+            # Seam dedup: on a continuation pass, buffer the head of the segment
+            # until we have _SEAM_WINDOW chars (or the pass ends), strip any
+            # overlap with what we already emitted, then stream the rest live.
+            is_cont = attempt > 0
+            prev_tail = full_text[-_SEAM_WINDOW:] if is_cont else ""
+            buffering = is_cont
+            head = ""
+
+            def _emit(text):
+                # helper so we both record full_text and yield the SSE token
+                nonlocal full_text
+                if not text:
+                    return None
+                full_text += text
+                return _sse({"type": "token", "text": text})
+
+            try:
+                while True:
+                    kind, data = next(gen)
+                    if kind == "token":
+                        seg_text += data
+                        if buffering:
+                            head += data
+                            if len(head) < _SEAM_WINDOW:
+                                continue
+                            # enough buffered — drop the seam overlap, flush rest
+                            k = _overlap_len(prev_tail, head)
+                            ev = _emit(head[k:])
+                            buffering = False
+                            head = ""
+                            if ev:
+                                yield ev
+                        else:
+                            ev = _emit(data)
+                            if ev:
+                                yield ev
+                    elif kind == "error":
+                        yield _sse({"type": "error", "message": data})
+                        errored = True
+                        break
+            except StopIteration as stop:
+                result = stop.value or {"finish_reason": "stop"}
+
+            # Pass ended while still buffering (short segment): flush remainder
+            # minus the seam overlap.
+            if not errored and buffering:
+                k = _overlap_len(prev_tail, head)
+                ev = _emit(head[k:])
+                if ev:
+                    yield ev
+            if errored:
+                return
+
+            finish = result.get("finish_reason", "stop")
+            if finish not in CONTINUE_ON:
+                yield _sse({"type": "done", "finish_reason": finish})
+                return
+            if not seg_text.strip():
+                # Hit the cap but produced nothing usable — stop to avoid a loop.
+                yield _sse({"type": "done", "finish_reason": "stop"})
+                return
+
+            # Continue: append the partial assistant turn and prompt to keep going.
+            messages = messages + [
+                {"role": "assistant", "content": seg_text},
+                {"role": "user", "content": "Continue exactly where you left off. "
+                                            "Do not repeat any previous text."},
+            ]
+
+        # Exhausted the continuation budget.
+        yield _sse({"type": "done", "finish_reason": "length"})
+    except Exception as exc:
+        # Last-resort guard: never let an exception escape into the WSGI layer
+        # (that aborts the stream with a raw traceback). Emit a clean error.
+        logger.warning("stream failed: %s: %s", type(exc).__name__, exc)
+        yield _sse({"type": "error", "message": f"{type(exc).__name__}: {exc}"})
+    finally:
+        if request_id:
+            _CANCELS.pop(request_id, None)
         try:
             loop.run_until_complete(loop.shutdown_asyncgens())
         except Exception:
@@ -341,6 +676,10 @@ def build_app(state: "WorkerState") -> Flask:
                 "worker_id": state.worker_id,
                 "name": state.name,
                 "gpus": detect_gpus(),
+                "cuda": torch_cuda_status(),
+                "llama_cpp": llama_cpp_cuda_status(),
+                "assigned_models": state.assigned_models,
+                "provisioning": sorted(state._provisioning),
                 "loaded_models": loaded_model_keys(),
                 "spill": _spill_describe(),
             }
@@ -357,9 +696,19 @@ def build_app(state: "WorkerState") -> Flask:
     def infer_stream():
         payload = request.get_json(silent=True) or {}
         _apply_spill(payload.pop("spill", None))
-        _ensure_present(payload, state.central_url)
+        # Caller-supplied id for cancellation; else generate one. Echo it back
+        # as the first SSE event so the client can cancel this exact request.
+        req_id = str(payload.pop("request_id", "") or uuid.uuid4().hex)
+
+        def _generate():
+            yield _sse({"type": "request", "request_id": req_id})
+            # Stream provisioning progress first (download from central/HF), then
+            # generation with auto-continuation. Both emit SSE lines already.
+            yield from _ensure_present_streaming(payload, state.central_url)
+            yield from _stream_sync(payload, request_id=req_id)
+
         return Response(
-            stream_with_context(_stream_sync(payload)),
+            stream_with_context(_generate()),
             mimetype="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -369,19 +718,121 @@ def build_app(state: "WorkerState") -> Flask:
             direct_passthrough=True,
         )
 
+    @app.route("/infer/cancel/<request_id>", methods=["POST"])
+    def infer_cancel(request_id):
+        ev = _CANCELS.get(request_id)
+        if ev is None:
+            return jsonify({"cancelled": False, "reason": "unknown or finished request"}), 404
+        ev.set()
+        return jsonify({"cancelled": True, "request_id": request_id})
+
+    @app.route("/probe/<path:model_key>", methods=["POST", "GET"])
+    def probe(model_key):
+        # Live VRAM-fit check: actually load the model on this worker's GPU and
+        # report whether it fit, plus before/after free VRAM. Loading is cached
+        # by dispatch, so a probe also warms the model for the first real chat.
+        return jsonify(_probe_model(model_key, state))
+
     return app
+
+
+def _free_vram_bytes() -> int | None:
+    try:
+        from abstract_hugpy.managers.spill import free_vram_bytes
+        return free_vram_bytes()
+    except Exception:
+        return None
+
+
+def _probe_model(model_key: str, state: "WorkerState") -> dict:
+    """Load the model on the GPU and report fit + VRAM deltas.
+
+    Returns {ok, fit, vram_free_before, vram_free_after, vram_used, error}.
+    'fit' is a heuristic: ok load AND GPU memory actually decreased (i.e. weights
+    landed on the GPU, not spilled entirely to CPU).
+    """
+    before = _free_vram_bytes()
+    result: dict = {"model_key": model_key, "vram_free_before": before}
+    try:
+        # Learn the model from central (if needed), make sure its files are
+        # present, then build the runner, which loads the model. A tiny run
+        # confirms it can actually generate.
+        from .provision import ensure_model_present, ensure_model_registered
+        canonical = ensure_model_registered(model_key, state.central_url) or model_key
+        ensure_model_present(canonical, state.central_url)
+
+        from abstract_hugpy.managers.dispatch import runner_for
+        runner_for(model_key=canonical)  # builds + caches the runner (loads weights)
+
+        after = _free_vram_bytes()
+        used = (before - after) if (before is not None and after is not None) else None
+        result.update(
+            ok=True,
+            vram_free_after=after,
+            vram_used=used,
+            # If GPU free memory dropped meaningfully, weights are on the GPU.
+            fit=bool(used and used > 64 * 1024 * 1024),
+        )
+    except Exception as exc:
+        result.update(ok=False, fit=False, error=f"{type(exc).__name__}: {exc}")
+    return result
 
 
 # ---------------------------------------------------------------------------
 # Agent lifecycle
 # ---------------------------------------------------------------------------
 class WorkerState:
-    def __init__(self, name: str, url: str, worker_id: str | None,
-                 central_url: str | None = None):
+    def __init__(self, name: str, url: str | None, worker_id: str | None,
+                 central_url: str | None = None, port: int | None = None):
         self.name = name
-        self.url = url
+        self.url = url            # None unless operator set --advertise/WORKER_URL
         self.worker_id = worker_id
         self.central_url = central_url
+        self.port = port
+        # Models central says we should serve, plus which we've already kicked
+        # off a background provision for (so we don't re-trigger every beat).
+        self.assigned_models: list[str] = []
+        self._provisioning: set[str] = set()
+        self._provision_lock = threading.Lock()
+
+
+def _sync_assignment(state: "WorkerState", worker: dict) -> None:
+    """React to central's worker record: adopt its model list and pre-provision.
+
+    Central owns the assignment (set in the UI). The agent reads it back from
+    every register/heartbeat response and, for any newly-assigned model it
+    doesn't already have, downloads it in the background so the first chat
+    doesn't pay the full download latency. Without this the worker never knew
+    about UI allocation changes.
+    """
+    if not isinstance(worker, dict):
+        return
+    models = worker.get("models") or []
+    if models == state.assigned_models:
+        return
+    state.assigned_models = list(models)
+    logger.info("assignment updated: serving %s", models or "(nothing)")
+
+    for model_key in models:
+        with state._provision_lock:
+            if model_key in state._provisioning:
+                continue
+            state._provisioning.add(model_key)
+
+        def _bg(mk=model_key):
+            try:
+                from .provision import ensure_model_present, model_is_local
+                if not model_is_local(mk):
+                    logger.info("pre-provisioning assigned model %s…", mk)
+                    ensure_model_present(mk, state.central_url)
+                    logger.info("pre-provisioned %s", mk)
+            except Exception as exc:
+                logger.warning("pre-provision of %s failed: %s", mk, exc)
+            finally:
+                with state._provision_lock:
+                    state._provisioning.discard(mk)
+
+        threading.Thread(target=_bg, daemon=True).start()
 
 
 def _load_worker_id(path: str) -> str | None:
@@ -405,14 +856,18 @@ def _heartbeat_loop(client: CentralClient, state: WorkerState, args) -> None:
     while True:
         time.sleep(args.heartbeat)
         try:
-            client.heartbeat(
+            worker = client.heartbeat(
                 state.worker_id,
                 {
                     "gpus": detect_gpus(),
                     "loaded_models": loaded_model_keys(),
                     "spill": _spill_describe(),
+                    "url": state.url,     # None -> central keeps source-IP URL
+                    "port": state.port,
                 },
             )
+            # Adopt any assignment change made in the UI + pre-provision it.
+            _sync_assignment(state, worker)
         except urllib.error.HTTPError as exc:
             if exc.code == 410:
                 # Central forgot us (restart / cleared registry) — re-register.
@@ -428,7 +883,8 @@ def _register(client: CentralClient, state: WorkerState, args) -> None:
     models = [m.strip() for m in (args.models or "").split(",") if m.strip()]
     payload = {
         "name": state.name,
-        "url": state.url,
+        "url": state.url,            # None -> central uses the source IP
+        "port": state.port,
         "gpus": detect_gpus(),
         "role": "worker",
         "models": models or None,
@@ -438,6 +894,9 @@ def _register(client: CentralClient, state: WorkerState, args) -> None:
     state.worker_id = worker.get("id", state.worker_id)
     if state.worker_id:
         _save_worker_id(args.id_file, state.worker_id)
+    # Adopt central's view of what we serve (it may already have assignments
+    # for this worker_id from a previous session) and pre-provision them.
+    _sync_assignment(state, worker)
     logger.info("registered as worker id=%s serving models=%s", state.worker_id, worker.get("models"))
 
 
@@ -513,14 +972,59 @@ def main(argv: list[str] | None = None) -> int:
 
     _apply_cli_spill(args)
 
+    # A worker runs vision models on its own GPU in-process; it has no separate
+    # vision server to POST to. Force in-process unless the operator overrode it.
+    os.environ.setdefault("HUGPY_VISION_INPROCESS", "1")
+
+    # Only advertise a URL when the operator set one explicitly. Otherwise leave
+    # it to central, which derives the reachable address from the request source
+    # IP — far more reliable than the worker guessing past 127.0.1.1 / NAT / odd
+    # NICs. We still send the listen port so central can build host:port.
     advertise = args.advertise
     if not advertise:
-        host = args.host if args.host not in ("0.0.0.0", "::") else socket.gethostbyname(socket.gethostname())
-        advertise = f"http://{host}:{args.port}"
+        # Determine the worker's own outbound IP on the route to central. This
+        # is reliable even across NAT hairpinning, which fools central's
+        # source-IP guess (central would see the router, e.g. 192.168.1.1, not
+        # the worker's .128). Falls back to None -> central uses the source IP.
+        ip = _local_ip_toward(args.central)
+        if ip:
+            advertise = f"http://{ip}:{args.port}"
+            logger.info("advertising self as %s (local IP toward central)", advertise)
+    # Surface GPU usability up front: a worker that can't use CUDA will silently
+    # serve every model on CPU. Make that loud so it's not mistaken for "slow".
+    _gpus = detect_gpus()
+    _cuda = torch_cuda_status()
+    _lcpp = llama_cpp_cuda_status()
+    if _cuda.get("available"):
+        logger.info("torch CUDA ready: %s (torch %s, cuda %s) — transformers models use the GPU",
+                    _cuda.get("device_name"), _cuda.get("torch_version"),
+                    _cuda.get("cuda_version"))
+    elif _gpus:
+        logger.warning(
+            "GPU(s) detected by nvidia-smi (%s) but torch.cuda.is_available() is "
+            "False — transformers inference will run on CPU. This worker's Python "
+            "env needs a CUDA build of torch. torch=%s cuda=%s err=%s",
+            ", ".join(g.get("name") or "?" for g in _gpus),
+            _cuda.get("torch_version"), _cuda.get("cuda_version"), _cuda.get("error"))
+    else:
+        logger.warning("no usable GPU (nvidia-smi found none and torch has no CUDA); "
+                       "inference will run on CPU")
+
+    # GGUF models go through llama.cpp, which needs its OWN CUDA build.
+    if _gpus and _lcpp.get("installed") and _lcpp.get("supports_gpu_offload") is False:
+        logger.warning(
+            "llama-cpp-python is installed WITHOUT GPU offload support — GGUF "
+            "models will run on CPU regardless of n_gpu_layers. Reinstall with "
+            "CUDA: CMAKE_ARGS=\"-DGGML_CUDA=on\" pip install --force-reinstall "
+            "--no-cache-dir llama-cpp-python  (llama_cpp %s)", _lcpp.get("version"))
+    elif _gpus and _lcpp.get("supports_gpu_offload"):
+        logger.info("llama.cpp GPU offload available (llama_cpp %s) — GGUF models "
+                    "can use the GPU", _lcpp.get("version"))
 
     state = WorkerState(name=args.name, url=advertise,
                         worker_id=_load_worker_id(args.id_file),
                         central_url=args.central)
+    state.port = args.port
     client = CentralClient(args.central)
 
     try:

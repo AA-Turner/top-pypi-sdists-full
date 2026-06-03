@@ -10,15 +10,101 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from typing import Any
 from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import Optional
+from urllib.parse import urlsplit
 
 REGISTRY_ENV = "DCC_MCP_REGISTRY_DIR"
 ROLE_PER_DCC_SIDECAR = "per-dcc-sidecar"
+SUPPORTED_DISPATCH_HOST_RPC_SCHEMES = ("commandport", "qtserver", "ws", "wss")
+TEST_ONLY_HOST_RPC_SCHEMES = ("stub",)
+
+
+def sidecar_host_rpc_dispatch_contract(host_rpc: Any) -> Dict[str, Any]:
+    """Classify whether a sidecar host RPC URI can prove tool dispatch.
+
+    The generic sidecar may still start for unsupported schemes so operators
+    get a diagnostic registry row. Adapter startup code that wants to claim
+    "open the DCC and tools are usable" should require a dispatch-capable
+    scheme and then run a readiness/probe check.
+    """
+    endpoint = str(host_rpc or "").strip()
+    scheme = _uri_scheme(endpoint)
+    base = {
+        "host_rpc": endpoint,
+        "scheme": scheme,
+        "supported_schemes": list(SUPPORTED_DISPATCH_HOST_RPC_SCHEMES),
+        "test_only_schemes": list(TEST_ONLY_HOST_RPC_SCHEMES),
+        "uri_valid": False,
+        "validation_error": None,
+    }
+    if not endpoint:
+        return {
+            **base,
+            "status": "invalid",
+            "dispatch_ready_capable": False,
+            "test_only": False,
+            "reason": "missing_host_rpc",
+            "message": "host_rpc is required before sidecar dispatch can be proven.",
+        }
+    if scheme is None:
+        message = "host_rpc must include a URI scheme such as commandport://, qtserver://, ws://, or wss://."
+        return {
+            **base,
+            "status": "invalid",
+            "dispatch_ready_capable": False,
+            "test_only": False,
+            "reason": "missing_scheme",
+            "validation_error": message,
+            "message": message,
+        }
+    if scheme in SUPPORTED_DISPATCH_HOST_RPC_SCHEMES:
+        validation_error = _dispatch_uri_validation_error(endpoint, scheme)
+        if validation_error is not None:
+            return {
+                **base,
+                "status": "invalid",
+                "dispatch_ready_capable": False,
+                "test_only": False,
+                "reason": "invalid_host_rpc_uri",
+                "validation_error": validation_error,
+                "message": validation_error,
+            }
+        return {
+            **base,
+            "status": "dispatch_capable",
+            "dispatch_ready_capable": True,
+            "test_only": False,
+            "uri_valid": True,
+            "reason": None,
+            "message": "The sidecar can become dispatch-ready once the DCC host RPC bridge accepts a connection.",
+        }
+    if scheme in TEST_ONLY_HOST_RPC_SCHEMES:
+        return {
+            **base,
+            "status": "test_only",
+            "dispatch_ready_capable": False,
+            "test_only": True,
+            "uri_valid": True,
+            "reason": "test_only_host_rpc",
+            "message": "stub:// is test-only and must not be used as adapter startup proof.",
+        }
+    return {
+        **base,
+        "status": "unsupported",
+        "dispatch_ready_capable": False,
+        "test_only": False,
+        "reason": "unsupported_host_rpc_scheme",
+        "message": (
+            "No generic sidecar HostRpcClient is registered for this scheme; "
+            "the sidecar can register for diagnostics but cannot prove tool dispatch."
+        ),
+    }
 
 
 def build_sidecar_command(
@@ -39,6 +125,7 @@ def build_sidecar_command(
     connect_timeout_secs: Optional[int] = None,
     no_ensure_gateway: bool = False,
     legacy_gateway_election: bool = False,
+    require_dispatch_capable: bool = False,
     extra_args: Optional[Iterable[Any]] = None,
     env: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
@@ -56,6 +143,18 @@ def build_sidecar_command(
     endpoint = str(host_rpc or "").strip()
     if not endpoint:
         return _failed("invalid_host_rpc", "host_rpc is required.")
+    dispatch_contract = sidecar_host_rpc_dispatch_contract(endpoint)
+    if require_dispatch_capable and not dispatch_contract["dispatch_ready_capable"]:
+        failed = _failed(
+            "dispatch_not_capable",
+            (
+                "host_rpc is not dispatch-capable for a production sidecar launch. "
+                "Use commandport://, qtserver://, ws://, or wss://, or disable "
+                "require_dispatch_capable for diagnostics-only launches."
+            ),
+        )
+        failed["dispatch_contract"] = dispatch_contract
+        return failed
 
     pid = _parse_int(watch_pid)
     if pid is None:
@@ -134,10 +233,28 @@ def build_sidecar_command(
         "gateway_port": port,
         "command": command,
         "environment": {"set": env_set},
-        "detached": True,
-        "recommended_next_action": (
-            "Spawn this command from the DCC startup hook and keep using the shared gateway URL."
+        "readiness_selector": {
+            "dcc_type": dcc,
+            "instance_id": instance_id,
+            "host_rpc": endpoint,
+        },
+        "readiness_argv": _build_readiness_argv(
+            dcc_type=dcc,
+            host_rpc=endpoint,
+            registry_path=registry_path,
+            instance_id=instance_id,
         ),
+        "readiness_command": _build_readiness_command(
+            environment,
+            dcc_type=dcc,
+            host_rpc=endpoint,
+            registry_path=registry_path,
+            instance_id=instance_id,
+        ),
+        "dispatch_contract": dispatch_contract,
+        "readiness_contract": _sidecar_readiness_contract(dispatch_contract),
+        "detached": True,
+        "recommended_next_action": _sidecar_launch_next_action(dispatch_contract),
     }
 
 
@@ -159,11 +276,24 @@ def launch_sidecar(
     connect_timeout_secs: Optional[int] = None,
     no_ensure_gateway: bool = False,
     legacy_gateway_election: bool = False,
+    require_dispatch_capable: bool = False,
+    extra_args: Optional[Iterable[Any]] = None,
     detached: bool = True,
     cwd: Optional[Any] = None,
     env: Optional[Dict[str, str]] = None,
+    wait_ready_timeout_secs: Optional[float] = None,
+    poll_interval_secs: float = 0.25,
+    probe_tool: Optional[str] = None,
+    probe_arguments: Optional[Dict[str, Any]] = None,
+    probe_timeout_secs: float = 3.0,
 ) -> Dict[str, Any]:
-    """Start a per-DCC sidecar without importing native ``dcc_mcp_core``."""
+    """Start a per-DCC sidecar without importing native ``dcc_mcp_core``.
+
+    By default the helper returns as soon as ``subprocess.Popen`` succeeds so
+    DCC startup hooks do not block their host UI. Pass
+    ``wait_ready_timeout_secs`` from a background startup task or installer when
+    the caller wants a bounded dispatch-readiness verdict in the same result.
+    """
     contract = build_sidecar_command(
         dcc_type=dcc_type,
         host_rpc=host_rpc,
@@ -181,6 +311,8 @@ def launch_sidecar(
         connect_timeout_secs=connect_timeout_secs,
         no_ensure_gateway=no_ensure_gateway,
         legacy_gateway_election=legacy_gateway_election,
+        require_dispatch_capable=require_dispatch_capable,
+        extra_args=extra_args,
         env=env,
     )
     if not contract.get("success"):
@@ -211,13 +343,31 @@ def launch_sidecar(
         failed["command"] = contract["command"]
         return failed
 
-    return {
+    result = {
         **contract,
         "success": True,
         "status": "started",
         "pid": proc.pid,
         "detached": detached,
+        "ready": False,
+        "readiness_checked": False,
+        "readiness": _unchecked_launch_readiness(contract),
     }
+    if wait_ready_timeout_secs is not None:
+        result["readiness"] = _check_launch_readiness(
+            registry_dir=contract["registry_dir"],
+            dcc_type=contract["dcc_type"],
+            instance_id=contract.get("readiness_selector", {}).get("instance_id"),
+            host_rpc=contract["host_rpc"],
+            timeout_secs=wait_ready_timeout_secs,
+            poll_interval_secs=poll_interval_secs,
+            probe_tool=probe_tool,
+            probe_arguments=probe_arguments,
+            probe_timeout_secs=probe_timeout_secs,
+        )
+        result["ready"] = bool(result["readiness"].get("ready"))
+        result["readiness_checked"] = True
+    return result
 
 
 def default_registry_dir() -> str:
@@ -263,6 +413,193 @@ def _append_flag_value(command: List[str], flag: str, value: Optional[Any]) -> N
     if value in (None, ""):
         return
     command.extend([flag, str(value)])
+
+
+def _uri_scheme(value: Any) -> Optional[str]:
+    text = str(value or "").strip()
+    if "://" not in text:
+        return None
+    return text.split("://", 1)[0].lower()
+
+
+def _dispatch_uri_validation_error(endpoint: str, scheme: str) -> Optional[str]:
+    if scheme in ("commandport", "qtserver"):
+        return _tcp_dispatch_uri_validation_error(endpoint, scheme)
+    if scheme in ("ws", "wss"):
+        return _websocket_dispatch_uri_validation_error(endpoint, scheme)
+    return None
+
+
+def _tcp_dispatch_uri_validation_error(endpoint: str, scheme: str) -> Optional[str]:
+    try:
+        parsed = urlsplit(endpoint)
+    except ValueError as exc:
+        return f"{scheme} host_rpc URI is invalid: {exc}."
+    if parsed.scheme.lower() != scheme:
+        return f"host_rpc must start with {scheme}://."
+    if not parsed.hostname:
+        return f"{scheme} host_rpc URI must include a host."
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        return f"{scheme} host_rpc URI has an invalid port: {exc}."
+    if port is None:
+        return f"{scheme} host_rpc URI must include a non-zero port."
+    if port <= 0:
+        return f"{scheme} host_rpc URI port must be non-zero."
+    if parsed.path or parsed.query or parsed.fragment:
+        return f"{scheme} host_rpc URI must be host:port only; path, query, and fragment are not supported."
+    return None
+
+
+def _websocket_dispatch_uri_validation_error(endpoint: str, scheme: str) -> Optional[str]:
+    try:
+        parsed = urlsplit(endpoint)
+    except ValueError as exc:
+        return f"{scheme} host_rpc URI is invalid: {exc}."
+    if parsed.scheme.lower() != scheme:
+        return f"host_rpc must start with {scheme}://."
+    if not parsed.hostname:
+        return f"{scheme} host_rpc URI must include a host."
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        return f"{scheme} host_rpc URI has an invalid port: {exc}."
+    if port == 0:
+        return f"{scheme} host_rpc URI port must be non-zero."
+    return None
+
+
+def _sidecar_launch_next_action(dispatch_contract: Dict[str, Any]) -> str:
+    if dispatch_contract.get("dispatch_ready_capable"):
+        return (
+            "Spawn this command from the DCC startup hook; use readiness_command "
+            "or wait_for_sidecar_ready() before claiming tools are callable."
+        )
+    return (
+        "This sidecar launch can register a diagnostic row, but it cannot prove "
+        "DCC tool dispatch with the configured host_rpc. Use a supported real "
+        "host RPC scheme before claiming the plugin is directly usable."
+    )
+
+
+def _sidecar_readiness_contract(dispatch_contract: Dict[str, Any]) -> Dict[str, Any]:
+    dispatch_capable = bool(dispatch_contract.get("dispatch_ready_capable"))
+    direct_use_status = "requires_ready_verdict" if dispatch_capable else "diagnostics_only"
+    message = (
+        "Launching the sidecar only proves that a helper process was requested; "
+        "tool calls are directly usable only after sidecar readiness reports ready."
+        if dispatch_capable
+        else (
+            "Launching the sidecar with this host_rpc can publish diagnostics, but it cannot prove DCC tool dispatch."
+        )
+    )
+    return {
+        "ready_on_launch": False,
+        "requires_readiness_check": True,
+        "requires_dispatch_capable_host_rpc": True,
+        "dispatch_ready_capable": dispatch_capable,
+        "direct_use_status": direct_use_status,
+        "ready_verdict": "sidecar_readiness_status(...).ready == true" if dispatch_capable else None,
+        "message": message,
+    }
+
+
+def _unchecked_launch_readiness(contract: Dict[str, Any]) -> Dict[str, Any]:
+    readiness_contract = contract.get("readiness_contract")
+    if not isinstance(readiness_contract, dict):
+        readiness_contract = _sidecar_readiness_contract(contract.get("dispatch_contract", {}))
+    status = "not_checked" if readiness_contract.get("dispatch_ready_capable") else "dispatch_not_capable"
+    return {
+        "success": False,
+        "status": status,
+        "ready": False,
+        "checked": False,
+        "selector": contract.get("readiness_selector"),
+        "message": readiness_contract.get("message"),
+        "recommended_next_action": contract.get("recommended_next_action"),
+    }
+
+
+def _build_readiness_argv(
+    *,
+    dcc_type: str,
+    host_rpc: str,
+    registry_path: Path,
+    instance_id: Optional[str],
+) -> List[str]:
+    command = [
+        "sidecar-ready",
+        "--dcc",
+        dcc_type,
+        "--host-rpc",
+        host_rpc,
+        "--registry-dir",
+        str(registry_path),
+    ]
+    _append_flag_value(command, "--instance-id", instance_id)
+    return command
+
+
+def _build_readiness_command(
+    env: Dict[str, str],
+    *,
+    dcc_type: str,
+    host_rpc: str,
+    registry_path: Path,
+    instance_id: Optional[str],
+) -> List[str]:
+    python_bin = str(env.get("DCC_MCP_PYTHON_EXECUTABLE") or sys.executable)
+    return [
+        python_bin,
+        "-m",
+        "dcc_mcp_core.install_lifecycle",
+        *_build_readiness_argv(
+            dcc_type=dcc_type,
+            host_rpc=host_rpc,
+            registry_path=registry_path,
+            instance_id=instance_id,
+        ),
+    ]
+
+
+def _check_launch_readiness(
+    *,
+    registry_dir: str,
+    dcc_type: str,
+    instance_id: Optional[str],
+    host_rpc: str,
+    timeout_secs: float,
+    poll_interval_secs: float,
+    probe_tool: Optional[str],
+    probe_arguments: Optional[Dict[str, Any]],
+    probe_timeout_secs: float,
+) -> Dict[str, Any]:
+    from ._install_lifecycle_readiness import sidecar_readiness_status
+    from ._install_lifecycle_readiness import wait_for_sidecar_ready
+
+    timeout = max(0.0, float(timeout_secs))
+    if timeout > 0:
+        return wait_for_sidecar_ready(
+            registry_dir,
+            dcc_type=dcc_type,
+            instance_id=instance_id,
+            host_rpc=host_rpc,
+            timeout_secs=timeout,
+            poll_interval_secs=poll_interval_secs,
+            probe_tool=probe_tool,
+            probe_arguments=probe_arguments,
+            probe_timeout_secs=probe_timeout_secs,
+        )
+    return sidecar_readiness_status(
+        registry_dir,
+        dcc_type=dcc_type,
+        instance_id=instance_id,
+        host_rpc=host_rpc,
+        probe_tool=probe_tool,
+        probe_arguments=probe_arguments,
+        probe_timeout_secs=probe_timeout_secs,
+    )
 
 
 def _failed(reason: str, message: str) -> Dict[str, Any]:

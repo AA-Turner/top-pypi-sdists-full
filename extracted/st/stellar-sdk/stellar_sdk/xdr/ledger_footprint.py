@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -27,8 +26,8 @@ class LedgerFootprint:
 
     def __init__(
         self,
-        read_only: List[LedgerKey],
-        read_write: List[LedgerKey],
+        read_only: list[LedgerKey],
+        read_write: list[LedgerKey],
     ) -> None:
         _expect_max_length = 4294967295
         if read_only and len(read_only) > _expect_max_length:

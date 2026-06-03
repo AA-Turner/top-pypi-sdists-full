@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
-Name: airflow-code-editor
-Version: 8.2.3
+Metadata-Version: 2.4
+Name: airflow_code_editor
+Version: 8.2.4
 Summary: Apache Airflow code editor and file manager
 Home-page: https://github.com/andreax79/airflow-code-editor
 Author: Andrea Bonomi
@@ -29,8 +29,13 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: flask
+Requires-Dist: fsspec
+Requires-Dist: pss>=1.44
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 # Airflow Code Editor Plugin
 
@@ -85,8 +90,8 @@ The image is based on the reference images for Apache Airflow.
 
 You can find the following images there:
 * andreax79/airflow-code-editor:**latest** - the latest released Airflow Code Editor image with the latest Apache Airflow version
-* andreax79/airflow-code-editor:**3.1.8** - the latest released Airflow Code Editor with specific Airflow version
-* andreax79/airflow-code-editor:**3.1.8-8.2.3** - specific version of Airflow and Airflow Code Editor
+* andreax79/airflow-code-editor:**3.2.2** - the latest released Airflow Code Editor with specific Airflow version
+* andreax79/airflow-code-editor:**3.2.2-8.2.4** - specific version of Airflow and Airflow Code Editor
 
 #### Installing from PyPI
 

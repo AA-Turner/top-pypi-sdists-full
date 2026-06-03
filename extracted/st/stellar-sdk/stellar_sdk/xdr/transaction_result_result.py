@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List, Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -52,8 +51,8 @@ class TransactionResultResult:
     def __init__(
         self,
         code: TransactionResultCode,
-        inner_result_pair: Optional[InnerTransactionResultPair] = None,
-        results: Optional[List[OperationResult]] = None,
+        inner_result_pair: InnerTransactionResultPair | None = None,
+        results: list[OperationResult] | None = None,
     ) -> None:
         _expect_max_length = 4294967295
         if results and len(results) > _expect_max_length:

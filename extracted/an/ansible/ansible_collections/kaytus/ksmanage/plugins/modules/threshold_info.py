@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: threshold_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get threshold information
 description:
    - Get threshold information on kaytus Server.

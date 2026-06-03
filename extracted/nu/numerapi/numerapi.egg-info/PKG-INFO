@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numerapi
-Version: 2.23.1
+Version: 2.23.2
 Summary: Automatically download and upload data for the Numerai machine learning competition
 Home-page: https://github.com/uuazed/numerapi
 Maintainer: uuazed

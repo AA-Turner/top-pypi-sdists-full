@@ -1,8 +1,8 @@
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::geometry::manifold::{
-    GeometryError, GeometryResult, RiemannianManifold, check_len, flatten, from_flat, identity,
-    matrix_exp, projected_standard_basis_tangent, qr_thin, sym, zero_christoffel,
+    GEOMETRY_EPS, GeometryError, GeometryResult, RiemannianManifold, check_len, flatten, from_flat,
+    identity, matrix_exp, qr_thin, sym, tangent_basis_metric_orthonormal,
 };
 use crate::geometry::sphere::SphereManifold;
 
@@ -65,9 +65,15 @@ impl RiemannianManifold for StiefelManifold {
         self.n * self.k
     }
 
+    /// Basis of the tangent space, orthonormal under the **canonical metric**
+    /// `⟨Δ₁,Δ₂⟩ = tr(Δ₁ᵀ(I−½YYᵀ)Δ₂)` — i.e. `Qᵀ W Q = I` with
+    /// `W = metric_tensor(point)`. A Euclidean-orthonormal basis would be wrong
+    /// here because the canonical metric differs from the embedded inner product
+    /// off the `YᵀΔ = 0` subspace (e.g. the vertical tangent has canonical norm²
+    /// 1 but Euclidean norm² 2).
     fn tangent_basis(&self, point: ArrayView1<'_, f64>) -> GeometryResult<Array2<f64>> {
         check_len("Stiefel point", point.len(), self.ambient_dim())?;
-        projected_standard_basis_tangent(self, point, self.n, self.k)
+        tangent_basis_metric_orthonormal(self, point, self.n, self.k)
     }
 
     /// Riemannian exponential under the **canonical metric**
@@ -93,8 +99,12 @@ impl RiemannianManifold for StiefelManifold {
             self.n,
             self.k,
         )?;
-        let a = y.t().dot(&delta); // k×k skew-symmetric
-        let normal = &delta - &y.dot(&a); // (I − YYᵀ)Δ
+        // YᵀΔ (k×n · n×k) and Y·A (n×k · k×k) both carry the large ambient
+        // dimension n, so route them through the GPU-dispatched fast_atb/fast_ab
+        // shims; small frames stay on faer.
+        use crate::linalg::faer_ndarray::{fast_ab, fast_atb};
+        let a = fast_atb(&y, &delta); // k×k skew-symmetric
+        let normal = &delta - &fast_ab(&y, &a); // (I − YYᵀ)Δ
         let (q, r) = qr_thin(&normal); // n×k, k×k
 
         // Block generator [[A, −Rᵀ], [R, 0]] of size 2k×2k.
@@ -110,18 +120,13 @@ impl RiemannianManifold for StiefelManifold {
         let exp_block = matrix_exp(&block)?;
 
         // Result = [Y Q] · exp_block[:, 0..k]; only the first k columns of the
-        // exponential survive against the [[I_k], [0]] selector.
-        let mut result = Array2::<f64>::zeros((self.n, self.k));
-        for col in 0..self.k {
-            for row in 0..self.n {
-                let mut acc = 0.0;
-                for s in 0..self.k {
-                    acc += y[[row, s]] * exp_block[[s, col]];
-                    acc += q[[row, s]] * exp_block[[self.k + s, col]];
-                }
-                result[[row, col]] = acc;
-            }
-        }
+        // exponential survive against the [[I_k], [0]] selector, so this splits
+        // into Y·exp_block[0..k, 0..k] + Q·exp_block[k.., 0..k] — two n×k · k×k
+        // products carrying the large ambient dimension n, GPU-dispatched via
+        // fast_ab.
+        let top = exp_block.slice(ndarray::s![0..self.k, 0..self.k]);
+        let bot = exp_block.slice(ndarray::s![self.k..two_k, 0..self.k]);
+        let result = &fast_ab(&y, &top) + &fast_ab(&q, &bot);
         Ok(flatten(&result))
     }
 
@@ -189,14 +194,13 @@ impl RiemannianManifold for StiefelManifold {
         }
         let y = from_flat(point, self.n, self.k)?;
         // M = I_n − ½ Y Yᵀ (n×n, symmetric positive definite for Yᵀ Y = I_k).
+        // Y Yᵀ (n×k · k×n) carries the large ambient dimension n, GPU-dispatched
+        // via fast_abt.
+        let yyt = crate::linalg::faer_ndarray::fast_abt(&y, &y);
         let mut m = identity(self.n);
         for i in 0..self.n {
             for p in 0..self.n {
-                let mut yyt = 0.0;
-                for s in 0..self.k {
-                    yyt += y[[i, s]] * y[[p, s]];
-                }
-                m[[i, p]] -= 0.5 * yyt;
+                m[[i, p]] -= 0.5 * yyt[[i, p]];
             }
         }
         // G = M ⊗ I_k in the row-major flattened basis.
@@ -215,7 +219,13 @@ impl RiemannianManifold for StiefelManifold {
 
     fn christoffel_symbols(&self, point: ArrayView1<'_, f64>) -> GeometryResult<Vec<Array2<f64>>> {
         check_len("Stiefel Christoffel point", point.len(), self.ambient_dim())?;
-        Ok(zero_christoffel(self.ambient_dim()))
+        // The Stiefel manifold under the canonical metric is curved (its
+        // geodesics Y(t)=Y·exp(tA) have ambient acceleration YA²≠0), so a
+        // zero ambient Christoffel tensor would assert a false flat geometry.
+        // No flat global chart exists; refuse rather than mislead callers.
+        Err(GeometryError::Unsupported(
+            "Christoffel symbols of the embedded Stiefel manifold require a local chart",
+        ))
     }
 
     fn sectional_curvature(
@@ -252,9 +262,13 @@ impl RiemannianManifold for StiefelManifold {
         point: ArrayView1<'_, f64>,
         vec: ArrayView1<'_, f64>,
     ) -> GeometryResult<Array1<f64>> {
+        use crate::linalg::faer_ndarray::{fast_ab, fast_atb};
         let y = from_flat(point, self.n, self.k)?;
         let z = from_flat(vec, self.n, self.k)?;
-        let correction = y.dot(&sym(&y.t().dot(&z)));
+        // Tangent projection z − Y·sym(Yᵀz): YᵀZ (k×n · n×k) and Y·S (n×k · k×k)
+        // both carry the large ambient dimension n, GPU-dispatched via
+        // fast_atb/fast_ab.
+        let correction = fast_ab(&y, &sym(&fast_atb(&y, &z)));
         Ok(flatten(&(z - correction)))
     }
 
@@ -275,6 +289,17 @@ impl RiemannianManifold for StiefelManifold {
         Ok(flatten(&self.qr_retraction(&(y + tangent))))
     }
 
+    /// Reverse-mode (vector–Jacobian product) of [`exp_map`](Self::exp_map).
+    ///
+    /// Given the output cotangent `Ḡ = ∂L/∂result` (n×k), returns
+    /// `(∂L/∂point, ∂L/∂tangent_vec)` flattened. The derivation is the exact
+    /// adjoint of the seven forward steps (project → A → normal → thin-QR →
+    /// block → matrix-exp → assemble), with the matrix-exponential adjoint
+    /// obtained from the Mathias augmented identity
+    /// `adj(dexp_B)·M̄ = dexp_{Bᵀ}(M̄)` and the thin-QR adjoint from the
+    /// standard `copyltu` formula (`Q` full column rank, `n ≥ k`). No
+    /// approximations: every intermediate is recomputed exactly as the forward
+    /// produced it.
     fn exp_map_vjp(
         &self,
         point: ArrayView1<'_, f64>,
@@ -288,11 +313,240 @@ impl RiemannianManifold for StiefelManifold {
         check_len("Stiefel exp_map_vjp point", point.len(), m)?;
         check_len("Stiefel exp_map_vjp tangent", tangent_vec.len(), m)?;
         check_len("Stiefel exp_map_vjp grad", grad_output.len(), m)?;
-        // The Stiefel geodesic VJP requires differentiating the matrix
-        // exponential of the canonical block form; no closed form is wired
-        // up. Refuse rather than inherit the flat identity default.
-        Err(GeometryError::Unsupported(
-            "Stiefel exp_map_vjp: no analytic backward implemented",
-        ))
+        let k = self.k;
+        let two_k = 2 * k;
+
+        // ── Recompute the forward intermediates exactly as `exp_map` does. ──
+        // Every dense product below either contracts or carries the large
+        // ambient dimension n (k×n · n×k or n×k · k×k); route them all through
+        // the GPU-dispatched fast_ab/fast_atb/fast_abt shims.
+        use crate::linalg::faer_ndarray::{fast_ab, fast_abt, fast_atb};
+        let y = from_flat(point, self.n, k)?;
+        let z = from_flat(tangent_vec, self.n, k)?; // raw (unprojected) input
+        let s_proj = sym(&fast_atb(&y, &z)); // S = sym(Yᵀz)
+        let delta = &z - &fast_ab(&y, &s_proj); // Δ = z − Y·S
+        let a = fast_atb(&y, &delta); // A = YᵀΔ (skew)
+        let normal = &delta - &fast_ab(&y, &a); // (I − YYᵀ)Δ
+        let (q, r) = qr_thin(&normal); // n×k, k×k upper-triangular
+
+        let mut block = Array2::<f64>::zeros((two_k, two_k));
+        for i in 0..k {
+            for j in 0..k {
+                block[[i, j]] = a[[i, j]];
+                block[[i, k + j]] = -r[[j, i]];
+                block[[k + i, j]] = r[[i, j]];
+            }
+        }
+        let exp_block = matrix_exp(&block)?;
+
+        let grad = from_flat(grad_output, self.n, k)?; // Ḡ (n×k)
+
+        // ── Step 7 (assemble): result = Y·M_tl + Q·M_bl. ──
+        // M_tl = exp_block[0:k, 0:k], M_bl = exp_block[k:2k, 0:k].
+        let m_tl = exp_block.slice(ndarray::s![0..k, 0..k]).to_owned();
+        let m_bl = exp_block.slice(ndarray::s![k..two_k, 0..k]).to_owned();
+        let mut y_bar = fast_abt(&grad, &m_tl); // Ȳ += Ḡ·M_tlᵀ
+        let q_bar = fast_abt(&grad, &m_bl); // Q̄ = Ḡ·M_blᵀ
+
+        // M̄ (2k×2k): top-left = Yᵀ·Ḡ, bottom-left = Qᵀ·Ḡ, rest zero.
+        let mut m_bar = Array2::<f64>::zeros((two_k, two_k));
+        let yt_g = fast_atb(&y, &grad);
+        let qt_g = fast_atb(&q, &grad);
+        for i in 0..k {
+            for j in 0..k {
+                m_bar[[i, j]] = yt_g[[i, j]];
+                m_bar[[k + i, j]] = qt_g[[i, j]];
+            }
+        }
+
+        // ── Step 6 (matrix-exp): B̄ = adjoint of dexp at B applied to M̄. ──
+        let b_bar = matrix_exp_vjp(&block, &m_bar)?;
+
+        // ── Step 5 (block assembly B = [[A, −Rᵀ], [R, 0]]). ──
+        let mut a_bar = b_bar.slice(ndarray::s![0..k, 0..k]).to_owned();
+        let mut r_bar = b_bar.slice(ndarray::s![k..two_k, 0..k]).to_owned();
+        // R̄ += −(B̄[0:k, k:2k])ᵀ.
+        let br_tr = b_bar.slice(ndarray::s![0..k, k..two_k]).to_owned();
+        for i in 0..k {
+            for j in 0..k {
+                r_bar[[i, j]] -= br_tr[[j, i]];
+            }
+        }
+
+        // ── Step 4 (thin-QR): normal̄ from (Q̄, R̄). ──
+        let normal_bar = qr_thin_vjp(&q, &r, &q_bar, &r_bar)?;
+
+        // ── Step 3 (normal = Δ − Y·A). ──
+        let mut delta_bar = normal_bar.clone();
+        y_bar = y_bar - &fast_abt(&normal_bar, &a); // Ȳ += −normal̄·Aᵀ
+        a_bar = a_bar - &fast_atb(&y, &normal_bar); // Ā += −(Yᵀ·normal̄)
+
+        // ── Step 2 (A = Yᵀ·Δ). ──
+        y_bar = y_bar + &fast_abt(&delta, &a_bar); // Ȳ += Δ·Āᵀ
+        delta_bar = delta_bar + &fast_ab(&y, &a_bar); // Δ̄ += Y·Ā
+
+        // ── Step 1 (Δ = z − Y·sym(Yᵀz)). ──
+        // z̄ = Δ̄ − Y·sym(Yᵀ·Δ̄)
+        // Ȳ += −Δ̄·S − z·sym(Yᵀ·Δ̄)
+        let sym_yt_db = sym(&fast_atb(&y, &delta_bar));
+        let z_bar = &delta_bar - &fast_ab(&y, &sym_yt_db);
+        y_bar = y_bar - &fast_ab(&delta_bar, &s_proj) - &fast_ab(&z, &sym_yt_db);
+
+        Ok((flatten(&y_bar), flatten(&z_bar)))
+    }
+}
+
+/// Adjoint of the Fréchet derivative of the matrix exponential at `b`, applied
+/// to the cotangent `M̄` (`cotangent`). Uses the Mathias / Van Loan augmented
+/// block identity: the adjoint of `dexp_B` equals `dexp_{Bᵀ}`, and the
+/// Fréchet derivative of `expm` is read off the top-right block of the
+/// exponential of the `2m × 2m` matrix `[[Bᵀ, M̄], [0, Bᵀ]]`. Concretely
+///
+/// ```text
+///   exp([[Bᵀ, M̄], [0, Bᵀ]]) = [[exp(Bᵀ), dexp_{Bᵀ}(M̄)], [0, exp(Bᵀ)]],
+/// ```
+///
+/// so `B̄ = dexp_{Bᵀ}(M̄)` is exactly the requested adjoint applied to `M̄`.
+fn matrix_exp_vjp(b: &Array2<f64>, cotangent: &Array2<f64>) -> GeometryResult<Array2<f64>> {
+    let m = b.nrows();
+    if b.ncols() != m || cotangent.nrows() != m || cotangent.ncols() != m {
+        return Err(GeometryError::InvalidPoint(
+            "matrix_exp_vjp requires square matrices of equal size",
+        ));
+    }
+    // Build the augmented 2m×2m matrix [[Bᵀ, M̄], [0, Bᵀ]].
+    let two_m = 2 * m;
+    let mut aug = Array2::<f64>::zeros((two_m, two_m));
+    for i in 0..m {
+        for j in 0..m {
+            let bt = b[[j, i]]; // Bᵀ[i, j]
+            aug[[i, j]] = bt;
+            aug[[m + i, m + j]] = bt;
+            aug[[i, m + j]] = cotangent[[i, j]];
+        }
+    }
+    let exp_aug = matrix_exp(&aug)?;
+    // Top-right block is dexp_{Bᵀ}(M̄) = adjoint(dexp_B)(M̄).
+    Ok(exp_aug.slice(ndarray::s![0..m, m..two_m]).to_owned())
+}
+
+/// Adjoint (VJP) of the thin/compact QR factorization `normal = Q·R` for a
+/// full-column-rank `n×k` input (`n ≥ k`, `R` invertible upper-triangular).
+/// Given the output cotangents `Q̄` and `R̄`, returns `normal̄`:
+///
+/// ```text
+///   M      = Rᵀ·R̄ − Q̄ᵀ·Q
+///   normal̄ = (Q̄ + Q·copyltu(M)) · R⁻ᵀ
+/// ```
+///
+/// where `copyltu(M)` is the symmetric matrix built from the lower triangle of
+/// `M` (lower triangle incl. diagonal, plus the strictly-lower part reflected
+/// into the upper triangle). The trailing `R⁻ᵀ` is realized by forward
+/// substitution solving `normal̄·Rᵀ = RHS` (`R` upper-triangular).
+fn qr_thin_vjp(
+    q: &Array2<f64>,
+    r: &Array2<f64>,
+    q_bar: &Array2<f64>,
+    r_bar: &Array2<f64>,
+) -> GeometryResult<Array2<f64>> {
+    let k = r.nrows();
+    // Mqr = Rᵀ·R̄ − Q̄ᵀ·Q  (k×k).
+    use crate::linalg::faer_ndarray::{fast_ab, fast_atb};
+    let mqr = r.t().dot(r_bar) - fast_atb(q_bar, q);
+    // copyltu: symmetric matrix from the lower triangle of Mqr.
+    let mut sym_low = Array2::<f64>::zeros((k, k));
+    for i in 0..k {
+        for j in 0..k {
+            if i > j {
+                sym_low[[i, j]] = mqr[[i, j]];
+                sym_low[[j, i]] = mqr[[i, j]];
+            } else if i == j {
+                sym_low[[i, j]] = mqr[[i, j]];
+            }
+        }
+    }
+    // RHS = Q̄ + Q·copyltu(Mqr)  (n×k).
+    let rhs = q_bar + &fast_ab(q, &sym_low);
+    // Solve normal̄·Rᵀ = RHS for normal̄ (so normal̄ = RHS·R⁻ᵀ). `R` is upper
+    // triangular, hence `Rᵀ` is lower triangular, so column `j` of the product
+    // couples columns `l ≥ j` of normal̄:
+    //   (normal̄·Rᵀ)[row, j] = Σ_{l ≥ j} normal̄[row, l]·R[j, l] = RHS[row, j].
+    // This is a back substitution in the column index `j` (descending):
+    //   normal̄[row, j]·R[j, j] = RHS[row, j] − Σ_{l > j} normal̄[row, l]·R[j, l].
+    let n = rhs.nrows();
+    let mut out = Array2::<f64>::zeros((n, k));
+    for row in 0..n {
+        for j in (0..k).rev() {
+            let mut acc = rhs[[row, j]];
+            for l in (j + 1)..k {
+                acc -= out[[row, l]] * r[[j, l]];
+            }
+            let diag = r[[j, j]];
+            if diag.abs() <= GEOMETRY_EPS {
+                return Err(GeometryError::Singular(
+                    "qr_thin_vjp requires full-column-rank input (R invertible)",
+                ));
+            }
+            out[[row, j]] = acc / diag;
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tangent_basis_tests {
+    use super::StiefelManifold;
+    use crate::geometry::manifold::RiemannianManifold;
+    use ndarray::Array1;
+
+    /// The Stiefel `tangent_basis` must be orthonormal under the canonical
+    /// metric: `Qᵀ W Q = I` with `W = metric_tensor(Y)`. A Euclidean-orthonormal
+    /// basis (the old shared routine) would give `Qᵀ W Q ≠ I` because the
+    /// canonical metric `tr(Δᵀ(I−½YYᵀ)Δ)` differs from the embedded inner
+    /// product off the `YᵀΔ = 0` subspace.
+    #[test]
+    fn stiefel_tangent_basis_metric_orthonormal() {
+        // St(3, 2) at Y = [e1, e2] (row-major flatten of the 3×2 frame).
+        let st = StiefelManifold::new(2, 3).expect("St(3,2) exists");
+        let y = Array1::from(vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        let q = st.tangent_basis(y.view()).expect("tangent basis");
+        let w = st.metric_tensor(y.view()).expect("metric tensor");
+        let d = st.dim();
+        assert_eq!(q.ncols(), d, "basis must have dim() columns");
+        // QᵀWQ
+        let wq = w.dot(&q);
+        let gram = q.t().dot(&wq);
+        for i in 0..d {
+            for j in 0..d {
+                let want = if i == j { 1.0 } else { 0.0 };
+                assert!(
+                    (gram[[i, j]] - want).abs() <= 1.0e-10,
+                    "QᵀWQ != I at ({i},{j}): got {}",
+                    gram[[i, j]]
+                );
+            }
+        }
+    }
+
+    /// Sanity check the metric scaling the basis must capture: the vertical
+    /// tangent Δ = Y·[[0,−1],[1,0]] has canonical-metric norm² 1, not the
+    /// Euclidean 2. (This is the audit's discriminating case.)
+    #[test]
+    fn stiefel_vertical_tangent_canonical_norm() {
+        let st = StiefelManifold::new(2, 3).expect("St(3,2) exists");
+        let y = Array1::from(vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        // Δ = Y · [[0,-1],[1,0]] = columns (e2, -e1) ⇒ 3×2 with rows:
+        //   row0 = (0, -1), row1 = (1, 0), row2 = (0, 0). Row-major flatten.
+        let delta = Array1::from(vec![0.0, -1.0, 1.0, 0.0, 0.0, 0.0]);
+        let w = st.metric_tensor(y.view()).expect("metric tensor");
+        let wd = w.dot(&delta);
+        let mut norm_sq = 0.0;
+        for i in 0..delta.len() {
+            norm_sq += delta[i] * wd[i];
+        }
+        assert!(
+            (norm_sq - 1.0).abs() <= 1.0e-12,
+            "canonical-metric norm² of vertical tangent must be 1, got {norm_sq}"
+        );
     }
 }

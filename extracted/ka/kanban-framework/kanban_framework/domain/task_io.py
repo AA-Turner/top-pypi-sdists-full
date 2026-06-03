@@ -50,6 +50,7 @@ def read_task_file(fs, path: Path) -> Task:
         test_config=data.get("test_config"),
         current_run_id=data.get("current_run_id", 0),
         total_runs=data.get("total_runs", 0),
+        biz_tag=data.get("biz_tag"),
     )
 
 
@@ -80,6 +81,7 @@ def write_task_file(fs, task: Task) -> None:
         "test_config": task.test_config,
         "current_run_id": task.current_run_id,
         "total_runs": task.total_runs,
+        "biz_tag": task.biz_tag,
     }
     task_dir = fs.task_dir(task.id)
     fs.ensure_dir(task_dir)

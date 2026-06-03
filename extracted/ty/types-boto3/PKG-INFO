@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.43.19
-Summary: Type annotations for boto3 1.43.19 generated with mypy-boto3-builder 8.12.0
+Version: 1.43.20
+Summary: Type annotations for boto3 1.43.20 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.44.0,>=1.43.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.43.19; extra == "boto3"
+Requires-Dist: boto3==1.43.20; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-account<1.44.0,>=1.43.0; extra == "all"
@@ -387,6 +387,7 @@ Requires-Dist: types-boto3-sagemaker-featurestore-runtime<1.44.0,>=1.43.0; extra
 Requires-Dist: types-boto3-sagemaker-geospatial<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-sagemaker-metrics<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-sagemaker-runtime<1.44.0,>=1.43.0; extra == "all"
+Requires-Dist: types-boto3-sagemakerjobruntime<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-savingsplans<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-scheduler<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-schemas<1.44.0,>=1.43.0; extra == "all"
@@ -1170,6 +1171,8 @@ Provides-Extra: sagemaker-metrics
 Requires-Dist: types-boto3-sagemaker-metrics<1.44.0,>=1.43.0; extra == "sagemaker-metrics"
 Provides-Extra: sagemaker-runtime
 Requires-Dist: types-boto3-sagemaker-runtime<1.44.0,>=1.43.0; extra == "sagemaker-runtime"
+Provides-Extra: sagemakerjobruntime
+Requires-Dist: types-boto3-sagemakerjobruntime<1.44.0,>=1.43.0; extra == "sagemakerjobruntime"
 Provides-Extra: savingsplans
 Requires-Dist: types-boto3-savingsplans<1.44.0,>=1.43.0; extra == "savingsplans"
 Provides-Extra: scheduler
@@ -1329,7 +1332,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.43.19](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.43.20](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1387,7 +1390,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.19' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.20' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1715,9 +1718,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 424 services in one package
+- `types-boto3[full]` - Type annotations for all 425 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 424 services in separate
+- `types-boto3[all]` - Type annotations for all 425 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2751,6 +2754,9 @@ repository.
   service.
 - `types-boto3[sagemaker-runtime]` - Type annotations for
   [SageMakerRuntime](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker_runtime/)
+  service.
+- `types-boto3[sagemakerjobruntime]` - Type annotations for
+  [SagemakerJobRuntimeService](https://youtype.github.io/types_boto3_docs/types_boto3_sagemakerjobruntime/)
   service.
 - `types-boto3[savingsplans]` - Type annotations for
   [SavingsPlans](https://youtype.github.io/types_boto3_docs/types_boto3_savingsplans/)

@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_ad
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set active directory information
 description:
    - Set active directory information on kaytus Server.

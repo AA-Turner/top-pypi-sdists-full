@@ -93,10 +93,11 @@ impl DataStoreTrait for TestDataStore {
         key: &str,
         value: &[u8],
         time: Option<u64>,
+        checksum: Option<String>,
     ) -> Result<(), StatsigErr> {
         self.calls.lock().push((
             "set_bytes".to_string(),
-            Some(format!("{key}:{}:{time:?}", value.len())),
+            Some(format!("{key}:{}:{time:?}:{checksum:?}", value.len())),
         ));
 
         match self.set_bytes_error {
@@ -159,6 +160,7 @@ async fn test_spec_store_data_store_updates_forwarded_to_data_store() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     });
 
     assert!(update_result.is_ok());
@@ -203,6 +205,7 @@ async fn test_spec_store_data_store_string_fallback_requires_bytes_not_implement
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     });
 
     assert!(update_result.is_ok());
@@ -244,6 +247,7 @@ async fn test_spec_store_skips_data_store_write_for_delta_responses() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     });
 
     assert!(update_result.is_ok());
@@ -293,6 +297,7 @@ async fn test_spec_store_proto_bytes_warning_requires_polling_support() {
             source: SpecsSource::Network,
             received_at: 2000,
             source_api: None,
+            has_updates: None,
         });
 
         assert!(update_result.is_ok());
@@ -329,6 +334,7 @@ fn test_failure_to_update() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
     });
 
     assert!(update_result.is_err())
@@ -349,6 +355,28 @@ fn test_no_updates() {
         source: SpecsSource::Network,
         received_at: 2000,
         source_api: None,
+        has_updates: None,
+    });
+
+    assert!(update_result.is_ok())
+}
+
+#[test]
+fn test_no_updates_update_field_short_circuit_parse() {
+    let spec_store = SpecStore::new(
+        "test",
+        "test".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    );
+
+    let update_result = spec_store.set_values(SpecsUpdate {
+        data: ResponseData::from_bytes(b"invalid".to_vec()),
+        source: SpecsSource::Network,
+        received_at: 2000,
+        source_api: None,
+        has_updates: Some(false),
     });
 
     assert!(update_result.is_ok())

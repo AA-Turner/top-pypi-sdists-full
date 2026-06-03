@@ -35,6 +35,18 @@ from tinybird.tb_cli_modules.common import (
 )
 from tinybird.tb_cli_modules.exceptions import CLIConnectionException
 
+
+def _upper_or_none(_ctx: click.Context, _param: click.Parameter, value: Optional[str]) -> Optional[str]:
+    """Click callback that uppercases the option value if present.
+
+    The async client matches Kafka SASL mechanisms case-sensitively (see
+    ``tinybird/client.py``), so we normalize at the flag layer to avoid the
+    mismatch where the CLI treats ``--sasl-mechanism oauthbearer`` as IAM
+    but the client falls through and sends PLAIN credentials.
+    """
+    return value.upper() if value else value
+
+
 DATA_CONNECTOR_SETTINGS: Dict[DataConnectorType, List[str]] = {
     DataConnectorType.KAFKA: [
         "kafka_bootstrap_servers",
@@ -46,6 +58,10 @@ DATA_CONNECTOR_SETTINGS: Dict[DataConnectorType, List[str]] = {
         "kafka_sasl_mechanism",
         "kafka_schema_registry_url",
         "kafka_ssl_ca_pem",
+        "kafka_sasl_oauthbearer_method",
+        "kafka_sasl_oauthbearer_aws_region",
+        "kafka_sasl_oauthbearer_aws_role_arn",
+        "kafka_sasl_oauthbearer_aws_external_id",
     ],
     DataConnectorType.GCLOUD_SCHEDULER: ["gcscheduler_region"],
     DataConnectorType.GCLOUD_STORAGE: [
@@ -79,7 +95,7 @@ DATA_CONNECTOR_SETTINGS: Dict[DataConnectorType, List[str]] = {
 }
 
 SENSITIVE_CONNECTOR_SETTINGS = {
-    DataConnectorType.KAFKA: ["kafka_sasl_plain_password"],
+    DataConnectorType.KAFKA: ["kafka_sasl_plain_password", "kafka_sasl_oauthbearer_aws_role_arn"],
     DataConnectorType.GCLOUD_SCHEDULER: [
         "gcscheduler_target_url",
         "gcscheduler_job_name",
@@ -120,14 +136,33 @@ def connection_create(ctx: Context) -> None:
 @click.option(
     "--sasl-mechanism",
     default="PLAIN",
+    callback=_upper_or_none,
     help="Authentication method for connection-based protocols. Defaults to 'PLAIN'",
 )
 @click.option(
     "--security-protocol",
     default="SASL_SSL",
+    callback=_upper_or_none,
     help="Security protocol for connection-based protocols. Defaults to 'SASL_SSL'",
 )
 @click.option("--ssl-ca-pem", default=None, help="Path or content of the CA Certificate file in PEM format")
+@click.option(
+    "--oauthbearer-method",
+    default=None,
+    callback=_upper_or_none,
+    help="OAUTHBEARER token provider. Use 'AWS' for Amazon MSK IAM authentication.",
+)
+@click.option("--oauthbearer-aws-region", default=None, help="AWS region of the MSK cluster (OAUTHBEARER+AWS only)")
+@click.option(
+    "--oauthbearer-aws-role-arn",
+    default=None,
+    help="ARN of the IAM role to assume for the MSK cluster (OAUTHBEARER+AWS only)",
+)
+@click.option(
+    "--oauthbearer-aws-external-id",
+    default=None,
+    help="Optional external_id for the AWS assume-role call. If omitted the server derives it from the workspace.",
+)
 @click.pass_context
 @coro
 async def connection_create_kafka(
@@ -141,6 +176,10 @@ async def connection_create_kafka(
     sasl_mechanism: Optional[str],
     security_protocol: Optional[str],
     ssl_ca_pem: Optional[str],
+    oauthbearer_method: Optional[str],
+    oauthbearer_aws_region: Optional[str],
+    oauthbearer_aws_role_arn: Optional[str],
+    oauthbearer_aws_external_id: Optional[str],
 ) -> None:
     """
     Add a Kafka connection
@@ -149,21 +188,39 @@ async def connection_create_kafka(
     $ tb connection create kafka --bootstrap-servers google.com:80 --key a --secret b --connection-name c
     """
 
+    # `--sasl-mechanism` arrives uppercased via the _upper_or_none callback.
+    is_oauthbearer = sasl_mechanism == "OAUTHBEARER"
+
     bootstrap_servers and validate_kafka_bootstrap_servers(bootstrap_servers)
-    key and validate_kafka_key(key)
-    secret and validate_kafka_secret(secret)
+    if not is_oauthbearer:
+        key and validate_kafka_key(key)
+        secret and validate_kafka_secret(secret)
     schema_registry_url and validate_kafka_schema_registry_url(schema_registry_url)
     auto_offset_reset and validate_kafka_auto_offset_reset(auto_offset_reset)
 
     if not bootstrap_servers:
         bootstrap_servers = click.prompt("Kafka Bootstrap Server")
         validate_kafka_bootstrap_servers(bootstrap_servers)
-    if key is None:
-        key = click.prompt("Key")
-        validate_kafka_key(key)
-    if secret is None:
-        secret = click.prompt("Secret", hide_input=True)
-        validate_kafka_secret(secret)
+    if is_oauthbearer:
+        if not oauthbearer_method:
+            oauthbearer_method = "AWS"
+        if not oauthbearer_aws_region:
+            oauthbearer_aws_region = click.prompt("AWS region (e.g. us-east-1)")
+        if not oauthbearer_aws_role_arn:
+            oauthbearer_aws_role_arn = click.prompt("AWS IAM role ARN")
+        if not oauthbearer_aws_external_id:
+            # Pre-shared external_id (set by the cluster owner in the role's trust
+            # policy). Empty answer = let the server derive one from the workspace.
+            provided = click.prompt("External ID (optional, leave blank to let the server derive one)", default="")
+            if provided and provided.strip():
+                oauthbearer_aws_external_id = provided.strip()
+    else:
+        if key is None:
+            key = click.prompt("Key")
+            validate_kafka_key(key)
+        if secret is None:
+            secret = click.prompt("Secret", hide_input=True)
+            validate_kafka_secret(secret)
     if not connection_name:
         connection_name = click.prompt(
             f"Connection name (optional, current: {bootstrap_servers})", default=bootstrap_servers
@@ -172,6 +229,19 @@ async def connection_create_kafka(
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     client: TinyB = obj["client"]
 
+    # Only forward the OAUTHBEARER kwargs when the user actually picked OAUTHBEARER.
+    # The receiving client accepts them as kwargs either way, but keeping the call
+    # symmetric with the auth mechanism makes the intent obvious to readers
+    oauthbearer_kwargs = (
+        {
+            "kafka_sasl_oauthbearer_method": oauthbearer_method,
+            "kafka_sasl_oauthbearer_aws_region": oauthbearer_aws_region,
+            "kafka_sasl_oauthbearer_aws_role_arn": oauthbearer_aws_role_arn,
+            "kafka_sasl_oauthbearer_aws_external_id": oauthbearer_aws_external_id,
+        }
+        if is_oauthbearer
+        else {}
+    )
     result = await client.connection_create_kafka(
         bootstrap_servers,
         key,
@@ -182,6 +252,7 @@ async def connection_create_kafka(
         sasl_mechanism,
         security_protocol,
         get_ca_pem_content(ssl_ca_pem),
+        **oauthbearer_kwargs,
     )
 
     id = result["id"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: garminconnect
-Version: 0.3.3
+Version: 0.3.4
 Summary: Python 3 API wrapper for Garmin Connect
 Keywords: garmin connect,api,garmin
 Author-Email: Ron Klinkien <ron@cyberjunky.nl>
@@ -30,6 +30,8 @@ Requires-Dist: pandas; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Provides-Extra: workout
 Requires-Dist: pydantic>=2.0.0; extra == "workout"
+Provides-Extra: typed
+Requires-Dist: pydantic>=2.0.0; extra == "typed"
 Provides-Extra: linting
 Requires-Dist: black[jupyter]; extra == "linting"
 Requires-Dist: ruff; extra == "linting"

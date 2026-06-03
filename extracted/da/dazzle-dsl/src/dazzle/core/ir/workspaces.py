@@ -8,6 +8,7 @@ information needs into cohesive user experiences.
 from __future__ import annotations  # required: forward reference
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -1145,10 +1146,18 @@ class NavItemIR(BaseModel):
     Attributes:
         entity: Entity or workspace name to link to
         icon: Optional Lucide icon name (e.g., "file-text", "check-circle")
+        when: Optional render-time VISIBILITY condition (#1324 FR-4). Same
+            ``ConditionExpr`` shape as ``RowActionSpec.visible_when``. When
+            set, the item is hidden if the condition evaluates falsy against
+            roles/grants/per-tenant config at render time. Visibility only —
+            NOT access control (the RBAC matrix still gates reachability).
+            ``None`` = always visible. Inert until slice B wires the render
+            filter; this field is parsed but not yet read by the renderer.
     """
 
     entity: str
     icon: str | None = None
+    when: ConditionExpr | None = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -1161,12 +1170,19 @@ class NavGroupSpec(BaseModel):
         icon: Optional Lucide icon name for the group header
         collapsed: Whether the group starts collapsed (default: False)
         items: Navigation items within this group
+        when: Optional render-time VISIBILITY condition (#1324 FR-4). Same
+            ``ConditionExpr`` shape as ``RowActionSpec.visible_when``. When
+            set, the whole group is hidden if the condition evaluates falsy
+            against roles/grants/per-tenant config at render time. Visibility
+            only — NOT access control. ``None`` = always visible. Inert until
+            slice B wires the render filter.
     """
 
     label: str
     icon: str | None = None
     collapsed: bool = False
     items: list[NavItemIR] = Field(default_factory=list)
+    when: ConditionExpr | None = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -1187,6 +1203,35 @@ class NavSpec(BaseModel):
 
     name: str
     groups: list[NavGroupSpec] = Field(default_factory=list)
+
+    model_config = ConfigDict(frozen=True)
+
+
+class WorkspacePrimaryActionSpec(BaseModel):
+    """A declarative call-to-action button in a workspace heading (#1324 FR-5).
+
+    Authored via a ``primary_actions:`` block on a workspace. Each entry
+    references a declared SURFACE or WORKSPACE by name (validated at lint
+    time — an unknown target is a validation ERROR). The renderer emits a
+    plain nav link (``<a href hx-boost>``, GET) — no method/confirm/POST.
+
+    NOTE: this is the PLURAL heading-CTA list, distinct from the SINGULAR
+    ``primary_action: str | None`` on :class:`WorkspaceRegion` (which names
+    the commit surface of a confirm_action_panel — a different concept).
+
+    There is NO per-action persona gating in v1: the workspace page's own
+    access gates visibility, so authored actions show to anyone who can see
+    the workspace.
+
+    Attributes:
+        label: Button text (e.g. "New Invoice").
+        target_kind: Whether ``target`` names a surface or a workspace.
+        target: The declared surface/workspace name to link to.
+    """
+
+    label: str
+    target_kind: Literal["surface", "workspace"]
+    target: str
 
     model_config = ConfigDict(frozen=True)
 
@@ -1245,6 +1290,14 @@ class WorkspaceSpec(BaseModel):
     ux: UXSpec | None = None  # Workspace-level UX (e.g., persona variants)
     access: WorkspaceAccessSpec | None = None  # v0.22.0: Access control
     context_selector: ContextSelectorSpec | None = None  # v0.38.0
+    # #1324 FR-5: authored heading CTA buttons. Each references a declared
+    # surface or workspace by name (validated at lint time). At the build
+    # site these APPEND AFTER the auto-inferred create-surface CTAs (#827);
+    # inference is unchanged. Empty list = legacy behaviour (inferred only).
+    # NOTE: this PLURAL list is the workspace-heading CTA set — distinct
+    # from the SINGULAR `WorkspaceRegion.primary_action` (the commit surface
+    # of a confirm_action_panel).
+    primary_actions: list[WorkspacePrimaryActionSpec] = Field(default_factory=list)
     # v0.31.0: Source location for error reporting
     source: SourceLocation | None = None
 

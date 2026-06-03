@@ -72,12 +72,15 @@ def test_healing_loop_functional_no_mocks():
         # We use a build prompt so that looks_like_build_request classifies it as a build and routes it to the builder pipeline.
         # We omit --raw so that it outputs build progress containing install_ok, build_ok, runs_ok, tests_ok.
         prompt = "Build a FastAPI backend app and fix the compilation error in app/main.py."
+        import os
+        env = os.environ.copy()
+        env["SAGE_REAL_COMMANDS"] = "1"
         result = runner.invoke(sage_app, [
             "run",
             "--prompt", prompt,
             "--no-color",
             "--model", "openrouter:meta-llama/llama-3.3-70b-instruct:free"
-        ])
+        ], env=env)
         
         # SAGE should run compile, hit compile error, call LLM to get the fix, validate, write, and exit 0
         print("\n=== SAGE OUTPUT ===")

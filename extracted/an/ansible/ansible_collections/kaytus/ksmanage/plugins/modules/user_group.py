@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: user_group
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Manage user group
 description:
    - Manage user group on kaytus Server.

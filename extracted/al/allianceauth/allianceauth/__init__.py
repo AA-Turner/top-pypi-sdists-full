@@ -5,7 +5,7 @@ manage online service access.
 # This will make sure the app is always imported when
 # Django starts so that shared_task will use this app.
 
-__version__ = '5.1.3'
+__version__ = '5.1.4'
 __title__ = 'Alliance Auth'
 __title_useragent__ = 'AllianceAuth'
 __url__ = 'https://gitlab.com/allianceauth/allianceauth'

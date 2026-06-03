@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: del_session
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Delete session
 description:
    - Delete session on kaytus Server.

@@ -6,10 +6,10 @@ from . import xdr as stellar_xdr
 from .exceptions import MemoInvalidException
 from .utils import hex_to_bytes
 
-__all__ = ["Memo", "NoneMemo", "TextMemo", "IdMemo", "HashMemo", "ReturnHashMemo"]
+__all__ = ["HashMemo", "IdMemo", "Memo", "NoneMemo", "ReturnHashMemo", "TextMemo"]
 
 
-class Memo(object, metaclass=abc.ABCMeta):
+class Memo(metaclass=abc.ABCMeta):
     """The :class:`Memo` object, which represents the base class for memos for
     use with Stellar transactions.
 
@@ -57,11 +57,11 @@ class Memo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __hash__(self) -> int:
-        pass  # pragma: no cover
+        pass
 
     @abc.abstractmethod
     def __eq__(self, other: object) -> bool:
-        pass  # pragma: no cover
+        pass
 
 
 class NoneMemo(Memo):

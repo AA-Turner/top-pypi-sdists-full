@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 19.1.0
+Version: 20.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -365,7 +365,7 @@ Class | Method | HTTP request | Description
 *DeployedContractsApi* | [**get_deployed_contract_by_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/DeployedContractsApi.md#get_deployed_contract_by_address) | **GET** /tokenization/contracts/{assetId}/{contractAddress} | Return deployed contract data
 *DeployedContractsApi* | [**get_deployed_contract_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/DeployedContractsApi.md#get_deployed_contract_by_id) | **GET** /tokenization/contracts/{id} | Return deployed contract data by id
 *DeployedContractsApi* | [**get_deployed_contracts**](https://github.com/fireblocks/py-sdk/tree/master/docs/DeployedContractsApi.md#get_deployed_contracts) | **GET** /tokenization/contracts | List deployed contracts data
-*EarnBetaApi* | [**approve_terms_of_service**](https://github.com/fireblocks/py-sdk/tree/master/docs/EarnBetaApi.md#approve_terms_of_service) | **POST** /earn/providers/{providerId}/approve_terms_of_service | Approve earn provider terms of service
+*EarnBetaApi* | [**approve_terms_of_service**](https://github.com/fireblocks/py-sdk/tree/master/docs/EarnBetaApi.md#approve_terms_of_service) | **POST** /earn/providers/approve_terms_of_service | Approve earn provider terms of service
 *EarnBetaApi* | [**create_earn_action**](https://github.com/fireblocks/py-sdk/tree/master/docs/EarnBetaApi.md#create_earn_action) | **POST** /earn/actions | Create and execute a lending action (deposit or withdraw)
 *EarnBetaApi* | [**get_earn_action**](https://github.com/fireblocks/py-sdk/tree/master/docs/EarnBetaApi.md#get_earn_action) | **GET** /earn/actions/{id} | Get a single earn lending action
 *EarnBetaApi* | [**get_earn_actions**](https://github.com/fireblocks/py-sdk/tree/master/docs/EarnBetaApi.md#get_earn_actions) | **GET** /earn/actions | List earn lending actions

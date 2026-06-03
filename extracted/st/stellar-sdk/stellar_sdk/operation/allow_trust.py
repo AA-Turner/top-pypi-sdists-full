@@ -10,7 +10,7 @@ from ..strkey import StrKey
 from ..utils import raise_if_not_valid_ed25519_public_key
 from .operation import Operation
 
-__all__ = ["TrustLineEntryFlag", "AllowTrust"]
+__all__ = ["AllowTrust", "TrustLineEntryFlag"]
 
 
 class TrustLineEntryFlag(IntFlag):
@@ -68,6 +68,7 @@ class AllowTrust(Operation):
         warnings.warn(
             "Use `stellar_sdk.operation.set_trust_line_flags.SetTrustLineFlags` instead.",
             DeprecationWarning,
+            stacklevel=2,
         )
         super().__init__(source)
 
@@ -131,7 +132,7 @@ class AllowTrust(Operation):
             )
         else:
             raise NotImplementedError(
-                "Operation of asset_type={} is not implemented" ".".format(asset_type)
+                f"Operation of asset_type={asset_type} is not implemented."
             )
 
         asset_code = asset_code.rstrip("\x00")

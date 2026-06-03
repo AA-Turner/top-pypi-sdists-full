@@ -1435,15 +1435,15 @@ def get_chunksize(blocksize, l3_minimum=4 * 2**20, l3_maximum=2**26, reduc_facto
         # in L3 cache (reduc_factor will account for this).
         chunksize //= reduc_factor
 
-    # Chunksize should be at least the size of L2
+    # Chunksize should be at least the size of L2 / reduc_factor so that
+    # multi-operand expressions can keep all operands in cache.
     l2_cache_size = cpu_info.get("l2_cache_size", "Not found")
     if isinstance(l2_cache_size, int) and l2_cache_size > chunksize:
-        # Apple Silicon has a large L2 cache, and memory bandwidth is high,
-        # so we can use a larger chunksize based on L2 cache size.
-        # chunksize = l2_cache_size * 4
-        # But experiments show that using such a large chunksize
-        # can make indexes too large. Going back to using just L2.
-        chunksize = l2_cache_size
+        if platform.system() == "Darwin":
+            # On macOS, using the full L2 as a floor has shown better overall behavior
+            chunksize = l2_cache_size
+        else:
+            chunksize = max(l2_cache_size // reduc_factor, chunksize)
 
     # Ensure a minimum size
     if chunksize < l3_minimum:
@@ -1694,6 +1694,15 @@ def compute_chunks_blocks(  # noqa: C901
         if chunksize % blocksize != 0:
             chunksize = chunksize // blocksize * blocksize
         chunks = compute_partition(chunksize // itemsize, shape, blocks)
+        # compute_partition snaps to a divisor of shape, which can break the
+        # "chunks is a multiple of blocks" invariant established above.  Restore
+        # it by rounding each chunks dimension up to the next multiple of the
+        # corresponding blocks dimension, capped at the shape dimension so that
+        # chunks never exceed the array size.
+        chunks = [
+            min(s, c if c % b == 0 else (c // b + 1) * b)
+            for s, c, b in zip(shape, chunks, blocks, strict=False)
+        ]
 
     return tuple(chunks), tuple(blocks)
 

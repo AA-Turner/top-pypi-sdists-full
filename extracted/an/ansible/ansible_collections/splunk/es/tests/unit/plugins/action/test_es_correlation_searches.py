@@ -16,18 +16,9 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import, division, print_function
-
-
-__metaclass__ = type
-
-from ansible.module_utils.six import PY2
-
-
 builtin_import = "builtins.__import__"
-if PY2:
-    builtin_import = "__builtin__.__import__"
 
+import copy
 import tempfile
 
 from unittest.mock import MagicMock, patch
@@ -74,6 +65,68 @@ RESPONSE_PAYLOAD = {
             "name": "Ansible Test",
         },
     ],
+}
+
+# Idempotent payload - no custom annotations to avoid conversion complexity
+IDEMPOTENT_RESPONSE_PAYLOAD = {
+    "entry": [
+        {
+            "acl": {"app": "SplunkEnterpriseSecuritySuite"},
+            "content": {
+                "action.correlationsearch.annotations": '{"cis20": ["test1"], "mitre_attack": ["test2"], "kill_chain_phases": ["test3"], "nist": ["test4"]}',
+                "action.correlationsearch.enabled": "1",
+                "action.correlationsearch.label": "Idempotent Test",
+                "alert.digest_mode": True,
+                "alert.suppress": False,
+                "alert.suppress.fields": "test_field1",
+                "alert.suppress.period": "5s",
+                "alert_comparator": "greater than",
+                "alert_threshold": "10",
+                "alert_type": "number of events",
+                "cron_schedule": "*/5 * * * *",
+                "description": "test description",
+                "disabled": False,
+                "dispatch.earliest_time": "-24h",
+                "dispatch.latest_time": "now",
+                "dispatch.rt_backfill": True,
+                "is_scheduled": True,
+                "realtime_schedule": True,
+                "request.ui_dispatch_app": "SplunkEnterpriseSecuritySuite",
+                "schedule_priority": "default",
+                "schedule_window": "0",
+                "search": "| search test",
+            },
+            "name": "Idempotent Test",
+        },
+    ],
+}
+
+IDEMPOTENT_REQUEST_PAYLOAD = {
+    "name": "Idempotent Test",
+    "disabled": False,
+    "description": "test description",
+    "app": "SplunkEnterpriseSecuritySuite",
+    "annotations": {
+        "cis20": ["test1"],
+        "mitre_attack": ["test2"],
+        "kill_chain_phases": ["test3"],
+        "nist": ["test4"],
+    },
+    "ui_dispatch_context": "SplunkEnterpriseSecuritySuite",
+    "time_earliest": "-24h",
+    "time_latest": "now",
+    "cron_schedule": "*/5 * * * *",
+    "scheduling": "realtime",
+    "schedule_window": "0",
+    "schedule_priority": "default",
+    "trigger_alert": "once",
+    "trigger_alert_when": "number of events",
+    "trigger_alert_when_condition": "greater than",
+    "trigger_alert_when_value": "10",
+    "throttle_window_duration": "5s",
+    "throttle_fields_to_group_by": ["test_field1"],
+    "suppress_alerts": False,
+    "search": "| search test",
 }
 
 REQUEST_PAYLOAD = [
@@ -185,7 +238,7 @@ class TestSplunkEsCorrelationSearches:
         self._plugin.search_for_resource_name.return_value = {}
 
         def create_update(self, rest_path, data=None):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         monkeypatch.setattr(SplunkRequest, "create_update", create_update)
 
@@ -193,7 +246,7 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection._shell = MagicMock()
         self._plugin._task.args = {
             "state": "merged",
-            "config": [REQUEST_PAYLOAD[0]],
+            "config": [copy.deepcopy(REQUEST_PAYLOAD[0])],
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is True
@@ -208,20 +261,19 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection._shell = MagicMock()
 
         def create_update(self, rest_path, data=None):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(IDEMPOTENT_RESPONSE_PAYLOAD)
 
         def get_by_path(self, path):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(IDEMPOTENT_RESPONSE_PAYLOAD)
 
         monkeypatch.setattr(SplunkRequest, "create_update", create_update)
         monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
 
         self._plugin._task.args = {
             "state": "merged",
-            "config": [REQUEST_PAYLOAD[0]],
+            "config": [copy.deepcopy(IDEMPOTENT_REQUEST_PAYLOAD)],
         }
         result = self._plugin.run(task_vars=self._task_vars)
-        # recheck with module
         assert result["changed"] is False
 
     @patch("ansible.module_utils.connection.Connection.__rpc__")
@@ -229,13 +281,13 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
         self._plugin._connection._shell = MagicMock()
         self._plugin.search_for_resource_name = MagicMock()
-        self._plugin.search_for_resource_name.return_value = RESPONSE_PAYLOAD
+        self._plugin.search_for_resource_name.return_value = copy.deepcopy(RESPONSE_PAYLOAD)
 
         def create_update(self, rest_path, data=None):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         def get_by_path(self, path):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         def delete_by_path(self, path):
             return {}
@@ -246,7 +298,7 @@ class TestSplunkEsCorrelationSearches:
 
         self._plugin._task.args = {
             "state": "replaced",
-            "config": [REQUEST_PAYLOAD[1]],
+            "config": [copy.deepcopy(REQUEST_PAYLOAD[1])],
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is True
@@ -256,13 +308,13 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
         self._plugin._connection._shell = MagicMock()
         self._plugin.search_for_resource_name = MagicMock()
-        self._plugin.search_for_resource_name.return_value = RESPONSE_PAYLOAD
+        self._plugin.search_for_resource_name.return_value = copy.deepcopy(RESPONSE_PAYLOAD)
 
         def create_update(self, rest_path, data=None):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         def get_by_path(self, path):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         def delete_by_path(self, path):
             return {}
@@ -273,7 +325,7 @@ class TestSplunkEsCorrelationSearches:
 
         self._plugin._task.args = {
             "state": "replaced",
-            "config": [REQUEST_PAYLOAD[1]],
+            "config": [copy.deepcopy(REQUEST_PAYLOAD[1])],
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is True
@@ -288,10 +340,10 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection._shell = MagicMock()
 
         def create_update(self, rest_path, data=None):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(IDEMPOTENT_RESPONSE_PAYLOAD)
 
         def get_by_path(self, path):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(IDEMPOTENT_RESPONSE_PAYLOAD)
 
         def delete_by_path(self, path):
             return {}
@@ -302,11 +354,11 @@ class TestSplunkEsCorrelationSearches:
 
         self._plugin._task.args = {
             "state": "replaced",
-            "config": [REQUEST_PAYLOAD[0]],
+            "config": [copy.deepcopy(IDEMPOTENT_REQUEST_PAYLOAD)],
         }
         result = self._plugin.run(task_vars=self._task_vars)
 
-        assert result["changed"] is True
+        assert result["changed"] is False
 
     @patch("ansible.module_utils.connection.Connection.__rpc__")
     def test_es_correlation_searches_deleted(self, conn, monkeypatch):
@@ -314,7 +366,7 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection._shell = MagicMock()
 
         def get_by_path(self, path):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         def delete_by_path(self, path):
             return {}
@@ -349,7 +401,7 @@ class TestSplunkEsCorrelationSearches:
         self._plugin._connection._shell = MagicMock()
 
         def get_by_path(self, path):
-            return RESPONSE_PAYLOAD
+            return copy.deepcopy(RESPONSE_PAYLOAD)
 
         monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
 
@@ -359,3 +411,121 @@ class TestSplunkEsCorrelationSearches:
         }
         result = self._plugin.run(task_vars=self._task_vars)
         assert result["changed"] is False
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_correlation_searches_merged_check_mode(self, connection, monkeypatch):
+        """Test that merged state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin.api_response = RESPONSE_PAYLOAD
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = {}
+
+        # create_update should NOT be called in check mode
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD[0]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_correlation_searches_merged_check_mode_existing(self, conn, monkeypatch):
+        """Test that merged state with existing config in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+
+        # Use REQUEST_PAYLOAD[1] which differs from RESPONSE_PAYLOAD to trigger a change
+        self._plugin._task.args = {
+            "state": "merged",
+            "config": [REQUEST_PAYLOAD[1]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_correlation_searches_replaced_check_mode(self, conn, monkeypatch):
+        """Test that replaced state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+        self._plugin.search_for_resource_name = MagicMock()
+        self._plugin.search_for_resource_name.return_value = RESPONSE_PAYLOAD
+
+        delete_called = []
+        create_update_called = []
+
+        def create_update(self, rest_path, data=None):
+            create_update_called.append(True)
+            return RESPONSE_PAYLOAD
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD
+
+        def delete_by_path(self, path):
+            delete_called.append(True)
+            return {}
+
+        monkeypatch.setattr(SplunkRequest, "create_update", create_update)
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+
+        self._plugin._task.args = {
+            "state": "replaced",
+            "config": [REQUEST_PAYLOAD[1]],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"
+        assert len(create_update_called) == 0, "create_update should not be called in check mode"
+
+    @patch("ansible.module_utils.connection.Connection.__rpc__")
+    def test_es_correlation_searches_deleted_check_mode(self, conn, monkeypatch):
+        """Test that deleted state in check mode does not make API calls."""
+        self._plugin._task.check_mode = True
+        self._plugin._connection.socket_path = tempfile.NamedTemporaryFile().name
+        self._plugin._connection._shell = MagicMock()
+
+        delete_called = []
+
+        def get_by_path(self, path):
+            return RESPONSE_PAYLOAD
+
+        def delete_by_path(self, path):
+            delete_called.append(True)
+            return {}
+
+        monkeypatch.setattr(SplunkRequest, "get_by_path", get_by_path)
+        monkeypatch.setattr(SplunkRequest, "delete_by_path", delete_by_path)
+
+        self._plugin._task.args = {
+            "state": "deleted",
+            "config": [{"name": "Ansible Test"}],
+        }
+        result = self._plugin.run(task_vars=self._task_vars)
+        assert result["changed"] is True
+        assert len(delete_called) == 0, "delete_by_path should not be called in check mode"

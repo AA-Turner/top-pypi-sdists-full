@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -56,16 +55,16 @@ class LedgerEntryData:
     def __init__(
         self,
         type: LedgerEntryType,
-        account: Optional[AccountEntry] = None,
-        trust_line: Optional[TrustLineEntry] = None,
-        offer: Optional[OfferEntry] = None,
-        data: Optional[DataEntry] = None,
-        claimable_balance: Optional[ClaimableBalanceEntry] = None,
-        liquidity_pool: Optional[LiquidityPoolEntry] = None,
-        contract_data: Optional[ContractDataEntry] = None,
-        contract_code: Optional[ContractCodeEntry] = None,
-        config_setting: Optional[ConfigSettingEntry] = None,
-        ttl: Optional[TTLEntry] = None,
+        account: AccountEntry | None = None,
+        trust_line: TrustLineEntry | None = None,
+        offer: OfferEntry | None = None,
+        data: DataEntry | None = None,
+        claimable_balance: ClaimableBalanceEntry | None = None,
+        liquidity_pool: LiquidityPoolEntry | None = None,
+        contract_data: ContractDataEntry | None = None,
+        contract_code: ContractCodeEntry | None = None,
+        config_setting: ConfigSettingEntry | None = None,
+        ttl: TTLEntry | None = None,
     ) -> None:
         self.type = type
         self.account = account

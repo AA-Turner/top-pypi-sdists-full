@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: service_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get service information
 description:
    - Get service information on kaytus Server.

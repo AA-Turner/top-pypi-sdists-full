@@ -1,4 +1,4 @@
-# Generated from yiddish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from yiddish.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class YiddishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from yiddish.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from yiddish.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_niked = {"\u05B0", "\u05B1", "\u05B2", "\u05B3", "\u05B4", "\u05B5", "\u05B6", "\u05B7", "\u05B8", "\u05B9", "\u05BB", "\u05BC", "\u05BF", "\u05C1", "\u05C2"}
@@ -232,9 +232,6 @@ class YiddishStemmer(BaseStemmer):
     def __r_R1(self):
         return self.I_p1 <= self.cursor
 
-    def __r_R1plus3(self):
-        return self.I_p1 <= (self.cursor + 3)
-
     def __r_standard_suffix(self):
         v_1 = self.limit - self.cursor
         try:
@@ -359,7 +356,7 @@ class YiddishStemmer(BaseStemmer):
                             break
                         v_5 = self.limit - self.cursor
                         try:
-                            if not self.__r_R1plus3():
+                            if self.I_p1 > (self.cursor + 3):
                                 self.cursor = self.limit - v_5
                                 raise lab2()
                             self.slice_from("\u05D9\u05E1")

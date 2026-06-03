@@ -1040,3 +1040,84 @@ def test_media_asset_generation_instructions(monkeypatch):
     assert "programmatically generate the actual file" in local_prompt
 
 
+def test_remove_duplicate_jest_configs(tmp_path):
+    """Verify that remove_duplicate_jest_configs deletes jest.config.ts if jest.config.js also exists."""
+    from sage.core.code_doctors import remove_duplicate_jest_configs
+    
+    # 1. Neither exists
+    assert remove_duplicate_jest_configs(tmp_path) == 0
+    
+    # 2. Only JS exists
+    (tmp_path / "jest.config.js").write_text("module.exports = {};")
+    assert remove_duplicate_jest_configs(tmp_path) == 0
+    assert (tmp_path / "jest.config.js").exists()
+    
+    # 3. Both exist
+    (tmp_path / "jest.config.ts").write_text("export default {};")
+    assert remove_duplicate_jest_configs(tmp_path) == 1
+    assert (tmp_path / "jest.config.js").exists()
+    assert not (tmp_path / "jest.config.ts").exists()
+
+
+def test_fix_tsconfig_types(tmp_path):
+    """Verify that fix_tsconfig_types removes react-native-web from tsconfig.json compilerOptions.types."""
+    from sage.core.code_doctors import fix_tsconfig_types
+    
+    # 1. No tsconfig.json
+    assert fix_tsconfig_types(tmp_path) == 0
+    
+    # 2. tsconfig without types
+    tsconfig = tmp_path / "tsconfig.json"
+    tsconfig.write_text('{"compilerOptions": {}}')
+    assert fix_tsconfig_types(tmp_path) == 0
+    
+    # 3. tsconfig with react-native-web in types (JSON format)
+    tsconfig.write_text('{"compilerOptions": {"types": ["react-native", "react-native-web"]}}')
+    assert fix_tsconfig_types(tmp_path) == 1
+    import json
+    data = json.loads(tsconfig.read_text())
+    assert "react-native-web" not in data["compilerOptions"]["types"]
+    assert "react-native" in data["compilerOptions"]["types"]
+    
+    # 4. tsconfig with comments (regex fallback)
+    tsconfig.write_text('{\n  // Some comment\n  "compilerOptions": {\n    "types": [\n      "react-native",\n      "react-native-web"\n    ]\n  }\n}')
+    assert fix_tsconfig_types(tmp_path) == 1
+    content = tsconfig.read_text()
+    assert "react-native-web" not in content
+    assert "react-native" in content
+
+
+def test_fix_package_level_imports(tmp_path):
+    """Verify that fix_package_level_imports resolves package-level imports to direct modules."""
+    from sage.core.code_doctors import fix_package_level_imports
+    
+    backend_dir = tmp_path / "backend"
+    app_models_dir = backend_dir / "app" / "models"
+    app_models_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create background_visuals.py model file
+    (app_models_dir / "background_visuals.py").write_text("""
+class BackgroundVisuals:
+    id: int
+""")
+    (app_models_dir / "user.py").write_text("""
+class User:
+    id: int
+""")
+    (app_models_dir / "__init__.py").write_text("")
+    
+    # Create a file that has wrong package-level imports
+    test_py = backend_dir / "test_import.py"
+    test_py.write_text("""
+from app.models import User, BackgroundVisuals
+print(User, BackgroundVisuals)
+""")
+    
+    assert fix_package_level_imports(test_py) == 1
+    
+    resolved_content = test_py.read_text()
+    assert "from app.models.user import User" in resolved_content
+    assert "from app.models.background_visuals import BackgroundVisuals" in resolved_content
+    assert "from app.models import" not in resolved_content
+
+

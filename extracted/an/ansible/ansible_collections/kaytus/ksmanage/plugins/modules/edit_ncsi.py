@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_ncsi
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set ncsi information
 description:
    - Set ncsi information on kaytus Server.

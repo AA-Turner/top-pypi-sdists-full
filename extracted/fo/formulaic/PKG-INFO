@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: formulaic
-Version: 1.2.1
+Version: 1.2.2
 Summary: An implementation of Wilkinson formulas.
 Project-URL: repository, https://github.com/matthewwardrop/formulaic
 Project-URL: documentation, https://matthewwardrop.github.io/formulaic
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.9
 Requires-Dist: interface-meta>=1.2.0

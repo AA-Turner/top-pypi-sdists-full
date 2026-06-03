@@ -103,8 +103,8 @@ class TCloudApiDataDiff(pydantic.BaseModel):
     pk_columns: List[str]
     filter1: Optional[str] = None
     filter2: Optional[str] = None
-    include_columns: Optional[List[str]]
-    exclude_columns: Optional[List[str]]
+    include_columns: Optional[List[str]] = None
+    exclude_columns: Optional[List[str]] = None
 
 
 class TCloudApiOrgMeta(pydantic.BaseModel):
@@ -150,10 +150,10 @@ class TSummaryResultDependencyDetails(pydantic.BaseModel):
 
 class TCloudApiDataDiffSummaryResult(pydantic.BaseModel):
     status: str
-    pks: Optional[TSummaryResultPrimaryKeyStats]
-    values: Optional[TSummaryResultValueStats]
-    schema_: Optional[TSummaryResultSchemaStats]
-    deps: Optional[TSummaryResultDependencyDetails]
+    pks: Optional[TSummaryResultPrimaryKeyStats] = None
+    values: Optional[TSummaryResultValueStats] = None
+    schema_: Optional[TSummaryResultSchemaStats] = None
+    deps: Optional[TSummaryResultDependencyDetails] = None
 
     @classmethod
     def from_orm(cls, obj: Any) -> Self:
@@ -179,7 +179,7 @@ class TCloudDataSourceTestResult(pydantic.BaseModel):
 class TCloudApiDataSourceTestResult(pydantic.BaseModel):
     name: str
     status: str
-    result: Optional[TCloudDataSourceTestResult]
+    result: Optional[TCloudDataSourceTestResult] = None
 
 
 @attrs.define(frozen=False)
@@ -223,7 +223,7 @@ class DatafoldAPI:
         return TCloudApiDataSource(**datasource)
 
     def create_data_source(self, config: TDsConfig) -> TCloudApiDataSource:
-        payload = config.dict()
+        payload = config.model_dump()
         if config.type == "bigquery":
             json_string = payload["options"]["jsonKeyFile"].encode("utf-8")
             payload["options"]["jsonKeyFile"] = base64.b64encode(json_string).decode("utf-8")
@@ -245,7 +245,7 @@ class DatafoldAPI:
         ]
 
     def create_data_diff(self, payload: TCloudApiDataDiff) -> int:
-        rv = self.make_post_request(url="api/v1/datadiffs", payload=payload.dict())
+        rv = self.make_post_request(url="api/v1/datadiffs", payload=payload.model_dump())
         return rv.json()["id"]
 
     def poll_data_diff_results(self, diff_id: int) -> TCloudApiDataDiffSummaryResult:

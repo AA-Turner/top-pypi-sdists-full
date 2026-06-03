@@ -100,7 +100,7 @@ class Dialect(BaseDialect):
         return "SET @@session.time_zone='+00:00'"
 
     def md5_as_int(self, s: str) -> str:
-        return f"conv(substring(md5({s}), {1+MD5_HEXDIGITS-CHECKSUM_HEXDIGITS}), 16, 10) - {CHECKSUM_OFFSET}"
+        return f"conv(substring(md5({s}), {1 + MD5_HEXDIGITS - CHECKSUM_HEXDIGITS}), 16, 10) - {CHECKSUM_OFFSET}"
 
     def md5_as_hex(self, s: str) -> str:
         return f"md5({s})"
@@ -110,7 +110,9 @@ class Dialect(BaseDialect):
             return self.to_string(f"cast( cast({value} as datetime({coltype.precision})) as datetime(6))")
 
         s = self.to_string(f"cast({value} as datetime(6))")
-        return f"RPAD(RPAD({s}, {TIMESTAMP_PRECISION_POS+coltype.precision}, '.'), {TIMESTAMP_PRECISION_POS+6}, '0')"
+        return (
+            f"RPAD(RPAD({s}, {TIMESTAMP_PRECISION_POS + coltype.precision}, '.'), {TIMESTAMP_PRECISION_POS + 6}, '0')"
+        )
 
     def normalize_number(self, value: str, coltype: FractionalType) -> str:
         return self.to_string(f"cast({value} as decimal(38, {coltype.precision}))")

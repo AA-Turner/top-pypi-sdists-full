@@ -1,4 +1,4 @@
-# Generated from estonian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from estonian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class EstonianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from estonian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from estonian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     g_V1 = {"a", "e", "i", "o", "u", "ä", "õ", "ö", "ü"}
@@ -208,10 +208,8 @@ class EstonianStemmer(BaseStemmer):
                     self.cursor -= 4
                     self.cursor = self.limit - v_5
                     among_var = self.find_among_b(EstonianStemmer.a_5)
-                    if among_var == 1:
-                        self.slice_from("e")
-                    elif among_var == 2:
-                        self.slice_del()
+                    if among_var > 0:
+                        self.slice_from(EstonianStemmer.as_5[among_var - 1])
                     break
                 except lab0: pass
                 self.cursor = self.limit - v_4
@@ -428,6 +426,7 @@ class EstonianStemmer(BaseStemmer):
         Among("mis", 0, 1),
         Among("t", 0, -1)
     ]
+    as_5 = ("e", "")
 
     a_6 = [
         Among("d", -1, 4),

@@ -89,7 +89,7 @@ class TestEveOpenAPIProvider(TestCase):
         mock_client.return_value = EsiClientStub()
         provider = EveOpenAPIProvider()
 
-        affiliations = provider.get_affiliations([1001, 1002, 1666])
+        affiliations, _ = provider.get_affiliations([1001, 1002, 1666])
         self.assertEqual({getattr(x, "character_id") for x in affiliations}, {1001, 1002, 1666})
 
     @patch.object(EveOpenAPIProvider, "client", new_callable=PropertyMock)

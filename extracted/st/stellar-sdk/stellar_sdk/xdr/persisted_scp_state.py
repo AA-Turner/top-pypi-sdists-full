@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -31,8 +30,8 @@ class PersistedSCPState:
     def __init__(
         self,
         v: int,
-        v0: Optional[PersistedSCPStateV0] = None,
-        v1: Optional[PersistedSCPStateV1] = None,
+        v0: PersistedSCPStateV0 | None = None,
+        v1: PersistedSCPStateV1 | None = None,
     ) -> None:
         self.v = v
         self.v0 = v0

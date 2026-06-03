@@ -1,5 +1,6 @@
 """Convert specified property values into computed values."""
 
+from functools import partial
 from math import pi
 
 from tinycss2.color5 import parse_color
@@ -10,7 +11,6 @@ from ..urls import get_link_attribute, get_url_tuple
 from .functions import check_math
 from .properties import INITIAL_VALUES, ZERO_PIXELS, Dimension
 from .units import ANGLE_TO_RADIANS, LENGTH_UNITS, to_pixels
-from .validation import validate_non_shorthand
 
 # Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
 # medium, and scaling factors given in CSS3 for others:
@@ -125,6 +125,87 @@ INITIAL_VALUES['size'] = tuple(
     to_pixels(size, None, 'size') for size in INITIAL_PAGE_SIZE)
 
 
+# Maps physical to functions getting block and inline directions.
+PHYSICAL_FUNCTIONS = {}
+
+
+def register_logical(names, prefixes=('',), suffixes=('',)):
+    """Decorator registering logical properties matching physical ``names``."""
+
+    def decorator(function):
+        """Register the properties ``names`` for ``function``."""
+        for name in names:
+            name = name.replace('-', '_')
+            for prefix in prefixes:
+                for suffix in suffixes:
+                    property_name = name
+                    if prefix:
+                        property_name = f'{prefix}_{property_name}'
+                    if suffix:
+                        property_name = f'{property_name}_{suffix}'
+                    PHYSICAL_FUNCTIONS[property_name] = partial(
+                        function, name=name, prefix=prefix, suffix=suffix)
+        return function
+    return decorator
+
+
+@register_logical(('width', 'height'), prefixes=('', 'max', 'min'))
+def physical_size(name, prefix, suffix, block, inline):
+    vertical_main_direction = block in ('ttb', 'btt')
+    vertical_property = 'height' in name
+    logical = 'block' if (vertical_property == vertical_main_direction) else 'inline'
+    return f'{prefix}_{logical}_size' if prefix else f'{logical}_size'
+
+
+@register_logical(
+    ('top', 'left', 'bottom', 'right'),
+    prefixes=('', 'padding', 'margin'))
+@register_logical(
+    ('top', 'left', 'bottom', 'right'),
+    prefixes=('border',), suffixes=('width', 'style', 'color'))
+def physical_inset(name, prefix, suffix, block, inline):
+    if name == 'top':
+        logical = 'block' if block in ('ttb', 'btt') else 'inline'
+        side = 'start' if 'ttb' in (block, inline) else 'end'
+    elif name == 'bottom':
+        logical = 'block' if block in ('ttb', 'btt') else 'inline'
+        side = 'start' if 'btt' in (block, inline) else 'end'
+    elif name == 'left':
+        logical = 'block' if block in ('ltr', 'rtl') else 'inline'
+        side = 'start' if 'ltr' in (block, inline) else 'end'
+    elif name == 'right':
+        logical = 'block' if block in ('ltr', 'rtl') else 'inline'
+        side = 'start' if 'rtl' in (block, inline) else 'end'
+    prefix = f'{prefix or "inset"}_'
+    if suffix:
+        suffix = f'_{suffix}'
+    return f'{prefix}{logical}_{side}{suffix}'
+
+
+@register_logical(
+    ('top_left', 'top_right', 'bottom_left', 'bottom_right'),
+    prefixes=('border',), suffixes=('radius',))
+def physical_radius(name, prefix, suffix, block, inline):
+    vertical, horizontal = name.split('_')
+    if block == 'ttb':
+        block = 'start' if vertical == 'top' else 'end'
+    elif block == 'btt':
+        block = 'start' if vertical == 'bottom' else 'end'
+    elif block == 'ltr':
+        block = 'start' if horizontal == 'left' else 'end'
+    elif block == 'rtl':
+        block = 'start' if horizontal == 'right' else 'end'
+    if inline == 'ttb':
+        inline = 'start' if vertical == 'top' else 'end'
+    elif inline == 'btt':
+        inline = 'start' if vertical == 'bottom' else 'end'
+    elif inline == 'ltr':
+        inline = 'start' if horizontal == 'left' else 'end'
+    elif inline == 'rtl':
+        inline = 'start' if horizontal == 'right' else 'end'
+    return f'{prefix}_{block}_{inline}_{suffix}'
+
+
 # Maps property names to functions returning the computed values
 COMPUTER_FUNCTIONS = {}
 
@@ -177,20 +258,25 @@ def compute_attr(style, values):
 @register_computer('background-image')
 def background_image(style, name, values):
     """Compute lenghts in gradient background-image."""
-    for type_, value in values:
-        if type_ in ('linear-gradient', 'radial-gradient'):
-            value.stop_positions = tuple(
-                length(style, name, pos) if pos is not None else None
-                for pos in value.stop_positions)
-            value.color_hints = tuple(
-                length(style, name, hint) if hint is not None else None
-                for hint in value.color_hints)
-        if type_ == 'radial-gradient':
-            value.center, = compute_position(
-                style, name, (value.center,))
-            if value.size_type == 'explicit':
-                value.size = length_or_percentage_tuple(style, name, value.size)
-    return values
+    return tuple(image(style, name, value) for value in values)
+
+
+@register_computer('border-image-source')
+def image(style, name, image):
+    """Compute lenghts in gradient border-image-source."""
+    type_, value = image
+    if type_ in ('linear-gradient', 'radial-gradient'):
+        value.stop_positions = tuple(
+            length(style, name, pos) if pos is not None else None
+            for pos in value.stop_positions)
+        value.color_hints = tuple(
+            length(style, name, hint) if hint is not None else None
+            for hint in value.color_hints)
+    if type_ == 'radial-gradient':
+        value.center, = compute_position(style, name, (value.center,))
+        if value.size_type == 'explicit':
+            value.size = length_or_percentage_tuple(style, name, value.size)
+    return image
 
 
 @register_computer('color')
@@ -247,10 +333,16 @@ def break_before_after(style, name, value):
 @register_computer('margin-left')
 @register_computer('height')
 @register_computer('width')
+@register_computer('block-size')
+@register_computer('inline-size')
 @register_computer('min-width')
 @register_computer('min-height')
+@register_computer('min-block-size')
+@register_computer('min-inline-size')
 @register_computer('max-width')
 @register_computer('max-height')
+@register_computer('max-block-size')
+@register_computer('max-inline-size')
 @register_computer('padding-top')
 @register_computer('padding-right')
 @register_computer('padding-bottom')
@@ -697,22 +789,16 @@ def transform(style, name, value):
 @register_computer('vertical-align')
 def vertical_align(style, name, value):
     """Compute the ``vertical-align`` property."""
-    from ..css import resolve_math
-
     # Use +/- half an em for super and sub, same as Pango.
     # (See the SUPERSUB_RISE constant in pango-markup.c)
-    if check_math(value):
-        height, _ = strut(style)
-        result = resolve_math(value, style, 'vertical_align', height)
-        value = validate_non_shorthand((result,), 'vertical-align')[0][1]
-        if value is None:
-            value = 'baseline'
     if value in ('baseline', 'middle', 'text-top', 'text-bottom', 'top', 'bottom'):
         return value
     elif value == 'super':
         return style['font_size'] * 0.5
     elif value == 'sub':
         return style['font_size'] * -0.5
+    elif check_math(value):
+        return value
     elif value.unit == '%':
         height, _ = strut(style)
         return height * value.value / 100

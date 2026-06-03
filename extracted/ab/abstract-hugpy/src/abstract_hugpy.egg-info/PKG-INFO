@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_hugpy
-Version: 0.1.375
+Version: 0.1.399
 Summary: The `abstract_hugpy` module is designed to facilitate hugging face modules
 Home-page: https://github.com/AbstractEndeavors/abstract_hugpy
 Author: putkoff
@@ -19,6 +19,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: abstract_utilities
 Requires-Dist: requests
 Requires-Dist: openai_whisper
+Requires-Dist: abstract_flask
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

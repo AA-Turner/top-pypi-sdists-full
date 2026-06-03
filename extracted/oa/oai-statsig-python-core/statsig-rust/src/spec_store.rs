@@ -237,10 +237,15 @@ struct ApplyResult {
     prev_source: SpecsSource,
     prev_lcut: u64,
     time_received_at: u64,
+    checksum: Option<String>,
 }
 
 impl SpecStore {
     fn specs_update_prep(&self, specs_update: &mut SpecsUpdate) -> Result<PrepResult, StatsigErr> {
+        if specs_update.has_updates == Some(false) {
+            return Ok(PrepResult::NoUpdates);
+        }
+
         let response_format = self.get_spec_response_format(specs_update);
 
         let read_data = read_lock_or_else!(self.data, {
@@ -315,6 +320,10 @@ impl SpecStore {
         let prev_source = std::mem::replace(&mut data.source, specs_update.source.clone());
         let prev_lcut = data.values.time;
         let time_received_at = Utc::now().timestamp_millis() as u64;
+        let checksum = next_values
+            .checksum
+            .as_ref()
+            .map(|value| value.as_str().to_string());
 
         data.values = *next_values;
         data.time_received_at = Some(time_received_at);
@@ -324,6 +333,7 @@ impl SpecStore {
             prev_source,
             prev_lcut,
             time_received_at,
+            checksum,
         })
     }
 
@@ -364,6 +374,7 @@ impl SpecStore {
             &source,
             data,
             apply_result.time_received_at,
+            apply_result.checksum,
             matches!(response_format, SpecsFormat::Protobuf),
         );
 
@@ -458,6 +469,7 @@ impl SpecStore {
         source: &SpecsSource,
         mut data: ResponseData,
         now: u64,
+        checksum: Option<String>,
         is_protobuf: bool,
     ) {
         if source != &SpecsSource::Network {
@@ -494,8 +506,15 @@ impl SpecStore {
                     }
                 };
 
-                write_specs_to_data_store(data_store, data_store_key, data_bytes, now, is_protobuf)
-                    .await;
+                write_specs_to_data_store(
+                    data_store,
+                    data_store_key,
+                    data_bytes,
+                    checksum,
+                    now,
+                    is_protobuf,
+                )
+                .await;
             },
         );
 
@@ -539,11 +558,12 @@ async fn write_specs_to_data_store(
     data_store: Arc<dyn DataStoreTrait>,
     data_store_key: String,
     data_bytes: Vec<u8>,
+    checksum: Option<String>,
     now: u64,
     is_protobuf: bool,
 ) {
     match data_store
-        .set_bytes(&data_store_key, &data_bytes, Some(now))
+        .set_bytes(&data_store_key, &data_bytes, Some(now), checksum)
         .await
     {
         Ok(()) => return,

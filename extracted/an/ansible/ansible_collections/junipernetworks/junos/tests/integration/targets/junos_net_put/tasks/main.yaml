@@ -1,3 +1,0 @@
----
-- name: Invoke net_put test case
-  ansible.builtin.include_tasks: cli.yaml

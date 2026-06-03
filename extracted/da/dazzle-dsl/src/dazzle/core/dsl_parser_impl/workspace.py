@@ -2390,6 +2390,7 @@ class WorkspaceParserMixin:
             ux=state.ux_spec,
             access=state.access_spec,
             context_selector=state.context_selector,
+            primary_actions=state.primary_actions,
             source=loc,
         )
 
@@ -2441,11 +2442,79 @@ class WorkspaceParserMixin:
         if self.match(TokenType.UX):
             state.ux_spec = self.parse_ux_block()
             return True
+        if (
+            self.match(TokenType.IDENTIFIER)
+            and self.current_token().value == "primary_actions"
+            and self.peek_token().type == TokenType.COLON
+        ):
+            # #1324 FR-5: `primary_actions:` heading-CTA block. Intercepted
+            # here (an IDENTIFIER, not a keyword token) BEFORE the region
+            # fallback below; the COLON peek disambiguates it from a region
+            # that an author happened to name `primary_actions`.
+            state.primary_actions.extend(self._parse_workspace_primary_actions())
+            return True
         if self.match(TokenType.IDENTIFIER):
             # Fallback: any unrecognised identifier names a workspace region.
             state.regions.append(self.parse_workspace_region())
             return True
         return False
+
+    def _parse_workspace_primary_actions(
+        self,
+    ) -> list[ir.WorkspacePrimaryActionSpec]:
+        """Parse a ``primary_actions:`` block (#1324 FR-5).
+
+        Syntax::
+
+            primary_actions:
+              action "New Invoice" -> surface create_invoice
+              action "Dashboard" -> workspace ops_dashboard
+
+        Each line is ``action "<label>" -> (surface|workspace) <name>``.
+        ``action`` is the ACTION keyword token; ``surface``/``workspace`` are
+        the SURFACE/WORKSPACE keyword tokens; the name after them is an
+        identifier-or-keyword (mirrors `uses nav <name>` / nav-item parsing).
+        """
+        self.advance()  # consume `primary_actions` identifier
+        self.expect(TokenType.COLON)
+        self.skip_newlines()
+        self.expect(TokenType.INDENT)
+
+        actions: list[ir.WorkspacePrimaryActionSpec] = []
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            self.expect(TokenType.ACTION)
+            label = self.expect(TokenType.STRING).value
+            self.expect(TokenType.ARROW)
+            if self.match(TokenType.SURFACE):
+                self.advance()
+                target_kind: str = "surface"
+            elif self.match(TokenType.WORKSPACE):
+                self.advance()
+                target_kind = "workspace"
+            else:
+                tok = self.current_token()
+                raise make_parse_error(
+                    "Expected `surface` or `workspace` after `->` in a "
+                    f"primary_actions action, got {tok.value!r}.",
+                    self.file,
+                    tok.line,
+                    tok.column,
+                )
+            target = self.expect_identifier_or_keyword().value
+            actions.append(
+                ir.WorkspacePrimaryActionSpec(
+                    label=label,
+                    target_kind=target_kind,  # type: ignore[arg-type]
+                    target=target,
+                )
+            )
+            self.skip_newlines()
+
+        self.expect(TokenType.DEDENT)
+        return actions
 
     # Parsed access specs are enforced at request time in
     # src/dazzle/ui/runtime/surface_access.py:check_surface_access().
@@ -2569,18 +2638,24 @@ class WorkspaceParserMixin:
         Parse a nav_group block within a workspace.
 
         Syntax:
-            nav_group "Label" [icon=name] [collapsed]:
-              entity_name [icon=name]
+            nav_group "Label" [icon=name] [collapsed] [when: <cond>]:
+              entity_name [icon=name] [when: <cond>]
               ...
+
+        ``when: <cond>`` (#1324 FR-4) is an optional render-time VISIBILITY
+        condition on the group header and/or per item — the same
+        ``ConditionExpr`` idiom as ``RowActionSpec.visible_when:``. It is
+        parsed here but inert until slice B wires the render filter.
         """
         self.advance()  # consume nav_group
 
         # Label (required string)
         label = self.expect(TokenType.STRING).value
 
-        # Optional inline attributes: icon=name, collapsed
+        # Optional inline attributes: icon=name, collapsed, when: <cond>
         icon = None
         collapsed = False
+        when: ir.ConditionExpr | None = None
         while not self.match(TokenType.COLON):
             if self.match(TokenType.ICON):
                 self.advance()
@@ -2589,6 +2664,10 @@ class WorkspaceParserMixin:
             elif self.match(TokenType.COLLAPSED):
                 self.advance()
                 collapsed = True
+            elif self.match(TokenType.WHEN):
+                self.advance()
+                self.expect(TokenType.COLON)
+                when = self.parse_condition_expr()
             else:
                 break
 
@@ -2604,14 +2683,40 @@ class WorkspaceParserMixin:
 
             entity = self.expect_identifier_or_keyword().value
             item_icon = None
+            item_when: ir.ConditionExpr | None = None
 
-            # Optional icon=name on nav item
-            if self.match(TokenType.ICON):
-                self.advance()
-                self.expect(TokenType.EQUALS)
-                item_icon = self._parse_hyphenated_identifier()
+            # Optional icon=name and/or when: <cond> on nav item.
+            while self.match(TokenType.ICON, TokenType.WHEN):
+                if self.match(TokenType.ICON):
+                    self.advance()
+                    self.expect(TokenType.EQUALS)
+                    item_icon = self._parse_hyphenated_identifier()
+                else:  # WHEN
+                    self.advance()
+                    self.expect(TokenType.COLON)
+                    item_when = self.parse_condition_expr()
 
-            items.append(ir.NavItemIR(entity=entity, icon=item_icon))
+            # #1328: a nav group lists ONE bare entity/workspace name per line —
+            # there is NO `item` keyword. A stray trailing identifier (the classic
+            # `item Contact` misuse, which previously parsed as a phantom `item`
+            # entry plus `Contact` and was silently dropped) is now a hard parse
+            # error directing the author to the canonical bare-name form.
+            if not self.match(TokenType.NEWLINE, TokenType.DEDENT, TokenType.EOF):
+                stray = self.current_token()
+                if entity == "item":
+                    msg = (
+                        "nav groups list a bare entity or workspace name per line — "
+                        f"there is no `item` keyword. Write `{stray.value}` instead of "
+                        f"`item {stray.value}`."
+                    )
+                else:
+                    msg = (
+                        "nav group items take one entity or workspace name per line; "
+                        f"unexpected `{stray.value}` after `{entity}`."
+                    )
+                raise make_parse_error(msg, self.file, stray.line, stray.column)
+
+            items.append(ir.NavItemIR(entity=entity, icon=item_icon, when=item_when))
             self.skip_newlines()
 
         self.expect(TokenType.DEDENT)
@@ -2621,6 +2726,7 @@ class WorkspaceParserMixin:
             icon=icon,
             collapsed=collapsed,
             items=items,
+            when=when,
         )
 
     def parse_workspace_region(self) -> ir.WorkspaceRegion:
@@ -2676,6 +2782,8 @@ class _WorkspaceState:
     ux_spec: ir.UXSpec | None = None
     access_spec: ir.WorkspaceAccessSpec | None = None
     context_selector: ir.ContextSelectorSpec | None = None
+    # #1324 FR-5: authored heading-CTA buttons (primary_actions: block).
+    primary_actions: list[ir.WorkspacePrimaryActionSpec] = field(default_factory=list)
 
 
 @dataclass

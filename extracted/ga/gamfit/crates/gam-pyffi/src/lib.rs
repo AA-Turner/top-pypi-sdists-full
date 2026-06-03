@@ -8,8 +8,8 @@ use gam::estimate::{
     saved_mixture_state_from_fit, saved_sas_state_from_fit,
 };
 use gam::faer_ndarray::{
-    FaerCholesky, FaerEigh, FaerSvd, array2_to_matmut, factorize_symmetricwith_fallback, fast_ata,
-    fast_atb, fast_xt_diag_x,
+    FaerCholesky, array2_to_matmut, factorize_symmetricwith_fallback, fast_ata, fast_atb,
+    fast_xt_diag_x,
 };
 use gam::families::inverse_link::apply_inverse_link_vec;
 use gam::families::scale_design::{build_scale_deviation_transform, infer_non_intercept_start};
@@ -39,7 +39,6 @@ use gam::geometry::poincare::{
     to_lorentz as poincare_to_lorentz_impl,
 };
 use gam::geometry::simplex::{closure as simplex_closure, simplex_frechet_mean};
-use gam::geometry::sphere::normalize_sphere_matrix;
 use gam::hmc::{NutsConfig, NutsResult};
 use gam::inference::data::{
     EncodedDataset, UnseenCategoryPolicy, encode_recordswith_inferred_schema,
@@ -84,9 +83,8 @@ use gam::terms::basis::{
     DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability, MaternNu,
     OneDimensionalBoundary, OperatorPenaltySpec, PeriodicBSplineBasisSpec, SpatialIdentifiability,
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
-    SplineScratch,
-    auto_centers_1d_equal_mass, auto_knot_vector_1d_quantile, bspline_tensor_first_derivative,
-    build_duchon_basis, build_duchon_basis_mixed_periodicity_auto,
+    SplineScratch, auto_centers_1d_equal_mass, auto_knot_vector_1d_quantile,
+    bspline_tensor_first_derivative, build_duchon_basis, build_duchon_basis_mixed_periodicity_auto,
     build_duchon_operator_penalty_matrices, build_matern_basis, build_periodic_bspline_basis_1d,
     build_spherical_spline_basis, build_thin_plate_penalty_matrix, create_basis,
     create_cyclic_difference_penalty_matrix, create_difference_penalty_matrix,
@@ -96,6 +94,7 @@ use gam::terms::basis::{
     matern_input_location_hessian_nd, matern_input_location_jet_nd,
     matern_radial_first_derivative_nd, monomial_exponents, periodic_bspline_first_derivative_nd,
     resolve_duchon_orders, select_spherical_farthest_point_centers, sphere_first_derivative_nd,
+    spherical_spline_design_jet,
 };
 use gam::terms::input_loc_derivatives::contract_input_loc_gradient;
 use gam::terms::interchange_decoder::{
@@ -131,8 +130,7 @@ use gam::{
     FitConfig, FitRequest, FitResult, WorkflowError, fit_model, materialize, resolve_offset_column,
 };
 use ndarray::{
-    Array1, Array2, Array3, Array4, ArrayD, ArrayView1, ArrayView2, ArrayView3, ArrayView4,
-    ArrayViewD, Axis, IxDyn, s,
+    Array1, Array2, Array3, Array4, ArrayView1, ArrayView2, ArrayView3, ArrayView4, Axis, IxDyn, s,
 };
 use numpy::{
     IntoPyArray, PyArray1, PyArray2, PyArray3, PyArray4, PyArrayDyn, PyArrayMethods,
@@ -362,6 +360,57 @@ struct PyPredictOptions {
     /// `std_error ** 2` column.)
     interval: Option<f64>,
     time_grid: Option<Vec<f64>>,
+    /// Posterior covariance source for eta/mean intervals. One of
+    /// `"conditional"` (H⁻¹ only), `"smoothing"` (first-order smoothing
+    /// correction `H⁻¹ + J Var(ρ̂) Jᵀ` when available, else falls back to
+    /// conditional), or `"required"` (the smoothing correction, erroring if it
+    /// is unavailable). `None` keeps the engine default (`"smoothing"`). This
+    /// is the Python/CLI parity surface for `--covariance-mode`; it is read on
+    /// the delta-method (effectively-linear + interval) predict branch where
+    /// `PredictUncertaintyOptions` governs the covariance, mirroring the CLI's
+    /// `gam predict --covariance-mode`.
+    #[serde(default)]
+    covariance_mode: Option<String>,
+    /// When `true`, the effectively-linear interval branch also returns
+    /// response-scale observation intervals `Var(y_new|x) = Var(μ̂) + Var(Y|μ)`
+    /// via the engine's `includeobservation_interval`, surfaced as
+    /// `observation_lower` / `observation_upper` columns. `None`/`false`
+    /// preserves the prior behaviour (no observation interval).
+    #[serde(default)]
+    observation_interval: Option<bool>,
+    /// Opt-in distribution-free conformal calibration of the response-scale
+    /// interval (issue #310 family path). When `Some(level)` with
+    /// `level ∈ (0, 1)`, the model-based `mean_lower` / `mean_upper` are
+    /// REPLACED by the split-conformal interval `μ̂(x) ± q̂·s(x)` calibrated
+    /// from a held-out fold supplied via the `*_conformal` predict pyfunction.
+    /// `None` (default) leaves the interval untouched. Only the conformal
+    /// predict path reads this field.
+    #[serde(default)]
+    conformal_level: Option<f64>,
+}
+
+/// Parse the public `covariance_mode` string into the engine enum. `None`
+/// keeps the engine default (smoothing-preferred); unknown strings are a hard
+/// error so a typo never silently degrades to the default covariance.
+fn parse_covariance_mode(
+    raw: Option<&str>,
+) -> Result<Option<gam::predict::InferenceCovarianceMode>, String> {
+    let Some(text) = raw else {
+        return Ok(None);
+    };
+    match text.trim().to_ascii_lowercase().as_str() {
+        "conditional" => Ok(Some(gam::predict::InferenceCovarianceMode::Conditional)),
+        "smoothing" => Ok(Some(
+            gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+        )),
+        "required" => Ok(Some(
+            gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingRequired,
+        )),
+        other => Err(format!(
+            "covariance_mode must be one of \"conditional\", \"smoothing\", or \"required\"; \
+             got \"{other}\""
+        )),
+    }
 }
 
 #[derive(Serialize)]
@@ -370,6 +419,12 @@ struct PyPredictOptionsPayload {
     interval: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     time_grid: Option<Vec<f64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    covariance_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    observation_interval: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    conformal_level: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -402,6 +457,23 @@ struct SummaryCoefficientRow {
     std_error: Option<f64>,
 }
 
+/// Per-smooth significance row for the FFI summary — the canonical mgcv
+/// `summary.gam` smooth-term table (`edf`, reference d.f., test statistic, and
+/// p-value). Random-effect smooths report only `edf` (their boundary
+/// variance-component test is not a Wald χ²); penalized smooth terms carry the
+/// Wood (2013) rank-truncated Wald `chi_sq` / `p_value`. The shape mirrors the
+/// CLI's `SmoothTermSummary`.
+#[derive(Serialize)]
+struct SummarySmoothTermRow {
+    name: String,
+    edf: f64,
+    ref_df: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chi_sq: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p_value: Option<f64>,
+}
+
 #[derive(Serialize)]
 struct SummaryPayload {
     formula: String,
@@ -421,6 +493,12 @@ struct SummaryPayload {
     edf_total: Option<f64>,
     lambdas: Vec<f64>,
     coefficients: Vec<SummaryCoefficientRow>,
+    /// Per-smooth significance table (mgcv-style). Empty when the model has no
+    /// smooth/random-effect terms or when the design could not be reconstructed
+    /// to recover the per-term coefficient blocks (e.g. a model saved without
+    /// `resolved_termspec` / training feature ranges).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    smooth_terms: Vec<SummarySmoothTermRow>,
     covariance_kind: Option<String>,
     covariance_n: Option<usize>,
     covariance_flat: Option<Vec<f64>>,
@@ -1220,6 +1298,7 @@ fn build_info(py: Python<'_>) -> PyResult<Py<PyDict>> {
             "torch_from_fitted",
             "predict",
             "predict_array",
+            "predict_conformal",
             "build_predict_payload_json",
             "interpolate_survival_surface",
             "survival_chunk_iter_collect",
@@ -2866,6 +2945,21 @@ fn extend_model_with_group(
     Ok(PyBytes::new(py, &out).unbind())
 }
 
+/// Rewrite smooth-term calls in `formula` so each named smooth carries a
+/// `shape=<kind>` DSL option, given a `constraints` mapping serialized as a list
+/// of `(term_text, kind)` pairs. All alias normalization, smooth-term scanning,
+/// and paren-matching live in
+/// [`gam::terms::smooth::apply_shape_constraints_to_formula`]; the Python
+/// wrapper only marshals the dict across the FFI.
+#[pyfunction]
+fn apply_shape_constraints_to_formula(
+    formula: String,
+    constraints: Vec<(String, String)>,
+) -> PyResult<String> {
+    gam::terms::smooth::apply_shape_constraints_to_formula(&formula, &constraints)
+        .map_err(py_value_error)
+}
+
 #[pyfunction]
 fn validate_formula_json(
     py: Python<'_>,
@@ -2924,30 +3018,41 @@ fn formula_validation_html_json(payload_json: String) -> PyResult<String> {
     ))
 }
 
-#[pyfunction]
+#[pyfunction(signature = (interval, time_grid, covariance_mode=None, observation_interval=None))]
 fn build_predict_payload_json(
     interval: Option<f64>,
     time_grid: Option<Vec<f64>>,
+    covariance_mode: Option<String>,
+    observation_interval: Option<bool>,
 ) -> PyResult<String> {
+    // Validate the covariance-mode string here (before transport) so a typo
+    // surfaces as a clear error at the predict call site rather than as an
+    // opaque deserialization failure later.
+    parse_covariance_mode(covariance_mode.as_deref()).map_err(py_value_error)?;
     let payload = PyPredictOptionsPayload {
         interval,
         time_grid,
+        covariance_mode,
+        observation_interval,
+        conformal_level: None,
     };
     serde_json::to_string(&payload)
         .map_err(|err| py_value_error(format!("failed to serialize predict payload: {err}")))
 }
 
-#[pyfunction]
+#[pyfunction(signature = (model_bytes, headers, rows, interval, covariance_mode=None, observation_interval=None))]
 fn build_model_predict_payload_json(
     model_bytes: Vec<u8>,
     headers: Vec<String>,
     rows: Vec<Vec<String>>,
     interval: Option<f64>,
+    covariance_mode: Option<String>,
+    observation_interval: Option<bool>,
 ) -> PyResult<String> {
     let model_class = required_saved_model_payload_string_value(&model_bytes, "model_kind")?;
     let formula = required_saved_model_payload_string_value(&model_bytes, "formula")?;
     let time_grid = default_survival_time_grid(&model_class, &formula, headers, rows)?;
-    build_predict_payload_json(interval, time_grid)
+    build_predict_payload_json(interval, time_grid, covariance_mode, observation_interval)
 }
 
 #[pyfunction]
@@ -2960,6 +3065,38 @@ fn predict_table(
 ) -> PyResult<String> {
     detach_py_result(py, "predict_table", move || {
         predict_table_impl(&model_bytes, headers, rows, options_json.as_deref())
+    })
+}
+
+/// Distribution-free conformal prediction intervals (issue #310 family path).
+///
+/// Runs the standard model-based predictor on `(headers, rows)`, then replaces
+/// the response-scale `mean_lower` / `mean_upper` with the split-conformal
+/// interval `μ̂(x) ± q̂·s(x)` calibrated at `conformal_level` from the held-out
+/// `(calibration_headers, calibration_rows)` fold — which must contain the
+/// response column. The returned interval carries finite-sample marginal
+/// coverage `≥ conformal_level` regardless of model misspecification.
+#[pyfunction(signature = (model_bytes, headers, rows, calibration_headers, calibration_rows, conformal_level, options_json=None))]
+fn predict_table_conformal(
+    py: Python<'_>,
+    model_bytes: Vec<u8>,
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+    calibration_headers: Vec<String>,
+    calibration_rows: Vec<Vec<String>>,
+    conformal_level: f64,
+    options_json: Option<String>,
+) -> PyResult<String> {
+    detach_py_result(py, "predict_table_conformal", move || {
+        predict_table_conformal_impl(
+            &model_bytes,
+            headers,
+            rows,
+            calibration_headers,
+            calibration_rows,
+            conformal_level,
+            options_json.as_deref(),
+        )
     })
 }
 
@@ -3244,17 +3381,13 @@ fn periodic_spline_curve_basis<'py>(
     ))
 }
 
-#[pyfunction]
-fn periodic_basis_with_jet<'py>(
-    py: Python<'py>,
-    t: PyReadonlyArray1<'py, f64>,
+fn build_wrapped_periodic_harmonic_basis_with_jet(
+    t: ArrayView1<'_, f64>,
     n_harmonics: usize,
-) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray3<f64>>, Py<PyArray2<f64>>)> {
-    let t = t.as_array();
+    label: &str,
+) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
     if t.iter().any(|value| !value.is_finite()) {
-        return Err(py_value_error(
-            "periodic_basis_with_jet requires finite t values".to_string(),
-        ));
+        return Err(format!("{label} requires finite t values"));
     }
 
     let n_rows = t.len();
@@ -3277,7 +3410,7 @@ fn periodic_basis_with_jet<'py>(
         penalty[[cos_col, cos_col]] = harmonic_penalty;
 
         for row in 0..n_rows {
-            let angle = frequency * t[row];
+            let angle = frequency * t[row].rem_euclid(1.0);
             let sin_value = angle.sin();
             let cos_value = angle.cos();
 
@@ -3287,6 +3420,22 @@ fn periodic_basis_with_jet<'py>(
             jet[[row, cos_col, 0]] = -frequency * sin_value;
         }
     }
+
+    Ok((phi, jet, penalty))
+}
+
+#[pyfunction]
+fn periodic_basis_with_jet<'py>(
+    py: Python<'py>,
+    t: PyReadonlyArray1<'py, f64>,
+    n_harmonics: usize,
+) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray3<f64>>, Py<PyArray2<f64>>)> {
+    let (phi, jet, penalty) = build_wrapped_periodic_harmonic_basis_with_jet(
+        t.as_array(),
+        n_harmonics,
+        "periodic_basis_with_jet",
+    )
+    .map_err(py_value_error)?;
 
     Ok((
         phi.into_pyarray(py).unbind(),
@@ -3586,39 +3735,12 @@ fn basis_with_jet<'py>(
                     coords.ncols()
                 )));
             }
-            if coords.iter().any(|value| !value.is_finite()) {
-                return Err(py_value_error(
-                    "basis_with_jet periodic basis requires finite t values".to_string(),
-                ));
-            }
-
-            let n_rows = coords.nrows();
-            let n_cols = 1 + 2 * n_harmonics;
-            let mut phi = Array2::<f64>::zeros((n_rows, n_cols));
-            let mut jet = Array3::<f64>::zeros((n_rows, n_cols, 1));
-            let mut penalty = Array2::<f64>::zeros((n_cols, n_cols));
-            phi.column_mut(0).fill(1.0);
-            penalty[[0, 0]] = 1.0e-8;
-
-            for h in 1..=n_harmonics {
-                let h_f = h as f64;
-                let frequency = std::f64::consts::TAU * h_f;
-                let sin_col = 1 + 2 * (h - 1);
-                let cos_col = sin_col + 1;
-                let harmonic_penalty = h_f * h_f * h_f * h_f;
-                penalty[[sin_col, sin_col]] = harmonic_penalty;
-                penalty[[cos_col, cos_col]] = harmonic_penalty;
-
-                for row in 0..n_rows {
-                    let angle = frequency * coords[[row, 0]].rem_euclid(1.0);
-                    let sin_value = angle.sin();
-                    let cos_value = angle.cos();
-                    phi[[row, sin_col]] = sin_value;
-                    phi[[row, cos_col]] = cos_value;
-                    jet[[row, sin_col, 0]] = frequency * cos_value;
-                    jet[[row, cos_col, 0]] = -frequency * sin_value;
-                }
-            }
+            let (phi, jet, penalty) = build_wrapped_periodic_harmonic_basis_with_jet(
+                coords.column(0),
+                n_harmonics,
+                "basis_with_jet periodic basis",
+            )
+            .map_err(py_value_error)?;
 
             Ok((
                 phi.into_pyarray(py).unbind(),
@@ -4305,6 +4427,124 @@ fn sphere_basis_with_centers<'py>(
     ))
 }
 
+/// Resolve `(method, wahba_kernel)` from the user `kernel` string, shared by
+/// the sphere basis + sphere jet entry points. Harmonic carries no Wahba
+/// kernel; the degree probe is supplied separately by each caller.
+fn sphere_kernel_kind_from_str(
+    kernel: &str,
+    site: &str,
+) -> PyResult<(SphereMethod, SphereWahbaKernel)> {
+    match kernel.to_ascii_lowercase().as_str() {
+        "sobolev" => Ok((SphereMethod::Wahba, SphereWahbaKernel::Sobolev)),
+        "pseudo" => Ok((SphereMethod::Wahba, SphereWahbaKernel::Pseudo)),
+        "harmonic" => Ok((SphereMethod::Harmonic, SphereWahbaKernel::Sobolev)),
+        other => Err(py_value_error(format!(
+            "{site} kernel must be one of 'sobolev', 'pseudo', 'harmonic'; got '{other}'"
+        ))),
+    }
+}
+
+/// Analytic DESIGN jet `∂Φ/∂(lat, lon)` of the spherical-spline basis built by
+/// `sphere_basis` (auto Wahba farthest-point centers, or harmonic degree `L =
+/// n_centers`).
+///
+/// Returns a `(N, K, 2)` array where `K` equals the column count of the
+/// `sphere_basis` design and the last axis is `(∂col/∂lat, ∂col/∂lon)` in the
+/// same angular units as the input (degrees by default, radians when
+/// `radians=True`). All derivatives are exact analytic forms — no finite
+/// differences.
+#[pyfunction(signature = (points, n_centers, penalty_order = 2, kernel = "sobolev", radians = false))]
+fn sphere_basis_jet<'py>(
+    py: Python<'py>,
+    points: PyReadonlyArray2<'py, f64>,
+    n_centers: usize,
+    penalty_order: usize,
+    kernel: &str,
+    radians: bool,
+) -> PyResult<Py<PyArray3<f64>>> {
+    let pts = points.as_array();
+    if pts.ncols() != 2 {
+        return Err(py_value_error(format!(
+            "sphere_basis_jet expects points of shape (N, 2) [lat, lon]; got d={}",
+            pts.ncols()
+        )));
+    }
+    if !(1..=4).contains(&penalty_order) {
+        return Err(py_value_error(format!(
+            "sphere_basis_jet penalty_order must be one of 1, 2, 3, 4; got {penalty_order}"
+        )));
+    }
+    let (method, wahba_kernel) = sphere_kernel_kind_from_str(kernel, "sphere_basis_jet")?;
+    let max_degree = matches!(method, SphereMethod::Harmonic).then_some(n_centers);
+    let spec = SphericalSplineBasisSpec {
+        center_strategy: CenterStrategy::FarthestPoint {
+            num_centers: n_centers,
+        },
+        penalty_order,
+        double_penalty: false,
+        radians,
+        method,
+        max_degree,
+        wahba_kernel,
+        identifiability: SphericalSplineIdentifiability::CenterSumToZero,
+    };
+    let jet =
+        spherical_spline_design_jet(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    Ok(jet.into_pyarray(py).unbind())
+}
+
+/// Analytic DESIGN jet `∂Φ/∂(lat, lon)` of the spherical-spline basis built by
+/// `sphere_basis_with_centers` (explicit Wahba centers; harmonic uses
+/// `L = centers.nrows()` as a degree probe, mirroring the forward).
+///
+/// Returns `(N, K, 2)` aligned column-for-column with the
+/// `sphere_basis_with_centers` design, last axis `(∂col/∂lat, ∂col/∂lon)`.
+#[pyfunction(signature = (points, centers, penalty_order = 2, kernel = "sobolev", radians = false))]
+fn sphere_basis_jet_with_centers<'py>(
+    py: Python<'py>,
+    points: PyReadonlyArray2<'py, f64>,
+    centers: PyReadonlyArray2<'py, f64>,
+    penalty_order: usize,
+    kernel: &str,
+    radians: bool,
+) -> PyResult<Py<PyArray3<f64>>> {
+    let pts = points.as_array();
+    let ctrs = centers.as_array();
+    if pts.ncols() != 2 {
+        return Err(py_value_error(format!(
+            "sphere_basis_jet_with_centers expects points of shape (N, 2) [lat, lon]; got d={}",
+            pts.ncols()
+        )));
+    }
+    if ctrs.ncols() != 2 {
+        return Err(py_value_error(format!(
+            "sphere_basis_jet_with_centers expects centers of shape (K, 2) [lat, lon]; got d={}",
+            ctrs.ncols()
+        )));
+    }
+    if !(1..=4).contains(&penalty_order) {
+        return Err(py_value_error(format!(
+            "sphere_basis_jet_with_centers penalty_order must be one of 1, 2, 3, 4; got {penalty_order}"
+        )));
+    }
+    let (method, wahba_kernel) =
+        sphere_kernel_kind_from_str(kernel, "sphere_basis_jet_with_centers")?;
+    let max_degree = matches!(method, SphereMethod::Harmonic).then_some(ctrs.nrows());
+    let spec = SphericalSplineBasisSpec {
+        center_strategy: CenterStrategy::UserProvided(ctrs.to_owned()),
+        penalty_order,
+        double_penalty: false,
+        radians,
+        method,
+        max_degree,
+        wahba_kernel,
+        identifiability: SphericalSplineIdentifiability::CenterSumToZero,
+    };
+    let jet =
+        spherical_spline_design_jet(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    Ok(jet.into_pyarray(py).unbind())
+}
+
 /// Chart-local seven-column sphere basis with analytic lat/lon jet.
 ///
 /// `t` is an `(N, 2)` array of latitude/longitude pairs in radians. The
@@ -4645,6 +4885,11 @@ const PREFERRED_PREDICTION_COLUMNS: &[&str] = &[
     "std_error",
     "mean_lower",
     "mean_upper",
+    // Response-scale observation (prediction) interval, emitted only when
+    // `observation_interval=True` and the family supports it; ordered after
+    // the credible mean interval so the standard schema stays stable when off.
+    "observation_lower",
+    "observation_upper",
     // Issue #365: location-scale / GAMLSS families emit the fitted per-row
     // distribution scale (e.g. Gaussian σ) so the learned `noise_formula`
     // function is retrievable from Python; ordered after the mean columns.
@@ -5212,7 +5457,7 @@ fn gaussian_weighted_ridge_array<'py>(
     weights: PyReadonlyArray1<'py, f64>,
     ridge_lambda: f64,
 ) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray2<f64>>)> {
-    let (coefficients, fitted) = gaussian_weighted_ridge_array_impl(
+    let (coefficients, fitted) = gam::linalg::utils::gaussian_weighted_ridge(
         x.as_array(),
         y.as_array(),
         penalty.as_array(),
@@ -5237,7 +5482,7 @@ fn gaussian_weighted_ridge_batch<'py>(
     row_counts: Option<PyReadonlyArray1<'py, usize>>,
 ) -> PyResult<(Py<PyArray3<f64>>, Py<PyArray3<f64>>)> {
     let row_count_view = row_counts.as_ref().map(|counts| counts.as_array());
-    let (coefficients, fitted) = gaussian_weighted_ridge_batch_impl(
+    let (coefficients, fitted) = gam::linalg::utils::gaussian_weighted_ridge_batch(
         x.as_array(),
         y.as_array(),
         penalty.as_array(),
@@ -5707,120 +5952,6 @@ fn gaussian_reml_fit_blocks_forward<'py>(
     Ok(out.unbind())
 }
 
-struct GaussianRemlBlocksBackwardAnalytic {
-    grad_designs: Vec<Array2<f64>>,
-    grad_penalties: Vec<Array2<f64>>,
-    grad_y: Array2<f64>,
-    grad_weights: Array1<f64>,
-}
-
-fn identity_matrix(n: usize) -> Array2<f64> {
-    let mut eye = Array2::<f64>::zeros((n, n));
-    for i in 0..n {
-        eye[[i, i]] = 1.0;
-    }
-    eye
-}
-
-fn symmetrized_matrix(input: &Array2<f64>) -> Array2<f64> {
-    let mut out = input.clone();
-    gam::matrix::symmetrize_in_place(&mut out);
-    out
-}
-
-fn block_penalty_rank_and_pinv(
-    penalty: &Array2<f64>,
-) -> Result<(usize, Array2<f64>), EstimationError> {
-    let (eigs, vecs) = penalty.to_owned().eigh(Side::Lower).map_err(|_| {
-        EstimationError::ModelIsIllConditioned {
-            condition_number: f64::INFINITY,
-        }
-    })?;
-    let max_abs = eigs.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-    let tol = (1.0e-10 * max_abs).max(1.0e-14);
-    let mut rank = 0_usize;
-    let mut scaled = Array2::<f64>::zeros(vecs.dim());
-    for col in 0..eigs.len() {
-        if eigs[col] > tol {
-            rank += 1;
-            for row in 0..vecs.nrows() {
-                scaled[[row, col]] = vecs[[row, col]] / eigs[col];
-            }
-        }
-    }
-    Ok((rank, scaled.dot(&vecs.t())))
-}
-
-fn invert_spd_with_ridge(
-    matrix: &Array2<f64>,
-    ridge_rel: f64,
-) -> Result<Array2<f64>, EstimationError> {
-    let n = matrix.nrows();
-    let eye = identity_matrix(n);
-    let scale = (0..n).map(|i| matrix[[i, i]].abs()).fold(1.0_f64, f64::max);
-    let ridges = [0.0, ridge_rel, 1.0e-10, 1.0e-8, 1.0e-6, 1.0e-4];
-    for rel in ridges {
-        let mut candidate = matrix.clone();
-        if rel > 0.0 {
-            for i in 0..n {
-                candidate[[i, i]] += rel * scale;
-            }
-        }
-        if let Ok(chol) = candidate.cholesky(Side::Lower) {
-            return Ok(chol.solve_mat(&eye));
-        }
-    }
-    Err(EstimationError::ModelIsIllConditioned {
-        condition_number: f64::INFINITY,
-    })
-}
-
-fn solve_symmetric_vector_with_floor(
-    matrix: &Array2<f64>,
-    rhs: &Array1<f64>,
-    ridge_rel: f64,
-) -> Result<Array1<f64>, EstimationError> {
-    let n = matrix.nrows();
-    let sym = symmetrized_matrix(matrix);
-    let (eigs, vecs) =
-        sym.eigh(Side::Lower)
-            .map_err(|_| EstimationError::ModelIsIllConditioned {
-                condition_number: f64::INFINITY,
-            })?;
-    let max_eig = eigs.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-    let floor = (ridge_rel * max_eig.max(1.0)).max(1.0e-12);
-    let projected = vecs.t().dot(rhs);
-    let mut scaled = Array1::<f64>::zeros(n);
-    for i in 0..n {
-        let denom = if eigs[i].abs() >= floor {
-            eigs[i]
-        } else if eigs[i].is_sign_negative() {
-            -floor
-        } else {
-            floor
-        };
-        scaled[i] = projected[i] / denom;
-    }
-    let out = vecs.dot(&scaled);
-    if out.iter().all(|value| value.is_finite()) {
-        Ok(out)
-    } else {
-        Err(EstimationError::ModelIsIllConditioned {
-            condition_number: f64::INFINITY,
-        })
-    }
-}
-
-fn trace_product(left: ArrayView2<'_, f64>, right: ArrayView2<'_, f64>) -> f64 {
-    let mut value = 0.0;
-    for i in 0..left.nrows() {
-        for j in 0..left.ncols() {
-            value += left[[i, j]] * right[[j, i]];
-        }
-    }
-    value
-}
-
 #[pyfunction(signature = (designs, penalties, y, weights = None, init_rhos = None))]
 fn gaussian_reml_fit_blocks_orthogonal_forward<'py>(
     py: Python<'py>,
@@ -5868,501 +5999,6 @@ fn gaussian_reml_fit_blocks_orthogonal_forward<'py>(
     out.set_item("reml_score", fit.reml_score)?;
     out.set_item("edf", fit.edf.into_pyarray(py))?;
     Ok(out.unbind())
-}
-
-#[allow(clippy::too_many_arguments)]
-fn gaussian_reml_fit_blocks_backward_analytic(
-    designs: &[Array2<f64>],
-    penalties_raw: &[Array2<f64>],
-    y: ArrayView1<'_, f64>,
-    weights: ArrayView1<'_, f64>,
-    rhos: &[f64],
-    grad_coefficients: Option<ArrayView2<'_, f64>>,
-    grad_fitted: Option<ArrayView2<'_, f64>>,
-    grad_lambdas: Option<ArrayView1<'_, f64>>,
-    grad_log_lambdas: Option<ArrayView1<'_, f64>>,
-    grad_reml_score: f64,
-    grad_edf: Option<ArrayView1<'_, f64>>,
-) -> Result<GaussianRemlBlocksBackwardAnalytic, EstimationError> {
-    let n = y.len();
-    let f_blocks = designs.len();
-    let mut offsets = Vec::with_capacity(f_blocks + 1);
-    offsets.push(0_usize);
-    for design in designs {
-        offsets.push(offsets.last().copied().unwrap() + design.ncols());
-    }
-    let p_total = *offsets.last().unwrap();
-    if n == 0 || p_total == 0 {
-        return Err(EstimationError::InvalidInput(
-            "gaussian_reml_fit_blocks_backward requires non-empty rows and at least one coefficient column"
-                .to_string(),
-        ));
-    }
-
-    if rhos.len() != f_blocks {
-        return Err(EstimationError::InvalidInput(format!(
-            "log_lambdas length mismatch: expected {f_blocks}, got {}",
-            rhos.len()
-        )));
-    }
-    if let Some(gc) = grad_coefficients {
-        if gc.dim() != (p_total, 1) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_coefficients shape mismatch: expected {}x1, got {}x{}",
-                p_total,
-                gc.nrows(),
-                gc.ncols()
-            )));
-        }
-    }
-    if let Some(gf) = grad_fitted {
-        if gf.dim() != (n, 1) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_fitted shape mismatch: expected {}x1, got {}x{}",
-                n,
-                gf.nrows(),
-                gf.ncols()
-            )));
-        }
-    }
-    if !grad_reml_score.is_finite() {
-        return Err(EstimationError::InvalidInput(format!(
-            "grad_reml_score must be finite; got {grad_reml_score}"
-        )));
-    }
-    if let Some(vec) = grad_lambdas {
-        if vec.len() != f_blocks {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_lambdas length mismatch: expected {f_blocks}, got {}",
-                vec.len()
-            )));
-        }
-    }
-    if let Some(vec) = grad_log_lambdas {
-        if vec.len() != f_blocks {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_log_lambdas length mismatch: expected {f_blocks}, got {}",
-                vec.len()
-            )));
-        }
-    }
-    if let Some(vec) = grad_edf {
-        if vec.len() != f_blocks {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_edf length mismatch: expected {f_blocks}, got {}",
-                vec.len()
-            )));
-        }
-    }
-    if let Some(gc) = grad_coefficients {
-        if let Some(((row, col), value)) = gc.indexed_iter().find(|(_, value)| !value.is_finite()) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_coefficients[{row},{col}] must be finite; got {value}"
-            )));
-        }
-    }
-    if let Some(gf) = grad_fitted {
-        if let Some(((row, col), value)) = gf.indexed_iter().find(|(_, value)| !value.is_finite()) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_fitted[{row},{col}] must be finite; got {value}"
-            )));
-        }
-    }
-    if let Some(vec) = grad_lambdas {
-        if let Some((block, value)) = vec.iter().enumerate().find(|(_, value)| !value.is_finite()) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_lambdas[{block}] must be finite; got {value}"
-            )));
-        }
-    }
-    if let Some(vec) = grad_log_lambdas {
-        if let Some((block, value)) = vec.iter().enumerate().find(|(_, value)| !value.is_finite()) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_log_lambdas[{block}] must be finite; got {value}"
-            )));
-        }
-    }
-    if let Some(vec) = grad_edf {
-        if let Some((block, value)) = vec.iter().enumerate().find(|(_, value)| !value.is_finite()) {
-            return Err(EstimationError::InvalidInput(format!(
-                "grad_edf[{block}] must be finite; got {value}"
-            )));
-        }
-    }
-    for (block, design) in designs.iter().enumerate() {
-        if let Some(((row, col), value)) =
-            design.indexed_iter().find(|(_, value)| !value.is_finite())
-        {
-            return Err(EstimationError::InvalidInput(format!(
-                "designs[{block}][{row},{col}] must be finite; got {value}"
-            )));
-        }
-    }
-    for (block, penalty) in penalties_raw.iter().enumerate() {
-        if let Some(((row, col), value)) =
-            penalty.indexed_iter().find(|(_, value)| !value.is_finite())
-        {
-            return Err(EstimationError::InvalidInput(format!(
-                "penalties[{block}][{row},{col}] must be finite; got {value}"
-            )));
-        }
-    }
-    if let Some((row, value)) = y.iter().enumerate().find(|(_, value)| !value.is_finite()) {
-        return Err(EstimationError::InvalidInput(format!(
-            "y[{row}] must be finite; got {value}"
-        )));
-    }
-    if let Some((row, value)) = weights
-        .iter()
-        .enumerate()
-        .find(|(_, value)| !value.is_finite() || **value < 0.0)
-    {
-        return Err(EstimationError::InvalidInput(format!(
-            "weights[{row}] must be finite and non-negative; got {value}"
-        )));
-    }
-
-    let mut z = Array2::<f64>::zeros((n, p_total));
-    for k in 0..f_blocks {
-        z.slice_mut(s![.., offsets[k]..offsets[k + 1]])
-            .assign(&designs[k]);
-    }
-
-    let penalties: Vec<Array2<f64>> = penalties_raw.iter().map(symmetrized_matrix).collect();
-    let mut ranks = Vec::with_capacity(f_blocks);
-    let mut pinvs = Vec::with_capacity(f_blocks);
-    for penalty in &penalties {
-        let (rank, pinv) = block_penalty_rank_and_pinv(penalty)?;
-        ranks.push(rank);
-        pinvs.push(pinv);
-    }
-
-    let lambdas = Array1::from_iter(rhos.iter().map(|rho| rho.exp()));
-    if let Some((block, lambda)) = lambdas
-        .iter()
-        .enumerate()
-        .find(|(_, lambda)| !lambda.is_finite() || **lambda <= 0.0)
-    {
-        return Err(EstimationError::InvalidInput(format!(
-            "exp(log_lambdas[{block}]) must be finite and positive; got {lambda}"
-        )));
-    }
-    let mut k_matrix = fast_xt_diag_x(&z.view(), &weights);
-    for block in 0..f_blocks {
-        let lambda = lambdas[block];
-        for local_i in 0..penalties[block].nrows() {
-            let global_i = offsets[block] + local_i;
-            for local_j in 0..penalties[block].ncols() {
-                let global_j = offsets[block] + local_j;
-                k_matrix[[global_i, global_j]] += lambda * penalties[block][[local_i, local_j]];
-            }
-        }
-    }
-    let r = invert_spd_with_ridge(&k_matrix, 0.0)?;
-
-    let mut xtwy = Array1::<f64>::zeros(p_total);
-    for row in 0..n {
-        let wy = weights[row] * y[row];
-        for col in 0..p_total {
-            xtwy[col] += z[[row, col]] * wy;
-        }
-    }
-    let beta = r.dot(&xtwy);
-    let fitted = z.dot(&beta);
-    if let Some((col, value)) = beta
-        .iter()
-        .enumerate()
-        .find(|(_, value)| !value.is_finite())
-    {
-        return Err(EstimationError::InvalidInput(format!(
-            "solved coefficient {col} is non-finite: {value}"
-        )));
-    }
-    let residual = &y.to_owned() - &fitted;
-    let weighted_residual = &residual * &weights.to_owned();
-    let ywy = y
-        .iter()
-        .zip(weights.iter())
-        .map(|(&yi, &wi)| wi * yi * yi)
-        .sum::<f64>();
-    let q_raw = ywy - xtwy.dot(&beta);
-    if !q_raw.is_finite() {
-        return Err(EstimationError::InvalidInput(format!(
-            "Gaussian REML residual quadratic form must be finite; got {q_raw}"
-        )));
-    }
-    let q = q_raw.max(1.0e-300);
-    let nullity = penalties
-        .iter()
-        .zip(ranks.iter())
-        .map(|(penalty, rank)| penalty.nrows().saturating_sub(*rank))
-        .sum::<usize>();
-    let nu = n as f64 - nullity as f64;
-    if !(nu.is_finite() && nu > 0.0) {
-        return Err(EstimationError::InvalidInput(format!(
-            "Gaussian REML residual degrees of freedom must be positive; got {nu}"
-        )));
-    }
-    let tau = nu / q;
-    let tau_q = -nu / (q * q);
-    if !(tau.is_finite() && tau_q.is_finite()) {
-        return Err(EstimationError::InvalidInput(format!(
-            "Gaussian REML scale derivatives are non-finite: tau={tau}, tau_q={tau_q}"
-        )));
-    }
-
-    let mut grad_z = Array2::<f64>::zeros((n, p_total));
-    let mut g_kernel = Array2::<f64>::zeros((p_total, p_total));
-    let mut h_kernel = Array1::<f64>::zeros(p_total);
-    let mut q_kernel = 0.0_f64;
-    let mut j_blocks: Vec<Array2<f64>> = penalties
-        .iter()
-        .map(|p| Array2::<f64>::zeros(p.dim()))
-        .collect();
-
-    let mut beta_tilde = Array1::<f64>::zeros(p_total);
-    if let Some(gc) = grad_coefficients {
-        beta_tilde += &gc.column(0).to_owned();
-    }
-    if let Some(gf) = grad_fitted {
-        let gf_col = gf.column(0).to_owned();
-        beta_tilde += &z.t().dot(&gf_col);
-        for row in 0..n {
-            for col in 0..p_total {
-                grad_z[[row, col]] += gf_col[row] * beta[col];
-            }
-        }
-    }
-
-    // Generic downstream losses that explicitly seed beta_hat or fitted
-    // values cannot use the REML envelope shortcut. Route those seeds through
-    // the fixed-rho KKT adjoint K u = beta_tilde before differentiating
-    // designs, penalties, y, weights, and rho.
-    let u = r.dot(&beta_tilde);
-    h_kernel += &u;
-    for i in 0..p_total {
-        for j in 0..p_total {
-            g_kernel[[i, j]] -= 0.5 * (beta[i] * u[j] + u[i] * beta[j]);
-        }
-    }
-
-    let mut alpha = Array1::<f64>::zeros(f_blocks);
-    if let Some(gl) = grad_lambdas {
-        for block in 0..f_blocks {
-            alpha[block] += gl[block] * lambdas[block];
-        }
-    }
-    if let Some(grho) = grad_log_lambdas {
-        alpha += &grho.to_owned();
-    }
-
-    let mut p_betas = Vec::with_capacity(f_blocks);
-    let mut m_vectors = Vec::with_capacity(f_blocks);
-    let mut rp_matrices = Vec::with_capacity(f_blocks);
-    let mut rpr_matrices = Vec::with_capacity(f_blocks);
-    let mut b_values = Array1::<f64>::zeros(f_blocks);
-    let mut t_values = Array1::<f64>::zeros(f_blocks);
-
-    for block in 0..f_blocks {
-        let start = offsets[block];
-        let end = offsets[block + 1];
-        let beta_k = beta.slice(s![start..end]).to_owned();
-        let s_beta = penalties[block].dot(&beta_k);
-        let lambda = lambdas[block];
-        let lambda_s_beta = s_beta.mapv(|value| lambda * value);
-        let mut p_beta = Array1::<f64>::zeros(p_total);
-        for local_i in 0..(end - start) {
-            p_beta[start + local_i] = lambda_s_beta[local_i];
-        }
-        let weighted_penalty = penalties[block].mapv(|value| lambda * value);
-        let rp_block = r.slice(s![.., start..end]).dot(&weighted_penalty);
-        let mut rp = Array2::<f64>::zeros((p_total, p_total));
-        rp.slice_mut(s![.., start..end]).assign(&rp_block);
-        let rpr = rp_block.dot(&r.slice(s![start..end, ..]));
-        let m = r.slice(s![.., start..end]).dot(&lambda_s_beta);
-        b_values[block] = beta.dot(&p_beta);
-        t_values[block] = (0..(end - start))
-            .map(|local_i| rp_block[[start + local_i, local_i]])
-            .sum::<f64>();
-        alpha[block] -= u.dot(&p_beta);
-        p_betas.push(p_beta);
-        m_vectors.push(m);
-        rp_matrices.push(rp);
-        rpr_matrices.push(rpr);
-    }
-
-    if grad_reml_score != 0.0 {
-        q_kernel += 0.5 * grad_reml_score * tau;
-        g_kernel += &(r.clone() * (0.5 * grad_reml_score));
-        for block in 0..f_blocks {
-            j_blocks[block] -= &(pinvs[block].clone() * (0.5 * grad_reml_score / lambdas[block]));
-        }
-    }
-
-    let mut trace_pairs = Array2::<f64>::zeros((f_blocks, f_blocks));
-    for i in 0..f_blocks {
-        for j in 0..f_blocks {
-            trace_pairs[[i, j]] = trace_product(rp_matrices[i].view(), rp_matrices[j].view());
-        }
-    }
-
-    if let Some(ge) = grad_edf {
-        for edf_block in 0..f_blocks {
-            let scale = ge[edf_block];
-            if scale == 0.0 {
-                continue;
-            }
-            let start = offsets[edf_block];
-            let end = offsets[edf_block + 1];
-            g_kernel += &(rpr_matrices[edf_block].clone() * scale);
-            j_blocks[edf_block] -= &(r.slice(s![start..end, start..end]).to_owned() * scale);
-            for rho_block in 0..f_blocks {
-                alpha[rho_block] += scale * trace_pairs[[edf_block, rho_block]];
-                if rho_block == edf_block {
-                    alpha[rho_block] -= scale * t_values[edf_block];
-                }
-            }
-        }
-    }
-
-    if let Some((block, value)) = alpha
-        .iter()
-        .enumerate()
-        .find(|(_, value)| !value.is_finite())
-    {
-        return Err(EstimationError::InvalidInput(format!(
-            "rho adjoint seed for block {block} is non-finite: {value}"
-        )));
-    }
-
-    if alpha.iter().any(|value| *value != 0.0) {
-        let mut outer_h = Array2::<f64>::zeros((f_blocks, f_blocks));
-        for k in 0..f_blocks {
-            for j in 0..f_blocks {
-                let beta_pk_r_pj_beta = p_betas[k].dot(&m_vectors[j]);
-                outer_h[[k, j]] = 0.5 * trace_pairs[[k, j]] + tau * beta_pk_r_pj_beta
-                    - if k == j {
-                        0.5 * (t_values[k] + tau * b_values[k])
-                    } else {
-                        0.0
-                    }
-                    - 0.5 * tau_q * b_values[k] * b_values[j];
-            }
-        }
-        // `outer_h` is the Jacobian of the negative profiled REML estimating
-        // equation. Preserve signed curvature directions while flooring
-        // near-zero modes; flipping negative eigenvalues would change the VJP.
-        gam::linalg::utils::enforce_symmetry(&mut outer_h);
-        if let Some(((row, col), value)) =
-            outer_h.indexed_iter().find(|(_, value)| !value.is_finite())
-        {
-            return Err(EstimationError::InvalidInput(format!(
-                "outer rho curvature entry ({row},{col}) is non-finite: {value}"
-            )));
-        }
-        let rho_adj = solve_symmetric_vector_with_floor(&outer_h, &alpha, 1.0e-10)?;
-        if let Some((block, value)) = rho_adj
-            .iter()
-            .enumerate()
-            .find(|(_, value)| !value.is_finite())
-        {
-            return Err(EstimationError::InvalidInput(format!(
-                "outer rho adjoint for block {block} is non-finite: {value}"
-            )));
-        }
-        let weighted_b_sum = rho_adj
-            .iter()
-            .zip(b_values.iter())
-            .map(|(&zk, &bk)| zk * bk)
-            .sum::<f64>();
-        q_kernel += 0.5 * tau_q * weighted_b_sum;
-        for block in 0..f_blocks {
-            let zk = rho_adj[block];
-            if zk == 0.0 {
-                continue;
-            }
-            g_kernel -= &(rpr_matrices[block].clone() * (0.5 * zk));
-            let m = &m_vectors[block];
-            for i in 0..p_total {
-                h_kernel[i] += tau * zk * m[i];
-                for j in 0..p_total {
-                    g_kernel[[i, j]] -= 0.5 * tau * zk * (beta[i] * m[j] + m[i] * beta[j]);
-                }
-            }
-            let start = offsets[block];
-            let end = offsets[block + 1];
-            j_blocks[block] += &(r.slice(s![start..end, start..end]).to_owned() * (0.5 * zk));
-            for i in 0..(end - start) {
-                for j in 0..(end - start) {
-                    j_blocks[block][[i, j]] += 0.5 * tau * zk * beta[start + i] * beta[start + j];
-                }
-            }
-        }
-    }
-
-    for row in 0..n {
-        for col in 0..p_total {
-            grad_z[[row, col]] += -2.0 * q_kernel * weighted_residual[row] * beta[col];
-        }
-    }
-    let zg = z.dot(&g_kernel);
-    for row in 0..n {
-        for col in 0..p_total {
-            grad_z[[row, col]] += 2.0 * weights[row] * zg[[row, col]];
-        }
-    }
-    let wy = y.to_owned() * &weights.to_owned();
-    for row in 0..n {
-        for col in 0..p_total {
-            grad_z[[row, col]] += wy[row] * h_kernel[col];
-        }
-    }
-
-    let mut grad_y = Array2::<f64>::zeros((n, 1));
-    let zh = z.dot(&h_kernel);
-    for row in 0..n {
-        grad_y[[row, 0]] = 2.0 * q_kernel * weighted_residual[row] + weights[row] * zh[row];
-    }
-
-    let mut grad_weights = Array1::<f64>::zeros(n);
-    for row in 0..n {
-        let diag_zgz = (0..p_total)
-            .map(|col| z[[row, col]] * zg[[row, col]])
-            .sum::<f64>();
-        grad_weights[row] = q_kernel * residual[row] * residual[row] + diag_zgz + y[row] * zh[row];
-    }
-
-    let mut grad_penalties = Vec::with_capacity(f_blocks);
-    for block in 0..f_blocks {
-        let start = offsets[block];
-        let end = offsets[block + 1];
-        let mut local = g_kernel.slice(s![start..end, start..end]).to_owned();
-        for i in 0..(end - start) {
-            for j in 0..(end - start) {
-                local[[i, j]] += q_kernel * beta[start + i] * beta[start + j];
-            }
-        }
-        local += &j_blocks[block];
-        local *= lambdas[block];
-        gam::linalg::utils::enforce_symmetry(&mut local);
-        grad_penalties.push(local);
-    }
-
-    let mut grad_designs = Vec::with_capacity(f_blocks);
-    for block in 0..f_blocks {
-        grad_designs.push(
-            grad_z
-                .slice(s![.., offsets[block]..offsets[block + 1]])
-                .to_owned(),
-        );
-    }
-
-    Ok(GaussianRemlBlocksBackwardAnalytic {
-        grad_designs,
-        grad_penalties,
-        grad_y,
-        grad_weights,
-    })
 }
 
 /// Analytic backward for the multi-block per-smooth-λ Gaussian REML forward.
@@ -6513,7 +6149,7 @@ fn gaussian_reml_fit_blocks_backward<'py>(
     let init_rhos_for_thread = init_rhos.clone();
 
     let backward = detach_estimation_result(py, "gaussian_reml_fit_blocks_backward", move || {
-        gaussian_reml_fit_blocks_backward_analytic(
+        gam::solver::gaussian_reml::gaussian_reml_fit_blocks_backward_analytic(
             &designs_for_thread,
             &penalties_for_thread,
             y_for_thread.view(),
@@ -6790,11 +6426,14 @@ fn gaussian_reml_fit_with_constraints_forward<'py>(
 ///   closed-form Gaussian REML backward. This case delegates to
 ///   `gaussian_reml_multi_closed_form_backward` and produces gradients
 ///   identical to `gaussian_reml_fit_backward` (round-off agreement).
-/// - **Active cert (non-empty active set):** STOPPED per task instructions
-///   (the existing closed-form backward stack is hard-coded to the
-///   unconstrained `GaussianRemlEigenCache`/`reml_hess_rho` and cannot
-///   accept a tangent-wrapped operator without a substantial refactor —
-///   see report). Returns `NotImplementedError`.
+/// - **Active cert (non-empty active set):** reparametrise `β = Z γ` with
+///   `Z = null(A_act)` and run the interior closed-form backward on the
+///   reduced operators `X_Z = X Z`, `S_Z = Zᵀ S Z`, pulling upstream
+///   cotangents through `Z` and lifting the returned gradients back to full
+///   p-space (`grad_X = grad_X_Z · Zᵀ`, `grad_S = Z · grad_S_Z · Zᵀ`). Since
+///   `Z` depends only on the non-differentiable active-constraint geometry,
+///   this is the exact analytic adjoint. Delegates to
+///   `constrained_active_backward`.
 #[pyfunction(signature = (
     x,
     y,
@@ -6879,22 +6518,52 @@ fn gaussian_reml_fit_with_constraints_backward<'py>(
     let is_interior = active_empty || no_constraints;
 
     if !is_interior {
-        // See header doc + report: the closed-form Gaussian REML backward
-        // stack is welded to the unconstrained eigen-cache. The tangent-
-        // projected variant requires constructing `P = Z (ZᵀHZ)⁻¹ Zᵀ` and a
-        // projected penalty pinv `Z (ZᵀSZ)⁺ Zᵀ`, plus a projected
-        // `reml_hess_rho_T`. Refactoring the per-helper VJPs to accept these
-        // as separate parameters instead of pulling from `cache`.
-        return Err(PyNotImplementedError::new_err(
-            "gaussian_reml_fit_with_constraints_backward: analytic VJP at \
-             non-empty active sets (active cert exit) is not yet implemented. \
-             The math identity is `H⁻¹ → Z(ZᵀHZ)⁻¹Zᵀ`, `S⁺ → Z(ZᵀSZ)⁺Zᵀ`, \
-             but the closed-form Gaussian REML helpers in \
-             `src/solver/gaussian_reml.rs` consume the unconstrained \
-             `GaussianRemlEigenCache` directly and cannot yet accept these \
-             projected operators."
-                .to_string(),
-        ));
+        // Active cert: tangent-projected envelope-theorem VJP.
+        //
+        // At the active cert the equality constraints `A_act β̂ = 0` confine
+        // β̂ — and every sensitivity of the outer REML objective — to the
+        // tangent space `range(Z)`, where `Z = null(A_act)` is a p×k
+        // orthonormal basis (k = p − rank(A_act)). Reparametrise `β = Z γ`,
+        // `γ ∈ ℝ^k`. The reduced problem is the SAME closed-form Gaussian
+        // REML on the projected operators
+        //     X_Z = X Z   (n×k),    S_Z = Zᵀ S Z   (k×k),
+        // with `y`, `w` unchanged. This realises exactly the documented
+        // substitution `H⁻¹ → Z(ZᵀHZ)⁻¹Zᵀ`, `S⁺ → Z(ZᵀSZ)⁺Zᵀ`: the reduced
+        // inverse Hessian is `(ZᵀHZ)⁻¹`, lifted by Z on both sides, and the
+        // reduced penalty pseudo-inverse is `(ZᵀSZ)⁺`.
+        //
+        // The forward outputs map as β̂ = Z γ̂ and fitted = X_Z γ̂ = X β̂; the
+        // outer scalars (λ, REML score, edf) are functions of the reduced
+        // system. We therefore run the interior backward on the reduced
+        // problem with upstream cotangents pulled back through Z, then lift
+        // the returned gradients back to full p-space:
+        //     X_Z = X Z    ⟹  grad_X = grad_X_Z · Zᵀ
+        //     S_Z = Zᵀ S Z ⟹  grad_S = Z · grad_S_Z · Zᵀ
+        //     grad_y, grad_weights pass through unchanged.
+        // Z is a constant (it depends only on the non-differentiable active
+        // constraint geometry), so this is the exact analytic adjoint.
+        return constrained_active_backward(
+            py,
+            x.as_array(),
+            y.as_array(),
+            penalty.as_array(),
+            weights.as_ref().map(|w| w.as_array()),
+            a_inequality
+                .as_ref()
+                .expect("active cert implies a non-empty constraint matrix")
+                .as_array(),
+            active_indices
+                .as_ref()
+                .expect("active cert implies a non-empty active index set")
+                .as_array(),
+            log_lambda_at_optimum,
+            grad_coefficients.as_ref().map(|g| g.as_array()),
+            grad_fitted.as_ref().map(|g| g.as_array()),
+            grad_lambda,
+            grad_log_lambda,
+            grad_reml_score,
+            grad_edf,
+        );
     }
 
     // Interior cert: envelope theorem in full p-space. The constrained
@@ -6956,6 +6625,148 @@ fn gaussian_reml_fit_with_constraints_backward<'py>(
     out.set_item("grad_x", backward.grad_x.into_pyarray(py))?;
     out.set_item("grad_y", backward.grad_y.into_pyarray(py))?;
     out.set_item("grad_penalty", backward.grad_penalty.into_pyarray(py))?;
+    out.set_item("grad_weights", backward.grad_weights.into_pyarray(py))?;
+    Ok(out.unbind())
+}
+
+/// Tangent-projected analytic VJP for the constrained Gaussian REML fit at a
+/// non-empty active set (active cert exit).
+///
+/// See the call site for the derivation. In short: with `Z = null(A_act)` a
+/// p×k orthonormal basis of the tangent space, the constrained problem is the
+/// unconstrained closed-form Gaussian REML on the reduced operators
+/// `X_Z = X Z`, `S_Z = Zᵀ S Z`. We pull the upstream cotangents back through
+/// `Z`, call the SAME interior backward (`gaussian_reml_multi_closed_form_
+/// backward`) on the reduced system, and lift its gradients back to p-space:
+/// `grad_X = grad_X_Z Zᵀ`, `grad_S = Z grad_S_Z Zᵀ`; `grad_y`/`grad_weights`
+/// are invariant under the reparametrisation.
+#[allow(clippy::too_many_arguments)]
+fn constrained_active_backward<'py>(
+    py: Python<'py>,
+    x: ArrayView2<'_, f64>,
+    y: ArrayView2<'_, f64>,
+    penalty: ArrayView2<'_, f64>,
+    weights: Option<ArrayView1<'_, f64>>,
+    a_inequality: ArrayView2<'_, f64>,
+    active_indices: ArrayView1<'_, u64>,
+    log_lambda_at_optimum: Option<f64>,
+    grad_coefficients: Option<ArrayView2<'_, f64>>,
+    grad_fitted: Option<ArrayView2<'_, f64>>,
+    grad_lambda: f64,
+    grad_log_lambda: f64,
+    grad_reml_score: f64,
+    grad_edf: f64,
+) -> PyResult<Py<PyDict>> {
+    let p = x.ncols();
+    if a_inequality.ncols() != p {
+        return Err(py_value_error(format!(
+            "a_inequality has {} cols; expected {p} to match X columns",
+            a_inequality.ncols(),
+        )));
+    }
+
+    // Assemble the active constraint rows `A_act` (m_act × p).
+    let mut a_act = Array2::<f64>::zeros((active_indices.len(), p));
+    for (out_row, &idx) in active_indices.iter().enumerate() {
+        let idx = idx as usize;
+        if idx >= a_inequality.nrows() {
+            return Err(py_value_error(format!(
+                "active index {idx} out of range for a_inequality with {} rows",
+                a_inequality.nrows(),
+            )));
+        }
+        a_act.row_mut(out_row).assign(&a_inequality.row(idx));
+    }
+
+    // `Z = null(A_act)`. `rrqr_nullspace_basis(M)` returns an orthonormal
+    // basis of `null(Mᵀ)`; feeding `A_actᵀ` (p × m_act, tall since p ≥ m_act
+    // at any valid cert) therefore yields `null((A_actᵀ)ᵀ) = null(A_act)` as a
+    // p×k orthonormal basis.
+    let a_act_t = a_act.t().to_owned();
+    let z = gam::faer_ndarray::rrqr_nullspace_basis(
+        &a_act_t,
+        gam::faer_ndarray::default_rrqr_rank_alpha(),
+    )
+    .map_err(|err| py_value_error(format!("failed to build tangent null-space basis Z: {err}")))?
+    .0;
+    let k = z.ncols();
+    if k == 0 {
+        // The active set pins β̂ to the origin: every sensitivity vanishes on
+        // the (empty) tangent space. The exact adjoint is the zero VJP.
+        let out = PyDict::new(py);
+        out.set_item("grad_x", Array2::<f64>::zeros(x.dim()).into_pyarray(py))?;
+        out.set_item("grad_y", Array2::<f64>::zeros(y.dim()).into_pyarray(py))?;
+        out.set_item(
+            "grad_penalty",
+            Array2::<f64>::zeros((p, p)).into_pyarray(py),
+        )?;
+        out.set_item(
+            "grad_weights",
+            Array1::<f64>::zeros(x.nrows()).into_pyarray(py),
+        )?;
+        return Ok(out.unbind());
+    }
+
+    // Reduce the system to Z-coordinates: X_Z = X Z, S_Z = Zᵀ S Z.
+    let x_z = x.dot(&z);
+    let penalty_z = z.t().dot(&penalty).dot(&z);
+
+    // Pull upstream cotangents back through Z. The coefficient output is
+    // β̂ = Z γ̂, so its cotangent maps as `grad_γ = Zᵀ grad_β` (k × d). The
+    // fitted output (X_Z γ̂ = X β̂) and the outer scalars are unchanged.
+    let grad_coefficients_z: Option<Array2<f64>> = grad_coefficients.map(|g| z.t().dot(&g));
+
+    // Chain `grad_log_lambda` onto `grad_lambda` via dlog λ/dλ = 1/λ, mirroring
+    // the interior branch (λ and log λ pull the same scalar).
+    let init_lambda = log_lambda_at_optimum.map(|rho| rho.exp());
+    let mut effective_grad_lambda = grad_lambda;
+    if grad_log_lambda != 0.0 {
+        let lam = init_lambda.unwrap_or(0.0);
+        if lam > 0.0 {
+            effective_grad_lambda += grad_log_lambda / lam;
+        } else {
+            return Err(py_value_error(
+                "gaussian_reml_fit_with_constraints_backward: grad_log_lambda is \
+                 non-zero but log_lambda_at_optimum is missing or λ ≤ 0; cannot \
+                 chain dlog λ/dλ = 1/λ."
+                    .to_string(),
+            ));
+        }
+    }
+
+    let y_owned = y.to_owned();
+    let weight_owned = weights.map(|w| w.to_owned());
+    let grad_fitted_owned = grad_fitted.map(|g| g.to_owned());
+    let backward = detach_pyresult(
+        py,
+        "gaussian_reml_fit_with_constraints_backward",
+        move || {
+            gaussian_reml_multi_closed_form_backward(
+                x_z.view(),
+                y_owned.view(),
+                penalty_z.view(),
+                weight_owned.as_ref().map(|w| w.view()),
+                init_lambda,
+                effective_grad_lambda,
+                grad_coefficients_z.as_ref().map(|g| g.view()),
+                grad_fitted_owned.as_ref().map(|g| g.view()),
+                grad_reml_score,
+                grad_edf,
+            )
+            .map_err(estimation_error_to_pyerr)
+        },
+    )?;
+
+    // Lift the reduced gradients back to full p-space.
+    //   X_Z = X Z    ⟹  grad_X = grad_X_Z Zᵀ      (n×p)
+    //   S_Z = Zᵀ S Z ⟹  grad_S = Z grad_S_Z Zᵀ    (p×p)
+    let grad_x = backward.grad_x.dot(&z.t());
+    let grad_penalty = z.dot(&backward.grad_penalty).dot(&z.t());
+
+    let out = PyDict::new(py);
+    out.set_item("grad_x", grad_x.into_pyarray(py))?;
+    out.set_item("grad_y", backward.grad_y.into_pyarray(py))?;
+    out.set_item("grad_penalty", grad_penalty.into_pyarray(py))?;
     out.set_item("grad_weights", backward.grad_weights.into_pyarray(py))?;
     Ok(out.unbind())
 }
@@ -7494,7 +7305,7 @@ fn gaussian_reml_fit_positions_batched_backward<'py>(
 // LatentCoord — N-D generalization of `gaussian_reml_fit_positions`
 // ---------------------------------------------------------------------------
 //
-// See `proposals/latent_coord.md` and `src/terms/latent_coord.rs`.
+// See `src/terms/latent_coord.rs`.
 //
 // The 1-D position path constructs Φ(t) on a Duchon/B-spline basis with
 // t ∈ ℝ^N, fits the Gaussian REML inner problem against Y, and (in the
@@ -8173,63 +7984,6 @@ fn validate_dense_fisher_w(
     Ok(())
 }
 
-fn add_block_diagonal_penalty(
-    hessian: &mut Array2<f64>,
-    penalty: ArrayView2<'_, f64>,
-    lambda: f64,
-    n_outputs: usize,
-) -> Result<(), String> {
-    let k = penalty.ncols();
-    if penalty.nrows() != k {
-        return Err(format!(
-            "penalty must be square for dense Fisher fit; got {}x{}",
-            penalty.nrows(),
-            penalty.ncols()
-        ));
-    }
-    if hessian.dim() != (k * n_outputs, k * n_outputs) {
-        return Err("dense Fisher Hessian shape mismatch while adding penalty".to_string());
-    }
-    for output in 0..n_outputs {
-        let offset = output * k;
-        for row in 0..k {
-            for col in 0..k {
-                let s_sym = 0.5 * (penalty[[row, col]] + penalty[[col, row]]);
-                hessian[[offset + row, offset + col]] += lambda * s_sym;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn solve_dense_block_system(
-    hessian: &Array2<f64>,
-    rhs: &Array1<f64>,
-    context: &str,
-) -> Result<Array1<f64>, String> {
-    let mut rhs2 = Array2::<f64>::zeros((rhs.len(), 1));
-    for i in 0..rhs.len() {
-        rhs2[[i, 0]] = rhs[i];
-    }
-    let factor = factorize_symmetricwith_fallback(
-        gam::faer_ndarray::FaerArrayView::new(hessian).as_ref(),
-        Side::Lower,
-    )
-    .map_err(|err| format!("{context} factorization failed: {err}"))?;
-    {
-        let mut rhs_view = array2_to_matmut(&mut rhs2);
-        factor.solve_in_place(rhs_view.as_mut());
-    }
-    let mut out = Array1::<f64>::zeros(rhs.len());
-    for i in 0..rhs.len() {
-        out[i] = rhs2[[i, 0]];
-    }
-    if out.iter().any(|v| !v.is_finite()) {
-        return Err(format!("{context} solve produced non-finite coefficients"));
-    }
-    Ok(out)
-}
-
 #[derive(Clone, Copy, Debug)]
 struct LatentAuxStrengthState {
     log_mu: f64,
@@ -8251,53 +8005,20 @@ fn latent_aux_prior_stats(
     aux_strength: Option<f64>,
 ) -> Result<LatentAuxPriorStats, String> {
     let targets = aux_prior_targets(t_mat, u_view, aux_family)?;
-    let n_obs = t_mat.nrows();
-    let latent_dim = t_mat.ncols();
-    let mut residual_sq = 0.0_f64;
-    for n in 0..n_obs {
-        for a in 0..latent_dim {
-            let diff = t_mat[[n, a]] - targets[[n, a]];
-            residual_sq += diff * diff;
-        }
-    }
-    if !residual_sq.is_finite() {
-        return Err("auxiliary prior residual norm must be finite".to_string());
-    }
-    // The pyffi latent entry points receive `t` as the current outer
-    // coordinate. When Python passes None/"auto", the log_mu coordinate has
-    // a closed-form REML optimum for this fixed t because only the normalized
-    // auxiliary prior depends on it.
-    let (log_mu, mu, auto) = match aux_strength {
-        Some(mu) => {
-            if !(mu.is_finite() && mu > 0.0) {
-                return Err(format!(
-                    "aux_strength must be finite and positive; got {mu}"
-                ));
-            }
-            (mu.ln(), mu, false)
-        }
-        None => {
-            if residual_sq <= 0.0 {
-                return Err(
-                    "aux_strength='auto' has no finite REML optimum when the auxiliary residual is zero"
-                        .to_string(),
-                );
-            }
-            let mu = (n_obs as f64) / residual_sq;
-            if !(mu.is_finite() && mu > 0.0) {
-                return Err(format!(
-                    "auto aux_strength selected a non-finite precision: {mu}"
-                ));
-            }
-            (mu.ln(), mu, true)
-        }
-    };
-    let score = 0.5 * mu * residual_sq - 0.5 * (n_obs as f64) * log_mu;
+    // The closed-form auxiliary-prior REML statistics (residual norm + the
+    // log_mu optimum at fixed t + the prior score) live in core; this packs
+    // them into the FFI latent-fit plumbing struct.
+    let stats =
+        gam::terms::latent_coord::aux_prior_reml_stats(t_mat, targets.view(), aux_strength)?;
     Ok(LatentAuxPriorStats {
         targets,
-        residual_sq,
-        strength: LatentAuxStrengthState { log_mu, mu, auto },
-        score,
+        residual_sq: stats.residual_sq,
+        strength: LatentAuxStrengthState {
+            log_mu: stats.log_mu,
+            mu: stats.mu,
+            auto: stats.auto,
+        },
+        score: stats.score,
     })
 }
 
@@ -8394,41 +8115,22 @@ fn dense_fisher_gaussian_fit_to_pydict<'py>(
             "init_lambda must be finite and positive for dense Fisher fit; got {lambda}"
         )));
     }
-    let mut hessian = gam::pirls::dense_block_xtwx(design, fisher_w, Some(row_weights.view()))
-        .map_err(|err| py_value_error(err.to_string()))?;
-    add_block_diagonal_penalty(&mut hessian, penalty, lambda, n_outputs).map_err(py_value_error)?;
-    let rhs = gam::pirls::dense_block_xtwy(design, fisher_w, y, Some(row_weights.view()))
-        .map_err(|err| py_value_error(err.to_string()))?;
-    let beta_vec = solve_dense_block_system(&hessian, &rhs, "dense Fisher Gaussian")
-        .map_err(py_value_error)?;
-    let mut coefficients = Array2::<f64>::zeros((k, n_outputs));
-    for output in 0..n_outputs {
-        for col in 0..k {
-            coefficients[[col, output]] = beta_vec[output * k + col];
-        }
-    }
-    let fitted = design.dot(&coefficients);
-    let mut sigma2 = Array1::<f64>::zeros(n_outputs);
-    let mut objective = latent_prior_score;
-    for row in 0..n_obs {
-        for a in 0..n_outputs {
-            let ra = y[[row, a]] - fitted[[row, a]];
-            sigma2[a] += row_weights[row] * ra * ra;
-            for b in 0..n_outputs {
-                objective += 0.5
-                    * row_weights[row]
-                    * ra
-                    * fisher_w[[row, a, b]]
-                    * (y[[row, b]] - fitted[[row, b]]);
-            }
-        }
-    }
-    for output in 0..n_outputs {
-        sigma2[output] /= (n_obs.saturating_sub(k).max(1)) as f64;
-        let beta_col = coefficients.column(output);
-        let s_beta = penalty.dot(&beta_col);
-        objective += 0.5 * lambda * beta_col.dot(&s_beta);
-    }
+    // Closed-form fixed-λ multi-output Gaussian fit under the dense Fisher-Rao
+    // metric lives in core; this shim validates inputs and packs the PyDict.
+    let fit = gam::solver::gaussian_reml::dense_fisher_gaussian_fit(
+        design,
+        y,
+        penalty,
+        row_weights.view(),
+        fisher_w,
+        lambda,
+        latent_prior_score,
+    )
+    .map_err(|err| py_value_error(err.to_string()))?;
+    let coefficients = fit.coefficients;
+    let fitted = fit.fitted;
+    let sigma2 = fit.sigma2;
+    let objective = fit.objective;
     let out = PyDict::new(py);
     out.set_item("status", "ok")?;
     out.set_item("lambda", lambda)?;
@@ -8952,7 +8654,10 @@ fn multinomial_model_metadata_pyfunc<'py>(
     out.set_item("n_active_classes", envelope.saved.n_active_classes)?;
     out.set_item("training_headers", envelope.saved.training_headers.clone())?;
     out.set_item("lambdas", envelope.saved.lambdas.clone())?;
-    out.set_item("lambdas_per_block", envelope.saved.lambdas_per_block.clone())?;
+    out.set_item(
+        "lambdas_per_block",
+        envelope.saved.lambdas_per_block.clone(),
+    )?;
     out.set_item("iterations", envelope.saved.iterations)?;
     out.set_item("converged", envelope.saved.converged)?;
     out.set_item(
@@ -9364,6 +9069,7 @@ fn gaussian_reml_fit_latent<'py>(
     }
     let analytic_penalties_for_thread = analytic_penalties.clone();
     let latent_payload_for_thread = latent_payload.clone();
+    let t_for_echo = t_values.clone();
     let (fit, _design, aux_strength_state) =
         detach_py_result(py, "gaussian_reml_fit_latent", move || {
             let registry = build_analytic_penalty_registry_from_json(
@@ -9399,6 +9105,14 @@ fn gaussian_reml_fit_latent<'py>(
     let out = PyDict::new(py);
     set_ok_gaussian_reml_items(py, &out, fit)?;
     set_aux_strength_items(py, &out, aux_strength_state)?;
+    // Echo the latent this fit was evaluated at. The forward primitive solves a
+    // single `β | t`; it does not move `t`, so the returned `t` equals the input.
+    // Callers driving the outer loop (or `gaussian_reml_optimize_latent`) read
+    // it back rather than having to thread the input through themselves.
+    let t_matrix = t_for_echo
+        .into_shape_with_order((n_obs, latent_dim))
+        .map_err(|err| py_value_error(err.to_string()))?;
+    out.set_item("t", t_matrix.into_pyarray(py))?;
     Ok(out.unbind())
 }
 
@@ -9642,6 +9356,7 @@ fn build_sae_basis_evaluators(
     gumbel_schedule = None,
     analytic_penalties = None,
     top_k = None,
+    jumprelu_threshold = 0.0,
 ))]
 fn sae_manifold_fit<'py>(
     py: Python<'py>,
@@ -9668,6 +9383,7 @@ fn sae_manifold_fit<'py>(
     gumbel_schedule: Option<&Bound<'py, PyDict>>,
     analytic_penalties: Option<String>,
     top_k: Option<usize>,
+    jumprelu_threshold: f64,
 ) -> PyResult<Py<PyDict>> {
     // The precomputed-basis entry point carries no Duchon centers / kernel
     // metadata, so any basis kind whose refresh needs them cannot re-evaluate
@@ -9702,6 +9418,7 @@ fn sae_manifold_fit<'py>(
         gumbel_schedule,
         analytic_penalties,
         top_k,
+        jumprelu_threshold,
     )
 }
 
@@ -9731,6 +9448,7 @@ fn sae_manifold_fit_inner<'py>(
     gumbel_schedule: Option<&Bound<'py, PyDict>>,
     analytic_penalties: Option<String>,
     top_k: Option<usize>,
+    jumprelu_threshold: f64,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
         Some(s) => Some(serde_json::from_str(&s).map_err(|e| py_value_error(e.to_string()))?),
@@ -9908,14 +9626,16 @@ fn sae_manifold_fit_inner<'py>(
     let mode = match assignment_kind.as_str() {
         "softmax" => AssignmentMode::softmax(tau),
         "ibp_map" => AssignmentMode::ibp_map(tau, alpha, learnable_alpha),
-        // JumpReLU threshold lives in raw-logit space; coupling it to `tau`
-        // (a temperature on the same logits) is unprincipled and creates a
-        // dead-on-arrival fit when the initial logits sit at or below `tau`,
-        // because both the data-fit JVP and the sparsity prior gradient gate
-        // through `logit > threshold`. A fixed zero threshold preserves the
-        // documented JumpReLU semantics (only logits above zero activate)
-        // while letting positive initial logits seed gradient flow.
-        "jumprelu" => AssignmentMode::jumprelu(tau, 0.0),
+        // The JumpReLU gate is a hard-thresholded bounded sigmoid: an atom is
+        // active when its raw logit clears `jumprelu_threshold`, and the gate
+        // value is the sigmoid (in [0, 1]) — the reconstruction *magnitude*
+        // lives in the decoder, not the gate. `tau` is the sigmoid temperature
+        // on the same logits; the threshold is the activation cut. The
+        // threshold is caller-configurable (default 0.0); the cold-start seed
+        // (see `sae_manifold_fit_minimal`) starts every logit above it so the
+        // data-fit JVP, the sparsity prior gradient, and the assignment-weighted
+        // decoder gradient are all non-zero at step 0.
+        "jumprelu" => AssignmentMode::jumprelu(tau, jumprelu_threshold),
         _ => {
             return Err(py_value_error(format!(
                 "assignment_kind must be one of 'softmax', 'ibp_map', or 'jumprelu'; got {assignment_kind}"
@@ -9976,15 +9696,12 @@ fn sae_manifold_fit_inner<'py>(
     let init_rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard);
     let init_rho_flat = init_rho.to_flat();
     let n_params = init_rho_flat.len();
-    // Default: route every problem size through the full-batch objective on the
-    // owned `target`. LLM-scale fits (hundreds of millions of rows) would
-    // benefit from a minibatch REML objective so the `(N × M_total)` basis /
-    // `(N × M_total × d)` jacobian / `(N × K)` logit buffers never materialize
-    // in full, but the chunked accumulator that lets `SaeManifoldOuterObjective`
-    // own its rows incrementally is not a drop-in for the full-batch path the
-    // inner Arrow-Schur fit expects. Until that accumulator exists,
-    // `sae_streaming_plan` stays as a standalone diagnostic pyfunction and the
-    // outer-cascade entry point owns the full target verbatim.
+    // Route every problem size through the full-batch objective on the owned
+    // `target`: the inner Arrow-Schur fit materializes the `(N × M_total)`
+    // basis, `(N × M_total × d)` jacobian, and `(N × K)` logit buffers in full,
+    // so the outer-cascade entry point owns the full target verbatim.
+    // `sae_streaming_plan` is exposed separately as a standalone diagnostic
+    // pyfunction.
     let mut objective = gam::terms::sae_manifold::SaeManifoldOuterObjective::new(
         base_term,
         z_view.to_owned(),
@@ -10000,6 +9717,14 @@ fn sae_manifold_fit_inner<'py>(
     problem
         .run(&mut objective, "SAE manifold")
         .map_err(estimation_error_to_pyerr)?;
+    // Posterior shape uncertainty: per-atom φ-scaled decoder covariance and
+    // ambient bands, read off the converged joint-Hessian Schur factor at the
+    // settled ρ. Computed before `into_fitted` consumes the objective; reflects
+    // the fitted (smooth) decoder shape, independent of any top-k assignment
+    // gate applied below.
+    let shape_uncertainty = objective
+        .decoder_shape_uncertainty()
+        .map_err(py_value_error)?;
     let (term, rho, loss) = objective.into_fitted();
 
     let mut assignments = term.assignment.assignments();
@@ -10109,6 +9834,20 @@ fn sae_manifold_fit_inner<'py>(
             assignments.column(atom_idx).to_owned().into_pyarray(py),
         )?;
         atom_dict.set_item("active_dim", atom_dim[atom_idx])?;
+        // Posterior shape uncertainty for this atom: φ-scaled decoder
+        // covariance Cov(β_k) and the closed-form ambient band (coords / mean /
+        // per-channel sd) along the atom's on-atom coordinates.
+        let unc = &shape_uncertainty.atoms[atom_idx];
+        atom_dict.set_item(
+            "decoder_covariance",
+            unc.decoder_covariance.clone().into_pyarray(py),
+        )?;
+        atom_dict.set_item(
+            "shape_band_coords",
+            unc.band_coords.clone().into_pyarray(py),
+        )?;
+        atom_dict.set_item("shape_band_mean", unc.band_mean.clone().into_pyarray(py))?;
+        atom_dict.set_item("shape_band_sd", unc.band_sd.clone().into_pyarray(py))?;
         atoms_py.append(atom_dict)?;
     }
 
@@ -10134,6 +9873,9 @@ fn sae_manifold_fit_inner<'py>(
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
+    // Gaussian reconstruction scale φ̂ used to scale every per-atom decoder
+    // covariance (Cov(β_k) = φ̂·S_β⁻¹[block]).
+    out.set_item("dispersion", shape_uncertainty.dispersion)?;
     Ok(out.unbind())
 }
 
@@ -10209,6 +9951,8 @@ fn sae_manifold_fit_ibp<'py>(
         gumbel_schedule,
         analytic_penalties,
         None,
+        // IBP-MAP never reaches the JumpReLU dispatch; threshold is inert here.
+        0.0,
     )
 }
 
@@ -10320,186 +10064,6 @@ fn sae_streaming_plan(
 /// and remaining columns are min-max normalized projections onto subsequent
 /// PCs. For non-periodic atoms, the first `d_k` columns are min-max normalized
 /// `U·diag(s)` from the thin SVD of the centered response.
-fn sae_pca_seed_initial_coords(
-    z: ArrayView2<'_, f64>,
-    basis_kinds: &[SaeAtomBasisKind],
-    atom_dim: &[usize],
-) -> Result<Array3<f64>, String> {
-    let k_atoms = basis_kinds.len();
-    let (n_obs, _p_out) = z.dim();
-    let d_max = atom_dim.iter().copied().max().unwrap_or(1).max(1);
-    let mut out = Array3::<f64>::zeros((k_atoms, n_obs, d_max));
-    if n_obs == 0 || z.ncols() == 0 {
-        return Ok(out);
-    }
-    let mut col_means = Array1::<f64>::zeros(z.ncols());
-    for col in 0..z.ncols() {
-        let mut acc = 0.0_f64;
-        for row in 0..n_obs {
-            acc += z[[row, col]];
-        }
-        col_means[col] = acc / n_obs as f64;
-    }
-    let mut centered = z.to_owned();
-    for row in 0..n_obs {
-        for col in 0..z.ncols() {
-            centered[[row, col]] -= col_means[col];
-        }
-    }
-    let (u_opt, s_vals, vt_opt) = centered
-        .svd(true, true)
-        .map_err(|err| format!("sae_pca_seed: SVD failed: {err:?}"))?;
-    let u = u_opt.ok_or_else(|| "sae_pca_seed: SVD returned no U".to_string())?;
-    let vt = vt_opt.ok_or_else(|| "sae_pca_seed: SVD returned no Vt".to_string())?;
-    let vt_rows = vt.nrows();
-    let u_cols = u.ncols();
-    let two_pi = std::f64::consts::TAU;
-    for atom_idx in 0..k_atoms {
-        let d = atom_dim[atom_idx];
-        if d == 0 {
-            continue;
-        }
-        match &basis_kinds[atom_idx] {
-            SaeAtomBasisKind::Periodic => {
-                if vt_rows >= 2 {
-                    let pc1 = vt.row(0);
-                    let pc2_row = if atom_idx == 0 {
-                        1
-                    } else {
-                        1 + atom_idx % vt_rows.saturating_sub(1).max(1)
-                    };
-                    let pc2 = vt.row(pc2_row.min(vt_rows - 1));
-                    for row in 0..n_obs {
-                        let mut a = 0.0_f64;
-                        let mut b = 0.0_f64;
-                        for col in 0..centered.ncols() {
-                            a += centered[[row, col]] * pc1[col];
-                            b += centered[[row, col]] * pc2[col];
-                        }
-                        out[[atom_idx, row, 0]] = b.atan2(a) / two_pi;
-                    }
-                }
-                for axis in 1..d {
-                    if axis >= vt_rows {
-                        break;
-                    }
-                    let pc = vt.row(axis);
-                    let mut proj = Array1::<f64>::zeros(n_obs);
-                    for row in 0..n_obs {
-                        let mut acc = 0.0_f64;
-                        for col in 0..centered.ncols() {
-                            acc += centered[[row, col]] * pc[col];
-                        }
-                        proj[row] = acc;
-                    }
-                    let (min_v, max_v) = proj
-                        .iter()
-                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-                            (lo.min(v), hi.max(v))
-                        });
-                    let span = max_v - min_v;
-                    if span > 0.0 {
-                        for row in 0..n_obs {
-                            out[[atom_idx, row, axis]] = (proj[row] - min_v) / span - 0.5;
-                        }
-                    }
-                }
-            }
-            SaeAtomBasisKind::Sphere => {
-                // Seed the sphere chart from the top-3 PCs: drop the centred
-                // response onto (pc0, pc1, pc2), unit-normalise, and read off
-                // (lat, lon). This places every row on the chart with
-                // `lat ∈ (-π/2, π/2)` and `lon ∈ (-π, π]`.
-                let n_pc = vt_rows.min(3);
-                if n_pc == 0 {
-                    continue;
-                }
-                let pcs: Vec<_> = (0..n_pc).map(|i| vt.row(i)).collect();
-                for row in 0..n_obs {
-                    let mut amb = [0.0_f64; 3];
-                    for (i, pc) in pcs.iter().enumerate() {
-                        let mut acc = 0.0_f64;
-                        for col in 0..centered.ncols() {
-                            acc += centered[[row, col]] * pc[col];
-                        }
-                        amb[i] = acc;
-                    }
-                    let norm = (amb[0] * amb[0] + amb[1] * amb[1] + amb[2] * amb[2]).sqrt();
-                    let (x, y, z) = if norm > 0.0 {
-                        (amb[0] / norm, amb[1] / norm, amb[2] / norm)
-                    } else {
-                        (1.0, 0.0, 0.0)
-                    };
-                    let lat = z.clamp(-1.0, 1.0).asin();
-                    let lon = y.atan2(x);
-                    if d >= 1 {
-                        out[[atom_idx, row, 0]] = lat;
-                    }
-                    if d >= 2 {
-                        out[[atom_idx, row, 1]] = lon;
-                    }
-                }
-            }
-            SaeAtomBasisKind::Torus => {
-                // Seed each torus axis from a disjoint pair of PCs: axis `a`
-                // uses (pc_{2a}, pc_{2a+1}) projected onto the centred
-                // response and read off as `atan2`, normalised to `[0, 1)`.
-                for axis in 0..d {
-                    let pc_a_idx = 2 * axis;
-                    let pc_b_idx = 2 * axis + 1;
-                    if pc_b_idx >= vt_rows {
-                        break;
-                    }
-                    let pc_a = vt.row(pc_a_idx);
-                    let pc_b = vt.row(pc_b_idx);
-                    for row in 0..n_obs {
-                        let mut a = 0.0_f64;
-                        let mut b = 0.0_f64;
-                        for col in 0..centered.ncols() {
-                            a += centered[[row, col]] * pc_a[col];
-                            b += centered[[row, col]] * pc_b[col];
-                        }
-                        // atan2 ∈ (-π, π]; map to phase ∈ [0, 1).
-                        let phase = b.atan2(a) / two_pi;
-                        let wrapped = phase - phase.floor();
-                        out[[atom_idx, row, axis]] = wrapped;
-                    }
-                }
-            }
-            _ => {
-                let k_cols = d.min(u_cols).min(s_vals.len());
-                let mut tmp = Array2::<f64>::zeros((n_obs, d));
-                for col in 0..k_cols {
-                    let s_col = s_vals[col];
-                    for row in 0..n_obs {
-                        tmp[[row, col]] = u[[row, col]] * s_col;
-                    }
-                }
-                for col in 0..d {
-                    let mut min_v = f64::INFINITY;
-                    let mut max_v = f64::NEG_INFINITY;
-                    for row in 0..n_obs {
-                        let v = tmp[[row, col]];
-                        if v < min_v {
-                            min_v = v;
-                        }
-                        if v > max_v {
-                            max_v = v;
-                        }
-                    }
-                    let span = max_v - min_v;
-                    if span > 0.0 {
-                        for row in 0..n_obs {
-                            out[[atom_idx, row, col]] = (tmp[[row, col]] - min_v) / span - 0.5;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(out)
-}
-
 /// Seed each atom's decoder coefficient block via a joint ridge-regularized
 /// least-squares projection of `Z` onto the atom design `[a_init * Phi_1, ...,
 /// a_init * Phi_K]`, where `a_init` is the soft-assignment that the inner
@@ -10520,6 +10084,119 @@ fn sae_pca_seed_initial_coords(
 /// and a data-fit push to balance against.
 ///
 /// Returns the padded `(K, M_max, p_out)` decoder array directly.
+///
+/// Build a data-driven asymmetric assignment-logit seed for a cold start
+/// (issue #629). A uniform logit seed (`Array2::zeros`) is an exact symmetric
+/// saddle of the joint objective whenever the atoms are exchangeable under the
+/// assignment forward map: every atom carries identical responsibility, the
+/// LSQ decoder init projects the same target onto every atom, and the
+/// assignment update has no gradient to break the tie, so the fit never routes.
+/// The tiny `random_state` jitter is too weak to escape on conditioned data.
+///
+/// This helper runs one EM-style M-then-E step on the seed geometry: it fits
+/// each atom's decoder independently against the *full* response (each atom's
+/// own seed coordinates already give it a distinct `Phi_k`), measures the
+/// per-row reconstruction residual under that fit, and emits logits that prefer
+/// the atom which best explains each row. Rows that every atom explains equally
+/// well receive near-equal logits (the residual ties cancel), so the existing
+/// jitter still breaks those rare ties; rows with a clear best atom get a
+/// decisive — but bounded, hence escapable by the Newton refinement — head
+/// start. The result is a proper responsibility seed rather than a saddle.
+fn sae_residual_seed_logits(
+    basis_values: ArrayView3<'_, f64>,
+    basis_sizes: &[usize],
+    z: ArrayView2<'_, f64>,
+    gain: f64,
+) -> Result<Array2<f64>, String> {
+    let k_atoms = basis_sizes.len();
+    let (n_obs, p_out) = z.dim();
+    let mut logits = Array2::<f64>::zeros((n_obs, k_atoms));
+    if n_obs == 0 || p_out == 0 || k_atoms <= 1 {
+        return Ok(logits);
+    }
+    if basis_values.shape()[0] != k_atoms || basis_values.shape()[1] != n_obs {
+        return Err(format!(
+            "sae_residual_seed_logits: basis_values must start with (K, N)=({k_atoms}, {n_obs}); got {:?}",
+            basis_values.shape()
+        ));
+    }
+    let z_owned = z.to_owned();
+    // Per-row residual energy after fitting each atom independently.
+    let mut resid = Array2::<f64>::zeros((n_obs, k_atoms));
+    for atom_idx in 0..k_atoms {
+        let m_k = basis_sizes[atom_idx];
+        if m_k == 0 {
+            // No basis columns: the atom predicts zero, so its residual is the
+            // full row energy. Leave `resid` column at that value below.
+            for row in 0..n_obs {
+                let mut e = 0.0_f64;
+                for col in 0..p_out {
+                    e += z[[row, col]] * z[[row, col]];
+                }
+                resid[[row, atom_idx]] = e;
+            }
+            continue;
+        }
+        // Phi_k = basis_values[atom_idx, :, :m_k]  (N, m_k).
+        let mut phi = Array2::<f64>::zeros((n_obs, m_k));
+        for row in 0..n_obs {
+            for c in 0..m_k {
+                phi[[row, c]] = basis_values[[atom_idx, row, c]];
+            }
+        }
+        let mut gram = fast_ata(&phi);
+        let mut trace = 0.0_f64;
+        for i in 0..m_k {
+            trace += gram[[i, i]];
+        }
+        let jitter = (trace / m_k as f64).max(1.0).max(1.0e-12) * 1.0e-8;
+        for i in 0..m_k {
+            gram[[i, i]] += jitter;
+        }
+        let rhs = fast_atb(&phi, &z_owned);
+        let factor = gram
+            .cholesky(Side::Lower)
+            .map_err(|err| format!("sae_residual_seed_logits: Cholesky failed: {err:?}"))?;
+        let b_k = factor.solve_mat(&rhs); // (m_k, p_out)
+        if !b_k.iter().all(|v| v.is_finite()) {
+            return Err("sae_residual_seed_logits: non-finite LSQ solution".to_string());
+        }
+        let fitted = phi.dot(&b_k); // (N, p_out)
+        for row in 0..n_obs {
+            let mut e = 0.0_f64;
+            for col in 0..p_out {
+                let d = z[[row, col]] - fitted[[row, col]];
+                e += d * d;
+            }
+            resid[[row, atom_idx]] = e;
+        }
+    }
+    // Convert per-row residuals to logits relative to each row's own scale so
+    // the head start is dimensionless. The best atom (lowest residual) gets the
+    // highest logit; ties cancel. Normalise by the row's mean residual across
+    // atoms (with a floor relative to the dataset to keep near-zero-energy rows
+    // well posed) so the spread is O(gain) regardless of output magnitude.
+    let mut global_mean = 0.0_f64;
+    for row in 0..n_obs {
+        for k in 0..k_atoms {
+            global_mean += resid[[row, k]];
+        }
+    }
+    global_mean /= (n_obs * k_atoms) as f64;
+    let floor = (global_mean * 1.0e-6).max(1.0e-12);
+    for row in 0..n_obs {
+        let mut row_mean = 0.0_f64;
+        for k in 0..k_atoms {
+            row_mean += resid[[row, k]];
+        }
+        row_mean = (row_mean / k_atoms as f64).max(floor);
+        for k in 0..k_atoms {
+            logits[[row, k]] = -gain * resid[[row, k]] / row_mean;
+        }
+    }
+    Ok(logits)
+}
+
 fn sae_decoder_lsq_init(
     basis_values: ArrayView3<'_, f64>,
     basis_sizes: &[usize],
@@ -10691,33 +10368,14 @@ fn sae_build_periodic_atom(
     t: ArrayView1<'_, f64>,
     n_harmonics: usize,
 ) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    if t.iter().any(|value| !value.is_finite()) {
-        return Err("sae_build_periodic_atom: t has non-finite entries".into());
-    }
-    let n_rows = t.len();
-    let n_cols = sae_periodic_basis_size(n_harmonics)?;
-    let mut phi = Array2::<f64>::zeros((n_rows, n_cols));
-    let mut jet = Array3::<f64>::zeros((n_rows, n_cols, 1));
-    let mut penalty = Array2::<f64>::zeros((n_cols, n_cols));
-    phi.column_mut(0).fill(1.0);
-    penalty[[0, 0]] = 1.0e-8;
-    for h in 1..=n_harmonics {
-        let h_f = h as f64;
-        let frequency = std::f64::consts::TAU * h_f;
-        let sin_col = 1 + 2 * (h - 1);
-        let cos_col = sin_col + 1;
-        let harmonic_penalty = h_f * h_f * h_f * h_f;
-        penalty[[sin_col, sin_col]] = harmonic_penalty;
-        penalty[[cos_col, cos_col]] = harmonic_penalty;
-        for row in 0..n_rows {
-            let angle = frequency * t[row];
-            let sin_value = angle.sin();
-            let cos_value = angle.cos();
-            phi[[row, sin_col]] = sin_value;
-            phi[[row, cos_col]] = cos_value;
-            jet[[row, sin_col, 0]] = frequency * cos_value;
-            jet[[row, cos_col, 0]] = -frequency * sin_value;
-        }
+    let (phi, jet, penalty) =
+        build_wrapped_periodic_harmonic_basis_with_jet(t, n_harmonics, "sae_build_periodic_atom")?;
+    let expected_cols = sae_periodic_basis_size(n_harmonics)?;
+    if phi.ncols() != expected_cols {
+        return Err(format!(
+            "sae_build_periodic_atom: basis width {} disagrees with declared width {expected_cols}",
+            phi.ncols()
+        ));
     }
     Ok((phi, jet, penalty))
 }
@@ -11395,6 +11053,7 @@ fn sae_build_atom_plans(
     top_k = None,
     initial_logits = None,
     initial_coords = None,
+    jumprelu_threshold = 0.0,
 ))]
 fn sae_manifold_fit_minimal<'py>(
     py: Python<'py>,
@@ -11417,6 +11076,7 @@ fn sae_manifold_fit_minimal<'py>(
     top_k: Option<usize>,
     initial_logits: Option<PyReadonlyArray2<'py, f64>>,
     initial_coords: Option<PyReadonlyArray3<'py, f64>>,
+    jumprelu_threshold: f64,
 ) -> PyResult<Py<PyDict>> {
     let z_view = z.as_array();
     let (n_obs, _p_out) = z_view.dim();
@@ -11449,7 +11109,8 @@ fn sae_manifold_fit_minimal<'py>(
         .map(|kind| sae_atom_basis_kind_from_str(kind))
         .collect();
     let seed_coords =
-        sae_pca_seed_initial_coords(z_view, &basis_kinds, &atom_dim).map_err(py_value_error)?;
+        gam::terms::sae_manifold::sae_pca_seed_initial_coords(z_view, &basis_kinds, &atom_dim)
+            .map_err(py_value_error)?;
     let plans = sae_build_atom_plans(
         z_view,
         &atom_basis,
@@ -11503,15 +11164,17 @@ fn sae_manifold_fit_minimal<'py>(
     let (basis_values, basis_jacobian, smooth_penalties, basis_sizes, _coord_blocks) =
         sae_build_padded_basis_stacks(&plans, start_coords.view(), n_obs)
             .map_err(py_value_error)?;
-    // JumpReLU gates strictly on `logit > threshold` (threshold = 0.0 in the
-    // production inner driver). Zero-initialised logits would leave every
-    // gate closed at step 0, making the data-fit Jacobian, the sparsity
-    // prior gradient, and the assignment-weighted decoder gradient all zero
-    // simultaneously — the fit cannot escape that fixed point. Seed JumpReLU
-    // runs with a small positive constant so every atom starts active and
-    // the fit can learn which atoms to prune. Softmax (translation-invariant)
-    // and IBP-MAP (uses sigmoid prior with stick-breaking) are unaffected by
-    // a uniform logit shift, so zero remains the natural init for those.
+    // The JumpReLU gate activates only when a logit clears
+    // `jumprelu_threshold` (caller-configurable, default 0.0). Seeding the
+    // logits at or below the threshold would leave every gate closed at step
+    // 0, making the data-fit Jacobian, the sparsity prior gradient, and the
+    // assignment-weighted decoder gradient all zero simultaneously — the fit
+    // cannot escape that fixed point. Seed JumpReLU runs a fixed margin
+    // ABOVE the configured threshold so every atom starts active relative to
+    // its cut and the fit can learn which atoms to prune. Softmax
+    // (translation-invariant) and IBP-MAP (uses sigmoid prior with
+    // stick-breaking) are unaffected by a uniform logit shift, so zero
+    // remains the natural init for those.
     // Warm-start logits (issue #357): a caller-supplied `(N, K)` assignment
     // logit seed (from an amortized encoder) replaces the cold-start init.
     // When absent we fall back to the documented zero / JumpReLU-positive init
@@ -11537,9 +11200,35 @@ fn sae_manifold_fit_minimal<'py>(
     let logits_are_cold = warm_logits.is_none();
     let mut initial_logits = match warm_logits {
         Some(logits) => logits,
-        None if assignment_kind == "jumprelu" => Array2::<f64>::from_elem((n_obs, k_atoms), 1.0),
+        None if assignment_kind == "jumprelu" => {
+            // Start every atom one full margin above its activation threshold.
+            const SAE_JUMPRELU_SEED_MARGIN: f64 = 1.0;
+            Array2::<f64>::from_elem(
+                (n_obs, k_atoms),
+                jumprelu_threshold + SAE_JUMPRELU_SEED_MARGIN,
+            )
+        }
         None => Array2::<f64>::zeros((n_obs, k_atoms)),
     };
+    // Data-driven asymmetric cold-start seed (issue #629). A uniform logit
+    // init is an exact symmetric saddle for K>=2 exchangeable atoms under
+    // softmax / IBP-MAP, so the fit never routes and the decoder overfits
+    // through the frozen uniform mixture. Replace the saddle with one EM-style
+    // M-then-E step on the seed geometry: prefer the atom that best
+    // reconstructs each row. JumpReLU keeps its margin-above-threshold seed
+    // (its degeneracy is a closed gate, not a routing tie), and warm-started
+    // logits are left exactly as supplied.
+    if logits_are_cold && k_atoms > 1 && matches!(assignment_kind.as_str(), "softmax" | "ibp_map") {
+        const SAE_RESIDUAL_SEED_GAIN: f64 = 4.0;
+        let residual_logits = sae_residual_seed_logits(
+            basis_values.view(),
+            &basis_sizes,
+            z_view,
+            SAE_RESIDUAL_SEED_GAIN,
+        )
+        .map_err(py_value_error)?;
+        initial_logits = residual_logits;
+    }
     // Wire `random_state` into the optimizer init: jitter the initial
     // assignment logits with a tiny, seed-keyed deterministic perturbation
     // so different seeds explore different Newton trajectories (issue #178).
@@ -11617,6 +11306,7 @@ fn sae_manifold_fit_minimal<'py>(
         gumbel_schedule,
         analytic_penalties,
         top_k,
+        jumprelu_threshold,
     )?;
     // Attach per-atom build plans so OOS predict can rebuild design without Python.
     let plans_py = PyList::empty(py);
@@ -11682,6 +11372,8 @@ fn sae_manifold_fit_minimal<'py>(
     ridge_beta = 1.0e-6,
     initial_logits = None,
     initial_coords = None,
+    jumprelu_threshold = 0.0,
+    top_k = None,
 ))]
 fn sae_manifold_predict_oos<'py>(
     py: Python<'py>,
@@ -11702,6 +11394,8 @@ fn sae_manifold_predict_oos<'py>(
     ridge_beta: f64,
     initial_logits: Option<PyReadonlyArray2<'py, f64>>,
     initial_coords: Option<PyReadonlyArray3<'py, f64>>,
+    jumprelu_threshold: f64,
+    top_k: Option<usize>,
 ) -> PyResult<Py<PyDict>> {
     let x_view = x_new.as_array();
     let (n_obs, p_out) = x_view.dim();
@@ -11735,7 +11429,8 @@ fn sae_manifold_predict_oos<'py>(
         .map(|kind| sae_atom_basis_kind_from_str(kind))
         .collect();
     let seed_coords =
-        sae_pca_seed_initial_coords(x_view, &basis_kinds, &atom_dim).map_err(py_value_error)?;
+        gam::terms::sae_manifold::sae_pca_seed_initial_coords(x_view, &basis_kinds, &atom_dim)
+            .map_err(py_value_error)?;
     let mut plans: Vec<SaeAtomBuildPlan> = Vec::with_capacity(k_atoms);
     for atom_idx in 0..k_atoms {
         let kind = basis_kinds[atom_idx].clone();
@@ -11882,6 +11577,7 @@ fn sae_manifold_predict_oos<'py>(
             .slice_mut(s![atom_idx, 0..m_k, 0..p_out])
             .assign(&block.slice(s![0..m_k, 0..p_out]));
     }
+    let logits_are_warm = initial_logits.is_some();
     let initial_logits = match &initial_logits {
         Some(arr) => {
             let view = arr.as_array();
@@ -11908,42 +11604,224 @@ fn sae_manifold_predict_oos<'py>(
             logits
         }
     };
-    // Mirror the fit path: re-evaluate each Duchon atom's basis at the OOS
-    // coordinates the Newton loop produces, using the trained centers.
+    if let Some(k_top) = top_k {
+        if k_top == 0 || k_top > k_atoms {
+            return Err(py_value_error(format!(
+                "sae_manifold_predict_oos: top_k must satisfy 1 <= top_k <= k_atoms={k_atoms}; got {k_top}"
+            )));
+        }
+    }
+    for (name, value) in [
+        ("alpha", alpha),
+        ("tau", tau),
+        ("smoothness", smoothness),
+        ("learning_rate", learning_rate),
+        ("ridge_ext_coord", ridge_ext_coord),
+        ("ridge_beta", ridge_beta),
+    ] {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(py_value_error(format!(
+                "sae_manifold_predict_oos: {name} must be finite and positive; got {value}"
+            )));
+        }
+    }
+    if !sparsity_strength.is_finite() || sparsity_strength < 0.0 {
+        return Err(py_value_error(format!(
+            "sae_manifold_predict_oos: sparsity_strength must be finite and non-negative; got {sparsity_strength}"
+        )));
+    }
+    const SPARSITY_DISABLED_FLOOR: f64 = 1.0e-300;
+    let sparsity_strength = if sparsity_strength == 0.0 {
+        SPARSITY_DISABLED_FLOOR
+    } else {
+        sparsity_strength
+    };
+
+    let mode = match assignment_kind.as_str() {
+        "softmax" => AssignmentMode::softmax(tau),
+        "ibp_map" => AssignmentMode::ibp_map(tau, alpha, false),
+        "jumprelu" => AssignmentMode::jumprelu(tau, jumprelu_threshold),
+        _ => {
+            return Err(py_value_error(format!(
+                "sae_manifold_predict_oos: assignment_kind must be one of 'softmax', 'ibp_map', or 'jumprelu'; got {assignment_kind}"
+            )));
+        }
+    };
+    let effective_atom_dim: Vec<usize> = plans.iter().map(|plan| plan.latent_dim).collect();
+    let mut coord_blocks = Vec::with_capacity(k_atoms);
+    for atom_idx in 0..k_atoms {
+        let d = effective_atom_dim[atom_idx];
+        coord_blocks.push(start_coords.slice(s![atom_idx, 0..n_obs, 0..d]).to_owned());
+    }
     let atom_centers: Vec<Option<Array2<f64>>> = plans
         .iter()
         .map(|plan| plan.duchon_centers.clone())
         .collect();
-    // Return the full inner payload (issue #357): converged `assignments_z`,
-    // per-atom `on_atom_coords_t`, `logits`, and `fitted`. The supervised head
-    // reads OOS assignments; the amortized encoder reads converged coords.
-    sae_manifold_fit_inner(
-        py,
-        x_view,
-        &atom_basis,
-        atom_dim,
+    let evaluators = build_sae_basis_evaluators(
+        &basis_kinds,
+        &basis_sizes,
+        &effective_atom_dim,
+        &coord_blocks,
         &atom_centers,
+    )
+    .map_err(py_value_error)?;
+    let mut term = term_from_padded_blocks_with_mode(
+        n_obs,
+        p_out,
+        &basis_kinds,
         basis_values.view(),
         basis_jacobian.view(),
-        basis_sizes,
+        &basis_sizes,
+        &effective_atom_dim,
         decoder_coefficients.view(),
         smooth_penalties.view(),
         initial_logits.view(),
-        start_coords.view(),
-        alpha,
-        tau,
-        false,
-        assignment_kind,
-        sparsity_strength,
-        smoothness,
-        max_iter,
-        learning_rate,
-        ridge_ext_coord,
-        ridge_beta,
-        None,
-        None,
-        None,
+        &coord_blocks,
+        mode,
+        &evaluators,
     )
+    .map_err(py_value_error)?;
+    if !logits_are_warm && assignment_kind == "softmax" {
+        let mut seeded_logits = Array2::<f64>::zeros((n_obs, k_atoms));
+        let mut decoded = vec![0.0_f64; p_out];
+        for row in 0..n_obs {
+            for atom_idx in 0..k_atoms {
+                term.atoms[atom_idx].fill_decoded_row(row, &mut decoded);
+                let mut err = 0.0_f64;
+                for out_col in 0..p_out {
+                    let diff = x_view[[row, out_col]] - decoded[out_col];
+                    err += diff * diff;
+                }
+                seeded_logits[[row, atom_idx]] = -err / tau;
+            }
+            let reference = seeded_logits[[row, k_atoms - 1]];
+            for atom_idx in 0..k_atoms {
+                seeded_logits[[row, atom_idx]] -= reference;
+            }
+        }
+        term.assignment.logits.assign(&seeded_logits);
+    }
+    let log_ard: Vec<Array1<f64>> = effective_atom_dim
+        .iter()
+        .map(|&d| Array1::<f64>::zeros(d))
+        .collect();
+    let mut rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard);
+    let loss = term
+        .run_fixed_decoder_arrow_schur(
+            x_view,
+            &mut rho,
+            None,
+            max_iter,
+            learning_rate,
+            ridge_ext_coord,
+        )
+        .map_err(py_value_error)?;
+
+    let mut assignments = term.assignment.assignments();
+    let mut fitted = term.fitted();
+    if let Some(k_top) = top_k {
+        if k_top < k_atoms {
+            let renormalise = assignment_kind == "softmax";
+            for row in 0..n_obs {
+                let mut paired: Vec<(f64, usize)> = (0..k_atoms)
+                    .map(|atom_idx| (assignments[[row, atom_idx]], atom_idx))
+                    .collect();
+                paired.sort_by(|a, b| {
+                    b.0.partial_cmp(&a.0)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then(a.1.cmp(&b.1))
+                });
+                let mut keep = vec![false; k_atoms];
+                for &(_, atom_idx) in paired.iter().take(k_top) {
+                    keep[atom_idx] = true;
+                }
+                if renormalise {
+                    let kept_sum: f64 = (0..k_atoms)
+                        .filter(|&atom_idx| keep[atom_idx])
+                        .map(|atom_idx| assignments[[row, atom_idx]])
+                        .sum();
+                    if !(kept_sum.is_finite() && kept_sum > 0.0) {
+                        return Err(py_value_error(format!(
+                            "sae_manifold_predict_oos: top_k softmax projection has non-positive kept mass on row {row}"
+                        )));
+                    }
+                    for atom_idx in 0..k_atoms {
+                        assignments[[row, atom_idx]] = if keep[atom_idx] {
+                            assignments[[row, atom_idx]] / kept_sum
+                        } else {
+                            0.0
+                        };
+                    }
+                } else {
+                    for atom_idx in 0..k_atoms {
+                        if !keep[atom_idx] {
+                            assignments[[row, atom_idx]] = 0.0;
+                        }
+                    }
+                }
+            }
+            fitted = Array2::<f64>::zeros((n_obs, p_out));
+            let mut g_buf = vec![0.0_f64; p_out];
+            for row in 0..n_obs {
+                for atom_idx in 0..k_atoms {
+                    let a_k = assignments[[row, atom_idx]];
+                    if a_k == 0.0 {
+                        continue;
+                    }
+                    term.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
+                    let mut out_row = fitted.row_mut(row);
+                    for out_col in 0..p_out {
+                        out_row[out_col] += a_k * g_buf[out_col];
+                    }
+                }
+            }
+        }
+    }
+
+    let log_ard_py = PyList::empty(py);
+    for atom_log_ard in &rho.log_ard {
+        log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
+    }
+    let atoms_py = PyList::empty(py);
+    for atom_idx in 0..k_atoms {
+        let atom = &term.atoms[atom_idx];
+        let atom_dict = PyDict::new(py);
+        atom_dict.set_item(
+            "decoder_B",
+            atom.decoder_coefficients.clone().into_pyarray(py),
+        )?;
+        atom_dict.set_item("basis_kind", atom_basis[atom_idx].clone())?;
+        atom_dict.set_item("basis_centers", py.None())?;
+        atom_dict.set_item(
+            "on_atom_coords_t",
+            term.assignment.coords[atom_idx]
+                .as_matrix()
+                .into_pyarray(py),
+        )?;
+        atom_dict.set_item(
+            "assignments_z",
+            assignments.column(atom_idx).to_owned().into_pyarray(py),
+        )?;
+        atom_dict.set_item("active_dim", effective_atom_dim[atom_idx])?;
+        atoms_py.append(atom_dict)?;
+    }
+
+    let active_mask: Vec<bool> = (0..k_atoms)
+        .map(|atom_idx| assignments.column(atom_idx).sum() > 1.0e-8)
+        .collect();
+    let out = PyDict::new(py);
+    out.set_item("atoms", atoms_py)?;
+    out.set_item("assignments_z", assignments.into_pyarray(py))?;
+    out.set_item("logits", term.assignment.logits.clone().into_pyarray(py))?;
+    out.set_item("atom_active_mask", active_mask)?;
+    out.set_item("fitted", fitted.into_pyarray(py))?;
+    out.set_item("reml_score", loss.evidence_proxy())?;
+    out.set_item("log_alpha", alpha.ln())?;
+    out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
+    out.set_item("log_ard", log_ard_py)?;
+    out.set_item("assignment_prior", assignment_kind)?;
+    out.set_item("chosen_k", k_atoms)?;
+    Ok(out.unbind())
 }
 
 /// Global coefficient of determination
@@ -12457,6 +12335,541 @@ fn gaussian_reml_fit_latent_backward<'py>(
     } else {
         out.set_item("grad_dim_selection_log_precision", py.None())?;
     }
+    Ok(out.unbind())
+}
+
+/// Owned inputs for the latent outer-optimization objective.
+///
+/// Bundles the data the value/gradient evaluation needs so a single struct can
+/// be reused across trust-region iterations and restarts without re-copying
+/// from Python.
+struct LatentOuterProblem {
+    y: Array2<f64>,
+    centers: Array2<f64>,
+    penalty: Array2<f64>,
+    weights: Option<Array1<f64>>,
+    aux_u: Option<Array2<f64>>,
+    dim_selection: Option<Array1<f64>>,
+    family: AuxPriorFamily,
+    aux_strength: Option<f64>,
+    init_lambda: Option<f64>,
+    sigma_eff_mode: SigmaEffMode,
+    n_obs: usize,
+    latent_dim: usize,
+    m: usize,
+    basis_kind: String,
+    tensor_knots: Option<Array1<f64>>,
+    tensor_knot_offsets: Option<Vec<usize>>,
+    tensor_degrees: Option<Vec<usize>>,
+}
+
+impl LatentOuterProblem {
+    /// REML score (inner Gaussian REML plus aux/dim identifiability priors) and,
+    /// when `want_grad`, the outer latent gradient `∂(reml_score)/∂t`.
+    ///
+    /// The value reproduces [`gaussian_reml_fit_latent`]'s `reml_score` and the
+    /// gradient reproduces [`gaussian_reml_fit_latent_backward`]'s `grad_t` at
+    /// `grad_reml_score = 1`, so the optimizer descends exactly the quantity the
+    /// forward primitive reports. A non-finite or unsolvable configuration maps
+    /// to `+∞` with no gradient, which the trust region rejects rather than
+    /// propagating a NaN into the inner adjoint.
+    fn value_and_grad(
+        &self,
+        t_flat: ArrayView1<'_, f64>,
+        want_grad: bool,
+    ) -> (f64, Option<Array1<f64>>) {
+        match self.try_value_and_grad(t_flat, want_grad) {
+            Ok(pair) => pair,
+            Err(_) => (f64::INFINITY, None),
+        }
+    }
+
+    fn try_value_and_grad(
+        &self,
+        t_flat: ArrayView1<'_, f64>,
+        want_grad: bool,
+    ) -> Result<(f64, Option<Array1<f64>>), String> {
+        let (design, t_mat, jet) = build_latent_forward_design(
+            &self.basis_kind,
+            t_flat,
+            self.n_obs,
+            self.latent_dim,
+            self.centers.view(),
+            self.m,
+            self.tensor_knots.as_ref().map(|a| a.view()),
+            self.tensor_knot_offsets.as_deref(),
+            self.tensor_degrees.as_deref(),
+        )?;
+        let weights_view = self.weights.as_ref().map(|w| w.view());
+        let fit = gaussian_reml_multi_closed_form_with_cache(
+            design.view(),
+            self.y.view(),
+            self.penalty.view(),
+            weights_view,
+            self.init_lambda,
+            None,
+        )
+        .map_err(|err| err.to_string())?;
+        let (prior_score, _aux_state) = latent_prior_score_and_aux_state_for_t(
+            t_mat.view(),
+            self.aux_u.as_ref().map(|a| a.view()),
+            self.family,
+            self.aux_strength,
+            self.dim_selection.as_ref().map(|a| a.view()),
+        )?;
+        let value = fit.reml_score + prior_score;
+        if !value.is_finite() {
+            return Ok((f64::INFINITY, None));
+        }
+        if !want_grad {
+            return Ok((value, None));
+        }
+        let mut grad_t = Array1::<f64>::zeros(self.n_obs * self.latent_dim);
+        add_latent_outer_reml_score_gradient(
+            &mut grad_t,
+            1.0,
+            design.view(),
+            self.y.view(),
+            t_mat.view(),
+            &jet,
+            self.penalty.view(),
+            weights_view,
+            &fit,
+            self.sigma_eff_mode,
+        )?;
+        // Identifiability-prior contributions, identical to the backward path's
+        // grad_t assembly at `grad_reml_score = 1`.
+        if let Some(u_arr) = self.aux_u.as_ref() {
+            let u_view = u_arr.view();
+            let stats =
+                latent_aux_prior_stats(t_mat.view(), u_view, self.family, self.aux_strength)?;
+            let residual = &t_mat - &stats.targets;
+            let projected_residual = aux_prior_targets(residual.view(), u_view, self.family)?;
+            let grad_base = residual - projected_residual;
+            for n in 0..self.n_obs {
+                for a in 0..self.latent_dim {
+                    grad_t[n * self.latent_dim + a] += stats.strength.mu * grad_base[[n, a]];
+                }
+            }
+        }
+        if let Some(log_prec) = self.dim_selection.as_ref() {
+            for n in 0..self.n_obs {
+                for a in 0..self.latent_dim {
+                    let prec = log_prec[a].exp();
+                    grad_t[n * self.latent_dim + a] += prec * t_mat[[n, a]];
+                }
+            }
+        }
+        if !grad_t.iter().all(|value| value.is_finite()) {
+            return Ok((f64::INFINITY, None));
+        }
+        Ok((value, Some(grad_t)))
+    }
+}
+
+/// Adapter exposing [`LatentOuterProblem`] to the Riemannian trust region.
+struct LatentOuterObjective<'a> {
+    problem: &'a LatentOuterProblem,
+}
+
+impl gam::geometry::RiemannianObjective for LatentOuterObjective<'_> {
+    fn value_gradient(
+        &mut self,
+        point: ArrayView1<'_, f64>,
+    ) -> gam::geometry::GeometryResult<(f64, Array1<f64>)> {
+        // A degenerate point yields `+∞` and a zero gradient: the trust region
+        // reads a zero gradient at the start as "stationary" (it stops at the
+        // finite init) and a `+∞` trial value as a rejected step (it shrinks).
+        match self.problem.value_and_grad(point, true) {
+            (value, Some(grad)) => Ok((value, grad)),
+            (_, None) => Ok((f64::INFINITY, Array1::<f64>::zeros(point.len()))),
+        }
+    }
+}
+
+/// Build the manifold the outer optimizer walks `t` on. `manifold` names the
+/// per-observation geometry; the full latent lives on the `n_obs`-fold product.
+fn build_latent_outer_manifold(
+    manifold: &str,
+    n_obs: usize,
+    latent_dim: usize,
+) -> Result<Box<dyn gam::geometry::RiemannianManifold>, String> {
+    let per_point = match manifold.to_ascii_lowercase().replace('-', "_").as_str() {
+        "euclidean" | "rn" => {
+            // One flat Euclidean block over the whole latent is equivalent to
+            // the product and avoids the per-observation slicing overhead.
+            return Ok(Box::new(gam::geometry::EuclideanManifold::new(
+                n_obs * latent_dim,
+            )));
+        }
+        "circle" | "s1" => {
+            if latent_dim != 1 {
+                return Err(format!(
+                    "circle latent manifold requires latent_dim == 1; got {latent_dim}"
+                ));
+            }
+            gam::geometry::ManifoldSpec::Circle
+        }
+        "sphere" => {
+            if latent_dim < 2 {
+                return Err(format!(
+                    "sphere latent manifold requires latent_dim >= 2 (S^{{d-1}} embeds in R^d); got {latent_dim}"
+                ));
+            }
+            gam::geometry::ManifoldSpec::Sphere {
+                intrinsic_dim: latent_dim - 1,
+            }
+        }
+        "torus" => gam::geometry::ManifoldSpec::Torus { dim: latent_dim },
+        other => {
+            return Err(format!(
+                "unknown latent manifold {other:?}; expected one of euclidean|circle|sphere|torus"
+            ));
+        }
+    };
+    let parts = std::iter::repeat_with(|| per_point.clone())
+        .take(n_obs)
+        .collect();
+    gam::geometry::ManifoldSpec::Product(parts)
+        .build()
+        .map_err(|err| err.to_string())
+}
+
+/// Build the restart-0 start for the latent outer optimizer from a spectral
+/// (Laplacian-eigenmaps) embedding of the responses `y`.
+///
+/// The embedding recovers the intrinsic coordinate up to monotone/rotation
+/// gauge; each axis is then affinely mapped from `[0, 1]` onto the span of the
+/// decoder `centers` for that axis so the seed lands where the basis `Φ` is
+/// well-conditioned. The seed is defined for the flat Euclidean latent (the
+/// default manifold); on a curved latent manifold (circle/sphere/torus) the
+/// embedding's scale and gauge are not directly comparable, so the caller's `t`
+/// is used unchanged and the optimizer relies on the caller's warm start.
+fn latent_spectral_seed_start(
+    y: ArrayView2<'_, f64>,
+    centers: ArrayView2<'_, f64>,
+    manifold: &str,
+    n_obs: usize,
+    latent_dim: usize,
+    seed_neighbors: usize,
+    caller_t: ArrayView1<'_, f64>,
+) -> Result<Array1<f64>, String> {
+    let manifold_norm = manifold.to_ascii_lowercase().replace('-', "_");
+    if !matches!(manifold_norm.as_str(), "euclidean" | "rn") {
+        return Ok(caller_t.to_owned());
+    }
+    if y.nrows() != n_obs {
+        return Err(format!(
+            "spectral seed: y has {} rows but n_obs = {n_obs}",
+            y.nrows()
+        ));
+    }
+    // Too few rows to expose `latent_dim` non-trivial modes: fall back to the
+    // caller's start rather than failing the whole optimize call.
+    if n_obs < latent_dim + 2 {
+        return Ok(caller_t.to_owned());
+    }
+    let coords = gam::geometry::laplacian_eigenmap_coords(y, latent_dim, seed_neighbors)?;
+    // Per-axis target span from the decoder centers; fall back to [0, 1] when an
+    // axis has no corresponding center column or a degenerate span.
+    let mut start = Array1::<f64>::zeros(n_obs * latent_dim);
+    for a in 0..latent_dim {
+        let (lo, hi) = if a < centers.ncols() {
+            let col = centers.column(a);
+            let lo = col.iter().cloned().fold(f64::INFINITY, f64::min);
+            let hi = col.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            if lo.is_finite() && hi.is_finite() && hi > lo {
+                (lo, hi)
+            } else {
+                (0.0, 1.0)
+            }
+        } else {
+            (0.0, 1.0)
+        };
+        for n in 0..n_obs {
+            start[n * latent_dim + a] = lo + coords[[n, a]] * (hi - lo);
+        }
+    }
+    Ok(start)
+}
+
+/// Optimize the latent coordinate `t` against the Gaussian-REML objective.
+///
+/// Unlike [`gaussian_reml_fit_latent`], which performs a single `β | t` inner
+/// solve at a fixed `t`, this routine runs the *outer* latent optimization: it
+/// minimizes the REML score over `t` with a Riemannian trust region driven by
+/// the analytic `∂(reml_score)/∂t` (the same gradient
+/// [`gaussian_reml_fit_latent_backward`] returns), retracting each accepted
+/// step onto `manifold`. It returns the full REML fit dictionary *at the
+/// converged latent* plus the optimized `t`/`latent` arrays.
+///
+/// The latent REML objective is non-convex (a GP-LVM-style coordinate problem),
+/// so a single cold random start may settle in a poor local optimum. By default
+/// (`init="spectral"`) restart 0 starts from a Laplacian-eigenmaps embedding of
+/// the responses, which recovers the intrinsic coordinate up to gauge and lets
+/// the optimizer polish it to the global fit instead of sorting rows from
+/// scratch; the passed-in `t` is then only a fallback (too few rows, or a
+/// non-Euclidean `manifold`). Pass `init="caller"` to start from `t` unchanged
+/// (a pure local solve / explicit warm start), and `n_restarts > 1` to also
+/// optimize from perturbed starts and keep the lowest-score result.
+#[pyfunction(signature = (
+    t,
+    y,
+    n_obs,
+    latent_dim,
+    centers,
+    penalty,
+    m = 2,
+    weights = None,
+    fisher_w = None,
+    init_lambda = None,
+    aux_u = None,
+    aux_family = "ridge".to_string(),
+    aux_strength = None,
+    dim_selection_log_precision = None,
+    basis_kind = "duchon".to_string(),
+    tensor_knots_concat = None,
+    tensor_knot_offsets = None,
+    tensor_degrees = None,
+    manifold = "euclidean".to_string(),
+    sigma_eff_mode = "profiled".to_string(),
+    max_iter = 200,
+    grad_tol = 1.0e-8,
+    trust_radius = 1.0,
+    max_radius = 1.0e6,
+    n_restarts = 1,
+    restart_scale = 0.25,
+    seed = 0,
+    init = "spectral".to_string(),
+    seed_neighbors = 10,
+))]
+fn gaussian_reml_optimize_latent<'py>(
+    py: Python<'py>,
+    t: PyReadonlyArray1<'py, f64>,
+    y: PyReadonlyArray2<'py, f64>,
+    n_obs: usize,
+    latent_dim: usize,
+    centers: PyReadonlyArray2<'py, f64>,
+    penalty: PyReadonlyArray2<'py, f64>,
+    m: usize,
+    weights: Option<PyReadonlyArray1<'py, f64>>,
+    fisher_w: Option<PyReadonlyArray3<'py, f64>>,
+    init_lambda: Option<f64>,
+    aux_u: Option<PyReadonlyArray2<'py, f64>>,
+    aux_family: String,
+    aux_strength: Option<f64>,
+    dim_selection_log_precision: Option<PyReadonlyArray1<'py, f64>>,
+    basis_kind: String,
+    tensor_knots_concat: Option<PyReadonlyArray1<'py, f64>>,
+    tensor_knot_offsets: Option<Vec<usize>>,
+    tensor_degrees: Option<Vec<usize>>,
+    manifold: String,
+    sigma_eff_mode: String,
+    max_iter: usize,
+    grad_tol: f64,
+    trust_radius: f64,
+    max_radius: f64,
+    n_restarts: usize,
+    restart_scale: f64,
+    seed: u64,
+    init: String,
+    seed_neighbors: usize,
+) -> PyResult<Py<PyDict>> {
+    use rand::SeedableRng;
+    use rand_distr::Distribution;
+
+    let family = match aux_family.to_ascii_lowercase().as_str() {
+        "ridge" => AuxPriorFamily::Ridge,
+        "linear" => AuxPriorFamily::Linear,
+        other => {
+            return Err(py_value_error(format!(
+                "aux_family must be 'ridge' or 'linear'; got {other:?}"
+            )));
+        }
+    };
+    let sigma_eff_mode = SigmaEffMode::parse(&sigma_eff_mode).map_err(py_value_error)?;
+    if n_restarts == 0 {
+        return Err(py_value_error("n_restarts must be at least 1".to_string()));
+    }
+    let expected = n_obs
+        .checked_mul(latent_dim)
+        .ok_or_else(|| py_value_error("n_obs * latent_dim overflows usize".to_string()))?;
+    let t_values = t.as_array().to_owned();
+    if t_values.len() != expected {
+        return Err(py_value_error(format!(
+            "t length {} must equal n_obs * latent_dim = {expected}",
+            t_values.len()
+        )));
+    }
+    // Choose the base start for restart 0 (further restarts perturb it). A
+    // spectral seed escapes the random-init local optimum that leaves the outer
+    // optimizer stuck (#627); `"caller"` keeps the passed-in `t` unchanged for
+    // callers that already have a good warm start or want a pure local solve.
+    let base_start = match init.to_ascii_lowercase().as_str() {
+        "caller" | "warm" | "passthrough" => t_values.clone(),
+        "spectral" | "laplacian" | "eigenmap" => latent_spectral_seed_start(
+            y.as_array(),
+            centers.as_array(),
+            &manifold,
+            n_obs,
+            latent_dim,
+            seed_neighbors,
+            t_values.view(),
+        )
+        .map_err(py_value_error)?,
+        other => {
+            return Err(py_value_error(format!(
+                "init must be 'spectral' or 'caller'; got {other:?}"
+            )));
+        }
+    };
+    let weight_values = weights.as_ref().map(|w| w.as_array().to_owned());
+    let fisher_values = fisher_w.as_ref().map(|w| w.as_array().to_owned());
+    let effective_weights = latent_scalar_weights_with_fisher(
+        n_obs,
+        weight_values.as_ref().map(|w| w.view()),
+        fisher_values.as_ref().map(|w| w.view()),
+    )
+    .map_err(py_value_error)?;
+    let dim_selection_values = dim_selection_log_precision
+        .as_ref()
+        .map(|a| a.as_array().to_owned());
+    let tensor_knots_values = tensor_knots_concat
+        .as_ref()
+        .map(|a| a.as_array().to_owned());
+
+    let problem = LatentOuterProblem {
+        y: y.as_array().to_owned(),
+        centers: centers.as_array().to_owned(),
+        penalty: penalty.as_array().to_owned(),
+        weights: effective_weights,
+        aux_u: aux_u.as_ref().map(|a| a.as_array().to_owned()),
+        dim_selection: dim_selection_values,
+        family,
+        aux_strength,
+        init_lambda,
+        sigma_eff_mode,
+        n_obs,
+        latent_dim,
+        m,
+        basis_kind,
+        tensor_knots: tensor_knots_values,
+        tensor_knot_offsets,
+        tensor_degrees,
+    };
+
+    let manifold_box =
+        build_latent_outer_manifold(&manifold, n_obs, latent_dim).map_err(py_value_error)?;
+    let trust_region = gam::geometry::RiemannianTrustRegion {
+        radius: trust_radius,
+        max_radius,
+        max_iter,
+        grad_tol,
+    };
+
+    // Restart 0 starts from `base_start` (the spectral seed, or the caller's `t`
+    // when `init="caller"`); further restarts perturb it in the tangent space and
+    // retract back onto the manifold, then we keep the lowest-score latent.
+    let (best_t, best_value) = py
+        .detach(|| -> Result<(Array1<f64>, f64), String> {
+            let manifold_ref: &dyn gam::geometry::RiemannianManifold = manifold_box.as_ref();
+            let normal = rand_distr::Normal::new(0.0, restart_scale.abs().max(f64::MIN_POSITIVE))
+                .map_err(|err| err.to_string())?;
+            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+            let mut best: Option<(Array1<f64>, f64)> = None;
+            for restart in 0..n_restarts {
+                let start = if restart == 0 {
+                    base_start.clone()
+                } else {
+                    let noise =
+                        Array1::from_shape_fn(base_start.len(), |_| normal.sample(&mut rng));
+                    let tangent = manifold_ref
+                        .project_tangent(base_start.view(), noise.view())
+                        .map_err(|err| err.to_string())?;
+                    manifold_ref
+                        .retract(base_start.view(), tangent.view())
+                        .map_err(|err| err.to_string())?
+                };
+                let mut objective = LatentOuterObjective { problem: &problem };
+                let optimized = trust_region
+                    .minimize(manifold_ref, &mut objective, start.view())
+                    .map_err(|err| err.to_string())?;
+                let (value, _) = problem.value_and_grad(optimized.view(), false);
+                let improved = best.as_ref().map(|(_, b)| value < *b).unwrap_or(true);
+                if improved {
+                    best = Some((optimized, value));
+                }
+            }
+            best.ok_or_else(|| "no restart produced a latent".to_string())
+        })
+        .map_err(py_value_error)?;
+
+    // Final gradient norm at the chosen latent, as a convergence diagnostic.
+    let (_, final_grad) = problem.value_and_grad(best_t.view(), true);
+    let grad_t_norm = final_grad
+        .as_ref()
+        .map(|g| g.iter().map(|v| v * v).sum::<f64>().sqrt())
+        .unwrap_or(f64::INFINITY);
+
+    // Rebuild the full fit dictionary at the converged latent so callers get the
+    // identical schema [`gaussian_reml_fit_latent`] returns, then echo `t`. The
+    // detached fit closure must be `'static`, so move owned copies in (the
+    // problem's array buffers are no longer needed on this thread afterwards).
+    let latent_payload = serde_json::json!({"t": {"name": "t", "n": n_obs, "d": latent_dim}});
+    let LatentOuterProblem {
+        y,
+        centers,
+        penalty,
+        weights,
+        aux_u,
+        dim_selection,
+        basis_kind,
+        tensor_knots,
+        tensor_knot_offsets,
+        tensor_degrees,
+        ..
+    } = problem;
+    let best_t_for_fit = best_t.clone();
+    let (fit, _design, aux_strength_state) =
+        detach_py_result(py, "gaussian_reml_optimize_latent", move || {
+            let registry = build_analytic_penalty_registry_from_json(Some(&latent_payload), None)?;
+            gaussian_reml_fit_latent_impl(
+                best_t_for_fit.view(),
+                y.view(),
+                n_obs,
+                latent_dim,
+                centers.view(),
+                m,
+                &basis_kind,
+                tensor_knots.as_ref().map(|a| a.view()),
+                tensor_knot_offsets.as_deref(),
+                tensor_degrees.as_deref(),
+                penalty.view(),
+                weights.as_ref().map(|w| w.view()),
+                init_lambda,
+                aux_u.as_ref().map(|a| a.view()),
+                family,
+                aux_strength,
+                dim_selection.as_ref().map(|a| a.view()),
+                Some(&registry),
+            )
+        })?;
+
+    let out = PyDict::new(py);
+    set_ok_gaussian_reml_items(py, &out, fit)?;
+    set_aux_strength_items(py, &out, aux_strength_state)?;
+    let t_matrix = best_t
+        .clone()
+        .into_shape_with_order((n_obs, latent_dim))
+        .map_err(|err| py_value_error(err.to_string()))?;
+    out.set_item("t", t_matrix.clone().into_pyarray(py))?;
+    out.set_item("latent", t_matrix.into_pyarray(py))?;
+    out.set_item("t_flat", best_t.into_pyarray(py))?;
+    out.set_item("grad_t_norm", grad_t_norm)?;
+    out.set_item("converged", grad_t_norm <= grad_tol)?;
+    out.set_item("objective_value", best_value)?;
+    out.set_item("n_restarts", n_restarts)?;
+    out.set_item("init", init)?;
     Ok(out.unbind())
 }
 
@@ -17768,661 +18181,107 @@ fn equivariant_penalty_value<'py>(
 // that delegates to a pure-Rust impl on ndarray views.
 // ===========================================================================
 
-fn rg_require_positive(comp: ArrayView2<'_, f64>, label: &str) -> Result<(), String> {
-    for value in comp.iter() {
-        if *value <= 0.0 {
-            return Err(format!("{label} require strictly positive simplex values"));
-        }
+/// Project a spherical base point onto the unit sphere, rejecting a zero-norm
+/// input. Shared by the explicit `response_geometry_sphere_normalize_base` FFI
+/// and the consolidated log-map dispatch.
+fn rg_normalize_sphere_base(base: ArrayView1<'_, f64>) -> Result<Array1<f64>, String> {
+    let norm = base.iter().fold(0.0_f64, |acc, value| acc.hypot(*value));
+    if !norm.is_finite() || norm <= 0.0 {
+        return Err("spherical base point must have non-zero norm".to_string());
     }
-    Ok(())
+    Ok(base.mapv(|v| v / norm))
 }
 
-fn rg_clr_impl(values: ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
-    let comp = simplex_closure(values)?;
-    rg_require_positive(comp.view(), "CLR coordinates")?;
-    let (n, d) = comp.dim();
-    let mut out = Array2::<f64>::zeros((n, d));
-    for row in 0..n {
-        let mut sum_log = 0.0_f64;
-        for col in 0..d {
-            let lg = comp[[row, col]].ln();
-            out[[row, col]] = lg;
-            sum_log += lg;
-        }
-        let mean = sum_log / (d as f64);
-        for col in 0..d {
-            out[[row, col]] -= mean;
-        }
-    }
-    Ok(out)
-}
-
-fn rg_resolve_reference(reference: isize, d: usize) -> usize {
-    let d_i = d as isize;
-    let mut r = reference % d_i;
-    if r < 0 {
-        r += d_i;
-    }
-    r as usize
-}
-
-fn rg_alr_impl(values: ArrayView2<'_, f64>, reference: isize) -> Result<Array2<f64>, String> {
-    let comp = simplex_closure(values)?;
-    rg_require_positive(comp.view(), "ALR coordinates")?;
-    let (n, d) = comp.dim();
-    let ref_idx = rg_resolve_reference(reference, d);
-    let mut out = Array2::<f64>::zeros((n, d - 1));
-    for row in 0..n {
-        let log_ref = comp[[row, ref_idx]].ln();
-        let mut k = 0usize;
-        for col in 0..d {
-            if col == ref_idx {
-                continue;
-            }
-            out[[row, k]] = comp[[row, col]].ln() - log_ref;
-            k += 1;
-        }
-    }
-    Ok(out)
-}
-
-fn rg_inverse_alr_impl(
-    coords: ArrayView2<'_, f64>,
-    reference: isize,
-) -> Result<Array2<f64>, String> {
-    let (n, dm1) = coords.dim();
-    if !coords.iter().all(|v| v.is_finite()) {
-        return Err("ALR coordinates must contain only finite values".to_string());
-    }
-    let d = dm1 + 1;
-    let ref_idx = rg_resolve_reference(reference, d);
-    let mut out = Array2::<f64>::zeros((n, d));
-    for row in 0..n {
-        let mut max_v = f64::NEG_INFINITY;
-        let mut k = 0usize;
-        for col in 0..d {
-            let v = if col == ref_idx {
-                0.0
+/// Resolve the simplex coordinate label exactly as the response-geometry log/exp
+/// maps require: an explicit `coordinates` request wins (lower-cased), otherwise
+/// `alr` for an `alr` geometry and `clr` for everything else.
+fn rg_resolve_simplex_coord_label(kind: &str, coordinates: Option<&str>) -> String {
+    match coordinates {
+        Some(c) => c.to_ascii_lowercase(),
+        None => {
+            if kind == "alr" {
+                "alr".to_string()
             } else {
-                let val = coords[[row, k]];
-                k += 1;
-                val
-            };
-            out[[row, col]] = v;
-            if v > max_v {
-                max_v = v;
+                "clr".to_string()
             }
         }
-        let mut total = 0.0_f64;
-        for col in 0..d {
-            let e = (out[[row, col]] - max_v).exp();
-            out[[row, col]] = e;
-            total += e;
-        }
-        for col in 0..d {
-            out[[row, col]] /= total;
-        }
-    }
-    Ok(out)
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum RgSimplexCoord {
-    Clr,
-    Alr,
-}
-
-fn rg_parse_simplex_coord(coordinates: &str) -> Result<RgSimplexCoord, String> {
-    match coordinates.to_ascii_lowercase().as_str() {
-        "simplex" | "clr" => Ok(RgSimplexCoord::Clr),
-        "alr" => Ok(RgSimplexCoord::Alr),
-        other => Err(format!(
-            "simplex coordinates must be 'clr' or 'alr'; got {other:?}"
-        )),
     }
 }
 
-fn rg_simplex_log_map_impl(
+fn rg_unknown_geometry(other: &str) -> String {
+    format!(
+        "response_geometry must be one of 'spherical', 'simplex', 'clr', or 'alr'; got {other:?}"
+    )
+}
+
+/// Consolidated response-geometry log map: pick the base point (intrinsic
+/// Fréchet mean when none is supplied, else the projected/closed input base),
+/// dispatch to the sphere or simplex log map, and report the resolved
+/// coordinate label. This owns the geometry-kind routing, coordinate
+/// resolution, and base-point selection that previously lived in the Python
+/// wrapper.
+fn rg_log_map_dispatch(
     values: ArrayView2<'_, f64>,
+    geometry: &str,
+    base: Option<ArrayView1<'_, f64>>,
+    coordinates: Option<&str>,
+    reference: isize,
+) -> Result<(Array2<f64>, Array1<f64>, String), String> {
+    let kind = geometry.to_ascii_lowercase();
+    match kind.as_str() {
+        "spherical" | "sphere" => {
+            let base_point = match base {
+                None => Array1::from(gam::geometry::sphere::sphere_frechet_mean(
+                    values, None, 1.0e-12, 256,
+                )?),
+                Some(b) => rg_normalize_sphere_base(b)?,
+            };
+            let tangent =
+                gam::geometry::sphere::response_sphere_log_map(values, base_point.view())?;
+            Ok((tangent, base_point, "spherical".to_string()))
+        }
+        "simplex" | "clr" | "alr" => {
+            let coord_label = rg_resolve_simplex_coord_label(&kind, coordinates);
+            let coord = gam::geometry::simplex::parse_simplex_coord(&coord_label)?;
+            let base_point = match base {
+                None => Array1::from(simplex_frechet_mean(values, None)?),
+                Some(b) => {
+                    let b2 = Array2::from_shape_fn((1, b.len()), |(_, j)| b[j]);
+                    simplex_closure(b2.view())?.row(0).to_owned()
+                }
+            };
+            let tangent = gam::geometry::simplex::simplex_log_map(
+                values,
+                base_point.view(),
+                coord,
+                reference,
+            )?;
+            Ok((tangent, base_point, coord_label))
+        }
+        other => Err(rg_unknown_geometry(other)),
+    }
+}
+
+/// Consolidated response-geometry exponential map: dispatch tangent coordinates
+/// back to the response manifold given the geometry kind and (already resolved)
+/// coordinate label.
+fn rg_exp_map_dispatch(
+    tangent: ArrayView2<'_, f64>,
+    geometry: &str,
     base: ArrayView1<'_, f64>,
-    coord: RgSimplexCoord,
+    coordinates: Option<&str>,
     reference: isize,
 ) -> Result<Array2<f64>, String> {
-    let comp = simplex_closure(values)?;
-    let base2 = Array2::from_shape_fn((1, base.len()), |(_, j)| base[j]);
-    let base_comp = simplex_closure(base2.view())?;
-    if comp.ncols() != base_comp.ncols() {
-        return Err("simplex values and base point have different dimensions".to_string());
-    }
-    rg_require_positive(comp.view(), "simplex log map")?;
-    rg_require_positive(base_comp.view(), "simplex log map")?;
-    match coord {
-        RgSimplexCoord::Clr => {
-            let values_clr = rg_clr_impl(values)?;
-            let base_clr = rg_clr_impl(base2.view())?;
-            let (n, d) = values_clr.dim();
-            let mut out = Array2::<f64>::zeros((n, d));
-            for row in 0..n {
-                for col in 0..d {
-                    out[[row, col]] = values_clr[[row, col]] - base_clr[[0, col]];
-                }
-            }
-            Ok(out)
+    let kind = geometry.to_ascii_lowercase();
+    match kind.as_str() {
+        "spherical" | "sphere" => gam::geometry::sphere::response_sphere_exp_map(tangent, base),
+        "simplex" | "clr" | "alr" => {
+            let coord_label = rg_resolve_simplex_coord_label(&kind, coordinates);
+            let coord = gam::geometry::simplex::parse_simplex_coord(&coord_label)?;
+            gam::geometry::simplex::simplex_exp_map(tangent, base, coord, reference)
         }
-        RgSimplexCoord::Alr => {
-            let values_alr = rg_alr_impl(values, reference)?;
-            let base_alr = rg_alr_impl(base2.view(), reference)?;
-            let (n, dm1) = values_alr.dim();
-            let mut out = Array2::<f64>::zeros((n, dm1));
-            for row in 0..n {
-                for col in 0..dm1 {
-                    out[[row, col]] = values_alr[[row, col]] - base_alr[[0, col]];
-                }
-            }
-            Ok(out)
-        }
+        other => Err(rg_unknown_geometry(other)),
     }
-}
-
-fn rg_simplex_exp_map_impl(
-    tangent: ArrayView2<'_, f64>,
-    base: ArrayView1<'_, f64>,
-    coord: RgSimplexCoord,
-    reference: isize,
-) -> Result<Array2<f64>, String> {
-    let base2 = Array2::from_shape_fn((1, base.len()), |(_, j)| base[j]);
-    let base_comp = simplex_closure(base2.view())?;
-    let d = base_comp.ncols();
-    match coord {
-        RgSimplexCoord::Clr => {
-            if tangent.ncols() != d {
-                return Err("CLR tangent dimension must equal simplex dimension".to_string());
-            }
-            let n = tangent.nrows();
-            let mut out = Array2::<f64>::zeros((n, d));
-            for row in 0..n {
-                let mut max_v = f64::NEG_INFINITY;
-                for col in 0..d {
-                    let lg = base_comp[[0, col]].ln() + tangent[[row, col]];
-                    out[[row, col]] = lg;
-                    if lg > max_v {
-                        max_v = lg;
-                    }
-                }
-                let mut total = 0.0_f64;
-                for col in 0..d {
-                    let e = (out[[row, col]] - max_v).exp();
-                    out[[row, col]] = e;
-                    total += e;
-                }
-                for col in 0..d {
-                    out[[row, col]] /= total;
-                }
-            }
-            Ok(out)
-        }
-        RgSimplexCoord::Alr => {
-            if tangent.ncols() + 1 != d {
-                return Err("ALR tangent dimension must be simplex dimension minus one".to_string());
-            }
-            let base_alr = rg_alr_impl(base2.view(), reference)?;
-            let n = tangent.nrows();
-            let dm1 = d - 1;
-            let mut shifted = Array2::<f64>::zeros((n, dm1));
-            for row in 0..n {
-                for col in 0..dm1 {
-                    shifted[[row, col]] = base_alr[[0, col]] + tangent[[row, col]];
-                }
-            }
-            rg_inverse_alr_impl(shifted.view(), reference)
-        }
-    }
-}
-
-fn rg_sphere_log_map_impl(
-    values: ArrayView2<'_, f64>,
-    base: ArrayView1<'_, f64>,
-) -> Result<Array2<f64>, String> {
-    let y = normalize_sphere_matrix(values)?;
-    let base2 = Array2::from_shape_fn((1, base.len()), |(_, j)| base[j]);
-    let b_mat = normalize_sphere_matrix(base2.view())?;
-    let (n, d) = y.dim();
-    if d != b_mat.ncols() {
-        return Err("spherical values and base point have different dimensions".to_string());
-    }
-    let mut out = Array2::<f64>::zeros((n, d));
-    for row in 0..n {
-        let mut dot = 0.0_f64;
-        for col in 0..d {
-            dot += y[[row, col]] * b_mat[[0, col]];
-        }
-        dot = dot.clamp(-1.0, 1.0);
-        if dot <= -1.0 + 1.0e-12 {
-            return Err("spherical log map is undefined at antipodal points".to_string());
-        }
-        let theta = dot.acos();
-        let sin_theta = theta.sin();
-        let scale = if sin_theta > 1.0e-12 {
-            theta / sin_theta
-        } else {
-            1.0
-        };
-        if theta < 1.0e-12 {
-            for col in 0..d {
-                out[[row, col]] = 0.0;
-            }
-        } else {
-            for col in 0..d {
-                out[[row, col]] = (y[[row, col]] - dot * b_mat[[0, col]]) * scale;
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn rg_sphere_exp_map_impl(
-    tangent: ArrayView2<'_, f64>,
-    base: ArrayView1<'_, f64>,
-) -> Result<Array2<f64>, String> {
-    let base2 = Array2::from_shape_fn((1, base.len()), |(_, j)| base[j]);
-    let b_mat = normalize_sphere_matrix(base2.view())?;
-    let (n, d) = tangent.dim();
-    if d != b_mat.ncols() {
-        return Err("spherical tangent and base point have different dimensions".to_string());
-    }
-    if !tangent.iter().all(|v| v.is_finite()) {
-        return Err("spherical tangent must contain only finite values".to_string());
-    }
-    let mut out = Array2::<f64>::zeros((n, d));
-    for row in 0..n {
-        let mut radial = 0.0_f64;
-        for col in 0..d {
-            radial += tangent[[row, col]] * b_mat[[0, col]];
-        }
-        let mut z = vec![0.0_f64; d];
-        let mut r_sq = 0.0_f64;
-        for col in 0..d {
-            let v = tangent[[row, col]] - radial * b_mat[[0, col]];
-            z[col] = v;
-            r_sq += v * v;
-        }
-        let r = r_sq.sqrt();
-        let mut norm_sq = 0.0_f64;
-        if r < 1.0e-12 {
-            for col in 0..d {
-                let v = b_mat[[0, col]] + z[col];
-                out[[row, col]] = v;
-                norm_sq += v * v;
-            }
-        } else {
-            let cos_r = r.cos();
-            let sin_scale = r.sin() / r;
-            for col in 0..d {
-                let v = cos_r * b_mat[[0, col]] + sin_scale * z[col];
-                out[[row, col]] = v;
-                norm_sq += v * v;
-            }
-        }
-        let norm = norm_sq.sqrt();
-        if !norm.is_finite() || norm <= 0.0 {
-            return Err("spherical exponential map produced a non-finite point".to_string());
-        }
-        for col in 0..d {
-            out[[row, col]] /= norm;
-        }
-    }
-    Ok(out)
-}
-
-fn rg_normalize_fisher_rao_impl(
-    arr: ArrayViewD<'_, f64>,
-    n_rows: usize,
-    dim: usize,
-) -> Result<Array3<f64>, String> {
-    if !arr.iter().all(|v| v.is_finite()) {
-        return Err("fisher_rao_w must contain only finite values".to_string());
-    }
-    let shape = arr.shape().to_vec();
-    let out: Array3<f64> = match arr.ndim() {
-        1 => {
-            if shape[0] != n_rows {
-                return Err(format!(
-                    "fisher_rao_w vector must have length {n_rows}; got {}",
-                    shape[0]
-                ));
-            }
-            let mut block = Array3::<f64>::zeros((n_rows, dim, dim));
-            for row in 0..n_rows {
-                let value = arr[IxDyn(&[row])];
-                for d in 0..dim {
-                    block[[row, d, d]] = value;
-                }
-            }
-            block
-        }
-        2 => {
-            if shape[0] != dim || shape[1] != dim {
-                return Err(format!(
-                    "fisher_rao_w matrix must have shape ({dim}, {dim}); got ({}, {})",
-                    shape[0], shape[1]
-                ));
-            }
-            let mut block = Array3::<f64>::zeros((n_rows, dim, dim));
-            for row in 0..n_rows {
-                for r in 0..dim {
-                    for c in 0..dim {
-                        block[[row, r, c]] = arr[IxDyn(&[r, c])];
-                    }
-                }
-            }
-            block
-        }
-        3 => {
-            if shape[0] != n_rows || shape[1] != dim || shape[2] != dim {
-                return Err(format!(
-                    "fisher_rao_w must have shape ({n_rows}, {dim}, {dim}); got ({}, {}, {})",
-                    shape[0], shape[1], shape[2]
-                ));
-            }
-            let mut block = Array3::<f64>::zeros((n_rows, dim, dim));
-            for row in 0..n_rows {
-                for r in 0..dim {
-                    for c in 0..dim {
-                        block[[row, r, c]] = arr[IxDyn(&[row, r, c])];
-                    }
-                }
-            }
-            block
-        }
-        _ => return Err("fisher_rao_w must be a 1-D, 2-D, or 3-D numeric array".to_string()),
-    };
-    for row in 0..n_rows {
-        for r in 0..dim {
-            for c in 0..dim {
-                let a = out[[row, r, c]];
-                let b = out[[row, c, r]];
-                if (a - b).abs() > 1.0e-10 * (1.0 + a.abs() + b.abs()) {
-                    return Err("fisher_rao_w must be symmetric in every row block".to_string());
-                }
-            }
-            if out[[row, r, r]] < 0.0 {
-                return Err("fisher_rao_w diagonal entries must be non-negative".to_string());
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn rg_rho_so2_impl(theta: ArrayView1<'_, f64>) -> Array3<f64> {
-    let n = theta.len();
-    let mut out = Array3::<f64>::zeros((n, 2, 2));
-    for (i, &t) in theta.iter().enumerate() {
-        let (s, c) = t.sin_cos();
-        out[[i, 0, 0]] = c;
-        out[[i, 0, 1]] = -s;
-        out[[i, 1, 0]] = s;
-        out[[i, 1, 1]] = c;
-    }
-    out
-}
-
-fn rg_rho_so2_jvp_impl(theta: ArrayView1<'_, f64>) -> Array3<f64> {
-    let n = theta.len();
-    let mut out = Array3::<f64>::zeros((n, 2, 2));
-    for (i, &t) in theta.iter().enumerate() {
-        let (s, c) = t.sin_cos();
-        out[[i, 0, 0]] = -s;
-        out[[i, 0, 1]] = -c;
-        out[[i, 1, 0]] = c;
-        out[[i, 1, 1]] = -s;
-    }
-    out
-}
-
-fn rg_rho_so3_single(ox: f64, oy: f64, oz: f64) -> [[f64; 3]; 3] {
-    let angle = (ox * ox + oy * oy + oz * oz).sqrt().max(1.0e-12);
-    let ax = ox / angle;
-    let ay = oy / angle;
-    let az = oz / angle;
-    let k = [[0.0, -az, ay], [az, 0.0, -ax], [-ay, ax, 0.0]];
-    let mut kk = [[0.0_f64; 3]; 3];
-    for i in 0..3 {
-        for j in 0..3 {
-            let mut acc = 0.0;
-            for r in 0..3 {
-                acc += k[i][r] * k[r][j];
-            }
-            kk[i][j] = acc;
-        }
-    }
-    let s = angle.sin();
-    let one_minus_c = 1.0 - angle.cos();
-    let mut out = [[0.0_f64; 3]; 3];
-    for i in 0..3 {
-        for j in 0..3 {
-            let id = if i == j { 1.0 } else { 0.0 };
-            out[i][j] = id + s * k[i][j] + one_minus_c * kk[i][j];
-        }
-    }
-    out
-}
-
-fn rg_rho_so3_impl(omega: ArrayView2<'_, f64>) -> Result<Array3<f64>, String> {
-    if omega.ncols() != 3 {
-        return Err(format!(
-            "SO(3) rep input must have shape (N, 3); got {}",
-            omega.ncols()
-        ));
-    }
-    let n = omega.nrows();
-    let mut out = Array3::<f64>::zeros((n, 3, 3));
-    for row in 0..n {
-        let r = rg_rho_so3_single(omega[[row, 0]], omega[[row, 1]], omega[[row, 2]]);
-        for i in 0..3 {
-            for j in 0..3 {
-                out[[row, i, j]] = r[i][j];
-            }
-        }
-    }
-    Ok(out)
-}
-
-/// Closed-form right-Jacobian of the SO(3) exponential map (a.k.a. the
-/// Jacobian of `exp([ω]×)` with respect to `ω` in body-frame coordinates):
-///
-/// ```text
-/// J_r(ω) = I − ((1 − cos θ)/θ) · K + ((θ − sin θ)/θ) · K²,    θ = ‖ω‖, K = [ω/θ]×
-/// ```
-///
-/// Used by [`rg_rho_so3_jvp_impl`] to push the input perturbation `dω`
-/// through the tangent map of the body-frame parametrisation before
-/// forming the `[·]×` matrix that left-multiplies `R(ω)`. Pre-fix the
-/// JVP used the raw `[dω]×` (i.e. assumed `J_r = I`), giving the correct
-/// directional derivative only when `dω ∥ ω` or `ω = 0`.
-///
-/// Small-θ expansion (Taylor): `A = (1 − cos θ)/θ = θ/2 − θ³/24 + …` and
-/// `B = (θ − sin θ)/θ = θ²/6 − θ⁴/120 + …`. For θ ≤ a small cutoff we
-/// use the second-order polynomial `J_r ≈ I − ½[ω]× + (1/6)[ω]×²`, which
-/// agrees with the exact expression to relative O(θ⁴) and avoids the
-/// 0/0 in `A/θ`, `B/θ`.
-fn so3_right_jacobian_times_vec(ox: f64, oy: f64, oz: f64, vx: f64, vy: f64, vz: f64) -> [f64; 3] {
-    let theta2 = ox * ox + oy * oy + oz * oz;
-    let theta = theta2.sqrt();
-    // [ω]× · v = ω × v
-    let ox_v = [oy * vz - oz * vy, oz * vx - ox * vz, ox * vy - oy * vx];
-    // [ω]×² · v = ω × (ω × v) = ω(ω·v) − v‖ω‖²
-    let omega_dot_v = ox * vx + oy * vy + oz * vz;
-    let ox2_v = [
-        ox * omega_dot_v - theta2 * vx,
-        oy * omega_dot_v - theta2 * vy,
-        oz * omega_dot_v - theta2 * vz,
-    ];
-    // Coefficient of [ω]×/‖ω‖ = (1−cos θ)/θ  →  scaled to [ω]× factor is −(1−cos θ)/θ²
-    // Coefficient of [ω]×²/‖ω‖² = (θ−sin θ)/θ  →  scaled to [ω]×² factor is  (θ−sin θ)/θ³
-    let (alpha, beta) = if theta < 1.0e-6 {
-        // Taylor series of −A/θ = −(1 − cos θ)/θ² and B/θ² = (θ − sin θ)/θ³,
-        // expressed as power series in θ². Truncating at O(θ²) keeps relative
-        // error below 1e-13 for θ < 1e-3.
-        // −A/θ = −1/2 + θ²/24 − θ⁴/720 + …
-        // B/θ² = 1/6 − θ²/120 + θ⁴/5040 − …
-        (
-            -0.5 + theta2 / 24.0 - theta2 * theta2 / 720.0,
-            1.0 / 6.0 - theta2 / 120.0 + theta2 * theta2 / 5040.0,
-        )
-    } else {
-        let s = theta.sin();
-        let c = theta.cos();
-        (-(1.0 - c) / theta2, (theta - s) / (theta2 * theta))
-    };
-    [
-        vx + alpha * ox_v[0] + beta * ox2_v[0],
-        vy + alpha * ox_v[1] + beta * ox2_v[1],
-        vz + alpha * ox_v[2] + beta * ox2_v[2],
-    ]
-}
-
-fn rg_rho_so3_jvp_impl(
-    omega: ArrayView2<'_, f64>,
-    domega: ArrayView2<'_, f64>,
-) -> Result<Array3<f64>, String> {
-    if omega.ncols() != 3 || domega.ncols() != 3 {
-        return Err("SO(3) rep JVP requires (N, 3) inputs".to_string());
-    }
-    if omega.nrows() != domega.nrows() {
-        return Err("SO(3) rep JVP omega/domega must agree in row count".to_string());
-    }
-    let n = omega.nrows();
-    let mut out = Array3::<f64>::zeros((n, 3, 3));
-    for row in 0..n {
-        let ox = omega[[row, 0]];
-        let oy = omega[[row, 1]];
-        let oz = omega[[row, 2]];
-        let rg = rg_rho_so3_single(ox, oy, oz);
-        // The directional derivative of exp([ω + t·dω]×) at t=0 is
-        // R(ω) · [J_r(ω) · dω]×. Using the raw `dω` (i.e. assuming
-        // J_r = I) is correct only when dω is parallel to ω; for any
-        // perpendicular component the JVP picks up errors that scale
-        // with ‖ω‖ and reach ~1 for ‖ω‖ near π/2.
-        let jr_dw = so3_right_jacobian_times_vec(
-            ox,
-            oy,
-            oz,
-            domega[[row, 0]],
-            domega[[row, 1]],
-            domega[[row, 2]],
-        );
-        let sx = jr_dw[0];
-        let sy = jr_dw[1];
-        let sz = jr_dw[2];
-        let kd = [[0.0, -sz, sy], [sz, 0.0, -sx], [-sy, sx, 0.0]];
-        for i in 0..3 {
-            for j in 0..3 {
-                let mut acc = 0.0;
-                for r in 0..3 {
-                    acc += rg[i][r] * kd[r][j];
-                }
-                out[[row, i, j]] = acc;
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn rg_rho_impl(group: &str, g: ArrayViewD<'_, f64>) -> Result<ArrayD<f64>, String> {
-    match group {
-        "SO2" => {
-            let mut out_shape = g.shape().to_vec();
-            out_shape.push(2);
-            out_shape.push(2);
-            let flat = Array1::from_vec(g.iter().copied().collect());
-            rg_rho_so2_impl(flat.view())
-                .into_shape_with_order(IxDyn(&out_shape))
-                .map_err(|err| format!("failed to reshape SO(2) representation: {err}"))
-        }
-        "SO3" => {
-            let shape = g.shape().to_vec();
-            if shape.last().copied() != Some(3) {
-                return Err("SO(3) rep input requires last axis of length 3".to_string());
-            }
-            let n = g.len() / 3;
-            let flat = g
-                .to_owned()
-                .into_shape_with_order((n, 3))
-                .map_err(|err| format!("failed to flatten SO(3) representation input: {err}"))?;
-            let mut out_shape = shape[..shape.len() - 1].to_vec();
-            out_shape.push(3);
-            out_shape.push(3);
-            rg_rho_so3_impl(flat.view())?
-                .into_shape_with_order(IxDyn(&out_shape))
-                .map_err(|err| format!("failed to reshape SO(3) representation: {err}"))
-        }
-        "R1" => {
-            let mut out_shape = g.shape().to_vec();
-            out_shape.push(1);
-            out_shape.push(1);
-            Ok(ArrayD::<f64>::from_elem(IxDyn(&out_shape), 1.0))
-        }
-        "Trivial" => {
-            let shape = g.shape();
-            let mut out_shape = if shape.is_empty() {
-                Vec::new()
-            } else {
-                shape[..shape.len() - 1].to_vec()
-            };
-            out_shape.push(1);
-            out_shape.push(1);
-            Ok(ArrayD::<f64>::from_elem(IxDyn(&out_shape), 1.0))
-        }
-        other => Err(format!("unknown equivariant group {other:?}")),
-    }
-}
-
-fn rg_gauge_companion_loss_impl(
-    aux_values: ArrayView2<'_, f64>,
-    theta: ArrayView2<'_, f64>,
-    d_aux: usize,
-    weight: f64,
-) -> Result<f64, String> {
-    if !weight.is_finite() {
-        return Err("gauge companion weight must be finite".to_string());
-    }
-    if aux_values.ncols() < 1 {
-        return Err("aux_values must have at least one column".to_string());
-    }
-    if theta.nrows() != aux_values.nrows() {
-        return Err("aux_values and theta must agree in row count".to_string());
-    }
-    let n = aux_values.nrows();
-    if n == 0 {
-        return Ok(0.0);
-    }
-    let n_f = n as f64;
-    let mut terms: Vec<f64> = Vec::new();
-    let two_pi = std::f64::consts::TAU;
-    let mut term0 = 0.0_f64;
-    for row in 0..n {
-        let h_rad = aux_values[[row, 0]] * two_pi;
-        term0 += 1.0 - (theta[[row, 0]] - h_rad).cos();
-    }
-    terms.push(term0 / n_f);
-    if d_aux >= 2 && theta.ncols() >= 2 && aux_values.ncols() >= 2 {
-        let mut term1 = 0.0_f64;
-        for row in 0..n {
-            let diff = theta[[row, 1]].cos() - (2.0 * aux_values[[row, 1]] - 1.0);
-            term1 += diff * diff;
-        }
-        terms.push(term1 / n_f);
-    }
-    if d_aux >= 3 && theta.ncols() >= 3 && aux_values.ncols() >= 3 {
-        let mut term2 = 0.0_f64;
-        for row in 0..n {
-            let diff = theta[[row, 2]].cos() - (2.0 * aux_values[[row, 2]] - 1.0);
-            term2 += diff * diff;
-        }
-        terms.push(term2 / n_f);
-    }
-    let total: f64 = terms.iter().sum();
-    Ok(weight * total / (terms.len() as f64))
 }
 
 #[pyfunction]
@@ -18443,7 +18302,9 @@ fn response_geometry_clr<'py>(
     values: PyReadonlyArray2<'py, f64>,
 ) -> PyResult<Py<PyArray2<f64>>> {
     let arr = values.as_array().to_owned();
-    let out = detach_py_result(py, "response_geometry_clr", move || rg_clr_impl(arr.view()))?;
+    let out = detach_py_result(py, "response_geometry_clr", move || {
+        gam::geometry::simplex::clr(arr.view())
+    })?;
     Ok(out.into_pyarray(py).unbind())
 }
 
@@ -18455,7 +18316,7 @@ fn response_geometry_alr<'py>(
 ) -> PyResult<Py<PyArray2<f64>>> {
     let arr = values.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_alr", move || {
-        rg_alr_impl(arr.view(), reference)
+        gam::geometry::simplex::alr(arr.view(), reference)
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18468,7 +18329,7 @@ fn response_geometry_inverse_alr<'py>(
 ) -> PyResult<Py<PyArray2<f64>>> {
     let arr = coords.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_inverse_alr", move || {
-        rg_inverse_alr_impl(arr.view(), reference)
+        gam::geometry::simplex::inverse_alr(arr.view(), reference)
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18742,8 +18603,8 @@ fn response_geometry_simplex_log_map<'py>(
     let arr = values.as_array().to_owned();
     let base_owned = base.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_simplex_log_map", move || {
-        let coord = rg_parse_simplex_coord(&coordinates)?;
-        rg_simplex_log_map_impl(arr.view(), base_owned.view(), coord, reference)
+        let coord = gam::geometry::simplex::parse_simplex_coord(&coordinates)?;
+        gam::geometry::simplex::simplex_log_map(arr.view(), base_owned.view(), coord, reference)
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18759,8 +18620,8 @@ fn response_geometry_simplex_exp_map<'py>(
     let t_owned = tangent.as_array().to_owned();
     let base_owned = base.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_simplex_exp_map", move || {
-        let coord = rg_parse_simplex_coord(&coordinates)?;
-        rg_simplex_exp_map_impl(t_owned.view(), base_owned.view(), coord, reference)
+        let coord = gam::geometry::simplex::parse_simplex_coord(&coordinates)?;
+        gam::geometry::simplex::simplex_exp_map(t_owned.view(), base_owned.view(), coord, reference)
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18774,7 +18635,7 @@ fn response_geometry_sphere_log_map<'py>(
     let arr = values.as_array().to_owned();
     let base_owned = base.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_sphere_log_map", move || {
-        rg_sphere_log_map_impl(arr.view(), base_owned.view())
+        gam::geometry::sphere::response_sphere_log_map(arr.view(), base_owned.view())
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18788,7 +18649,7 @@ fn response_geometry_sphere_exp_map<'py>(
     let t_owned = tangent.as_array().to_owned();
     let base_owned = base.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_sphere_exp_map", move || {
-        rg_sphere_exp_map_impl(t_owned.view(), base_owned.view())
+        gam::geometry::sphere::response_sphere_exp_map(t_owned.view(), base_owned.view())
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18799,15 +18660,67 @@ fn response_geometry_sphere_normalize_base<'py>(
     base: PyReadonlyArray1<'py, f64>,
 ) -> PyResult<Py<PyArray1<f64>>> {
     let owned = base.as_array().to_owned();
-    let normalized = py.detach(move || -> Result<Array1<f64>, String> {
-        let norm = owned.iter().fold(0.0_f64, |acc, value| acc.hypot(*value));
-        if !norm.is_finite() || norm <= 0.0 {
-            return Err("spherical base point must have non-zero norm".to_string());
-        }
-        Ok(owned.mapv(|v| v / norm))
-    });
+    let normalized = py.detach(move || rg_normalize_sphere_base(owned.view()));
     let normalized = normalized.map_err(PyValueError::new_err)?;
     Ok(normalized.into_pyarray(py).unbind())
+}
+
+/// Consolidated response-geometry log map. Owns geometry-kind routing,
+/// coordinate resolution, and base-point selection (intrinsic Fréchet mean when
+/// `base` is `None`) so the Python wrapper marshals arrays only. Returns
+/// `(tangent, base_point, resolved_coordinate_label)`.
+#[pyfunction(signature = (values, geometry, base=None, coordinates=None, reference=-1))]
+fn response_geometry_log_map<'py>(
+    py: Python<'py>,
+    values: PyReadonlyArray2<'py, f64>,
+    geometry: String,
+    base: Option<PyReadonlyArray1<'py, f64>>,
+    coordinates: Option<String>,
+    reference: isize,
+) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray1<f64>>, String)> {
+    let arr = values.as_array().to_owned();
+    let base_owned = base.as_ref().map(|b| b.as_array().to_owned());
+    let (tangent, base_point, coord_label) =
+        detach_py_result(py, "response_geometry_log_map", move || {
+            rg_log_map_dispatch(
+                arr.view(),
+                &geometry,
+                base_owned.as_ref().map(|b| b.view()),
+                coordinates.as_deref(),
+                reference,
+            )
+        })?;
+    Ok((
+        tangent.into_pyarray(py).unbind(),
+        base_point.into_pyarray(py).unbind(),
+        coord_label,
+    ))
+}
+
+/// Consolidated response-geometry exponential map. Dispatches tangent
+/// coordinates back to the response manifold given the geometry kind and the
+/// (already resolved) coordinate label.
+#[pyfunction(signature = (tangent, geometry, base, coordinates=None, reference=-1))]
+fn response_geometry_exp_map<'py>(
+    py: Python<'py>,
+    tangent: PyReadonlyArray2<'py, f64>,
+    geometry: String,
+    base: PyReadonlyArray1<'py, f64>,
+    coordinates: Option<String>,
+    reference: isize,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let t_owned = tangent.as_array().to_owned();
+    let base_owned = base.as_array().to_owned();
+    let out = detach_py_result(py, "response_geometry_exp_map", move || {
+        rg_exp_map_dispatch(
+            t_owned.view(),
+            &geometry,
+            base_owned.view(),
+            coordinates.as_deref(),
+            reference,
+        )
+    })?;
+    Ok(out.into_pyarray(py).unbind())
 }
 
 #[pyfunction]
@@ -18922,7 +18835,7 @@ fn response_geometry_normalize_fisher_rao<'py>(
 ) -> PyResult<Py<PyArray3<f64>>> {
     let arr = value.as_array().to_owned();
     let out = detach_py_result(py, "response_geometry_normalize_fisher_rao", move || {
-        rg_normalize_fisher_rao_impl(arr.view(), n_rows, dim)
+        gam::inference::fisher_rao::normalize_fisher_rao_blocks(arr.view(), n_rows, dim)
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18956,7 +18869,7 @@ fn equivariant_rho<'py>(
 ) -> PyResult<Py<PyArrayDyn<f64>>> {
     let g_owned = g.as_array().to_owned();
     let out = detach_py_result(py, "equivariant_rho", move || {
-        rg_rho_impl(group.as_str(), g_owned.view())
+        gam::geometry::lie_so::rho(group.as_str(), g_owned.view())
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18973,7 +18886,7 @@ fn equivariant_rho_so2<'py>(
 ) -> PyResult<Py<PyArray3<f64>>> {
     let theta_owned = theta.as_array().to_owned();
     let out = detach_py_result(py, "equivariant_rho_so2", move || {
-        Ok(rg_rho_so2_impl(theta_owned.view()))
+        Ok(gam::geometry::lie_so::rho_so2(theta_owned.view()))
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18985,7 +18898,7 @@ fn equivariant_rho_so2_jvp<'py>(
 ) -> PyResult<Py<PyArray3<f64>>> {
     let theta_owned = theta.as_array().to_owned();
     let out = detach_py_result(py, "equivariant_rho_so2_jvp", move || {
-        Ok(rg_rho_so2_jvp_impl(theta_owned.view()))
+        Ok(gam::geometry::lie_so::rho_so2_jvp(theta_owned.view()))
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -18997,7 +18910,7 @@ fn equivariant_rho_so3<'py>(
 ) -> PyResult<Py<PyArray3<f64>>> {
     let omega_owned = omega.as_array().to_owned();
     let out = detach_py_result(py, "equivariant_rho_so3", move || {
-        rg_rho_so3_impl(omega_owned.view())
+        gam::geometry::lie_so::rho_so3(omega_owned.view())
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -19011,7 +18924,7 @@ fn equivariant_rho_so3_jvp<'py>(
     let o_owned = omega.as_array().to_owned();
     let d_owned = domega.as_array().to_owned();
     let out = detach_py_result(py, "equivariant_rho_so3_jvp", move || {
-        rg_rho_so3_jvp_impl(o_owned.view(), d_owned.view())
+        gam::geometry::lie_so::rho_so3_jvp(o_owned.view(), d_owned.view())
     })?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -19030,7 +18943,12 @@ fn equivariant_gauge_companion_loss<'py>(
     let aux_owned = aux_values.as_array().to_owned();
     let theta_owned = theta.as_array().to_owned();
     detach_py_result(py, "equivariant_gauge_companion_loss", move || {
-        rg_gauge_companion_loss_impl(aux_owned.view(), theta_owned.view(), d_aux, weight)
+        gam::terms::equivariant_penalty::gauge_companion_loss(
+            aux_owned.view(),
+            theta_owned.view(),
+            d_aux,
+            weight,
+        )
     })
 }
 
@@ -22407,6 +22325,21 @@ fn sindy_finite_difference_array<'py>(
     Ok(dz.into_pyarray(py).unbind())
 }
 
+/// Render human-readable SINDy ODEs from a fitted coefficient matrix. `theta`
+/// is the public `(state_dim, n_terms)` layout; number formatting, zero-drop,
+/// and sign/term assembly live entirely in
+/// [`gam::solver::sindy::sindy_render_equations`] so Python holds no formatting
+/// logic.
+#[pyfunction]
+fn sindy_render_equations_array<'py>(
+    theta: PyReadonlyArray2<'py, f64>,
+    term_names: Vec<String>,
+    state_names: Vec<String>,
+) -> PyResult<Vec<String>> {
+    use gam::solver::sindy::sindy_render_equations;
+    sindy_render_equations(theta.as_array(), &term_names, &state_names).map_err(py_value_error)
+}
+
 /// Identifiability theorem precondition checks (Principle (f)).
 ///
 /// Caller serialises a `gam::inference::identifiability::FitSummary` as
@@ -22684,6 +22617,10 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(extend_model_with_group, module)?)?;
     module.add_function(wrap_pyfunction!(validate_formula_json, module)?)?;
     module.add_function(wrap_pyfunction!(
+        apply_shape_constraints_to_formula,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
         formula_validation_supported_by_python_json,
         module
     )?)?;
@@ -22692,6 +22629,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(build_predict_payload_json, module)?)?;
     module.add_function(wrap_pyfunction!(build_model_predict_payload_json, module)?)?;
     module.add_function(wrap_pyfunction!(predict_table, module)?)?;
+    module.add_function(wrap_pyfunction!(predict_table_conformal, module)?)?;
     module.add_function(wrap_pyfunction!(predict_array, module)?)?;
     module.add_function(wrap_pyfunction!(competing_risks_cif, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -22734,6 +22672,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(sphere_chart_basis_with_jet, module)?)?;
+    module.add_function(wrap_pyfunction!(sphere_basis_jet, module)?)?;
+    module.add_function(wrap_pyfunction!(sphere_basis_jet_with_centers, module)?)?;
     module.add_function(wrap_pyfunction!(thin_plate_penalty, module)?)?;
     module.add_function(wrap_pyfunction!(auto_knots_1d, module)?)?;
     module.add_function(wrap_pyfunction!(auto_centers_1d, module)?)?;
@@ -22788,6 +22728,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(gaussian_reml_fit_latent, module)?)?;
+    module.add_function(wrap_pyfunction!(gaussian_reml_optimize_latent, module)?)?;
     module.add_function(wrap_pyfunction!(register_analytic_penalties, module)?)?;
     module.add_function(wrap_pyfunction!(analytic_penalty_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(analytic_penalty_hvp, module)?)?;
@@ -22833,6 +22774,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(response_geometry_simplex_exp_map, module)?)?;
     module.add_function(wrap_pyfunction!(response_geometry_sphere_log_map, module)?)?;
     module.add_function(wrap_pyfunction!(response_geometry_sphere_exp_map, module)?)?;
+    module.add_function(wrap_pyfunction!(response_geometry_log_map, module)?)?;
+    module.add_function(wrap_pyfunction!(response_geometry_exp_map, module)?)?;
     module.add_function(wrap_pyfunction!(
         response_geometry_sphere_normalize_base,
         module
@@ -22990,6 +22933,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sindy_stlsq_solve_array, module)?)?;
     module.add_function(wrap_pyfunction!(sindy_library_array, module)?)?;
     module.add_function(wrap_pyfunction!(sindy_finite_difference_array, module)?)?;
+    module.add_function(wrap_pyfunction!(sindy_render_equations_array, module)?)?;
     Ok(())
 }
 
@@ -23188,7 +23132,7 @@ fn identifiable_factor_select_weights_array<'py>(
 /// `gamfit.recipes.partial_supervision` (and reusable from the CLI / R /
 /// Julia bindings). All linear-algebra work — orthogonal Procrustes via
 /// SVD, anchor least-squares via SVD pseudo-inverse, soft-L2 ridge map via
-/// symmetric eigendecomposition with a GCV grid, and the orthogonal-
+/// symmetric eigendecomposition with a REML grid, and the orthogonal-
 /// complement projection via thin QR — runs in Rust through the faer
 /// bridge.
 ///
@@ -24014,17 +23958,37 @@ fn extend_model_with_random_effect_level(
     let coefficient_variance = match supplied_variance {
         Some(variance) => variance,
         None => {
-            let lambda = payload
+            let fit = payload
                 .fit_result
                 .as_ref()
-                .and_then(|fit| fit.lambdas.get(penalty_index).copied())
+                .ok_or_else(|| "extend_with_group requires saved fit_result; refit".to_string())?;
+            let lambda = fit
+                .lambdas
+                .get(penalty_index)
+                .copied()
                 .filter(|lambda| lambda.is_finite() && *lambda > 0.0)
                 .ok_or_else(|| {
                     format!(
                         "extend_with_group term '{term_name}' has no finite positive prior lambda"
                     )
                 })?;
-            1.0 / lambda
+            // The unseen-level default prior is the fitted random-effect
+            // variance component `σ_b² = φ̂ / λ` (mgcv's `λ = φ̂ / σ_b²`
+            // convention), NOT the scale-free `1 / λ`. `φ̂` is the residual
+            // dispersion that scales every predict-time covariance: `1` for
+            // fixed-scale families (Poisson/Binomial — where `φ̂/λ` collapses
+            // to the old `1/λ`), but `σ̂²` for Gaussian and the estimated
+            // dispersion for Gamma/Tweedie/NB. Omitting `φ̂` made the prior
+            // (and any deployment interval built from it) wrong by `1/φ̂` and,
+            // for an estimated scale, not response-scale equivariant. See #674.
+            let phi = fit.dispersion_phi();
+            if !(phi.is_finite() && phi > 0.0) {
+                return Err(format!(
+                    "extend_with_group term '{term_name}' has a non-finite or non-positive \
+                     dispersion (φ̂ = {phi}); cannot form the default prior variance"
+                ));
+            }
+            phi / lambda
         }
     };
     extend_training_feature_range(
@@ -24576,6 +24540,15 @@ fn predict_columns(
     let fit = fit_result_from_saved_model_for_prediction(model)?;
 
     let mut columns = BTreeMap::<String, Vec<f64>>::new();
+    // SPEC: the posterior mean `E[g⁻¹(Xβ)]` is *always* the default point
+    // estimate (never the plug-in mode `g⁻¹(Xβ̂)`). The integral is only
+    // observably distinct from the plug-in when the inverse link is curved
+    // over the posterior's support, so `FittedModel::prediction_uses_posterior_mean`
+    // — the single predicate shared with the CLI's `gam predict` — selects the
+    // posterior-mean path for exactly those models and keeps the cheaper,
+    // exact plug-in for effectively-linear ones (identity-link Gaussian, …).
+    // Reported point estimates therefore match the CLI default row-for-row.
+    let uses_posterior_mean = model.prediction_uses_posterior_mean();
     // Issue #342 — single uncertainty knob: `interval` is the only switch.
     // `Some(level)` means "quantify uncertainty at this coverage and return
     // SE + CI bounds"; `None` means "point predictions only". The earlier
@@ -24584,63 +24557,111 @@ fn predict_columns(
     // SE + bounds), and supporting both forced callers to learn two
     // partially-redundant flags. Migration: `with_uncertainty=True` →
     // `interval=0.95`.
-    if let Some(confidence_level) = options.interval {
-        let uncertainty_options = gam::predict::PredictUncertaintyOptions {
-            confidence_level,
-            covariance_mode:
-                gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-            mean_interval_method: gam::predict::MeanIntervalMethod::TransformEta,
-            includeobservation_interval: false,
-            // Issue #398: the point prediction must be a property of the model and
-            // the inputs, never of whether an interval was requested. The plain
-            // branch below (`predict_plugin_response`) reports the plug-in
-            // linear predictor η = Xβ̂ (+offset). With `apply_bias_correction:
-            // true` the uncertainty branch instead recentred η by the
-            // smoothing-shrinkage correction X·H⁻¹Sβ̂, so `mean` and
-            // `linear_predictor` silently shifted the moment a caller asked for
-            // an interval — contradicting the documented contract that
-            // `interval` only *adds* std_error/mean_lower/mean_upper columns.
-            // The recentred estimate is also empirically worse against truth
-            // (it trades bias for variance and overshoots at the domain
-            // boundary), and it is internally inconsistent with the link-wiggle
-            // uncertainty path, which never bias-corrects. Bias-aware *coverage*
-            // is already supplied by the smoothing-corrected covariance
-            // (`ConditionalPlusSmoothingPreferred`); recentring the point
-            // estimate is neither standard (mgcv reports the plug-in mean) nor
-            // wanted here. Disabling it makes this branch report the same
-            // plug-in point estimate as the plain path while still widening the
-            // interval for smoothing uncertainty.
-            apply_bias_correction: false,
-            ..gam::predict::PredictUncertaintyOptions::default()
-        };
-        let prediction = predictor
-            .predict_full_uncertainty(&predict_input, &fit, &uncertainty_options)
-            .map_err(|err| format!("prediction with uncertainty failed: {err}"))?;
-        // User-facing column names. Issue #310: the engine's internal labels
-        // ("eta", "effective_se", "effective_variance") leaked through the FFI
-        // as the public prediction-table schema. Rename at the Python boundary
-        // to names a user would actually look up:
-        //   eta                 -> linear_predictor (standard GLM terminology)
-        //   effective_se        -> std_error        (standard statistical term)
-        //   effective_variance  -> dropped (== std_error ** 2; trivial for the
-        //                          caller to compute and not worth a separate
-        //                          column they have to learn about).
-        // Internal Rust fields (``prediction.eta`` / ``eta_standard_error``)
-        // keep their theoretic names because they describe the math object.
-        columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
-        columns.insert("mean".to_string(), prediction.mean.to_vec());
-        columns.insert(
-            "std_error".to_string(),
-            prediction.eta_standard_error.to_vec(),
-        );
-        columns.insert("mean_lower".to_string(), prediction.mean_lower.to_vec());
-        columns.insert("mean_upper".to_string(), prediction.mean_upper.to_vec());
-    } else {
-        let prediction = predictor
-            .predict_plugin_response(&predict_input)
-            .map_err(|err| format!("prediction failed: {err}"))?;
-        columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
-        columns.insert("mean".to_string(), prediction.mean.to_vec());
+    //
+    // Issue #398: the point prediction is a property of the model and the
+    // inputs, never of whether an interval was requested — `interval` only
+    // *adds* std_error/mean_lower/mean_upper columns and never shifts `mean`
+    // or `linear_predictor`. That invariant holds on both axes here: the
+    // posterior-mean vs plug-in choice is driven solely by the model
+    // (`uses_posterior_mean`), and within each axis the interval and
+    // no-interval branches report the identical point.
+    //
+    // User-facing column names follow issue #310: the engine's internal labels
+    // ("eta", "effective_se", "effective_variance") are renamed at the FFI
+    // boundary to linear_predictor / std_error, and effective_variance is
+    // dropped (== std_error ** 2). The internal Rust fields keep their
+    // theoretic names because they describe the math object.
+    match (options.interval, uses_posterior_mean) {
+        (Some(confidence_level), true) => {
+            // Curved inverse link + interval: the canonical posterior-mean path
+            // returns the η-scale SE and the inverse-link-transformed credible
+            // bounds in one pass — the exact computation the CLI runs for these
+            // families — so `interval` just surfaces those extra columns on top
+            // of the same posterior-mean point as the no-interval branch.
+            let prediction = predictor
+                .predict_posterior_mean(&predict_input, &fit, Some(confidence_level))
+                .map_err(|err| {
+                    format!("posterior-mean prediction with uncertainty failed: {err}")
+                })?;
+            let (mean_lower, mean_upper) = prediction
+                .mean_lower
+                .zip(prediction.mean_upper)
+                .ok_or_else(|| {
+                    "posterior-mean prediction did not return confidence bounds".to_string()
+                })?;
+            columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
+            columns.insert("mean".to_string(), prediction.mean.to_vec());
+            columns.insert(
+                "std_error".to_string(),
+                prediction.eta_standard_error.to_vec(),
+            );
+            columns.insert("mean_lower".to_string(), mean_lower.to_vec());
+            columns.insert("mean_upper".to_string(), mean_upper.to_vec());
+        }
+        (Some(confidence_level), false) => {
+            // Effectively-linear model + interval: plug-in == posterior mean, so
+            // the delta-method full-uncertainty path reports that same point and
+            // only widens the interval for smoothing uncertainty.
+            // `apply_bias_correction: false` keeps the point equal to the plain
+            // plug-in branch: recentring η by X·H⁻¹Sβ̂ would silently shift `mean`
+            // the moment an interval was requested (violating issue #398), is
+            // empirically worse against truth, and is inconsistent with the
+            // link-wiggle path that never bias-corrects; bias-aware coverage is
+            // already supplied by the smoothing-corrected covariance.
+            //
+            // CLI<->Python parity: `covariance_mode` (default smoothing-preferred,
+            // matching the prior hardcode) and `observation_interval` are now
+            // user-selectable, mirroring `gam predict --covariance-mode` and the
+            // engine's `includeobservation_interval` switch.
+            let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
+                .unwrap_or(
+                    gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+                );
+            let includeobservation_interval = options.observation_interval.unwrap_or(false);
+            let uncertainty_options = gam::predict::PredictUncertaintyOptions {
+                confidence_level,
+                covariance_mode,
+                mean_interval_method: gam::predict::MeanIntervalMethod::TransformEta,
+                includeobservation_interval,
+                apply_bias_correction: false,
+                ..gam::predict::PredictUncertaintyOptions::default()
+            };
+            let prediction = predictor
+                .predict_full_uncertainty(&predict_input, &fit, &uncertainty_options)
+                .map_err(|err| format!("prediction with uncertainty failed: {err}"))?;
+            columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
+            columns.insert("mean".to_string(), prediction.mean.to_vec());
+            columns.insert(
+                "std_error".to_string(),
+                prediction.eta_standard_error.to_vec(),
+            );
+            columns.insert("mean_lower".to_string(), prediction.mean_lower.to_vec());
+            columns.insert("mean_upper".to_string(), prediction.mean_upper.to_vec());
+            // Observation (prediction) interval: only present when the family
+            // and the `observation_interval` request both support it. Emitting
+            // it as separate columns keeps the standard schema untouched when
+            // off and never overwrites the credible `mean_lower`/`mean_upper`.
+            if let (Some(obs_lower), Some(obs_upper)) =
+                (prediction.observation_lower, prediction.observation_upper)
+            {
+                columns.insert("observation_lower".to_string(), obs_lower.to_vec());
+                columns.insert("observation_upper".to_string(), obs_upper.to_vec());
+            }
+        }
+        (None, true) => {
+            let prediction = predictor
+                .predict_posterior_mean(&predict_input, &fit, None)
+                .map_err(|err| format!("posterior-mean prediction failed: {err}"))?;
+            columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
+            columns.insert("mean".to_string(), prediction.mean.to_vec());
+        }
+        (None, false) => {
+            let prediction = predictor
+                .predict_plugin_response(&predict_input)
+                .map_err(|err| format!("prediction failed: {err}"))?;
+            columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
+            columns.insert("mean".to_string(), prediction.mean.to_vec());
+        }
     }
 
     // Issue #365 (secondary defect): location-scale / GAMLSS families fit a
@@ -24661,6 +24682,185 @@ fn predict_columns(
     }
 
     Ok(columns)
+}
+
+/// Residual dispersion `φ̂` for the conformal calibration scale, mirroring the
+/// CLI/summary convention: Gaussian → σ̂², Gamma → fixed φ (else 1/σ̂ as the
+/// reciprocal-dispersion proxy), every other family → 1.0 (φ fixed at 1).
+fn conformal_dispersion_phi(fit: &gam::estimate::UnifiedFitResult, family: &LikelihoodSpec) -> f64 {
+    match family.response {
+        ResponseFamily::Gaussian => fit.standard_deviation * fit.standard_deviation,
+        ResponseFamily::Gamma => fit.likelihood_scale.fixed_phi().unwrap_or_else(|| {
+            if fit.standard_deviation.is_finite() && fit.standard_deviation > 0.0 {
+                1.0 / fit.standard_deviation
+            } else {
+                1.0
+            }
+        }),
+        _ => 1.0,
+    }
+}
+
+/// Build the held-out calibration data needed by the conformal calibrator: the
+/// calibration design `X_cal`, its linear predictor `η_cal = X_cal·β̂ + offset`,
+/// the offset, and the calibration response `y_cal`. The response column is
+/// resolved from the saved formula and must be present in the calibration
+/// dataset (calibration is *labeled* held-out data, unlike a predict batch).
+fn conformal_calibration_arrays(
+    model: &FittedModel,
+    fit: &gam::estimate::UnifiedFitResult,
+    calibration: EncodedDataset,
+) -> Result<(Array2<f64>, Array1<f64>, Array1<f64>, Array1<f64>), String> {
+    if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
+        return Err(format!(
+            "conformal calibration currently supports only standard GAM models; got '{}'",
+            prediction_model_class_label(model)
+        ));
+    }
+    let col_map = calibration.column_map();
+    let offset = resolve_offset_column(&calibration, &col_map, model.offset_column.as_deref())?;
+    let response_name = response_column_name(&model.payload().formula).ok_or_else(|| {
+        "conformal calibration: could not resolve the response column from the saved formula"
+            .to_string()
+    })?;
+    let response_col = *col_map.get(&response_name).ok_or_else(|| {
+        format!(
+            "conformal calibration data must contain the response column '{response_name}' \
+             (calibration is held-out labeled data)"
+        )
+    })?;
+    let y = calibration.values.column(response_col).to_owned();
+    // Design and β̂ define the (on the calibration fold) linear predictor
+    // η = X·β̂ + offset, which `from_fit` maps through ALO into genuine
+    // held-out predictors for the nonconformity scores.
+    let design = design_matrix_dense(model, calibration)?;
+    if design.ncols() != fit.beta.len() {
+        return Err(format!(
+            "conformal calibration design has {} columns but the fit has {} coefficients",
+            design.ncols(),
+            fit.beta.len()
+        ));
+    }
+    let eta = design.dot(&fit.beta) + &offset;
+    Ok((design, eta, offset, y))
+}
+
+/// Conformal-calibrated prediction columns. Runs the model-based full-
+/// uncertainty predictor on the test `dataset` (honouring `covariance_mode` /
+/// `observation_interval`), then replaces the response-scale `mean_lower` /
+/// `mean_upper` with the split-conformal interval calibrated from the supplied
+/// held-out `calibration` fold at the level in `options.conformal_level`.
+fn predict_columns_conformal(
+    model: &FittedModel,
+    dataset: EncodedDataset,
+    calibration: EncodedDataset,
+    options: &PyPredictOptions,
+) -> Result<BTreeMap<String, Vec<f64>>, String> {
+    let Some(level) = options.conformal_level else {
+        return Err("conformal prediction requires conformal_level in (0, 1)".to_string());
+    };
+    if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
+        return Err(format!(
+            "conformal prediction currently supports only standard GAM models; got '{}'",
+            prediction_model_class_label(model)
+        ));
+    }
+    let col_map = dataset.column_map();
+    let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
+    let offset_noise =
+        resolve_offset_column(&dataset, &col_map, model.noise_offset_column.as_deref())?;
+    let predict_input = build_predict_input_for_model(
+        model,
+        dataset.values.view(),
+        &col_map,
+        model.training_headers.as_ref(),
+        &offset,
+        &offset_noise,
+        false,
+    )?;
+    let predictor = model
+        .predictor()
+        .ok_or_else(|| "saved model could not construct a predictor".to_string())?;
+    let fit = fit_result_from_saved_model_for_prediction(model)?;
+    let family = model_likelihood_spec(model);
+
+    let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
+        .unwrap_or(gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
+    let uncertainty_options = gam::predict::PredictUncertaintyOptions {
+        confidence_level: level,
+        covariance_mode,
+        mean_interval_method: gam::predict::MeanIntervalMethod::TransformEta,
+        includeobservation_interval: options.observation_interval.unwrap_or(false),
+        apply_bias_correction: false,
+        conformal_level: Some(level),
+        ..gam::predict::PredictUncertaintyOptions::default()
+    };
+
+    let (cal_design, cal_eta, cal_offset, cal_y) =
+        conformal_calibration_arrays(model, &fit, calibration)?;
+    let phi = conformal_dispersion_phi(&fit, &family);
+    let train = gam::predict::ConformalTrainingData {
+        design: &cal_design,
+        eta: &cal_eta,
+        offset: &cal_offset,
+        y: cal_y.view(),
+        phi,
+    };
+    let prediction = gam::predict::predict_full_uncertainty_conformal(
+        predictor.as_ref(),
+        &predict_input,
+        &fit,
+        &family,
+        &uncertainty_options,
+        &train,
+    )
+    .map_err(|err| format!("conformal prediction failed: {err}"))?;
+
+    let mut columns = BTreeMap::<String, Vec<f64>>::new();
+    columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
+    columns.insert("mean".to_string(), prediction.mean.to_vec());
+    columns.insert(
+        "std_error".to_string(),
+        prediction.eta_standard_error.to_vec(),
+    );
+    // mean_lower / mean_upper now carry the distribution-free conformal bounds.
+    columns.insert("mean_lower".to_string(), prediction.mean_lower.to_vec());
+    columns.insert("mean_upper".to_string(), prediction.mean_upper.to_vec());
+    if let (Some(obs_lower), Some(obs_upper)) =
+        (prediction.observation_lower, prediction.observation_upper)
+    {
+        columns.insert("observation_lower".to_string(), obs_lower.to_vec());
+        columns.insert("observation_upper".to_string(), obs_upper.to_vec());
+    }
+    Ok(columns)
+}
+
+fn predict_table_conformal_impl(
+    model_bytes: &[u8],
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+    calibration_headers: Vec<String>,
+    calibration_rows: Vec<Vec<String>>,
+    conformal_level: f64,
+    options_json: Option<&str>,
+) -> Result<String, String> {
+    let model = load_model_impl(model_bytes)?;
+    let mut options = parse_predict_options(options_json)?;
+    if !(conformal_level.is_finite() && conformal_level > 0.0 && conformal_level < 1.0) {
+        return Err(format!(
+            "conformal_level must be in (0, 1), got {conformal_level}"
+        ));
+    }
+    options.conformal_level = Some(conformal_level);
+    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
+    drop(rows);
+    drop(headers);
+    let calibration = dataset_with_model_schema(&model, &calibration_headers, &calibration_rows)?;
+    drop(calibration_rows);
+    drop(calibration_headers);
+    let columns = predict_columns_conformal(&model, dataset, calibration, &options)?;
+    serde_json::to_string(&PredictionPayload { columns })
+        .map_err(|err| format!("failed to serialize conformal prediction payload: {err}"))
 }
 
 fn columns_to_array(columns: BTreeMap<String, Vec<f64>>) -> Result<Array2<f64>, String> {
@@ -26475,9 +26675,161 @@ fn cross_fit_shared_precision_groups_json_impl(request_json: &str) -> Result<Str
         .map_err(|err| format!("failed to serialize shared precision result: {err}"))
 }
 
+/// Synthesize a small representative data matrix from saved per-axis training
+/// ranges, used only to rebuild the design *structure* (per-term coefficient
+/// ranges, nullspace dimensions, penalty counts) for the summary smooth-term
+/// table. The basis layout these fields describe is fixed by the frozen
+/// `resolved_termspec`, not by the data values, so axis-spanning midpoints
+/// reproduce the training-time block layout deterministically while remaining
+/// inside the training bounding box (no extrapolation artefacts).
+fn representative_data_from_ranges(ranges: &[(f64, f64)]) -> Array2<f64> {
+    const REP_ROWS: usize = 16;
+    let n_cols = ranges.len();
+    let mut data = Array2::<f64>::zeros((REP_ROWS, n_cols));
+    for (col, &(lo, hi)) in ranges.iter().enumerate() {
+        let (lo, hi) = if lo.is_finite() && hi.is_finite() && hi >= lo {
+            (lo, hi)
+        } else {
+            (0.0, 1.0)
+        };
+        for row in 0..REP_ROWS {
+            let frac = if REP_ROWS > 1 {
+                row as f64 / (REP_ROWS - 1) as f64
+            } else {
+                0.5
+            };
+            data[[row, col]] = lo + frac * (hi - lo);
+        }
+    }
+    data
+}
+
+/// Build the mgcv-style per-smooth significance table for the FFI summary.
+///
+/// Mirrors `main.rs::build_model_summary`'s smooth-term loop: random-effect
+/// smooths report `edf` only (their boundary variance-component test is not a
+/// Wald χ²); penalized smooth terms get the Wood (2013) rank-truncated Wald
+/// statistic and p-value from [`gam::inference::smooth_test::wood_smooth_test`].
+///
+/// Returns an empty vector (rather than erroring) when the design cannot be
+/// rebuilt — e.g. a model saved without `resolved_termspec` or training feature
+/// ranges — so `summary()` always succeeds and simply omits the table when the
+/// information needed to compute it honestly is not available.
+fn summary_smooth_terms(
+    model: &FittedModel,
+    fit: &gam::estimate::UnifiedFitResult,
+) -> Vec<SummarySmoothTermRow> {
+    use gam::inference::smooth_test::{SmoothTestInput, SmoothTestScale, wood_smooth_test};
+    use gam::smooth::ShapeConstraint;
+
+    let payload = model.payload();
+    let Some(spec) = payload.resolved_termspec.as_ref() else {
+        return Vec::new();
+    };
+    if spec.validate_frozen("resolved_termspec").is_err() {
+        return Vec::new();
+    }
+    let Some(ranges) = payload.training_feature_ranges.as_ref() else {
+        return Vec::new();
+    };
+    let Some(headers) = payload.training_headers.as_ref() else {
+        return Vec::new();
+    };
+    if ranges.len() != headers.len() {
+        return Vec::new();
+    }
+    let data = representative_data_from_ranges(ranges);
+    let Ok(design) = gam::smooth::build_term_collection_design(data.view(), spec) else {
+        return Vec::new();
+    };
+
+    let cov_forwald = fit
+        .beta_covariance_corrected()
+        .or_else(|| fit.beta_covariance());
+    let family = model.likelihood();
+    let scale_is_estimated = matches!(
+        family.response,
+        ResponseFamily::Gaussian | ResponseFamily::Gamma
+    );
+    // n (for the F-distribution denominator) comes from the saved working-set
+    // geometry when present; the Wald χ² (Known-scale) branch never reads it.
+    let n_obs = fit
+        .geometry
+        .as_ref()
+        .map(|geom| geom.working_response.len() as f64);
+    let residual_df = n_obs
+        .map(|n| (n - fit.edf_total().unwrap_or(fit.beta.len() as f64)).max(1.0))
+        .unwrap_or(f64::NAN);
+    let scale = if scale_is_estimated {
+        SmoothTestScale::Estimated
+    } else {
+        SmoothTestScale::Known
+    };
+
+    let mut out = Vec::<SummarySmoothTermRow>::new();
+    let mut penalty_cursor = 0usize;
+    for (name, _range) in &design.random_effect_ranges {
+        let edf = fit
+            .edf_by_block()
+            .get(penalty_cursor)
+            .copied()
+            .unwrap_or(0.0);
+        penalty_cursor += 1;
+        // Random-effect smooths are boundary variance-component tests; a naive
+        // coefficient Wald χ² is anti-conservative, so only EDF is reported.
+        out.push(SummarySmoothTermRow {
+            name: name.clone(),
+            edf,
+            ref_df: edf.max(0.0),
+            chi_sq: None,
+            p_value: None,
+        });
+    }
+    for term in &design.smooth.terms {
+        let k = term.penalties_local.len();
+        let edf = fit
+            .edf_by_block()
+            .get(penalty_cursor..penalty_cursor + k)
+            .map(|block: &[f64]| block.iter().sum::<f64>())
+            .unwrap_or(0.0);
+        penalty_cursor += k;
+        let smooth_test = if term.shape == ShapeConstraint::None {
+            cov_forwald.and_then(|cov| {
+                wood_smooth_test(SmoothTestInput {
+                    beta: fit.beta.view(),
+                    covariance: cov,
+                    influence_matrix: fit.coefficient_influence(),
+                    coeff_range: term.coeff_range.clone(),
+                    edf,
+                    nullspace_dim: term.nullspace_dims.iter().copied().sum::<usize>(),
+                    residual_df,
+                    scale,
+                })
+            })
+        } else {
+            None
+        };
+        let chi_sq = smooth_test.as_ref().map(|test| test.statistic);
+        let ref_df = smooth_test
+            .as_ref()
+            .map(|test| test.ref_df)
+            .unwrap_or(edf.max(0.0));
+        let p_value = smooth_test.as_ref().map(|test| test.p_value);
+        out.push(SummarySmoothTermRow {
+            name: term.name.clone(),
+            edf,
+            ref_df,
+            chi_sq,
+            p_value,
+        });
+    }
+    out
+}
+
 fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
     let model = load_model_impl(model_bytes)?;
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
+    let smooth_terms = summary_smooth_terms(&model, &fit);
     let standard_errors = fit
         .beta_standard_errors_corrected()
         .or_else(|| fit.beta_standard_errors());
@@ -26512,6 +26864,7 @@ fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
         edf_total: fit.edf_total(),
         lambdas: fit.lambdas.to_vec(),
         coefficients,
+        smooth_terms,
         covariance_kind: covariance.as_ref().map(|(kind, _)| kind.clone()),
         covariance_n: covariance.as_ref().map(|(_, cov)| cov.nrows()),
         covariance_flat: covariance.map(|(_, cov)| cov.iter().copied().collect()),
@@ -28494,196 +28847,6 @@ fn smoothness_penalty_impl(
     Ok((penalty, null_basis))
 }
 
-fn gaussian_weighted_ridge_array_impl(
-    x: ArrayView2<'_, f64>,
-    y: ArrayView2<'_, f64>,
-    penalty: ArrayView2<'_, f64>,
-    weights: ArrayView1<'_, f64>,
-    ridge_lambda: f64,
-) -> Result<(Array2<f64>, Array2<f64>), String> {
-    let n = x.nrows();
-    let p = x.ncols();
-    if n == 0 || p == 0 {
-        return Err("X cannot be empty".to_string());
-    }
-    if y.nrows() != n {
-        return Err(format!(
-            "X/Y row mismatch: X has {n} rows but Y has {} rows",
-            y.nrows()
-        ));
-    }
-    if y.ncols() == 0 {
-        return Err("Y must have at least one column".to_string());
-    }
-    if weights.len() != n {
-        return Err(format!(
-            "weights length mismatch: expected {n}, got {}",
-            weights.len()
-        ));
-    }
-    if penalty.nrows() != p || penalty.ncols() != p {
-        return Err(format!(
-            "penalty shape mismatch: expected {p}x{p}, got {}x{}",
-            penalty.nrows(),
-            penalty.ncols()
-        ));
-    }
-    if !ridge_lambda.is_finite() || ridge_lambda < 0.0 {
-        return Err(format!(
-            "ridge_lambda must be finite and non-negative; got {ridge_lambda}"
-        ));
-    }
-    if x.iter()
-        .chain(y.iter())
-        .chain(penalty.iter())
-        .chain(weights.iter())
-        .any(|value| !value.is_finite())
-    {
-        return Err("weighted ridge inputs must be finite".to_string());
-    }
-    if weights.iter().any(|value| *value < 0.0) {
-        return Err("weights must be non-negative likelihood row weights".to_string());
-    }
-
-    let mut wx = x.to_owned();
-    let mut wy = y.to_owned();
-    for i in 0..n {
-        let wi = weights[i];
-        wx.row_mut(i).iter_mut().for_each(|value| *value *= wi);
-        wy.row_mut(i).iter_mut().for_each(|value| *value *= wi);
-    }
-    let mut system = x.t().dot(&wx);
-    if ridge_lambda > 0.0 {
-        system += &(penalty.to_owned() * ridge_lambda);
-    }
-    let rhs = x.t().dot(&wy);
-    let factor = factorize_symmetricwith_fallback(
-        gam::faer_ndarray::FaerArrayView::new(&system).as_ref(),
-        Side::Lower,
-    )
-    .map_err(|err| format!("weighted ridge factorization failed: {err}"))?;
-    let mut coefficients = rhs;
-    let mut coefficients_view = array2_to_matmut(&mut coefficients);
-    factor.solve_in_place(coefficients_view.as_mut());
-    if coefficients.iter().any(|value| !value.is_finite()) {
-        return Err("weighted ridge solve produced non-finite coefficients".to_string());
-    }
-    let fitted = x.dot(&coefficients);
-    Ok((coefficients, fitted))
-}
-
-fn gaussian_weighted_ridge_batch_impl(
-    x: ArrayView3<'_, f64>,
-    y: ArrayView3<'_, f64>,
-    penalty: ArrayView2<'_, f64>,
-    weights: ArrayView2<'_, f64>,
-    ridge_lambda: f64,
-    row_counts: Option<ArrayView1<'_, usize>>,
-) -> Result<(Array3<f64>, Array3<f64>), String> {
-    use rayon::iter::{IntoParallelIterator, ParallelIterator};
-
-    let (batch, n_max, p) = x.dim();
-    let (y_batch, y_n_max, d) = y.dim();
-    if batch == 0 || n_max == 0 || p == 0 {
-        return Err("batched X must have non-empty K, N, and coefficient dimensions".to_string());
-    }
-    if y_batch != batch || y_n_max != n_max {
-        return Err(format!(
-            "batched X/Y shape mismatch: X is ({batch}, {n_max}, {p}) but Y is ({y_batch}, {y_n_max}, {d})"
-        ));
-    }
-    if d == 0 {
-        return Err("batched Y must have at least one output column".to_string());
-    }
-    if weights.nrows() != batch || weights.ncols() != n_max {
-        return Err(format!(
-            "batched weights shape mismatch: expected ({batch}, {n_max}), got ({}, {})",
-            weights.nrows(),
-            weights.ncols()
-        ));
-    }
-    if penalty.nrows() != p || penalty.ncols() != p {
-        return Err(format!(
-            "penalty shape mismatch: expected {p}x{p}, got {}x{}",
-            penalty.nrows(),
-            penalty.ncols()
-        ));
-    }
-    if !ridge_lambda.is_finite() || ridge_lambda < 0.0 {
-        return Err(format!(
-            "ridge_lambda must be finite and non-negative; got {ridge_lambda}"
-        ));
-    }
-    if x.iter()
-        .chain(y.iter())
-        .chain(penalty.iter())
-        .chain(weights.iter())
-        .any(|value| !value.is_finite())
-    {
-        return Err("batched weighted ridge inputs must be finite".to_string());
-    }
-    if weights.iter().any(|value| *value < 0.0) {
-        return Err("batched weights must be non-negative likelihood row weights".to_string());
-    }
-
-    let active_rows: Vec<usize> = match row_counts {
-        Some(counts) => {
-            if counts.len() != batch {
-                return Err(format!(
-                    "row_counts length mismatch: expected {batch}, got {}",
-                    counts.len()
-                ));
-            }
-            counts.to_vec()
-        }
-        None => vec![n_max; batch],
-    };
-    for (b, &n_rows) in active_rows.iter().enumerate() {
-        if n_rows > n_max {
-            return Err(format!(
-                "row_counts[{b}]={n_rows} exceeds padded row count {n_max}"
-            ));
-        }
-    }
-
-    let results: Vec<Result<(usize, Array2<f64>, Array2<f64>), String>> = (0..batch)
-        .into_par_iter()
-        .map(|b| {
-            let n_rows = active_rows[b];
-            if n_rows == 0 {
-                return Ok((
-                    b,
-                    Array2::<f64>::zeros((p, d)),
-                    Array2::<f64>::zeros((0, d)),
-                ));
-            }
-            gaussian_weighted_ridge_array_impl(
-                x.slice(s![b, 0..n_rows, ..]),
-                y.slice(s![b, 0..n_rows, ..]),
-                penalty,
-                weights.slice(s![b, 0..n_rows]),
-                ridge_lambda,
-            )
-            .map(|(coefficients, fitted)| (b, coefficients, fitted))
-            .map_err(|err| format!("batched weighted ridge fit {b} failed: {err}"))
-        })
-        .collect();
-
-    let mut coefficients = Array3::<f64>::zeros((batch, p, d));
-    let mut fitted = Array3::<f64>::zeros((batch, n_max, d));
-    for result in results {
-        let (b, fit_coefficients, fit_fitted) = result?;
-        coefficients
-            .slice_mut(s![b, .., ..])
-            .assign(&fit_coefficients);
-        let n_rows = fit_fitted.nrows();
-        if n_rows > 0 {
-            fitted.slice_mut(s![b, 0..n_rows, ..]).assign(&fit_fitted);
-        }
-    }
-    Ok((coefficients, fitted))
-}
-
 #[cfg(test)]
 mod batch_tests {
     use super::*;
@@ -28700,52 +28863,6 @@ mod batch_tests {
                 rhs[[i, j]]
             );
         }
-    }
-
-    #[test]
-    fn weighted_ridge_batch_matches_single_fit_on_active_rows() {
-        let x = Array3::from_shape_vec(
-            (2, 3, 2),
-            vec![1.0, 0.0, 1.0, 1.0, 0.5, 1.0, 2.0, 1.0, 0.0, 1.0, 9.0, 9.0],
-        )
-        .unwrap();
-        let y = Array3::from_shape_vec((2, 3, 1), vec![1.0, 2.0, 1.5, 2.5, -0.5, 99.0]).unwrap();
-        let weights = array![[1.0, 0.5, 2.0], [1.0, 3.0, 0.0]];
-        let penalty = Array2::eye(2);
-        let row_counts = array![3_usize, 2_usize];
-
-        let (coefficients, fitted) = gaussian_weighted_ridge_batch_impl(
-            x.view(),
-            y.view(),
-            penalty.view(),
-            weights.view(),
-            0.25,
-            Some(row_counts.view()),
-        )
-        .unwrap();
-
-        for b in 0..2 {
-            let n = row_counts[b];
-            let (expected_coefficients, expected_fitted) = gaussian_weighted_ridge_array_impl(
-                x.slice(s![b, 0..n, ..]),
-                y.slice(s![b, 0..n, ..]),
-                penalty.view(),
-                weights.slice(s![b, 0..n]),
-                0.25,
-            )
-            .unwrap();
-            assert_close(
-                coefficients.slice(s![b, .., ..]),
-                expected_coefficients.view(),
-                1.0e-10,
-            );
-            assert_close(
-                fitted.slice(s![b, 0..n, ..]),
-                expected_fitted.view(),
-                1.0e-10,
-            );
-        }
-        assert_eq!(fitted[[1, 2, 0]], 0.0);
     }
 
     #[test]
@@ -30475,7 +30592,7 @@ mod tests {
     fn symmetric_curvature_solve_preserves_negative_modes() {
         let matrix = array![[2.0, 0.0, 0.0], [0.0, -4.0, 0.0], [0.0, 0.0, -1.0e-15]];
         let rhs = array![8.0, -8.0, 1.0];
-        let solved = solve_symmetric_vector_with_floor(&matrix, &rhs, 1.0e-3)
+        let solved = gam::linalg::utils::solve_symmetric_vector_with_floor(&matrix, &rhs, 1.0e-3)
             .expect("indefinite symmetric curvature solve");
 
         assert!((solved[0] - 4.0).abs() <= 1.0e-12);
@@ -30971,7 +31088,7 @@ mod tests {
         )
         .expect("base multi-block Gaussian REML fit");
         let rhos = log_lambdas.to_vec();
-        let backward = gaussian_reml_fit_blocks_backward_analytic(
+        let backward = gam::solver::gaussian_reml::gaussian_reml_fit_blocks_backward_analytic(
             &designs,
             &penalties,
             y.view(),
@@ -31717,128 +31834,102 @@ mod tests {
         );
     }
 
-    /// Regression for issue #388: `rg_rho_so3_jvp_impl` omitted the right-Jacobian
-    /// factor, so its output matched `R(ω) · [dω]×` instead of
-    /// `R(ω) · [J_r(ω)·dω]×`. Verify the JVP matches a 4-point central
-    /// finite-difference of `exp([ω + t·dω]×)` at machine-FD precision.
-    ///
-    /// The closed-form scalar derivative of `exp([ω + t·dω]×)` is
-    ///     d/dt exp(K(t)) = exp(K(t)) · [J_r(ω) · dω]×
-    /// so the JVP is `R(ω) · [J_r(ω)·dω]×`. Pre-fix this test catches
-    /// errors of magnitude ~0.18..0.82 across the three seeds below; post-fix
-    /// the error is bounded by the central-FD truncation (~1e-10 at h=1e-4).
+    /// Regression test for issue #629: the cold-start residual seed must break
+    /// the symmetric saddle of a uniform logit init by preferring, per row, the
+    /// atom whose seed geometry best reconstructs that row. Planted: two
+    /// periodic atoms with distinct seed phases driving disjoint output blocks
+    /// with known one-hot routing. The seed logits must (a) not be uniform and
+    /// (b) argmax-route most rows to their generating atom.
     #[test]
-    fn so3_jvp_matches_finite_difference() {
-        // Independent expm via series; the same routine that drives the
-        // closed-form forward `rg_rho_so3_single`. Using it for the FD
-        // ground truth keeps the test self-contained (no SciPy dependency)
-        // while staying agnostic to the JVP formula under test.
-        fn expm_hat(wx: f64, wy: f64, wz: f64) -> [[f64; 3]; 3] {
-            rg_rho_so3_single(wx, wy, wz)
+    fn sae_residual_seed_logits_breaks_symmetry_and_routes() {
+        use ndarray::Array3;
+        let n = 64usize;
+        let p = 4usize;
+        let k = 2usize;
+        let m = 3usize;
+        let two_pi = std::f64::consts::TAU;
+        // Distinct seed phase per atom — mimics the PCA seed handing each
+        // periodic atom a different coordinate frame.
+        let phase = [0.0_f64, 0.3_f64];
+        // Deterministic pseudo-random latent + balanced shuffled routing.
+        let mut t = vec![0.0_f64; n];
+        let mut assign = vec![0usize; n];
+        let mut state = 0x1234_5678_9abc_def0_u64;
+        for i in 0..n {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            t[i] = ((state >> 11) as f64) * f64::from_bits(0x3CA0000000000000);
+            assign[i] = if i < n / 2 { 0 } else { 1 };
         }
-        fn fd_central_4pt(
-            wx: f64,
-            wy: f64,
-            wz: f64,
-            dx: f64,
-            dy: f64,
-            dz: f64,
-            h: f64,
-        ) -> [[f64; 3]; 3] {
-            let r_p2 = expm_hat(wx + 2.0 * h * dx, wy + 2.0 * h * dy, wz + 2.0 * h * dz);
-            let r_p1 = expm_hat(wx + h * dx, wy + h * dy, wz + h * dz);
-            let r_m1 = expm_hat(wx - h * dx, wy - h * dy, wz - h * dz);
-            let r_m2 = expm_hat(wx - 2.0 * h * dx, wy - 2.0 * h * dy, wz - 2.0 * h * dz);
-            let mut out = [[0.0_f64; 3]; 3];
-            for i in 0..3 {
-                for j in 0..3 {
-                    out[i][j] = (-r_p2[i][j] + 8.0 * r_p1[i][j] - 8.0 * r_m1[i][j] + r_m2[i][j])
-                        / (12.0 * h);
-                }
+        for i in (1..n).rev() {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let j = (state >> 33) as usize % (i + 1);
+            assign.swap(i, j);
+        }
+        // Per-atom seed basis (N, m) padded into (K, N, m).
+        let mut basis = Array3::<f64>::zeros((k, n, m));
+        for atom_idx in 0..k {
+            for i in 0..n {
+                let a = two_pi * (t[i] + phase[atom_idx]);
+                basis[[atom_idx, i, 0]] = 1.0;
+                basis[[atom_idx, i, 1]] = a.sin();
+                basis[[atom_idx, i, 2]] = a.cos();
             }
-            out
         }
-        // Three deterministic (ω, dω) pairs chosen so dω has a non-trivial
-        // component perpendicular to ω (the regime the missing J_r breaks).
-        let cases: [([f64; 3], [f64; 3]); 3] = [
-            ([0.7, -0.4, 0.3], [1.1, 0.5, -0.8]),
-            ([0.2, 0.9, -0.5], [-0.6, 1.2, 0.4]),
-            ([-1.0, 0.3, 0.6], [0.5, -0.7, 0.9]),
-        ];
-        let omega = ndarray::Array2::from_shape_vec(
-            (cases.len(), 3),
-            cases
-                .iter()
-                .flat_map(|(w, _)| w.iter().copied())
-                .collect::<Vec<_>>(),
-        )
-        .expect("omega array");
-        let domega = ndarray::Array2::from_shape_vec(
-            (cases.len(), 3),
-            cases
-                .iter()
-                .flat_map(|(_, dw)| dw.iter().copied())
-                .collect::<Vec<_>>(),
-        )
-        .expect("domega array");
-        let jvp = rg_rho_so3_jvp_impl(omega.view(), domega.view())
-            .expect("SO(3) JVP must succeed on (N,3) input");
-        for (row, (w, dw)) in cases.iter().enumerate() {
-            let fd = fd_central_4pt(w[0], w[1], w[2], dw[0], dw[1], dw[2], 1.0e-4);
-            let mut max_err = 0.0_f64;
-            for i in 0..3 {
-                for j in 0..3 {
-                    let diff = (jvp[[row, i, j]] - fd[i][j]).abs();
-                    if diff > max_err {
-                        max_err = diff;
-                    }
+        // Disjoint decoder blocks: atom 0 -> cols [0,1], atom 1 -> cols [2,3].
+        let mut blocks = vec![Array2::<f64>::zeros((m, p)); k];
+        blocks[0][[1, 0]] = 1.5;
+        blocks[0][[2, 1]] = -1.2;
+        blocks[1][[1, 2]] = 1.3;
+        blocks[1][[2, 3]] = 0.9;
+        let mut z = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let kk = assign[i];
+            for j in 0..p {
+                let mut acc = 0.0;
+                for col in 0..m {
+                    acc += basis[[kk, i, col]] * blocks[kk][[col, j]];
                 }
+                z[[i, j]] = acc;
             }
-            assert!(
-                max_err < 1.0e-7,
-                "row {row}: SO(3) JVP - 4pt-FD has max |err| = {max_err:.3e} (omega={w:?}, domega={dw:?})"
-            );
         }
-    }
+        let basis_sizes = vec![m; k];
+        let logits = sae_residual_seed_logits(basis.view(), &basis_sizes, z.view(), 4.0)
+            .expect("residual seed must succeed");
+        assert_eq!(logits.shape(), &[n, k]);
+        assert!(logits.iter().all(|v| v.is_finite()));
 
-    /// Sanity: when dω ∥ ω (or ω = 0) the right Jacobian collapses to identity,
-    /// so the JVP equals R · [dω]×. Verify that boundary case is unchanged.
-    #[test]
-    fn so3_jvp_parallel_direction_unaffected_by_right_jacobian_fix() {
-        // ω || dω: J_r(ω)·dω = dω because [ω]×·ω = 0 and [ω]²×·ω = 0.
-        let omega = ndarray::Array2::from_shape_vec((1, 3), vec![0.3, -0.6, 0.4]).expect("omega");
-        let domega = {
-            let scale = 1.7_f64;
-            ndarray::Array2::from_shape_vec((1, 3), vec![scale * 0.3, scale * -0.6, scale * 0.4])
-                .expect("domega")
-        };
-        let jvp = rg_rho_so3_jvp_impl(omega.view(), domega.view()).expect("JVP");
-        // Expected: R(ω) · [dω]× (pre-fix and post-fix agree for parallel dω).
-        let rg = rg_rho_so3_single(omega[[0, 0]], omega[[0, 1]], omega[[0, 2]]);
-        let dx = domega[[0, 0]];
-        let dy = domega[[0, 1]];
-        let dz = domega[[0, 2]];
-        let kd = [[0.0, -dz, dy], [dz, 0.0, -dx], [-dy, dx, 0.0]];
-        let mut expected = [[0.0_f64; 3]; 3];
-        for i in 0..3 {
-            for j in 0..3 {
-                for r in 0..3 {
-                    expected[i][j] += rg[i][r] * kd[r][j];
-                }
-            }
-        }
-        let mut max_err = 0.0_f64;
-        for i in 0..3 {
-            for j in 0..3 {
-                let diff = (jvp[[0, i, j]] - expected[i][j]).abs();
-                if diff > max_err {
-                    max_err = diff;
-                }
-            }
-        }
+        // (a) Symmetry must be broken: at least one row has a non-trivial gap.
+        let max_gap = (0..n)
+            .map(|i| (logits[[i, 0]] - logits[[i, 1]]).abs())
+            .fold(0.0_f64, f64::max);
         assert!(
-            max_err < 1.0e-13,
-            "parallel-dω boundary case shifted: max err = {max_err:.3e}"
+            max_gap > 0.3,
+            "residual seed left a near-symmetric logit field (max gap {max_gap:.4}); \
+             the uniform saddle would not be escaped"
+        );
+
+        // (b) The seed must route most rows to their generating atom, up to
+        // the trivial atom-label permutation.
+        let mut acc_direct = 0usize;
+        for i in 0..n {
+            let winner = if logits[[i, 0]] >= logits[[i, 1]] {
+                0
+            } else {
+                1
+            };
+            if winner == assign[i] {
+                acc_direct += 1;
+            }
+        }
+        let acc = (acc_direct.max(n - acc_direct)) as f64 / n as f64;
+        assert!(
+            acc >= 0.9,
+            "residual seed routing accuracy {acc:.3} (up to permutation) is too low; \
+             the E-step seed should recover the planted one-hot assignment"
         );
     }
 }

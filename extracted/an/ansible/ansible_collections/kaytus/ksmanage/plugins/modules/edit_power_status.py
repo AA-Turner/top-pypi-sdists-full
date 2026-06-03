@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_power_status
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set power status information
 description:
    - Set power status information on kaytus Server.

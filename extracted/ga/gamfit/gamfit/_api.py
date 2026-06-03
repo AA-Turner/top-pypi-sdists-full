@@ -237,6 +237,9 @@ def _build_fit_payload(
     scale_dimensions: bool | None,
     adaptive_regularization: bool | None,
     firth: bool | None,
+    noise_formula: str | None,
+    noise_offset: str | None,
+    flexible_link: bool | None,
     precision_hyperpriors: Any | None,
     latents: Mapping[str, Any] | None,
     penalties: Sequence[Any] | None,
@@ -268,6 +271,9 @@ def _build_fit_payload(
         "scale_dimensions": scale_dimensions,
         "adaptive_regularization": adaptive_regularization,
         "firth": firth,
+        "noise_formula": noise_formula,
+        "noise_offset": noise_offset,
+        "flexible_link": flexible_link,
         "precision_hyperpriors": precision_hyperpriors,
         "latents": normalized_latents,
         "penalties": _normalize_penalties(penalties, normalized_latents),
@@ -498,120 +504,6 @@ def _normalize_precision_pair(value: Any, label: str) -> list[float]:
     return [shape_f, rate_f]
 
 
-_SHAPE_CONSTRAINT_NORMAL = {
-    "none": "none",
-    "monotone_increasing": "monotone_increasing",
-    "increasing": "monotone_increasing",
-    "mpi": "monotone_increasing",
-    "monotone_decreasing": "monotone_decreasing",
-    "decreasing": "monotone_decreasing",
-    "mpd": "monotone_decreasing",
-    "convex": "convex",
-    "cvx": "convex",
-    "concave": "concave",
-    "ccv": "concave",
-}
-
-
-def _normalize_shape_constraint(value: Any) -> str:
-    if value is None:
-        return "none"
-    key = str(value).strip().lower().replace("-", "_")
-    if key not in _SHAPE_CONSTRAINT_NORMAL:
-        raise ValueError(
-            f"unknown shape_constraint {value!r}; expected one of "
-            "monotone_increasing, monotone_decreasing, convex, concave, none"
-        )
-    return _SHAPE_CONSTRAINT_NORMAL[key]
-
-
-_SMOOTH_HEAD_RE = re.compile(
-    r"\b(s|smooth|te|tensor|thinplate|tps|duchon|matern|sphere|bs|bspline)\s*\("
-)
-
-
-def _apply_shape_constraints_to_formula(
-    formula: str, constraints: Mapping[str, Any]
-) -> str:
-    """Rewrite smooth-term calls in ``formula`` so each named smooth carries
-    a ``shape=<kind>`` option understood by the Rust formula DSL.
-
-    The mapping is keyed by the smooth-term text as it appears in the
-    formula (e.g. ``"s(x)"`` or ``"s(x, type=duchon, centers=8)"``).
-    Comparison is exact after whitespace normalization.
-    """
-    if not constraints:
-        return formula
-    normalized: dict[str, str] = {}
-    for key, value in constraints.items():
-        kind = _normalize_shape_constraint(value)
-        if kind == "none":
-            continue
-        # Whitespace-collapsed key for matching against scanner output.
-        normalized[re.sub(r"\s+", "", str(key))] = kind
-    if not normalized:
-        return formula
-
-    out: list[str] = []
-    i = 0
-    matched: set[str] = set()
-    while i < len(formula):
-        m = _SMOOTH_HEAD_RE.search(formula, i)
-        if not m:
-            out.append(formula[i:])
-            break
-        out.append(formula[i : m.start()])
-        # Find the matching closing paren respecting nesting and string literals.
-        head_start = m.start()
-        paren_open = m.end() - 1
-        depth = 1
-        j = m.end()
-        in_str: str | None = None
-        while j < len(formula) and depth > 0:
-            ch = formula[j]
-            if in_str is not None:
-                if ch == in_str:
-                    in_str = None
-            elif ch in ("'", '"'):
-                in_str = ch
-            elif ch == "(":
-                depth += 1
-            elif ch == ")":
-                depth -= 1
-                if depth == 0:
-                    break
-            j += 1
-        if depth != 0:
-            # Unbalanced — bail out and emit the remainder verbatim. The
-            # Rust parser will produce the canonical error.
-            out.append(formula[head_start:])
-            break
-        term_text = formula[head_start : j + 1]
-        key_normalized = re.sub(r"\s+", "", term_text)
-        kind = normalized.get(key_normalized)
-        if kind is None:
-            out.append(term_text)
-        else:
-            inside = formula[m.end() : j].strip()
-            if inside:
-                new_term = f"{formula[head_start:m.end()]}{inside}, shape={kind})"
-            else:
-                new_term = f"{formula[head_start:m.end()]}shape={kind})"
-            out.append(new_term)
-            matched.add(key_normalized)
-        i = j + 1
-    rewritten = "".join(out)
-    missing = set(normalized.keys()) - matched
-    if missing:
-        original_keys = {re.sub(r"\s+", "", str(k)): str(k) for k in constraints}
-        labels = sorted(original_keys.get(k, k) for k in missing)
-        raise ValueError(
-            "shape constraints referenced smooth term(s) not found in formula: "
-            + ", ".join(labels)
-        )
-    return rewritten
-
-
 def _group_terms_from_formula(formula: str) -> list[str]:
     return [m.group(1).strip() for m in re.finditer(r"\bgroup\s*\(\s*([^)]+?)\s*\)", formula)]
 
@@ -765,6 +657,9 @@ def fit(
     scale_dimensions: bool | None = ...,
     adaptive_regularization: bool | None = ...,
     firth: bool | None = ...,
+    noise_formula: str | None = ...,
+    noise_offset: str | None = ...,
+    flexible_link: bool | None = ...,
     precision_hyperpriors: Any | None = ...,
     constraints: Mapping[str, Any] | None = ...,
     response_geometry: None = ...,
@@ -804,6 +699,9 @@ def fit(
     scale_dimensions: bool | None = ...,
     adaptive_regularization: bool | None = ...,
     firth: bool | None = ...,
+    noise_formula: str | None = ...,
+    noise_offset: str | None = ...,
+    flexible_link: bool | None = ...,
     precision_hyperpriors: Any | None = ...,
     constraints: Mapping[str, Any] | None = ...,
     response_geometry: str,
@@ -842,6 +740,9 @@ def fit(
     scale_dimensions: bool | None = None,
     adaptive_regularization: bool | None = None,
     firth: bool | None = None,
+    noise_formula: str | None = None,
+    noise_offset: str | None = None,
+    flexible_link: bool | None = None,
     precision_hyperpriors: Any | None = None,
     constraints: Mapping[str, Any] | None = None,
     response_geometry: str | None = None,
@@ -955,6 +856,23 @@ def fit(
         it off unless explicitly requested.
     firth:
         Enable Firth bias-reduced estimation. Corresponds to ``--firth``.
+    noise_formula:
+        Wilkinson-style formula for the log-scale (dispersion) component,
+        turning the fit into a location-scale GAMLSS where both the mean and
+        the residual spread vary smoothly with the covariates (e.g.
+        ``"s(x)"``). Passing this is the request to estimate a non-constant
+        scale. Corresponds to the ``--predict-noise`` CLI path
+        (``FitConfig.noise_formula``).
+    noise_offset:
+        Name of a column supplying a fixed additive offset on the log-scale
+        (dispersion) predictor of the location-scale model, analogous to
+        ``offset`` for the mean. Corresponds to
+        ``FitConfig.noise_offset_column``.
+    flexible_link:
+        Estimate a flexible (wiggly) link function rather than holding the
+        link fixed at its canonical/parametric form, letting the data shape
+        the response transformation. Corresponds to the CLI flexible-link path
+        (``FitConfig.flexible_link``).
     constraints:
         Optional mapping of smooth-term text to a shape-constraint kind.
         Keys are the literal smooth term as it appears in ``formula`` (e.g.
@@ -1019,7 +937,15 @@ def fit(
         helpers.
     """
     if constraints:
-        formula = _apply_shape_constraints_to_formula(formula, constraints)
+        # Alias normalization, smooth-term scanning, and the `shape=` rewrite all
+        # live in Rust (`gam::terms::smooth::apply_shape_constraints_to_formula`);
+        # Python only marshals the mapping across the FFI.
+        try:
+            formula = rust_module().apply_shape_constraints_to_formula(
+                formula, [(str(k), str(v)) for k, v in constraints.items()]
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
     if config:
         if response_geometry is None and config.get("response_geometry") is not None:
             response_geometry = str(config["response_geometry"])
@@ -1095,11 +1021,11 @@ def fit(
     # which the scalar pipeline cannot represent. Routing here keeps the
     # high-level Python API uniform — `gamfit.fit(data, formula,
     # family='multinomial')` returns a `MultinomialModel` — while the
-    # underlying Rust entry is a dedicated formula→design→Newton path that
-    # bypasses the workflow.rs `FitRequest::Standard` materialiser. REML /
-    # LAML λ-selection for this family follows in the next slice; until
-    # then the inner solver uses a single uniform initial smoothing
-    # parameter shared across penalty blocks and active classes.
+    # underlying Rust entry is a dedicated formula→design→REML path that
+    # bypasses the workflow.rs `FitRequest::Standard` materialiser. The Rust
+    # `fit_penalized_multinomial_formula` driver runs the outer REML/LAML loop
+    # to select an independent smoothing parameter per (class, term); the
+    # `init_lambda` argument below is only the warm-start seed.
     family_canonical = str(family).lower().replace("_", "-") if family is not None else "auto"
     if family_canonical in {
         "multinomial",
@@ -1114,7 +1040,7 @@ def fit(
                     headers,
                     rows,
                     formula,
-                    1.0,   # init_lambda — REML-selected λ lands in the next slice.
+                    1.0,   # init_lambda — warm-start seed; λ is REML-selected in Rust.
                     50,    # max_iter
                     1.0e-7,  # tol
                 )
@@ -1168,6 +1094,9 @@ def fit(
         scale_dimensions=scale_dimensions,
         adaptive_regularization=adaptive_regularization,
         firth=firth,
+        noise_formula=noise_formula,
+        noise_offset=noise_offset,
+        flexible_link=flexible_link,
         precision_hyperpriors=resolved_precision_hyperpriors,
         latents=latents,
         penalties=penalties,
@@ -1208,6 +1137,9 @@ def fit_array(
     scale_dimensions: bool | None = None,
     adaptive_regularization: bool | None = None,
     firth: bool | None = None,
+    noise_formula: str | None = None,
+    noise_offset: str | None = None,
+    flexible_link: bool | None = None,
     precision_hyperpriors: Any | None = None,
     latents: Mapping[str, Any] | None = None,
     penalties: Sequence[Any] | None = None,
@@ -1255,6 +1187,9 @@ def fit_array(
         scale_dimensions=scale_dimensions,
         adaptive_regularization=adaptive_regularization,
         firth=firth,
+        noise_formula=noise_formula,
+        noise_offset=noise_offset,
+        flexible_link=flexible_link,
         precision_hyperpriors=resolved_precision_hyperpriors,
         latents=latents,
         penalties=penalties,
@@ -1380,6 +1315,9 @@ def validate_formula(
     scale_dimensions: bool | None = None,
     adaptive_regularization: bool | None = None,
     firth: bool | None = None,
+    noise_formula: str | None = None,
+    noise_offset: str | None = None,
+    flexible_link: bool | None = None,
     config: dict[str, Any] | None = None,
 ) -> FormulaValidation:
     """Validate a formula against a dataset without fitting.
@@ -1417,6 +1355,9 @@ def validate_formula(
         scale_dimensions=scale_dimensions,
         adaptive_regularization=adaptive_regularization,
         firth=firth,
+        noise_formula=noise_formula,
+        noise_offset=noise_offset,
+        flexible_link=flexible_link,
         precision_hyperpriors=None,
         latents=None,
         penalties=None,
@@ -1823,6 +1764,77 @@ def sphere_basis(
     except Exception as exc:
         raise map_exception(exc) from exc
     return np.asarray(design, dtype=float), np.asarray(penalty, dtype=float)
+
+
+def sphere_basis_jet(
+    points: Any,
+    n_centers: int,
+    *,
+    penalty_order: int = 2,
+    kernel: str = "sobolev",
+    radians: bool = False,
+) -> Any:
+    """Analytic design jet ``∂Φ/∂(lat, lon)`` of the spherical-spline basis.
+
+    Mirrors :func:`sphere_basis` (auto Wahba farthest-point centers, or
+    harmonic degree ``L = n_centers``) and returns the exact analytic
+    derivative of its design matrix — no finite differences.
+
+    Parameters
+    ----------
+    points : array-like of shape ``(N, 2)`` — latitude, longitude.
+    n_centers : Wahba center count (``kernel='sobolev' | 'pseudo'``) or
+        harmonic truncation degree ``L``.
+    penalty_order : roughness order ``m ∈ {1,2,3,4}``. Default ``2``.
+    kernel : one of ``'sobolev'``, ``'pseudo'``, ``'harmonic'``.
+    radians : default ``False`` (degrees). True for radians.
+
+    Returns
+    -------
+    ndarray of shape ``(N, K, 2)`` — ``K`` matches the :func:`sphere_basis`
+    design column count; the last axis is ``(∂col/∂lat, ∂col/∂lon)`` in the
+    same angular units as the input.
+    """
+    import numpy as np
+
+    pts_np = np.asarray(points, dtype=float)
+    if pts_np.ndim != 2 or pts_np.shape[1] != 2:
+        raise ValueError(
+            f"sphere_basis_jet expects points of shape (N, 2); got {pts_np.shape}"
+        )
+    if pts_np.shape[0] == 0:
+        raise ValueError("sphere_basis_jet: points cannot be empty")
+    if not np.all(np.isfinite(pts_np)):
+        raise ValueError("sphere_basis_jet: points contains NaN/Inf")
+    n_centers_i = int(n_centers)
+    penalty_order_i = int(penalty_order)
+    if n_centers_i <= 0:
+        raise ValueError(f"n_centers must be positive, got {n_centers}")
+    if penalty_order_i not in (1, 2, 3, 4):
+        raise ValueError("penalty_order must be one of 1, 2, 3, or 4")
+    lat = pts_np[:, 0]
+    if radians:
+        bound = float(np.pi / 2.0)
+        if np.any(lat < -bound - 1e-9) or np.any(lat > bound + 1e-9):
+            raise ValueError(
+                "sphere_basis_jet: latitude (radians) must lie in [-π/2, π/2]"
+            )
+    else:
+        if np.any(lat < -90.0 - 1e-9) or np.any(lat > 90.0 + 1e-9):
+            raise ValueError(
+                "sphere_basis_jet: latitude (degrees) must lie in [-90, 90]"
+            )
+    try:
+        jet = rust_module().sphere_basis_jet(
+            pts_np,
+            n_centers_i,
+            penalty_order_i,
+            str(kernel),
+            bool(radians),
+        )
+    except Exception as exc:
+        raise map_exception(exc) from exc
+    return np.asarray(jet, dtype=float)
 
 
 def smoothness_penalty(
@@ -2626,7 +2638,15 @@ def gaussian_reml_fit_latent(
     tensor_knot_offsets: Sequence[int] | None = None,
     tensor_degrees: Sequence[int] | None = None,
 ) -> dict[str, Any]:
-    """Fit a Gaussian decoder with per-row latent coordinates.
+    """Fit a Gaussian decoder at a *fixed* per-row latent coordinate.
+
+    This is the differentiable inner solve: it builds ``Φ(t)`` at the ``t`` you
+    pass and solves ``β`` / ``λ`` by REML. It does **not** move ``t`` — the
+    returned ``t`` equals the input, so the fit quality is whatever the input
+    coordinate already encodes. To *estimate* the latent coordinate from a poor
+    init (recovering ``t`` itself), use
+    :func:`gaussian_reml_optimize_latent`, which wraps this solve in a
+    spectral-seeded outer optimization over ``t``.
 
     This is the low-level array API behind :class:`gamfit.LatentCoord`: each
     row has a latent coordinate ``t_n ∈ R^d`` and the fitted mean is
@@ -2812,6 +2832,121 @@ def gaussian_reml_fit_latent_backward(
         "grad_weights",
         "grad_dim_selection_log_precision",
     ):
+        if result.get(key) is not None:
+            result[key] = np.asarray(result[key], dtype=float)
+    return result
+
+
+def gaussian_reml_optimize_latent(
+    y: Any,
+    n_obs: int,
+    latent_dim: int,
+    centers: Any,
+    penalty: Any,
+    *,
+    t: Any | None = None,
+    m: int = 2,
+    weights: Any | None = None,
+    fisher_w: Any | None = None,
+    init_lambda: float | None = None,
+    aux_u: Any | None = None,
+    aux_family: str = "ridge",
+    aux_strength: float | str | None = None,
+    dim_selection_log_precision: Any | None = None,
+    basis_kind: str = "duchon",
+    tensor_knots_concat: Any | None = None,
+    tensor_knot_offsets: Sequence[int] | None = None,
+    tensor_degrees: Sequence[int] | None = None,
+    manifold: str = "euclidean",
+    sigma_eff_mode: str = "profiled",
+    max_iter: int = 200,
+    grad_tol: float = 1.0e-8,
+    trust_radius: float = 1.0,
+    max_radius: float = 1.0e6,
+    n_restarts: int = 1,
+    restart_scale: float = 0.25,
+    seed: int = 0,
+    init: str = "spectral",
+    seed_neighbors: int = 10,
+) -> dict[str, Any]:
+    """Estimate the per-row latent coordinate ``t`` *and* the decoder.
+
+    This is the latent-*optimizing* companion to :func:`gaussian_reml_fit_latent`
+    (which is a single ``β | t`` solve at a fixed ``t``). It minimizes the same
+    Gaussian-REML score over ``t`` with a Riemannian trust region driven by the
+    analytic ``∂(reml_score)/∂t``, retracting each step onto ``manifold``, and
+    returns the full REML fit dictionary *at the recovered latent* together with
+    the optimized coordinate under the keys ``"t"`` / ``"latent"`` (shape
+    ``(n_obs, latent_dim)``) and ``"t_flat"``.
+
+    The objective is non-convex (a GP-LVM-style coordinate problem), so a cold
+    random start settles in a poor local optimum (see issue #627). With the
+    default ``init="spectral"`` the optimizer seeds restart 0 from a
+    Laplacian-eigenmaps embedding of ``y`` — which recovers the intrinsic
+    coordinate up to a monotone/rotation gauge — then polishes it, so a good
+    initial ``t`` is *not* required. ``t`` is optional; when omitted a zero
+    vector is used as the fallback start (taken only when the spectral seed is
+    unavailable, e.g. too few rows or a non-Euclidean ``manifold``). Pass
+    ``init="caller"`` to start from ``t`` unchanged (a pure local solve / explicit
+    warm start), ``n_restarts > 1`` to additionally try perturbed starts and keep
+    the lowest-score result, and ``seed_neighbors`` to set the spectral seed's
+    k-nearest-neighbour graph size.
+
+    The ``centers`` / ``penalty`` / ``basis_kind`` arguments define the decoder
+    basis exactly as in :func:`gaussian_reml_fit_latent`; the spectral seed is
+    affinely mapped onto the span of ``centers`` so it lands where ``Φ`` is
+    well-conditioned. The result also carries ``"grad_t_norm"``, ``"converged"``,
+    ``"objective_value"``, ``"n_restarts"``, and ``"init"`` diagnostics.
+    """
+    import numpy as np
+
+    expected = int(n_obs) * int(latent_dim)
+    if t is None:
+        t_vec = np.zeros(expected, dtype=float)
+    else:
+        t_vec = _numeric_vector(t, "t")
+
+    rust = rust_module()
+    try:
+        out = rust.gaussian_reml_optimize_latent(
+            t_vec,
+            _numeric_matrix(y, "y"),
+            int(n_obs),
+            int(latent_dim),
+            _numeric_matrix(centers, "centers"),
+            _numeric_matrix(penalty, "penalty"),
+            int(m),
+            None if weights is None else _numeric_vector(weights, "weights"),
+            None if fisher_w is None else _numeric_array(fisher_w, "fisher_w"),
+            None if init_lambda is None else float(init_lambda),
+            None if aux_u is None else _numeric_matrix(aux_u, "aux_u"),
+            str(aux_family),
+            _normalize_aux_strength(aux_strength),
+            None
+            if dim_selection_log_precision is None
+            else _numeric_vector(dim_selection_log_precision, "dim_selection_log_precision"),
+            str(basis_kind),
+            None
+            if tensor_knots_concat is None
+            else _numeric_vector(tensor_knots_concat, "tensor_knots_concat"),
+            None if tensor_knot_offsets is None else [int(v) for v in tensor_knot_offsets],
+            None if tensor_degrees is None else [int(v) for v in tensor_degrees],
+            str(manifold),
+            str(sigma_eff_mode),
+            int(max_iter),
+            float(grad_tol),
+            float(trust_radius),
+            float(max_radius),
+            int(n_restarts),
+            float(restart_scale),
+            int(seed),
+            str(init),
+            int(seed_neighbors),
+        )
+    except Exception as exc:
+        raise map_exception(exc) from exc
+    result = dict(out)
+    for key in ("coefficients", "fitted", "sigma2", "t", "latent", "t_flat"):
         if result.get(key) is not None:
             result[key] = np.asarray(result[key], dtype=float)
     return result
@@ -3268,8 +3403,12 @@ def gaussian_reml_fit_with_constraints_forward(
     """Constrained Gaussian REML forward fit (single penalty block).
 
     Wraps the active-set + REML driver with an optional linear inequality
-    system ``A·β ≤ b``. Forward-only; no analytic VJP is provided through
-    this path.
+    system ``A·β ≤ b``. This path has an exact analytic VJP, provided by
+    :func:`gaussian_reml_fit_with_constraints_backward`: at an interior cert
+    (empty active set) it is the envelope-theorem backward in full p-space;
+    at an active cert it is the tangent-projected backward in the
+    ``Z = null(A_act)`` reduction (``H⁻¹ → Z(ZᵀHZ)⁻¹Zᵀ``,
+    ``S⁺ → Z(ZᵀSZ)⁺Zᵀ``).
     """
     import numpy as np
 
@@ -3326,16 +3465,20 @@ def gaussian_reml_fit_with_constraints_backward(
 ) -> dict[str, Any]:
     """Analytic VJP for ``gaussian_reml_fit_with_constraints_forward``.
 
-    At an interior cert (``active_indices`` is empty), the envelope theorem
-    applies in full p-space and this delegates to the closed-form Gaussian
-    REML backward (``H`` unprojected). At an active cert (non-empty active
-    set), the tangent-projected variant is not yet implemented and the call
-    raises ``NotImplementedError``.
+    Both certs are supported and return exact analytic gradients. At an
+    interior cert (``active_indices`` is empty), the envelope theorem applies
+    in full p-space and this delegates to the closed-form Gaussian REML
+    backward (``H`` unprojected). At an active cert (non-empty active set),
+    the tangent-projected variant reduces the problem to the
+    ``Z = null(A_act)`` subspace, runs the same closed-form backward on the
+    reduced operators, and lifts the gradients back to p-space.
 
     Math identity: at the constrained cert, the backward through the joint
     REML is the unconstrained backward formula applied to the tangent-
     projected operator — ``H⁻¹ → Z(ZᵀHZ)⁻¹Zᵀ``, ``S⁺ → Z(ZᵀSZ)⁺Zᵀ``, with
-    ``Z = null(A_act)``.
+    ``Z = null(A_act)``. Gradients flow to ``x``, ``y``, ``penalty`` and
+    ``weights``; the constraint geometry (``a_inequality``, ``b_inequality``)
+    and ``init_log_lambda`` are non-differentiable.
     """
     import numpy as np
 

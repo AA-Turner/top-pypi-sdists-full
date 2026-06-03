@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -44,12 +43,12 @@ class SCSpecEntry:
     def __init__(
         self,
         kind: SCSpecEntryKind,
-        function_v0: Optional[SCSpecFunctionV0] = None,
-        udt_struct_v0: Optional[SCSpecUDTStructV0] = None,
-        udt_union_v0: Optional[SCSpecUDTUnionV0] = None,
-        udt_enum_v0: Optional[SCSpecUDTEnumV0] = None,
-        udt_error_enum_v0: Optional[SCSpecUDTErrorEnumV0] = None,
-        event_v0: Optional[SCSpecEventV0] = None,
+        function_v0: SCSpecFunctionV0 | None = None,
+        udt_struct_v0: SCSpecUDTStructV0 | None = None,
+        udt_union_v0: SCSpecUDTUnionV0 | None = None,
+        udt_enum_v0: SCSpecUDTEnumV0 | None = None,
+        udt_error_enum_v0: SCSpecUDTErrorEnumV0 | None = None,
+        event_v0: SCSpecEventV0 | None = None,
     ) -> None:
         self.kind = kind
         self.function_v0 = function_v0

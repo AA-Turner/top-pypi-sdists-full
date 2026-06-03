@@ -177,6 +177,22 @@ fn test_string_native_date_value() {
 }
 
 #[test]
+fn test_string_date_only_value() {
+    assert_dynamic_value!(
+        dyn_value!("2021-01-01"),
+        Value::String("2021-01-01".to_string()),
+        null: None,
+        bool: None,
+        int: None,
+        float: None,
+        timestamp: Some(1609459200000),
+        string: Some(DynamicString::from("2021-01-01".to_string())),
+        array: None,
+        object: None,
+    );
+}
+
+#[test]
 fn test_string_bool_value() {
     assert_dynamic_value!(
         dyn_value!("true"),

@@ -142,7 +142,7 @@ class Migration(migrations.Migration):
             model_name="fatlink",
             name="link_type",
             field=models.ForeignKey(
-                help_text="Deprecated setting, will be removed in a future version …",
+                help_text="Deprecated setting, will be removed in a future version…",
                 null=True,
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="+",

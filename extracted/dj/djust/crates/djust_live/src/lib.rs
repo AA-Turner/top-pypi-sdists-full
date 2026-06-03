@@ -495,6 +495,28 @@ impl RustLiveViewBackend {
                 (vdom, patches_json, parse_ms, 0.0)
             } else {
                 took_full_parse = true;
+                // dj-id collision defense (#1550 / #1552). Before
+                // `parse_html_continue` generates fresh ids for the new
+                // tree, advance the thread-local id counter past the
+                // highest id present in `last_vdom`. Without this, when
+                // the view's `last_vdom` was generated on a different
+                // thread (worker-pool handoff) OR was restored from a
+                // msgpack roundtrip on a thread whose counter is at a
+                // lower value than the saved tree's ids, the new tree's
+                // freshly-generated ids overlap with surviving old-tree
+                // ids. The resulting `InsertSubtree.html` then carries
+                // dj-ids that collide with siblings the diff plans to
+                // remove via `RemoveChild(child_d=...)`, and the
+                // client's `:scope > [dj-id=N]` querySelector returns
+                // the wrong (newer) element — the subtree-doubling
+                // symptom reported in #1552 (and the simpler "branch
+                // doesn't swap" symptom in #1550 when ids 1..k overlap
+                // with sibling counts).
+                if let Some(ref old_vdom) = self.last_vdom {
+                    if let Some(max_id) = djust_vdom::max_djust_id_in(old_vdom) {
+                        djust_vdom::ensure_id_counter_at_least(max_id + 1);
+                    }
+                }
                 // Full html5ever parse
                 let new_vdom = if self.last_vdom.is_some() {
                     parse_html_continue(&html).map_err(|e| {
@@ -560,10 +582,16 @@ impl RustLiveViewBackend {
         self.version += 1;
 
         // Build fragment→VDOM text node map for text-fast-path on subsequent renders.
-        // Match each plain-text fragment to a VDOM text node by content.
+        // Match each plain-text fragment to a VDOM text node by BYTE POSITION
+        // in the assembled HTML (#1617 — content equality is insufficient when
+        // a variable is adjacent to literal template text).
         if self.fragment_text_map.is_none() && !self.node_html_cache.is_empty() {
-            if let Some(ref vdom) = self.last_vdom {
-                self.fragment_text_map = Some(build_fragment_text_map(&self.node_html_cache, vdom));
+            if let (Some(ref vdom), Some(ref full_html)) = (&self.last_vdom, &self.last_html) {
+                self.fragment_text_map = Some(build_fragment_text_map(
+                    &self.node_html_cache,
+                    vdom,
+                    full_html,
+                ));
             }
         }
 
@@ -643,6 +671,16 @@ impl RustLiveViewBackend {
         // Try text-only fast path: mutate old VDOM in-place if only text changed.
         // Falls back to html5ever if structural changes detected.
         let t_parse_start = Instant::now();
+        // dj-id collision defense (#1550 / #1552). See companion comment
+        // in `render_with_diff` for the full rationale. Same fix:
+        // advance the thread-local id counter past the highest id in
+        // `last_vdom` so the next parse cannot reuse ids that already
+        // appear in the surviving tree.
+        if let Some(ref old_vdom) = self.last_vdom {
+            if let Some(max_id) = djust_vdom::max_djust_id_in(old_vdom) {
+                djust_vdom::ensure_id_counter_at_least(max_id + 1);
+            }
+        }
         let mut new_vdom = if let (Some(ref old_html), Some(_)) = (&self.last_html, &self.last_vdom)
         {
             let old_html = old_html.clone();
@@ -1091,7 +1129,7 @@ use pyo3_async_runtimes::tokio::future_into_py;
 /// Python wrapper for SessionActorHandle
 ///
 /// This class provides async methods that can be called from Python's asyncio.
-#[pyclass(name = "SessionActorHandle")]
+#[pyclass(frozen, name = "SessionActorHandle")]
 pub struct SessionActorHandlePy {
     handle: SessionActorHandle,
 }
@@ -1409,7 +1447,7 @@ pub fn create_session_actor(py: Python<'_>, session_id: String) -> PyResult<Boun
 }
 
 /// Supervisor statistics exposed to Python
-#[pyclass]
+#[pyclass(frozen)]
 #[derive(Debug, Clone)]
 pub struct SupervisorStatsPy {
     /// Number of active sessions
@@ -2565,6 +2603,7 @@ fn build_text_node_index(html: &str, vdom: &VNode) -> Vec<TextNodeEntry> {
 fn build_fragment_text_map(
     fragments: &[String],
     vdom: &VNode,
+    full_html: &str,
 ) -> HashMap<usize, (Vec<usize>, String)> {
     let mut map = HashMap::new();
 
@@ -2572,15 +2611,80 @@ fn build_fragment_text_map(
     let mut text_nodes: Vec<(Vec<usize>, String, String)> = Vec::new(); // (path, text, djust_id)
     collect_vdom_text_nodes(vdom, &mut vec![], &mut text_nodes);
 
+    // Position-aware fragment→text-node matching (#1617).
+    //
+    // Content equality is fundamentally insufficient as a key: a fragment
+    // adjacent to literal template text (e.g. `{{ x }} online`) renders as
+    // `"1"`, but html5ever's parse of `<span>1 online</span>` produces ONE
+    // text node with content `"1 online"`. The fragment `"1"` does not
+    // equal `"1 online"`, so a content-equality loop walks past the chip
+    // and matches an unrelated sibling text node whose content happens to
+    // equal `"1"`. The `SetText` patch then lands on the wrong path.
+    //
+    // The fix maps each fragment by its byte position in the assembled HTML
+    // (`fragments.concat() == full_html` by construction in
+    // render_nodes_collecting) to the text node whose HTML range CONTAINS
+    // the fragment, claiming the map entry only when the fragment IS the
+    // entire text node (full coverage). Partial-overlap fragments
+    // (variable + adjacent literal) intentionally omit the entry; the
+    // caller falls through to the byte-level `text_region_fast_path`,
+    // which is already sound for that scenario.
+    //
+    // The #1529 collapse (two variables with identical baselines mapping
+    // onto the same text node) is also defeated by position-aware lookup
+    // — distinct fragments live at distinct byte positions, so there is
+    // no need for a separate `claimed` tracker.
+
+    // Compute each fragment's byte offset in the assembled HTML.
+    let mut frag_starts: Vec<usize> = Vec::with_capacity(fragments.len());
+    let mut cursor = 0;
+    for f in fragments {
+        frag_starts.push(cursor);
+        cursor += f.len();
+    }
+
+    // Build a text-node byte-range index using the same primitive as
+    // build_text_node_index (above) — scan_html_text_runs restricted to
+    // the dj-root interior.
+    let (root_start, root_end) =
+        find_dj_root_content_range(full_html).unwrap_or((0, full_html.len()));
+    let runs = match scan_html_text_runs(&full_html[root_start..root_end]) {
+        Some(r) => r,
+        // Unparseable — return empty map; caller falls through to the
+        // text_region_fast_path or full html5ever parse.
+        None => return map,
+    };
+    let runs: Vec<(usize, usize)> = runs
+        .into_iter()
+        .map(|(s, e)| (s + root_start, e + root_start))
+        .collect();
+
+    // Defensive: if scanner and VDOM walker disagree on count, the 1:1
+    // mapping isn't trustworthy. Same fallback as build_text_node_index.
+    if runs.len() != text_nodes.len() {
+        return map;
+    }
+
     for (idx, frag) in fragments.iter().enumerate() {
-        // Only map text-only fragments (no HTML tags)
+        // Only map text-only fragments (no HTML tags).
         if frag.contains('<') || frag.is_empty() {
             continue;
         }
-        // Find the first matching text node
-        for (path, text, djust_id) in &text_nodes {
-            if text == frag {
-                map.insert(idx, (path.clone(), djust_id.clone()));
+        let frag_start = frag_starts[idx];
+        let frag_end = frag_start + frag.len();
+        // Locate the text node whose HTML byte range contains this
+        // fragment. Linear scan is fine — text-node counts per render
+        // are O(dozens) in practice, and `runs` is in document order.
+        for (i, &(rs, re)) in runs.iter().enumerate() {
+            if rs <= frag_start && frag_end <= re {
+                // Only claim when the fragment IS the entire text node.
+                // Partial-overlap cases (e.g. `{{ x }} online`) fall
+                // through to text_region_fast_path, which is byte-level
+                // correct for them.
+                if rs == frag_start && re == frag_end {
+                    let (path, _text, djust_id) = &text_nodes[i];
+                    map.insert(idx, (path.clone(), djust_id.clone()));
+                }
                 break;
             }
         }
@@ -2652,7 +2756,18 @@ fn compute_template_hash(source: &str) -> String {
     djust_templates::parser::template_hash_hex(source)
 }
 
-#[pymodule]
+// Declared free-threaded-safe (#1432). A full thread-safety audit of every
+// global (`static`/`Lazy`/`OnceLock`), `#[pyclass]`, cross-thread
+// `Py<T>`/`PyObject`, the Tokio actor system, the template registries, and
+// the recursive Python<->Rust converters found no shared mutable state
+// reachable through `_rust` that lacks correct synchronization. With
+// `gil_used = false`, CPython will NOT auto-re-enable the GIL on import
+// under free-threaded interpreters (3.13t/3.14t) -- meaning a future PR
+// that introduces unsynchronized shared mutable state silently becomes a
+// data race. `crates/djust_templates/tests/free_threaded_safety.rs` and
+// `crates/djust_vdom/tests/free_threaded_safety.rs` are the regression
+// guards. The audit checklist and findings are recorded on issue #1432.
+#[pymodule(gil_used = false)]
 fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RustLiveViewBackend>()?;
     m.add_function(wrap_pyfunction!(render_template, m)?)?;

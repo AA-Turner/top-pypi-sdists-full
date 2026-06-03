@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: edit_threshold
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Set threshold information
 description:
    - Set threshold information on kaytus Server.

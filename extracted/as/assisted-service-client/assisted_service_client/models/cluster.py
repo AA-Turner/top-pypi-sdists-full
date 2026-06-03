@@ -86,6 +86,7 @@ class Cluster(object):
         'deleted_at': 'object',
         'user_managed_networking': 'bool',
         'additional_ntp_source': 'str',
+        'ntp_sources': 'str',
         'monitored_operators': 'list[MonitoredOperator]',
         'ams_subscription_id': 'str',
         'hyperthreading': 'str',
@@ -160,6 +161,7 @@ class Cluster(object):
         'deleted_at': 'deleted_at',
         'user_managed_networking': 'user_managed_networking',
         'additional_ntp_source': 'additional_ntp_source',
+        'ntp_sources': 'ntp_sources',
         'monitored_operators': 'monitored_operators',
         'ams_subscription_id': 'ams_subscription_id',
         'hyperthreading': 'hyperthreading',
@@ -178,7 +180,7 @@ class Cluster(object):
         'load_balancer': 'load_balancer'
     }
 
-    def __init__(self, kind=None, high_availability_mode='Full', id=None, href=None, name=None, user_name=None, org_id=None, email_domain=None, openshift_version=None, ocp_release_image=None, openshift_cluster_id=None, image_info=None, platform=None, base_dns_domain=None, cluster_network_cidr=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, api_vip_dns_name=None, machine_network_cidr=None, ingress_vips=None, ssh_public_key=None, http_proxy=None, https_proxy=None, no_proxy=None, status=None, status_info=None, status_updated_at=None, progress=None, disk_encryption=None, hosts=None, ready_host_count=None, enabled_host_count=None, total_host_count=None, schedulable_masters=False, schedulable_masters_forced_true=True, updated_at=None, created_at=None, install_started_at=None, install_completed_at=None, host_networks=None, pull_secret_set=None, vip_dhcp_allocation=None, validations_info=None, logs_info=None, install_config_overrides=None, controller_logs_collected_at=None, controller_logs_started_at=None, connectivity_majority_groups=None, ip_collisions=None, ignored_host_validations=None, ignored_cluster_validations=None, deleted_at=None, user_managed_networking=None, additional_ntp_source=None, monitored_operators=None, ams_subscription_id=None, hyperthreading=None, feature_usage=None, network_type=None, cluster_networks=None, service_networks=None, machine_networks=None, cpu_architecture='x86_64', ignition_endpoint=None, imported=False, tags=None, last_installation_preparation=None, org_soft_timeouts_enabled=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, kind=None, high_availability_mode='Full', id=None, href=None, name=None, user_name=None, org_id=None, email_domain=None, openshift_version=None, ocp_release_image=None, openshift_cluster_id=None, image_info=None, platform=None, base_dns_domain=None, cluster_network_cidr=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, api_vip_dns_name=None, machine_network_cidr=None, ingress_vips=None, ssh_public_key=None, http_proxy=None, https_proxy=None, no_proxy=None, status=None, status_info=None, status_updated_at=None, progress=None, disk_encryption=None, hosts=None, ready_host_count=None, enabled_host_count=None, total_host_count=None, schedulable_masters=False, schedulable_masters_forced_true=True, updated_at=None, created_at=None, install_started_at=None, install_completed_at=None, host_networks=None, pull_secret_set=None, vip_dhcp_allocation=None, validations_info=None, logs_info=None, install_config_overrides=None, controller_logs_collected_at=None, controller_logs_started_at=None, connectivity_majority_groups=None, ip_collisions=None, ignored_host_validations=None, ignored_cluster_validations=None, deleted_at=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, monitored_operators=None, ams_subscription_id=None, hyperthreading=None, feature_usage=None, network_type=None, cluster_networks=None, service_networks=None, machine_networks=None, cpu_architecture='x86_64', ignition_endpoint=None, imported=False, tags=None, last_installation_preparation=None, org_soft_timeouts_enabled=None, control_plane_count=None, load_balancer=None):  # noqa: E501
         """Cluster - a model defined in Swagger"""  # noqa: E501
 
         self._kind = None
@@ -236,6 +238,7 @@ class Cluster(object):
         self._deleted_at = None
         self._user_managed_networking = None
         self._additional_ntp_source = None
+        self._ntp_sources = None
         self._monitored_operators = None
         self._ams_subscription_id = None
         self._hyperthreading = None
@@ -358,6 +361,8 @@ class Cluster(object):
             self.user_managed_networking = user_managed_networking
         if additional_ntp_source is not None:
             self.additional_ntp_source = additional_ntp_source
+        if ntp_sources is not None:
+            self.ntp_sources = ntp_sources
         if monitored_operators is not None:
             self.monitored_operators = monitored_operators
         if ams_subscription_id is not None:
@@ -1675,6 +1680,29 @@ class Cluster(object):
         """
 
         self._additional_ntp_source = additional_ntp_source
+
+    @property
+    def ntp_sources(self):
+        """Gets the ntp_sources of this Cluster.  # noqa: E501
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for the cluster hosts.  # noqa: E501
+
+        :return: The ntp_sources of this Cluster.  # noqa: E501
+        :rtype: str
+        """
+        return self._ntp_sources
+
+    @ntp_sources.setter
+    def ntp_sources(self, ntp_sources):
+        """Sets the ntp_sources of this Cluster.
+
+        A comma-separated list of NTP sources (name or IP) to be used as the only NTP configuration for the cluster hosts.  # noqa: E501
+
+        :param ntp_sources: The ntp_sources of this Cluster.  # noqa: E501
+        :type: str
+        """
+
+        self._ntp_sources = ntp_sources
 
     @property
     def monitored_operators(self):

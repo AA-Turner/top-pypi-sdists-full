@@ -1,12 +1,21 @@
 """Differentiable basis, penalty, and closed-form ridge primitives for torch.
 
-These wrappers mirror the NumPy entry points in :mod:`gamfit._api`.
-``bspline_basis`` and ``duchon_basis`` carry an analytic backward with
-respect to their evaluation locations through :class:`torch.autograd.Function`
-subclasses (the Duchon backward contracts the upstream cotangent with the
-input-location jets of the *built* design from the Rust
-``duchon_basis_with_jets`` kernel, and supports second-order autograd). The
-derivative, penalty, and closed-form ridge paths are forward-only and
+These wrappers mirror the NumPy entry points in :mod:`gamfit._api`. Every
+differentiable primitive carries an exact analytic backward through a
+:class:`torch.autograd.Function` subclass (no finite differences):
+
+* ``bspline_basis`` / ``bspline_basis_derivative`` — grad wrt ``t`` via the
+  ``(order+1)``-th derivative basis (diagonal in ``t``), with second-order
+  autograd for the open case;
+* ``duchon_basis`` — grad wrt ``points`` via the input-location jets of the
+  *built* design (``duchon_basis_with_jets``), second-order capable;
+* ``sphere_basis`` — grad wrt ``points`` via the Rust ``sphere_basis_jet``
+  input-location jet (penalty is structural, detached);
+* ``gaussian_weighted_ridge`` / ``gaussian_weighted_ridge_batch`` —
+  closed-form VJP of ``β = (XᵀWX + λS)⁻¹XᵀWY`` through ``X``, ``Y``,
+  ``penalty`` and ``weights`` (forward keeps the Rust numerics).
+
+The remaining penalty-construction paths are structural (forward-only) and
 produced via the detach-cast-call-numpy-wrap path in
 :mod:`gamfit.torch._coerce`.
 """
@@ -144,6 +153,136 @@ class _BsplineJetFn(torch.autograd.Function):
         second = from_numpy_like(second_np, t)
         grad_t = (grad_jet.to(dtype=second.dtype) * second).sum(dim=-1)
         return grad_t, None, None, None
+
+
+class _BsplineDerivJetFn(torch.autograd.Function):
+    """``∂[Φ^(order)]/∂t`` for the 1D B-spline derivative basis.
+
+    The ``order``-th derivative basis is diagonal in ``t`` (row ``n`` depends
+    only on ``t_n``), and its input-location derivative is the
+    ``(order+1)``-th derivative basis ``Φ^(order+1)``. Forward returns
+    ``Φ^(order+1)`` as a tracked ``(N, K)`` tensor; backward routes the
+    input-location curvature through ``Φ^(order+2)`` so a *second* backward is
+    exact and analytic for the open (non-periodic) case.
+
+    Periodic: the open higher-order Rust kernel is not exposed for periodic
+    bases (issue #233). For ``order == 0`` the first jet uses
+    ``periodic_bspline_input_location_first_derivative``; any deeper periodic
+    jet raises a clear ``NotImplementedError`` rather than leaking a Rust
+    string.
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        t: torch.Tensor,
+        knots: torch.Tensor,
+        degree: int,
+        order: int,
+        periodic: bool,
+    ) -> torch.Tensor:
+        t_np = to_numpy_f64(t)
+        knots_np = to_numpy_f64(knots)
+        if periodic:
+            if order != 0:
+                raise NotImplementedError(
+                    "Higher-order autograd through the periodic B-spline "
+                    "derivative basis is not yet exposed; the Rust core only "
+                    "provides the periodic order-1 input-location derivative."
+                )
+            from .._binding import rust_module
+
+            left = float(knots_np[0])
+            right = float(knots_np[-1])
+            num_basis = int(knots_np.shape[0] - 1)
+            jet_3d = rust_module().periodic_bspline_input_location_first_derivative(
+                t_np.reshape(-1, 1), left, right, int(degree), num_basis,
+            )
+            jet_np = jet_3d.reshape(jet_3d.shape[0], jet_3d.shape[1])
+        else:
+            jet_np = _api.bspline_basis_derivative(
+                t_np,
+                knots_np,
+                degree=int(degree),
+                order=int(order) + 1,
+                periodic=False,
+            )
+        ctx.save_for_backward(t, knots)
+        ctx.degree = int(degree)
+        ctx.order = int(order)
+        ctx.periodic = bool(periodic)
+        return from_numpy_like(jet_np, t)
+
+    @staticmethod
+    def backward(
+        ctx: Any, *grad_outputs: torch.Tensor
+    ) -> tuple[torch.Tensor, None, None, None, None]:
+        (grad_jet,) = grad_outputs  # (N, K)
+        t, knots = ctx.saved_tensors
+        if ctx.periodic:
+            raise NotImplementedError(
+                "Second-order autograd through the periodic B-spline "
+                "derivative basis is not yet exposed; the Rust core needs a "
+                "periodic input-location higher-derivative kernel."
+            )
+        second_np = _api.bspline_basis_derivative(
+            to_numpy_f64(t),
+            to_numpy_f64(knots),
+            degree=ctx.degree,
+            order=ctx.order + 2,
+            periodic=False,
+        )
+        second = from_numpy_like(second_np, t)
+        grad_t = (grad_jet.to(dtype=second.dtype) * second).sum(dim=-1)
+        return grad_t, None, None, None, None
+
+
+class _BsplineDerivFn(torch.autograd.Function):
+    """Autograd Function evaluating the ``order``-th B-spline derivative basis.
+
+    Forward calls ``bspline_basis_derivative(order=order)``. Because the
+    derivative basis is diagonal in ``t``, ``∂L/∂t[n] = Σ_k grad_out[n,k] ·
+    Φ^(order+1)[n,k]``. Backward routes that contraction through
+    :class:`_BsplineDerivJetFn` (which evaluates ``Φ^(order+1)`` and whose own
+    backward evaluates ``Φ^(order+2)``), so a second backward — the
+    input-location curvature — is exact and analytic for the open case.
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        t: torch.Tensor,
+        knots: torch.Tensor,
+        degree: int,
+        order: int,
+        periodic: bool,
+    ) -> torch.Tensor:
+        t_np = to_numpy_f64(t)
+        knots_np = to_numpy_f64(knots)
+        deriv_np = _api.bspline_basis_derivative(
+            t_np,
+            knots_np,
+            degree=int(degree),
+            order=int(order),
+            periodic=bool(periodic),
+        )
+        ctx.save_for_backward(t, knots)
+        ctx.degree = int(degree)
+        ctx.order = int(order)
+        ctx.periodic = bool(periodic)
+        return from_numpy_like(deriv_np, t)
+
+    @staticmethod
+    def backward(
+        ctx: Any, *grad_outputs: torch.Tensor
+    ) -> tuple[torch.Tensor, None, None, None, None]:
+        (grad_deriv,) = grad_outputs
+        t, knots = ctx.saved_tensors
+        jet = cast(Callable[..., torch.Tensor], _BsplineDerivJetFn.apply)(
+            t, knots, int(ctx.degree), int(ctx.order), bool(ctx.periodic)
+        )
+        grad_t = (grad_deriv.to(dtype=jet.dtype) * jet).sum(dim=-1)
+        return grad_t, None, None, None, None
 
 
 def _duchon_basis_kwargs(
@@ -288,6 +427,91 @@ class _DuchonBasisFn(torch.autograd.Function):
         return grad_pts, None, None, None, None
 
 
+class _SphereBasisFn(torch.autograd.Function):
+    """Autograd Function for the spherical-spline (S²) design with grad wrt points.
+
+    Forward returns ONLY the design ``(N, K)`` (the penalty is structural and
+    independent of ``points``, so it carries no gradient and is returned
+    detached by the public wrapper). Backward contracts the upstream cotangent
+    with the Rust input-location jet ``∂design/∂(lat, lon)`` of shape
+    ``(N, K, 2)``: ``grad_points[n, j] = Σ_k grad_design[n, k] · jet[n, k, j]``.
+    The jet is in the same units as the passed ``points`` (it includes the
+    deg→rad factor when ``radians=False``).
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        points: torch.Tensor,
+        n_centers: int,
+        penalty_order: int,
+        kernel: str,
+        radians: bool,
+        centers: Any,
+    ) -> torch.Tensor:
+        import numpy as np
+
+        pts_np = to_numpy_f64(points)
+        if centers is None:
+            design_np, _penalty_np = _api.sphere_basis(
+                pts_np,
+                int(n_centers),
+                penalty_order=int(penalty_order),
+                kernel=str(kernel),
+                radians=bool(radians),
+            )
+        else:
+            ctrs_np = np.ascontiguousarray(np.asarray(centers, dtype=np.float64))
+            design_np, _penalty_np = _api.rust_module().sphere_basis_with_centers(
+                pts_np,
+                ctrs_np,
+                int(penalty_order),
+                str(kernel),
+                bool(radians),
+            )
+        ctx.save_for_backward(points)
+        ctx.n_centers = int(n_centers)
+        ctx.penalty_order = int(penalty_order)
+        ctx.kernel = str(kernel)
+        ctx.radians = bool(radians)
+        ctx.centers = centers
+        return from_numpy_like(design_np, points)
+
+    @staticmethod
+    def backward(
+        ctx: Any, *grad_outputs: torch.Tensor
+    ) -> tuple[torch.Tensor, None, None, None, None, None]:
+        import numpy as np
+
+        (grad_design,) = grad_outputs  # (N, K)
+        (points,) = ctx.saved_tensors
+        pts_np = to_numpy_f64(points)
+        if ctx.centers is None:
+            jet_np = _api.sphere_basis_jet(
+                pts_np,
+                ctx.n_centers,
+                penalty_order=ctx.penalty_order,
+                kernel=ctx.kernel,
+                radians=ctx.radians,
+            )
+        else:
+            ctrs_np = np.ascontiguousarray(
+                np.asarray(ctx.centers, dtype=np.float64)
+            )
+            jet_np = _api.rust_module().sphere_basis_jet_with_centers(
+                pts_np,
+                ctrs_np,
+                ctx.penalty_order,
+                ctx.kernel,
+                ctx.radians,
+            )
+        jet = from_numpy_like(np.asarray(jet_np, dtype=float), points)  # (N, K, 2)
+        grad_points = torch.einsum(
+            "nk,nkj->nj", grad_design.to(dtype=jet.dtype), jet
+        )
+        return grad_points, None, None, None, None, None
+
+
 def bspline_basis(
     t: torch.Tensor,
     knots: Any = None,
@@ -331,17 +555,21 @@ def bspline_basis_derivative(
 ) -> torch.Tensor:
     """Evaluate derivatives of the B-spline basis at ``t``.
 
-    Forward-only: the returned tensor does not carry a backward through ``t``.
-    Callers that need a differentiable basis should use ``bspline_basis`` and
-    rely on autograd, since the derivative primitive has no analytic VJP in
-    :mod:`gamfit._api`.
+    The returned tensor carries an exact analytic backward with respect to
+    ``t``: the ``order``-th derivative basis is diagonal in ``t``, so
+    ``∂L/∂t[n] = Σ_k grad_out[n,k] · Φ^(order+1)[n,k]`` via the Rust
+    ``(order+1)``-th derivative. For the open (non-periodic) case a second
+    backward — the input-location curvature — is also exact, routing through
+    ``Φ^(order+2)``. For the periodic case only the order-1 input-location
+    derivative is exposed by the Rust core; deeper periodic backward raises a
+    clear ``NotImplementedError``.
 
     Parameters
     ----------
     t : torch.Tensor
-        Evaluation locations of shape ``(n_t,)``.
+        Evaluation locations of shape ``(n_t,)``. Differentiable input.
     knots : torch.Tensor
-        Knot vector.
+        Knot vector. Treated as structural — no gradient is propagated.
     degree : int, optional
         Spline degree. Default ``3``.
     order : int, optional
@@ -355,14 +583,8 @@ def bspline_basis_derivative(
         Derivative basis matrix of shape ``(n_t, n_basis)``.
     """
     knots_t, eff_degree = _resolve_knots_tensor(t, knots, degree=int(degree))
-    deriv = _api.bspline_basis_derivative(
-        to_numpy_f64(t),
-        to_numpy_f64(knots_t),
-        degree=eff_degree,
-        order=int(order),
-        periodic=bool(periodic),
-    )
-    return from_numpy_like(deriv, t)
+    apply = cast(Callable[..., torch.Tensor], _BsplineDerivFn.apply)
+    return apply(t, knots_t, eff_degree, int(order), bool(periodic))
 
 
 def duchon_basis(
@@ -443,8 +665,12 @@ def sphere_basis(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Build the spherical-spline (S²) design and penalty matrices.
 
-    Forward-only: there is no analytic VJP through ``points``. The
-    returned tensors are detached float64 copies on ``points``' device.
+    The returned ``design`` carries an exact analytic backward to ``points``:
+    its input-location jet ``∂design/∂(lat, lon)`` comes from the Rust
+    ``sphere_basis_jet`` kernel (in the same units as ``points``), and the
+    backward contracts it with the upstream cotangent. The ``penalty`` is
+    structural — independent of ``points`` — so it is returned detached and
+    carries no gradient.
 
     When ``centers`` is supplied (the descriptor path), the basis
     dimension is fixed by ``centers.shape[0]`` and is independent of the
@@ -468,7 +694,7 @@ def sphere_basis(
 
     pts_np = to_numpy_f64(points)
     if centers is None:
-        design_np, penalty_np = _api.sphere_basis(
+        _design_np, penalty_np = _api.sphere_basis(
             pts_np,
             int(n_centers),
             penalty_order=int(penalty_order),
@@ -479,14 +705,22 @@ def sphere_basis(
         ctrs_np = np.ascontiguousarray(
             np.asarray(centers, dtype=np.float64)
         )
-        design_np, penalty_np = _api.rust_module().sphere_basis_with_centers(
+        _design_np, penalty_np = _api.rust_module().sphere_basis_with_centers(
             pts_np,
             ctrs_np,
             int(penalty_order),
             str(kernel),
             bool(radians),
         )
-    design = from_numpy_like(design_np, points).to(torch.float64)
+    apply = cast(Callable[..., torch.Tensor], _SphereBasisFn.apply)
+    design = apply(
+        points,
+        int(n_centers),
+        int(penalty_order),
+        str(kernel),
+        bool(radians),
+        centers,
+    ).to(torch.float64)
     penalty = from_numpy_like(penalty_np, points).to(torch.float64)
     return design, penalty
 
@@ -556,6 +790,201 @@ def smoothness_penalty(
     return from_numpy_like(s_np, knots), from_numpy_like(null_np, knots)
 
 
+def _gwr_vjp(
+    grad_coef: torch.Tensor,
+    grad_fitted: torch.Tensor,
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    penalty: torch.Tensor,
+    weights: torch.Tensor,
+    coef: torch.Tensor,
+    ridge_lambda: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Exact analytic VJP of one Gaussian row-weighted ridge solve.
+
+    For ``W=diag(weights)``, ``A = XᵀWX + λS``, ``b = XᵀWY``,
+    ``β = A⁻¹b``, ``fitted = Xβ``. With upstream cotangents ``β̄`` (wrt coef,
+    ``M×D``) and ``f̄`` (wrt fitted, ``N×D``):
+
+        β̄_tot = β̄ + Xᵀf̄
+        b̄      = λ_adj = A⁻¹ β̄_tot         (A SPD symmetric)
+        Ā      = −λ_adj βᵀ                   (M×M)
+        grad_X = W·X·(Ā + Āᵀ) + W·Y·b̄ᵀ + f̄·βᵀ
+        grad_Y = W·X·b̄
+        grad_S = sym(λ·Ā)
+        grad_w[i] = Σ Ā[m,m']·X[i,m]·X[i,m'] + Σ b̄[m,d]·X[i,m]·Y[i,d]
+
+    Returns ``(grad_X, grad_Y, grad_penalty, grad_weights)`` in ``X``'s dtype.
+    All tensors are 2D (single problem); ``weights`` is 1D ``(N,)``.
+    """
+    dt = X.dtype
+    Xc = X.to(dtype=dt)
+    Yc = Y.to(dtype=dt)
+    w = weights.to(dtype=dt)
+    beta = coef.to(dtype=dt)
+    gbeta = grad_coef.to(dtype=dt)
+    gfit = grad_fitted.to(dtype=dt)
+
+    A = Xc.transpose(-1, -2) @ (w.unsqueeze(-1) * Xc) + ridge_lambda * penalty.to(dtype=dt)
+    beta_bar_tot = gbeta + Xc.transpose(-1, -2) @ gfit  # (M, D)
+    lam_adj = torch.linalg.solve(A, beta_bar_tot)  # (M, D); b̄
+    A_bar = -(lam_adj @ beta.transpose(-1, -2))  # (M, M)
+
+    WX = w.unsqueeze(-1) * Xc  # (N, M)
+    WY = w.unsqueeze(-1) * Yc  # (N, D)
+    grad_X = (
+        WX @ (A_bar + A_bar.transpose(-1, -2))
+        + WY @ lam_adj.transpose(-1, -2)
+        + gfit @ beta.transpose(-1, -2)
+    )
+    grad_Y = WX @ lam_adj
+    grad_penalty = ridge_lambda * A_bar
+    grad_penalty = 0.5 * (grad_penalty + grad_penalty.transpose(-1, -2))
+    # grad_w[i] = Σ_{m,m'} Ā[m,m'] X[i,m] X[i,m'] + Σ_{m,d} b̄[m,d] X[i,m] Y[i,d]
+    grad_w = torch.einsum("nm,mp,np->n", Xc, A_bar, Xc) + torch.einsum(
+        "nm,md,nd->n", Xc, lam_adj, Yc
+    )
+    return grad_X, grad_Y, grad_penalty, grad_w
+
+
+class _GaussianWeightedRidgeFn(torch.autograd.Function):
+    """Closed-form Gaussian row-weighted ridge with exact analytic VJP.
+
+    Forward defers to the Rust ``gaussian_weighted_ridge`` (keeping the Rust
+    numerics) and returns ``(coef, fitted)``. Backward applies :func:`_gwr_vjp`
+    on the saved tensors with torch ops, yielding exact gradients through
+    ``X``, ``Y``, ``penalty`` and ``weights``. ``ridge_lambda`` is a python
+    float → non-differentiable.
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        penalty: torch.Tensor,
+        weights: torch.Tensor,
+        ridge_lambda: float,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        coef_np, fit_np = _api.gaussian_weighted_ridge(
+            to_numpy_f64(X),
+            to_numpy_f64(Y),
+            to_numpy_f64(penalty),
+            to_numpy_f64(weights),
+            ridge_lambda=float(ridge_lambda),
+        )
+        coef = from_numpy_like(coef_np, X)
+        fitted = from_numpy_like(fit_np, X)
+        ctx.save_for_backward(X, Y, penalty, weights, coef)
+        ctx.ridge_lambda = float(ridge_lambda)
+        return coef, fitted
+
+    @staticmethod
+    def backward(
+        ctx: Any, *grad_outputs: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
+        grad_coef, grad_fitted = grad_outputs
+        X, Y, penalty, weights, coef = ctx.saved_tensors
+        grad_X, grad_Y, grad_penalty, grad_w = _gwr_vjp(
+            grad_coef, grad_fitted, X, Y, penalty, weights, coef, ctx.ridge_lambda
+        )
+        return grad_X, grad_Y, grad_penalty, grad_w, None
+
+
+class _GaussianWeightedRidgeBatchFn(torch.autograd.Function):
+    """Batched closed-form Gaussian row-weighted ridge with exact analytic VJP.
+
+    Forward defers to the Rust ``gaussian_weighted_ridge_batch`` and returns
+    ``(coef (K,M,D), fitted (K,Nmax,D))``. Backward applies the per-problem VJP
+    of :func:`_gwr_vjp` for each problem ``k``, masking padded rows: rows beyond
+    the ``row_counts[k]`` active prefix have their weights zeroed so they
+    contribute nothing to the backward math (matching the forward, which sees
+    only the active prefix). ``ridge_lambda`` is a python float →
+    non-differentiable; ``row_counts`` carries no gradient.
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        penalty: torch.Tensor,
+        weights: torch.Tensor,
+        ridge_lambda: float,
+        row_counts: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        coef_np, fit_np = _api.gaussian_weighted_ridge_batch(
+            to_numpy_f64(X),
+            to_numpy_f64(Y),
+            to_numpy_f64(penalty),
+            to_numpy_f64(weights),
+            ridge_lambda=float(ridge_lambda),
+            row_counts=None if row_counts is None else to_numpy_uintp(row_counts),
+        )
+        coef = from_numpy_like(coef_np, X)
+        fitted = from_numpy_like(fit_np, X)
+        ctx.save_for_backward(X, Y, penalty, weights, coef)
+        ctx.ridge_lambda = float(ridge_lambda)
+        # row_counts is an integer index tensor → store as a plain list, not a
+        # saved (differentiable) tensor.
+        ctx.row_counts = (
+            None if row_counts is None else [int(c) for c in row_counts.tolist()]
+        )
+        return coef, fitted
+
+    @staticmethod
+    def backward(
+        ctx: Any, *grad_outputs: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
+        grad_coef, grad_fitted = grad_outputs  # (K,M,D), (K,Nmax,D)
+        X, Y, penalty, weights, coef = ctx.saved_tensors
+        n_problems = X.shape[0]
+        n_max = X.shape[1]
+        grad_X = torch.zeros_like(X)
+        grad_Y = torch.zeros_like(Y)
+        grad_penalty = torch.zeros_like(penalty)
+        grad_w = torch.zeros_like(weights)
+        for k in range(n_problems):
+            active = n_max if ctx.row_counts is None else ctx.row_counts[k]
+            # Mask padded rows by zeroing their weights, exactly as the forward
+            # ignores them; zero-weight rows drop out of every VJP term.
+            wk = weights[k].clone()
+            gfit_k = grad_fitted[k]
+            if active < n_max:
+                wk[active:] = 0
+                # Padded fitted rows are not real model outputs; their upstream
+                # cotangent must not leak into grad_X / grad_coef.
+                gfit_k = gfit_k.clone()
+                gfit_k[active:] = 0
+            gXk, gYk, gPk, gwk = _gwr_vjp(
+                grad_coef[k],
+                gfit_k,
+                X[k],
+                Y[k],
+                penalty,
+                wk,
+                coef[k],
+                ctx.ridge_lambda,
+            )
+            if active < n_max:
+                # The forward sees only the active prefix, so the outputs are
+                # independent of every padded row → their gradient is exactly
+                # zero. grad_X/grad_Y rows already vanish (zero weight + zeroed
+                # gfit), but grad_w[i] = Σ Ā X[i]X[i] + Σ b̄ X[i]Y[i] is built
+                # from the un-zeroed X/Y rows, so zero it explicitly.
+                gXk = gXk.clone()
+                gYk = gYk.clone()
+                gwk = gwk.clone()
+                gXk[active:] = 0
+                gYk[active:] = 0
+                gwk[active:] = 0
+            grad_X[k] = gXk
+            grad_Y[k] = gYk
+            grad_penalty = grad_penalty + gPk
+            grad_w[k] = gwk
+        return grad_X, grad_Y, grad_penalty, grad_w, None, None
+
+
 def gaussian_weighted_ridge(
     X: torch.Tensor,
     Y: torch.Tensor,
@@ -566,9 +995,12 @@ def gaussian_weighted_ridge(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Closed-form Gaussian row-weighted ridge solve.
 
-    Forward-only: :mod:`gamfit._api` exposes no analytic VJP for this primitive,
-    so the returned tensors carry no autograd path. ``weights`` are likelihood
-    row weights, not a multiplicative gate on the design row.
+    The returned ``(coef, fitted)`` carry an exact analytic backward through
+    ``X``, ``Y``, ``penalty`` and ``weights`` (forward keeps the Rust numerics;
+    backward applies the closed-form VJP of ``β = (XᵀWX + λS)⁻¹XᵀWY`` with torch
+    ops). ``ridge_lambda`` is a python float and is non-differentiable.
+    ``weights`` are likelihood row weights, not a multiplicative gate on the
+    design row.
 
     Parameters
     ----------
@@ -588,14 +1020,11 @@ def gaussian_weighted_ridge(
     (torch.Tensor, torch.Tensor)
         ``coefficients`` of shape ``(M, D)`` and ``fitted`` of shape ``(N, D)``.
     """
-    coef_np, fit_np = _api.gaussian_weighted_ridge(
-        to_numpy_f64(X),
-        to_numpy_f64(Y),
-        to_numpy_f64(penalty),
-        to_numpy_f64(weights),
-        ridge_lambda=float(ridge_lambda),
+    apply = cast(
+        Callable[..., tuple[torch.Tensor, torch.Tensor]],
+        _GaussianWeightedRidgeFn.apply,
     )
-    return from_numpy_like(coef_np, X), from_numpy_like(fit_np, X)
+    return apply(X, Y, penalty, weights, float(ridge_lambda))
 
 
 def gaussian_weighted_ridge_batch(
@@ -609,10 +1038,14 @@ def gaussian_weighted_ridge_batch(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Batched closed-form Gaussian row-weighted ridge solve.
 
-    Forward-only: no analytic VJP is exposed in :mod:`gamfit._api`. ``X`` has
-    shape ``(K, Nmax, M)``, ``Y`` has shape ``(K, Nmax, D)``, ``weights`` has
-    shape ``(K, Nmax)``, and ``row_counts`` optionally marks the active row
-    prefix per problem in a padded ragged batch.
+    The returned ``(coef, fitted)`` carry an exact analytic backward through
+    ``X``, ``Y``, ``penalty`` and ``weights``, applied per problem with the
+    closed-form VJP (forward keeps the Rust numerics). ``X`` has shape
+    ``(K, Nmax, M)``, ``Y`` has shape ``(K, Nmax, D)``, ``weights`` has shape
+    ``(K, Nmax)``, and ``row_counts`` optionally marks the active row prefix per
+    problem in a padded ragged batch — padded rows contribute zero to the
+    backward (their weights are zeroed). ``ridge_lambda`` is a python float and
+    is non-differentiable; ``row_counts`` carries no gradient.
 
     Returns
     -------
@@ -620,12 +1053,8 @@ def gaussian_weighted_ridge_batch(
         ``coefficients`` of shape ``(K, M, D)`` and ``fitted`` of shape
         ``(K, Nmax, D)``.
     """
-    coef_np, fit_np = _api.gaussian_weighted_ridge_batch(
-        to_numpy_f64(X),
-        to_numpy_f64(Y),
-        to_numpy_f64(penalty),
-        to_numpy_f64(weights),
-        ridge_lambda=float(ridge_lambda),
-        row_counts=None if row_counts is None else to_numpy_uintp(row_counts),
+    apply = cast(
+        Callable[..., tuple[torch.Tensor, torch.Tensor]],
+        _GaussianWeightedRidgeBatchFn.apply,
     )
-    return from_numpy_like(coef_np, X), from_numpy_like(fit_np, X)
+    return apply(X, Y, penalty, weights, float(ridge_lambda), row_counts)

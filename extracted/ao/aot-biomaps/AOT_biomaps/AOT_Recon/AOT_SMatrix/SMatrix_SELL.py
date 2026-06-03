@@ -28,13 +28,27 @@ class SMatrix_SELL(SMatrix):
     Sparse matrix in SELL-C-sigma format for efficient GPU operations.
 
     Usage:
-        S = SMatrix_SELL(manip, device='gpu')
+        S = SMatrix_SELL(experiment, device='gpu')
         S.allocate()
     """
 
-    def __init__(self, slice_height: int = 64, **kwargs):
-        """Initialize SELL-C-sigma matrix constructor."""
+    def __init__(self, block_rows: int = 64, relative_threshold: float = 0.01, slice_height: int = 64, **kwargs):
+        """
+        Initialize SELL sparse matrix.
+        Args:
+            **kwargs: Arguments passed to base SMatrix class
+                - experiment: Experiment object containing AcousticFields
+                - device: 'cpu' or 'gpu:{gpu_id}' (optional, defaults to GPU if available)
+            block_rows: Number of rows to process per block when building on GPU (default: 64)
+            relative_threshold: Relative threshold for sparsity (default: 0.01)
+            slice_height: Number of rows per slice in SELL format (default: 64)
+        """
         super().__init__(**kwargs)
+        self.matrix_type = SMatrixType.SELL
+        
+        # Hyperparameters
+        self.block_rows = block_rows
+        self.relative_threshold = relative_threshold
         self.slice_height = slice_height
 
         # Attributes specific to SELL
@@ -69,7 +83,7 @@ class SMatrix_SELL(SMatrix):
                 rg = b + i
                 n_idx = rg // self.T
                 t_idx = rg % self.T
-                dense_host[i, :] = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+                dense_host[i, :] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
             dense_gpu = cp.asarray(dense_host)
             row_nnz_gpu_block = cp.zeros(R, dtype=np.int32)
@@ -117,7 +131,7 @@ class SMatrix_SELL(SMatrix):
                 rg = b + i
                 n_idx = rg // self.T
                 t_idx = rg % self.T
-                dense_host[i, :] = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+                dense_host[i, :] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
             dense_gpu = cp.asarray(dense_host)
             row_nnz_host_gpu = cp.asarray(row_nnz[b:b+R])
@@ -147,7 +161,7 @@ class SMatrix_SELL(SMatrix):
         for global_row in trange(num_rows, desc="Count NNZ per row (CPU)"):
             n_idx = global_row // self.T
             t_idx = global_row % self.T
-            row = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+            row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
             row_max = np.max(np.abs(row))
             thr = row_max * self.relative_threshold
             row_nnz[global_row] = int(np.count_nonzero(np.abs(row) > thr))
@@ -176,7 +190,7 @@ class SMatrix_SELL(SMatrix):
         for global_row in trange(num_rows, desc="Fill SELL (CPU)"):
             n_idx = global_row // self.T
             t_idx = global_row % self.T
-            row = self.manip.AcousticFields[n_idx].field[t_idx].flatten()
+            row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
             row_max = np.max(np.abs(row))
             thr = row_max * self.relative_threshold
 

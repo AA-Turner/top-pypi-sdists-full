@@ -1,4 +1,4 @@
-# Generated from persian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+# Generated from persian.sbl by Snowball 3.1.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -7,7 +7,7 @@ from .among import Among
 class PersianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from persian.sbl by Snowball 3.1.0 - https://snowballstem.org/
+    Generated from persian.sbl by Snowball 3.1.1 - https://snowballstem.org/
     '''
 
     I_p1 = 0
@@ -146,12 +146,9 @@ class PersianStemmer(BaseStemmer):
             if among_var == 1:
                 self.slice_del()
             else:
-                try:
-                    if self.cursor > self.limit_backward:
-                        raise lab0()
+                if self.cursor <= self.limit_backward:
                     self.limit_backward = v_3
                     return False
-                except lab0: pass
                 self.slice_del()
             self.limit_backward = v_3
             break
@@ -190,19 +187,13 @@ class PersianStemmer(BaseStemmer):
                 self.slice_del()
                 self.B_remove_verb_person_endings = True
             elif among_var == 4:
-                try:
-                    if self.cursor > self.limit_backward:
-                        raise lab0()
+                if self.cursor <= self.limit_backward:
                     return False
-                except lab0: pass
                 self.slice_from("\u062F")
                 self.B_remove_verb_person_endings = True
             else:
-                try:
-                    if self.cursor > self.limit_backward:
-                        raise lab0()
+                if self.cursor <= self.limit_backward:
                     return False
-                except lab0: pass
                 self.slice_from("\u062A")
                 self.B_remove_verb_person_endings = True
             break

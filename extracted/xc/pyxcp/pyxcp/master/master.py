@@ -1481,7 +1481,11 @@ class Master:
         pageNumber : int
         """
         response = self.transport.request(types.Command.GET_PAGE_INFO, 0, segment_number, page_number)
-        return types.GetPageInfoResponse.parse(response, byteOrder=self.slaveProperties.byteOrder)
+        raw = types.GetPageInfoResponse.parse(response, byteOrder=self.slaveProperties.byteOrder)
+        return types.PageInfo(
+            properties=types.PagePropertiesInfo.from_raw(raw.properties),
+            init_segment=raw.initSegment,
+        )
 
     @wrapped
     def setSegmentMode(self, mode: int, segment_number: int):
@@ -1994,23 +1998,44 @@ class Master:
         response = self.transport.request(types.Command.DTO_CTR_PROPERTIES, *data)
         return types.DtoCtrPropertiesResponse.parse(response, byteOrder=self.slaveProperties.byteOrder)
 
+    def daqListSupportsPacked(self, daq_list_number: int) -> bool:
+        """Check if a DAQ list supports packed mode.
+
+        Parameters
+        ----------
+        daqListNumber : int
+
+        Returns
+        -------
+        bool
+        """
+        info = self.getDaqListInfo(daq_list_number)
+        return info.daqListProperties.packed
+
     @wrapped
     def setDaqPackedMode(
-        self, daq_list_number: int, daq_packed_mode: int, dpm_timestamp_mode: int = None, dpm_sample_count: int = None
+        self,
+        daq_list_number: int,
+        daq_packed_mode: types.DaqPackedModeType,
+        dpm_timestamp_mode: int = 0x01,
+        dpm_sample_count: int = 1,
     ):
         """Set DAQ List Packed Mode.
 
         Parameters
         ----------
-        daqListNumber : int
-        daqPackedMode : int
+        daq_list_number : int
+        daq_packed_mode : types.DaqPackedModeType
+        dpm_timestamp_mode : int
+            Bitfield: Bit 0 = TS_PRESENT, Bits 1-2 = TS_SIZE (00=1B, 01=2B, 1x=4B)
+        dpm_sample_count : int
+            Number of samples per packet.
         """
-        params = []
-        dln = self.WORD_pack(daq_list_number)
-        params.extend(dln)
-        params.append(daq_packed_mode)
+        params = bytearray()
+        params.extend(self.WORD_pack(daq_list_number))
+        params.append(int(daq_packed_mode))
 
-        if daq_packed_mode == 1 or daq_packed_mode == 2:
+        if daq_packed_mode != types.DaqPackedModeType.NOT_PACKED:
             params.append(dpm_timestamp_mode)
             dsc = self.WORD_pack(dpm_sample_count)
             params.extend(dsc)
@@ -2676,11 +2701,14 @@ class Master:
                         status, addr_info = self.try_command(self.getSegmentInfo, 0, i, 0, 0)
                         if status == types.TryCommandResult.OK:
                             segment["address"] = addr_info.basicInfo
+                        else:
+                            segment["address"] = None
                         # Mode 0, Info 1: Length
                         status, len_info = self.try_command(self.getSegmentInfo, 0, i, 1, 0)
                         if status == types.TryCommandResult.OK:
                             segment["length"] = len_info.basicInfo
-
+                        else:
+                            segment["length"] = None
                         # Mode 2: Address mapping info
                         if std_info.maxMapping > 0:
                             segment["mappings"] = []
@@ -2705,18 +2733,19 @@ class Master:
                         for p in range(std_info.maxPages):
                             status, pgi = self.try_command(self.getPageInfo, i, p)
                             if status == types.TryCommandResult.OK:
+                                props = pgi.properties
                                 segment["pages"].append(
                                     {
                                         "index": p,
                                         "properties": {
-                                            "xcpWriteAccessWithEcu": pgi.properties.xcpWriteAccessWithEcu,
-                                            "xcpWriteAccessWithoutEcu": pgi.properties.xcpWriteAccessWithoutEcu,
-                                            "xcpReadAccessWithEcu": pgi.properties.xcpReadAccessWithEcu,
-                                            "xcpReadAccessWithoutEcu": pgi.properties.xcpReadAccessWithoutEcu,
-                                            "ecuAccessWithXcp": pgi.properties.ecuAccessWithXcp,
-                                            "ecuAccessWithoutXcp": pgi.properties.ecuAccessWithoutXcp,
+                                            "ecuAccessWithXcp": props.ecu_access_with_xcp,
+                                            "ecuAccessWithoutXcp": props.ecu_access_without_xcp,
+                                            "xcpReadAccessWithEcu": props.xcp_read_access_with_ecu,
+                                            "xcpReadAccessWithoutEcu": props.xcp_read_access_without_ecu,
+                                            "xcpWriteAccessWithEcu": props.xcp_write_access_with_ecu,
+                                            "xcpWriteAccessWithoutEcu": props.xcp_write_access_without_ecu,
                                         },
-                                        "initSegment": pgi.initSegment,
+                                        "initSegment": pgi.init_segment,
                                     }
                                 )
 

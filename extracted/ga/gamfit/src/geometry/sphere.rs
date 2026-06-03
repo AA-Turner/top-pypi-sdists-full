@@ -1,8 +1,7 @@
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2, s};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::geometry::manifold::{
-    GEOMETRY_EPS, GeometryError, GeometryResult, RiemannianManifold, check_len, dot, identity,
-    norm, zero_christoffel,
+    GEOMETRY_EPS, GeometryError, GeometryResult, RiemannianManifold, check_len, dot, identity, norm,
 };
 use crate::geometry::normalize_weights;
 
@@ -12,6 +11,9 @@ pub struct SphereManifold {
 }
 
 impl SphereManifold {
+    /// Tolerance on `‖p‖² − 1` for accepting a point as on the unit sphere.
+    const UNIT_TOL: f64 = 1.0e-6;
+
     pub const fn new(intrinsic_dim: usize) -> Self {
         Self { intrinsic_dim }
     }
@@ -24,6 +26,22 @@ impl SphereManifold {
             ));
         }
         Ok(x / nrm)
+    }
+
+    /// Reject base points that are not on the unit sphere. Every closed-form
+    /// here (`exp`, `log`, projection, transport) assumes `‖p‖ = 1`; for a
+    /// non-unit `p` the projection `v − p(pᵀv)` is not even tangent and
+    /// `exp` leaves the sphere. The tolerance is loose enough to absorb the
+    /// float drift of on-manifold iterates (retraction renormalizes to
+    /// ~1e-15) yet still rejects genuinely off-manifold inputs.
+    fn require_unit(&self, point: ArrayView1<'_, f64>) -> GeometryResult<()> {
+        let n2 = dot(point, point);
+        if !n2.is_finite() || (n2 - 1.0).abs() > Self::UNIT_TOL {
+            return Err(GeometryError::InvalidPoint(
+                "sphere operation requires a unit-norm base point",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -39,6 +57,7 @@ impl RiemannianManifold for SphereManifold {
     fn tangent_basis(&self, point: ArrayView1<'_, f64>) -> GeometryResult<Array2<f64>> {
         let m = self.ambient_dim();
         check_len("Sphere point", point.len(), m)?;
+        self.require_unit(point)?;
         let mut anchor = 0usize;
         let mut max_abs = 0.0;
         for i in 0..m {
@@ -86,6 +105,7 @@ impl RiemannianManifold for SphereManifold {
         let m = self.ambient_dim();
         check_len("Sphere point", point.len(), m)?;
         check_len("Sphere tangent", tangent_vec.len(), m)?;
+        self.require_unit(point)?;
         let xi = self.project_tangent(point, tangent_vec)?;
         let theta = norm(xi.view());
         if theta < 1.0e-10 {
@@ -102,6 +122,8 @@ impl RiemannianManifold for SphereManifold {
         let m = self.ambient_dim();
         check_len("Sphere source", p_from.len(), m)?;
         check_len("Sphere target", p_to.len(), m)?;
+        self.require_unit(p_from)?;
+        self.require_unit(p_to)?;
         let c = dot(p_from, p_to).clamp(-1.0, 1.0);
         // Geodesic length via the chord/haversine form theta = 2·arcsin(|p-q|/2)
         // rather than acos(p·q). For nearby unit vectors p·q = 1 − |p-q|²/2
@@ -123,8 +145,15 @@ impl RiemannianManifold for SphereManifold {
         let mut u = &p_to - &(p_from.to_owned() * c);
         let u_nrm = norm(u.view());
         if u_nrm < 1.0e-10 {
-            let basis = self.tangent_basis(p_from)?;
-            return Ok(basis.slice(s![.., 0]).to_owned() * theta);
+            // theta ≈ π with a vanishing tangent direction means p_to is the
+            // antipode of p_from. The logarithm there is multivalued — every
+            // unit u ⟂ p_from satisfies Exp_{p_from}(πu) = −p_from — so there
+            // is no single correct answer to return. Surface it rather than
+            // fabricating an arbitrary basis direction (which was also
+            // discontinuous across the cut locus).
+            return Err(GeometryError::Singular(
+                "sphere log map is undefined at the antipode (cut locus)",
+            ));
         }
         u *= theta / u_nrm;
         Ok(u)
@@ -143,9 +172,19 @@ impl RiemannianManifold for SphereManifold {
         }
         let from = point_along.row(0);
         let to = point_along.row(point_along.nrows() - 1);
+        self.require_unit(from)?;
+        self.require_unit(to)?;
         let denom = 1.0 + dot(from, to);
         if denom.abs() < 1.0e-10 {
-            return self.project_tangent(to, vec);
+            // from ≈ −to: parallel transport across the cut locus depends on
+            // which geodesic is chosen (transporting along the great circle
+            // through e₂ versus e₃ gives different results), so with only the
+            // endpoints there is no well-defined answer. The previous fallback
+            // merely projected `vec` into T_to S, which is not parallel
+            // transport. Require the caller to supply an actual path instead.
+            return Err(GeometryError::Singular(
+                "sphere parallel transport across antipodal endpoints is path-dependent",
+            ));
         }
         let scale = dot(vec, to) / denom;
         Ok(vec.to_owned() - &(from.to_owned() + to.to_owned()) * scale)
@@ -153,12 +192,21 @@ impl RiemannianManifold for SphereManifold {
 
     fn metric_tensor(&self, point: ArrayView1<'_, f64>) -> GeometryResult<Array2<f64>> {
         check_len("Sphere metric point", point.len(), self.ambient_dim())?;
+        self.require_unit(point)?;
         Ok(identity(self.ambient_dim()))
     }
 
     fn christoffel_symbols(&self, point: ArrayView1<'_, f64>) -> GeometryResult<Vec<Array2<f64>>> {
         check_len("Sphere Christoffel point", point.len(), self.ambient_dim())?;
-        Ok(zero_christoffel(self.ambient_dim()))
+        self.require_unit(point)?;
+        // The sphere is curved: a zero Christoffel tensor would assert that
+        // geodesics satisfy x''=0 in ambient coordinates, contradicting the
+        // great-circle geodesic x''=−x. There is no flat global chart, and the
+        // embedded connection ∇_ξη = P_p(Dη[ξ]) is not a coordinate Christoffel
+        // tensor, so we refuse rather than hand back false (zero) symbols.
+        Err(GeometryError::Unsupported(
+            "Christoffel symbols of the embedded sphere require a local chart",
+        ))
     }
 
     fn sectional_curvature(
@@ -187,6 +235,7 @@ impl RiemannianManifold for SphereManifold {
     ) -> GeometryResult<Array1<f64>> {
         check_len("Sphere projection point", point.len(), self.ambient_dim())?;
         check_len("Sphere projection vector", vec.len(), self.ambient_dim())?;
+        self.require_unit(point)?;
         Ok(vec.to_owned() - &(point.to_owned() * dot(point, vec)))
     }
 
@@ -200,6 +249,7 @@ impl RiemannianManifold for SphereManifold {
         check_len("Sphere exp_map_vjp point", point.len(), m)?;
         check_len("Sphere exp_map_vjp tangent", tangent_vec.len(), m)?;
         check_len("Sphere exp_map_vjp grad", grad_output.len(), m)?;
+        self.require_unit(point)?;
 
         // Forward map: with `xi = (I - p p^T) v`, `theta = |xi|`,
         //   y = cos(theta) p + (sin(theta)/theta) xi.
@@ -299,6 +349,129 @@ pub fn normalize_sphere_matrix(values: ArrayView2<'_, f64>) -> Result<Array2<f64
     Ok(out)
 }
 
+/// Batched Riemannian log map of each row of `values` at a single `base`, in
+/// ambient tangent coordinates. Inputs are normalized onto the unit sphere
+/// first (unlike the strict [`SphereManifold::log_map`] trait method, which
+/// requires unit inputs); the geodesic angle uses the numerically stable
+/// `atan2(|u|, p·q)` form. Errors at antipodal points. This is the
+/// response-geometry companion to the trait method.
+pub fn response_sphere_log_map(
+    values: ArrayView2<'_, f64>,
+    base: ArrayView1<'_, f64>,
+) -> Result<Array2<f64>, String> {
+    let y = normalize_sphere_matrix(values)?;
+    let base2 = Array2::from_shape_fn((1, base.len()), |(_, j)| base[j]);
+    let b_mat = normalize_sphere_matrix(base2.view())?;
+    let (n, d) = y.dim();
+    if d != b_mat.ncols() {
+        return Err("spherical values and base point have different dimensions".to_string());
+    }
+    // The per-row geodesic angle needs the inner product `pᵢ·base` for every one
+    // of the n rows. Collected together this is `Y · base` (n×d · d → n); cast as
+    // the n×d · d×1 product it row-tiles across ALL GPUs (each device handles its
+    // observation-row tile with `base` broadcast), falling back to the
+    // single-device shim for small batches. The remaining per-row scalar work
+    // (atan2 angle, tangent scaling) is identical to the elementwise form.
+    // f64 throughout.
+    let base_col = b_mat.slice(ndarray::s![0..1, ..]).t().to_owned();
+    let dots_mat = crate::geometry::manifold::fast_ab_rows_multi_gpu(y.view(), base_col.view());
+    let dots = dots_mat.column(0).to_owned();
+    let mut out = Array2::<f64>::zeros((n, d));
+    for row in 0..n {
+        let mut dot = dots[row];
+        dot = dot.clamp(-1.0, 1.0);
+        if dot <= -1.0 + 1.0e-12 {
+            return Err("spherical log map is undefined at antipodal points".to_string());
+        }
+        // Geodesic angle via theta = atan2(|u|, p·q) with u = q − (p·q)p, the
+        // component of q orthogonal to p (|u| = sin theta). For nearby points
+        // p·q rounds to exactly 1.0 in f64 and acos(p·q) collapses a genuine
+        // ~1e-9 distance to 0; |u| is formed straight from the coordinates with
+        // no near-1 subtraction, so atan2(|u|, p·q) ≈ |u| stays accurate and
+        // the tangent norm equals the geodesic distance as documented.
+        let mut s_sq = 0.0_f64;
+        for col in 0..d {
+            let uc = y[[row, col]] - dot * b_mat[[0, col]];
+            s_sq += uc * uc;
+        }
+        let s = s_sq.sqrt();
+        if s < 1.0e-12 {
+            for col in 0..d {
+                out[[row, col]] = 0.0;
+            }
+        } else {
+            let scale = s.atan2(dot) / s;
+            for col in 0..d {
+                out[[row, col]] = (y[[row, col]] - dot * b_mat[[0, col]]) * scale;
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Batched Riemannian exp map of each tangent row at a single `base`, returning
+/// points on the unit sphere. The base is normalized first; the orthogonal
+/// component of the tangent drives the geodesic step `cos(r)·p + (sin r / r)·z`.
+/// This is the response-geometry companion to [`SphereManifold::exp_map`].
+pub fn response_sphere_exp_map(
+    tangent: ArrayView2<'_, f64>,
+    base: ArrayView1<'_, f64>,
+) -> Result<Array2<f64>, String> {
+    let base2 = Array2::from_shape_fn((1, base.len()), |(_, j)| base[j]);
+    let b_mat = normalize_sphere_matrix(base2.view())?;
+    let (n, d) = tangent.dim();
+    if d != b_mat.ncols() {
+        return Err("spherical tangent and base point have different dimensions".to_string());
+    }
+    if !tangent.iter().all(|v| v.is_finite()) {
+        return Err("spherical tangent must contain only finite values".to_string());
+    }
+    // The radial component `tangentᵢ·base` for every row is `T · base`
+    // (n×d · d → n); cast as the n×d · d×1 product it row-tiles across ALL GPUs
+    // (per-observation-row tiles, `base` broadcast), with a single-device
+    // fallback. The per-row geodesic step that follows is identical scalar math.
+    // f64 throughout.
+    let base_col = b_mat.slice(ndarray::s![0..1, ..]).t().to_owned();
+    let radials_mat = crate::geometry::manifold::fast_ab_rows_multi_gpu(tangent, base_col.view());
+    let radials = radials_mat.column(0).to_owned();
+    let mut out = Array2::<f64>::zeros((n, d));
+    for row in 0..n {
+        let radial = radials[row];
+        let mut z = vec![0.0_f64; d];
+        let mut r_sq = 0.0_f64;
+        for col in 0..d {
+            let v = tangent[[row, col]] - radial * b_mat[[0, col]];
+            z[col] = v;
+            r_sq += v * v;
+        }
+        let r = r_sq.sqrt();
+        let mut norm_sq = 0.0_f64;
+        if r < 1.0e-12 {
+            for col in 0..d {
+                let v = b_mat[[0, col]] + z[col];
+                out[[row, col]] = v;
+                norm_sq += v * v;
+            }
+        } else {
+            let cos_r = r.cos();
+            let sin_scale = r.sin() / r;
+            for col in 0..d {
+                let v = cos_r * b_mat[[0, col]] + sin_scale * z[col];
+                out[[row, col]] = v;
+                norm_sq += v * v;
+            }
+        }
+        let norm = norm_sq.sqrt();
+        if !norm.is_finite() || norm <= 0.0 {
+            return Err("spherical exponential map produced a non-finite point".to_string());
+        }
+        for col in 0..d {
+            out[[row, col]] /= norm;
+        }
+    }
+    Ok(out)
+}
+
 fn sphere_orthogonal_unit(vector: ArrayView1<'_, f64>) -> Result<Array1<f64>, String> {
     let mut min_index = 0;
     let mut min_abs = vector[0].abs();
@@ -326,26 +499,18 @@ fn sphere_mean_candidates(
     values: ArrayView2<'_, f64>,
     weights: ArrayView1<'_, f64>,
 ) -> Result<Vec<Array1<f64>>, String> {
-    let (n, d) = values.dim();
+    let (_, d) = values.dim();
     let mut candidates: Vec<Array1<f64>> = Vec::new();
-    let mut extrinsic = Array1::<f64>::zeros(d);
-    for row in 0..n {
-        for col in 0..d {
-            extrinsic[col] += weights[row] * values[[row, col]];
-        }
-    }
+    // Weighted extrinsic mean `Σ wᵢ pᵢ = Pᵀ w`: a single matrix–vector product
+    // over all points, dispatched to GPU by `fast_atv` for large batches.
+    let extrinsic = crate::linalg::faer_ndarray::fast_atv(&values, &weights);
     let ex_norm = norm(extrinsic.view());
     if ex_norm > 0.0 {
         candidates.push(extrinsic.mapv(|v| v / ex_norm));
     }
-    let mut moment = Array2::<f64>::zeros((d, d));
-    for row in 0..n {
-        for r in 0..d {
-            for c in 0..d {
-                moment[[r, c]] += weights[row] * values[[row, r]] * values[[row, c]];
-            }
-        }
-    }
+    // `M = Σ wᵢ pᵢ pᵢᵀ = Pᵀ diag(w) P` over all n points: the same GPU-dispatched
+    // weighted cross-product used by `sphere_second_moment`.
+    let moment = sphere_second_moment(values, weights);
     let mut v = Array1::<f64>::from_elem(d, 1.0 / (d as f64).sqrt());
     for _ in 0..64 {
         let mut nv = Array1::<f64>::zeros(d);
@@ -370,6 +535,120 @@ fn sphere_mean_candidates(
         candidates.push(unit.mapv(|x| -x));
     }
     Ok(candidates)
+}
+
+/// Build the weighted second-moment matrix `M = Σ wᵢ pᵢ pᵢᵀ = Pᵀ diag(w) P`.
+///
+/// This is a single weighted cross-product over ALL `n` points, so it routes
+/// through [`crate::linalg::faer_ndarray::fast_xt_diag_x`], whose auto-dispatch
+/// shim runs the `Pᵀ diag(w) P` Gram on the GPU (`crate::gpu::try_fast_xt_diag_x`)
+/// when the batch is large enough and otherwise on faer. The result is bit-for-bit
+/// the same `d×d` symmetric Gram as the explicit triple loop (f64 throughout).
+fn sphere_second_moment(values: ArrayView2<'_, f64>, weights: ArrayView1<'_, f64>) -> Array2<f64> {
+    crate::linalg::faer_ndarray::fast_xt_diag_x(&values, &weights)
+}
+
+/// Dominant eigenvector of a symmetric PSD matrix via power iteration.
+fn sphere_dominant_axis(moment: ArrayView2<'_, f64>) -> Option<Array1<f64>> {
+    let d = moment.nrows();
+    if d == 0 {
+        return None;
+    }
+    let mut v = Array1::<f64>::from_elem(d, 1.0 / (d as f64).sqrt());
+    for _ in 0..128 {
+        let mut nv = Array1::<f64>::zeros(d);
+        for r in 0..d {
+            let mut acc = 0.0;
+            for c in 0..d {
+                acc += moment[[r, c]] * v[c];
+            }
+            nv[r] = acc;
+        }
+        let nrm = norm(nv.view());
+        if nrm <= 0.0 {
+            return None;
+        }
+        nv.mapv_inplace(|x| x / nrm);
+        v = nv;
+    }
+    let nrm = norm(v.view());
+    if nrm > 0.0 {
+        Some(v.mapv(|x| x / nrm))
+    } else {
+        None
+    }
+}
+
+/// Deterministic equatorial minimizer for a non-identifiable (antipodal /
+/// degenerate) Fréchet problem.
+///
+/// When the data's second-moment matrix has its mass concentrated along a single
+/// axis `a` (e.g. equal-weight `{e1, −e1}` gives `M = diag(1,0,…)`), the Fréchet
+/// objective `½ Σ wᵢ d(μ, pᵢ)²` is minimized by the ENTIRE great subsphere
+/// orthogonal to `a` — every point of that equator is an exact minimizer, so no
+/// log-map iteration can converge to a unique point. Rather than reporting the
+/// problem as unsolvable (which would contradict the documented contract), pick
+/// one minimizer that is fully determined by the inputs:
+///
+///   1. `a` = dominant eigenvector of `M = Σ wᵢ pᵢ pᵢᵀ` (the antipodal axis).
+///   2. Among the coordinate axes `e_k`, pick the one LEAST aligned with the
+///      data, i.e. the smallest diagonal moment `M[k,k]`, tie-broken by the
+///      lowest coordinate index `k`.
+///   3. Project `e_k` onto the orthogonal complement of `a` and normalize; the
+///      result lies on the equator (hence is a true minimizer) and is uniquely
+///      determined by the inputs.
+///
+/// Returns `None` only when no equatorial direction can be formed (degenerate
+/// dimension), in which case the caller surfaces the genuine error.
+fn sphere_equatorial_minimizer(
+    values: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+) -> Option<Array1<f64>> {
+    let (_, d) = values.dim();
+    if d == 0 {
+        return None;
+    }
+    let moment = sphere_second_moment(values, weights);
+    let axis = sphere_dominant_axis(moment.view())?;
+    // Choose the coordinate axis least aligned with the data (smallest diagonal
+    // second moment), tie-broken by lowest index.
+    let mut best_k = 0usize;
+    let mut best_diag = moment[[0, 0]];
+    for k in 1..d {
+        let diag = moment[[k, k]];
+        if diag < best_diag {
+            best_diag = diag;
+            best_k = k;
+        }
+    }
+    // Project e_{best_k} onto the orthogonal complement of `axis`, then onto the
+    // complements of any further degenerate directions by simply normalizing the
+    // residual; for a rank-1 concentration this single projection suffices.
+    let mut cand = Array1::<f64>::zeros(d);
+    cand[best_k] = 1.0;
+    let proj = dot(cand.view(), axis.view());
+    for col in 0..d {
+        cand[col] -= proj * axis[col];
+    }
+    let nrm = norm(cand.view());
+    if nrm > 0.0 {
+        return Some(cand.mapv(|x| x / nrm));
+    }
+    // `e_{best_k}` was parallel to `axis`; fall back to the first coordinate axis
+    // whose residual after projection is non-degenerate (lowest index wins).
+    for k in 0..d {
+        let mut c = Array1::<f64>::zeros(d);
+        c[k] = 1.0;
+        let p = dot(c.view(), axis.view());
+        for col in 0..d {
+            c[col] -= p * axis[col];
+        }
+        let n = norm(c.view());
+        if n > 0.0 {
+            return Some(c.mapv(|x| x / n));
+        }
+    }
+    None
 }
 
 fn sphere_weighted_log_step(
@@ -506,7 +785,104 @@ pub fn sphere_frechet_mean(
             best_mu = Some(mu);
         }
     }
-    best_mu
-        .map(|mu| mu.to_vec())
-        .ok_or_else(|| "spherical Fréchet mean is not identifiable for these points".to_string())
+    if let Some(mu) = best_mu {
+        return Ok(mu.to_vec());
+    }
+    // No log-map iteration converged: the problem is non-identifiable because the
+    // data has a degenerate/antipodal structure (e.g. equal-weight {e1, −e1},
+    // whose minimizer set is the entire orthogonal equator). Honor the documented
+    // contract by returning ONE deterministic equatorial minimizer rather than an
+    // endpoint surrogate or a "not identifiable" error.
+    if let Some(mu) = sphere_equatorial_minimizer(y.view(), w.view()) {
+        return Ok(mu.to_vec());
+    }
+    // Truly no minimizer can be formed (degenerate dimension); surface the error.
+    Err("spherical Fréchet mean is not identifiable for these points".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    fn obj_at(values: ArrayView2<'_, f64>, weights: ArrayView1<'_, f64>, mu: &[f64]) -> f64 {
+        let mu_arr = Array1::from(mu.to_vec());
+        sphere_frechet_objective(values, weights, mu_arr.view())
+    }
+
+    #[test]
+    fn antipodal_pair_returns_deterministic_equatorial_minimizer() {
+        // Equal-weight {e1, -e1} on S^2: the Fréchet objective is minimized by the
+        // ENTIRE equator orthogonal to e1, so no log-map iteration converges. The
+        // tie-breaker must return one deterministic minimizer on that equator
+        // rather than the "not identifiable" error.
+        let values = array![[1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]];
+        let mean = sphere_frechet_mean(values.view(), None, 1.0e-12, 256)
+            .expect("antipodal pair must return a deterministic minimizer");
+        assert_eq!(mean.len(), 3);
+
+        // It is a unit vector.
+        let nrm = (mean[0] * mean[0] + mean[1] * mean[1] + mean[2] * mean[2]).sqrt();
+        assert!(
+            (nrm - 1.0).abs() < 1e-9,
+            "mean must be a unit vector, got {nrm}"
+        );
+
+        // It lies on the equator orthogonal to the antipodal axis e1.
+        assert!(
+            mean[0].abs() < 1e-9,
+            "mean must be orthogonal to e1, got {mean:?}"
+        );
+
+        // The dominant data axis is e1 (col 0); the least-aligned coordinate axis
+        // is e2 (col 1, lowest index among the zero-moment axes). The projection of
+        // e2 onto the complement of e1 is e2 itself, so the deterministic pick is
+        // exactly +e2.
+        assert!((mean[1] - 1.0).abs() < 1e-9, "expected +e2, got {mean:?}");
+        assert!(mean[2].abs() < 1e-9, "expected +e2, got {mean:?}");
+
+        // And it is genuinely a minimizer: its objective ties the equatorial value
+        // pi^2/2 attained by e.g. e2 and by e3, and is strictly below the value at
+        // an endpoint e1 (which is NOT a minimizer for this data).
+        let w = normalize_weights(2, None).unwrap();
+        let y = normalize_sphere_matrix(values.view()).unwrap();
+        let obj_mean = obj_at(y.view(), w.view(), &mean);
+        let obj_e3 = obj_at(y.view(), w.view(), &[0.0, 0.0, 1.0]);
+        let obj_e1 = obj_at(y.view(), w.view(), &[1.0, 0.0, 0.0]);
+        assert!(
+            (obj_mean - obj_e3).abs() < 1e-9,
+            "equatorial minimizer must tie other equatorial points: {obj_mean} vs {obj_e3}"
+        );
+        assert!(
+            obj_mean < obj_e1 - 1e-9,
+            "equatorial minimizer must beat an endpoint: {obj_mean} vs {obj_e1}"
+        );
+    }
+
+    #[test]
+    fn antipodal_minimizer_is_deterministic_across_calls() {
+        let values = array![[1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]];
+        let a = sphere_frechet_mean(values.view(), None, 1.0e-12, 256).unwrap();
+        let b = sphere_frechet_mean(values.view(), None, 1.0e-12, 256).unwrap();
+        assert_eq!(a, b, "tie-breaker must be deterministic across calls");
+    }
+
+    #[test]
+    fn empty_input_still_errors() {
+        // Zero-weight / empty input has no minimizer; the genuine error must remain.
+        let values = array![[1.0, 0.0, 0.0]];
+        let zero = array![0.0_f64];
+        let err = sphere_frechet_mean(values.view(), Some(zero.view()), 1.0e-12, 256);
+        assert!(err.is_err(), "zero-weight input must still error");
+    }
+
+    #[test]
+    fn non_degenerate_mean_unchanged() {
+        // A clearly identifiable cluster must still converge to the ordinary
+        // Karcher mean, not the equatorial fallback.
+        let values = array![[1.0, 0.0, 0.0], [0.9, 0.1, 0.0], [0.9, 0.0, 0.1]];
+        let mean = sphere_frechet_mean(values.view(), None, 1.0e-12, 256).unwrap();
+        // Mean should be close to e1 (dominant direction), not on the equator.
+        assert!(mean[0] > 0.9, "expected near-e1 mean, got {mean:?}");
+    }
 }

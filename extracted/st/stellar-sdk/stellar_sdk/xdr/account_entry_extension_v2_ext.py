@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -30,7 +29,7 @@ class AccountEntryExtensionV2Ext:
     def __init__(
         self,
         v: int,
-        v3: Optional[AccountEntryExtensionV3] = None,
+        v3: AccountEntryExtensionV3 | None = None,
     ) -> None:
         self.v = v
         self.v3 = v3

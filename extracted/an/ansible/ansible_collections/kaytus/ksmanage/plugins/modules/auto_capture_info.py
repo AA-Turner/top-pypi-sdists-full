@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: auto_capture_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get auto capture screen information
 description:
    - Get auto capture screen information on kaytus Server.

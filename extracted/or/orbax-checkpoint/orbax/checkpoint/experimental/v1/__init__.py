@@ -38,7 +38,7 @@ from orbax.checkpoint.experimental.v1.handlers import (
     CheckpointableHandler,
     StatefulCheckpointable,
 )
-from orbax.checkpoint.experimental.v1._src.context import options
+from orbax.checkpoint.experimental.v1 import options
 from orbax.checkpoint.experimental.v1._src.context.context import (
     Context,
 )
@@ -48,13 +48,13 @@ from orbax.checkpoint.experimental.v1._src.layout.registry import (
 from orbax.checkpoint.experimental.v1._src.loading.loading import (
     load_checkpointables,
     load_checkpointables_async,
-    load_pytree,
-    load_pytree_async,
+    load,
+    load_async,
     PLACEHOLDER,
 )
 from orbax.checkpoint.experimental.v1._src.metadata.loading import (
     checkpointables_metadata,
-    pytree_metadata,
+    metadata,
 )
 from orbax.checkpoint.experimental.v1._src.metadata.types import (
     CheckpointMetadata,
@@ -63,6 +63,19 @@ from orbax.checkpoint.experimental.v1._src.metadata.types import (
 from orbax.checkpoint.experimental.v1._src.saving.saving import (
     save_checkpointables,
     save_checkpointables_async,
+    save,
+    save_async,
+)
+
+### DEPRECATED APIS ###
+from orbax.checkpoint.experimental.v1._src.saving.saving import (
     save_pytree,
     save_pytree_async,
+)
+from orbax.checkpoint.experimental.v1._src.loading.loading import (
+    load_pytree,
+    load_pytree_async,
+)
+from orbax.checkpoint.experimental.v1._src.metadata.loading import (
+    pytree_metadata,
 )

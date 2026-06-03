@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyc_wheel
-Version: 2.3.0
+Version: 2.4.3
 Summary: Compile all py files in a wheel to pyc files.
 Author-email: Adam Karpierz <adam@karpierz.net>, Grant Patten <grant@gpatten.com>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
@@ -20,7 +20,6 @@ Classifier: Natural Language :: Polish
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -28,15 +27,16 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: <4.0.0,>=3.10.0
+Requires-Python: <4.0.0,>=3.11.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: setuptools>=81.0.0
-Requires-Dist: pkg-about>=2.3.0
+Requires-Dist: pkg-about>=2.4.0
 Dynamic: license-file
 
 pyc_wheel
@@ -60,58 +60,57 @@ Usage
 
 Processing the wheel in place:
 
-.. code-block:: bash
+.. code:: bash
 
-    $ python3 -m pyc_wheel your_wheel-1.0.0-py3-none-any.whl
-    # Output: your_wheel-1.0.0-py3-none-any.whl
+  $ python3 -m pyc_wheel your_wheel-1.0.0-py3-none-any.whl
+  # Output: your_wheel-1.0.0-py3-none-any.whl
 
 or renaming for the python version:
 
-.. code-block:: bash
+.. code:: bash
 
-    $ python3.13 -m pyc_wheel --rename your_wheel-1.0.0-py3-none-any.whl
-    # Output: your_wheel-1.0.0-cp313-none-any.whl
+  $ python3.13 -m pyc_wheel --rename your_wheel-1.0.0-py3-none-any.whl
+  # Output: your_wheel-1.0.0-cp313-none-any.whl
 
 or with backup:
 
-.. code-block:: bash
+.. code:: bash
 
-    $ python3.13 -m pyc_wheel --rename --with-backup your_wheel-1.0.0-py3-none-any.whl
-    # Output: your_wheel-1.0.0-cp313-none-any.whl
-    #         your_wheel-1.0.0-py3-none-any.whl.bak
+  $ python3.13 -m pyc_wheel --rename --with-backup your_wheel-1.0.0-py3-none-any.whl
+  # Output: your_wheel-1.0.0-cp313-none-any.whl
+  #         your_wheel-1.0.0-py3-none-any.whl.bak
 
 or with quiet:
 
-.. code-block:: bash
+.. code:: bash
 
-    $ python3 -m pyc_wheel --quiet your_wheel-1.0.0-py3-none-any.whl
-    # Output: your_wheel-1.0.0-py3-none-any.whl
+  $ python3 -m pyc_wheel --quiet your_wheel-1.0.0-py3-none-any.whl
+  # Output: your_wheel-1.0.0-py3-none-any.whl
 
 or skipping compilation for a file subset:
 
-.. code-block:: bash
+.. code:: bash
 
-    $ python3 -m pyc_wheel --exclude "some/regex" your_wheel-1.0.0-py3-none-any.whl
+  $ python3 -m pyc_wheel --exclude "some/regex" your_wheel-1.0.0-py3-none-any.whl
 
 To check all available processing options:
 
-.. code-block:: bash
+.. code:: bash
 
-    $ python3 -m pyc_wheel --help
+  $ python3 -m pyc_wheel --help
 
 Installation
 ============
 
 Prerequisites:
 
-+ Python 3.10 or higher
++ Python 3.11 or higher
 
   * https://www.python.org/
 
-+ pip and setuptools
++ pip
 
   * https://pypi.org/project/pip/
-  * https://pypi.org/project/setuptools/
 
 To install run:
 

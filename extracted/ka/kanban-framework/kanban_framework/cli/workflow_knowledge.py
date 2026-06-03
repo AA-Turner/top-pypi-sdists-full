@@ -36,6 +36,7 @@ def _import_retrospective_knowledge(task, fs: Filesystem) -> dict:
     km = KnowledgeManager(fs)
     task_dir = fs.task_dir(task.id)
     iter_dir = task_dir / f"iteration-{task.iteration}"
+    biz_tag = getattr(task, 'biz_tag', None)
     # Agent may write to iter_dir or task_dir depending on prompt interpretation
     ke_file = iter_dir / "knowledge_extracted.json"
     if not ke_file.exists():
@@ -60,6 +61,7 @@ def _import_retrospective_knowledge(task, fs: Filesystem) -> dict:
                     tags=e.get("tags", []),
                     severity=e.get("severity", "medium"),
                     source=e.get("source", {}),
+                    biz_context=biz_tag,
                 )
                 added.append(entry["id"])
             result = {"knowledge_imported": len(added), "knowledge_ids": added}
@@ -77,6 +79,7 @@ def _extract_quick_archive_knowledge(task, fs: Filesystem) -> dict:
     km = KnowledgeManager(fs)
     task_dir = fs.task_dir(task.id)
     iter_dir = task_dir / f"iteration-{task.iteration}"
+    biz_tag = getattr(task, 'biz_tag', None)
     _quick_sources = [
         (iter_dir / "execution_pitfalls.md", "踩坑"),
         (iter_dir / "execution_decisions.md", "最佳实践"),
@@ -116,6 +119,7 @@ def _extract_quick_archive_knowledge(task, fs: Filesystem) -> dict:
                 severity="medium",
                 source={"task_id": task.id, "source_file": _src_path.name,
                         "extraction_mode": "quick_archive"},
+                biz_context=biz_tag,
             )
             if not _entry.get("skipped"):
                 _quick_added.append(_entry["id"])

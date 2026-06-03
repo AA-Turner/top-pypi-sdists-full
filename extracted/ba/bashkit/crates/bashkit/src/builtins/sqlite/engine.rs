@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-use turso_core::{Connection, Database, IO, MemoryIO, OpenFlags, StepResult, Value};
+use turso_core::{Connection, Database, IO, MemoryIO, Numeric, OpenFlags, StepResult, Value};
 
 use super::vfs_io::BashkitVfsIO;
 
@@ -71,6 +71,14 @@ pub(super) enum Backend {
     /// VFS-backed `BashkitVfsIO`. The owner calls `flush_dirty` on the IO
     /// when it wants the in-memory pages flushed back to the VFS.
     Vfs(Arc<BashkitVfsIO>),
+}
+
+/// Query materialisation caps applied before values are cloned into Bashkit-owned memory.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct QueryLimits {
+    pub max_rows: usize,
+    pub max_value_bytes: usize,
+    pub max_result_bytes: usize,
 }
 
 /// Outcome of executing a single SQL statement.
@@ -150,7 +158,7 @@ impl SqliteEngine {
             backend: Backend::Vfs(io),
             _db: db,
             conn,
-            memory_path: None,
+            memory_path: Some(path_in_io.to_string()),
         })
     }
 
@@ -164,13 +172,14 @@ impl SqliteEngine {
         &self,
         sql: &str,
         deadline: Deadline,
-        max_rows: usize,
+        limits: QueryLimits,
     ) -> EngineResult<StatementOutcome> {
         let mut stmt = self.conn.prepare(sql).map_err(turso_msg)?;
         let mut outcome = StatementOutcome::default();
         for idx in 0..stmt.num_columns() {
             outcome.columns.push(stmt.get_column_name(idx).to_string());
         }
+        let mut result_bytes = 0usize;
         loop {
             if deadline.expired() {
                 stmt.interrupt();
@@ -179,12 +188,32 @@ impl SqliteEngine {
             match stmt.step().map_err(turso_msg)? {
                 StepResult::Row => {
                     let next_row = outcome.rows.len() + 1;
-                    if next_row > max_rows {
+                    if next_row > limits.max_rows {
                         return Err(format!(
-                            "result set exceeds row cap ({next_row} > {max_rows})"
+                            "result set exceeds row cap ({next_row} > {})",
+                            limits.max_rows
                         ));
                     }
                     if let Some(row) = stmt.row() {
+                        let mut row_bytes = 0usize;
+                        for idx in 0..stmt.num_columns() {
+                            let value_bytes = Self::value_size_bytes(row.get_value(idx));
+                            if value_bytes > limits.max_value_bytes {
+                                return Err(format!(
+                                    "result value exceeds byte cap ({value_bytes} > {})",
+                                    limits.max_value_bytes
+                                ));
+                            }
+                            row_bytes = row_bytes.saturating_add(value_bytes);
+                        }
+                        let next_result_bytes = result_bytes.saturating_add(row_bytes);
+                        if next_result_bytes > limits.max_result_bytes {
+                            return Err(format!(
+                                "result set exceeds byte cap ({next_result_bytes} > {})",
+                                limits.max_result_bytes
+                            ));
+                        }
+                        result_bytes = next_result_bytes;
                         let values: Vec<Value> = (0..stmt.num_columns())
                             .map(|idx| row.get_value(idx).clone())
                             .collect();
@@ -204,6 +233,15 @@ impl SqliteEngine {
         Ok(outcome)
     }
 
+    fn value_size_bytes(value: &Value) -> usize {
+        match value {
+            Value::Null => 0,
+            Value::Numeric(Numeric::Integer(_)) | Value::Numeric(Numeric::Float(_)) => 8,
+            Value::Text(text) => text.as_str().len(),
+            Value::Blob(bytes) => bytes.len(),
+        }
+    }
+
     fn io_step(&self) -> EngineResult<()> {
         match &self.backend {
             Backend::Memory(io) => io.step().map_err(turso_msg),
@@ -211,27 +249,27 @@ impl SqliteEngine {
         }
     }
 
-    /// Snapshot the database file bytes. Only meaningful for the memory
-    /// backend (which is what the Phase 1 path uses). Returns `None` for
-    /// the VFS backend, since persistence happens via the IO directly.
+    /// Snapshot the current database file bytes for cache invalidation.
     ///
     /// We force a TRUNCATE-mode checkpoint before reading so that any pages
     /// still in the WAL are folded into the main file. Without this step the
     /// snapshot would be missing the just-written transaction.
     pub(super) fn snapshot_bytes(&self) -> Option<Vec<u8>> {
-        let Backend::Memory(io) = &self.backend else {
-            return None;
-        };
         let path = self.memory_path.as_deref()?;
         let _ = self.conn.checkpoint(turso_core::CheckpointMode::Truncate {
             upper_bound_inclusive: None,
         });
-        let file = io.open_file(path, OpenFlags::None, false).ok()?;
-        let size = file.size().ok()? as usize;
-        if size == 0 {
-            return Some(Vec::new());
+        match &self.backend {
+            Backend::Memory(io) => {
+                let file = io.open_file(path, OpenFlags::None, false).ok()?;
+                let size = file.size().ok()? as usize;
+                if size == 0 {
+                    return Some(Vec::new());
+                }
+                Some(read_all(&file, size))
+            }
+            Backend::Vfs(io) => io.file_bytes(path),
         }
-        Some(read_all(&file, size))
     }
 
     /// For the VFS backend, flush any pages dirtied in memory back to the

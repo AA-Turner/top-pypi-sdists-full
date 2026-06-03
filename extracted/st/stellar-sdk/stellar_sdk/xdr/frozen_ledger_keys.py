@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -25,7 +24,7 @@ class FrozenLedgerKeys:
 
     def __init__(
         self,
-        keys: List[EncodedLedgerKey],
+        keys: list[EncodedLedgerKey],
     ) -> None:
         _expect_max_length = 4294967295
         if keys and len(keys) > _expect_max_length:

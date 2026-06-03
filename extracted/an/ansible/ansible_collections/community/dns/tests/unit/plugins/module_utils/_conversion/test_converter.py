@@ -1,0 +1,306 @@
+# Copyright (c) 2021, Felix Fontein <felix@fontein.de>
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+from __future__ import annotations
+
+import pytest
+
+from ansible_collections.community.dns.plugins.module_utils._conversion.base import (
+    DNSConversionError,
+)
+from ansible_collections.community.dns.plugins.module_utils._conversion.converter import (
+    RecordConverter,
+)
+from ansible_collections.community.dns.plugins.module_utils._record import DNSRecord
+from ansible_collections.community.dns.plugins.module_utils._record_set import (
+    DNSRecordSet,
+)
+
+from ..helper import CustomProvideOptions, CustomProviderInformation
+
+
+def test_user_api():
+    converter = RecordConverter(
+        CustomProviderInformation(
+            txt_record_handling="decoded", txt_character_encoding="decimal"
+        ),
+        CustomProvideOptions(
+            {"txt_transformation": "api", "txt_character_encoding": "decimal"}
+        ),
+    )
+    assert converter.process_value_from_user("TXT", '"xyz \\') == '"xyz \\'
+    assert converter.process_values_from_user("TXT", ['"xyz \\']) == ['"xyz \\']
+    assert converter.process_value_to_user("TXT", '"xyz \\') == '"xyz \\'
+    assert converter.process_values_to_user("TXT", ['"xyz \\']) == ['"xyz \\']
+
+    record = DNSRecord(record_id=None, record_type="TXT", target="")
+
+    record.target = '"xyz \\'
+    converter.process_from_user(record)
+    assert record.target == '"xyz \\'
+
+    record.target = '"xyz \\'
+    converter.process_multiple_from_user([record])
+    assert record.target == '"xyz \\'
+
+    record.target = '"xyz \\'
+    converter.process_to_user(record)
+    assert record.target == '"xyz \\'
+
+    record.target = '"xyz \\'
+    converter.process_multiple_to_user([record])
+    assert record.target == '"xyz \\'
+
+
+def test_user_quoted():
+    converter = RecordConverter(
+        CustomProviderInformation(
+            txt_record_handling="decoded", txt_character_encoding="decimal"
+        ),
+        CustomProvideOptions(
+            {"txt_transformation": "quoted", "txt_character_encoding": "decimal"}
+        ),
+    )
+    assert (
+        converter.process_value_from_user("TXT", 'hëllo " w\\195\\182rld"')
+        == "hëllo wörld"
+    )
+    assert converter.process_values_from_user("TXT", ['hëllo " w\\195\\182rld"']) == [
+        "hëllo wörld"
+    ]
+    assert (
+        converter.process_value_to_user("TXT", "hello wörld")
+        == '"hello w\\195\\182rld"'
+    )
+    assert converter.process_values_to_user("TXT", ["hello wörld"]) == [
+        '"hello w\\195\\182rld"'
+    ]
+
+    record = DNSRecord(record_id=None, record_type="TXT", target="")
+
+    record.target = 'hëllo " w\\195\\182rld"'
+    converter.process_from_user(record)
+    assert record.target == "hëllo wörld"
+
+    record.target = 'hëllo " w\\195\\182rld"'
+    converter.process_multiple_from_user([record])
+    assert record.target == "hëllo wörld"
+
+    record.target = "hello wörld"
+    converter.process_to_user(record)
+    assert record.target == '"hello w\\195\\182rld"'
+
+    record.target = "hello wörld"
+    converter.process_multiple_to_user([record])
+    assert record.target == '"hello w\\195\\182rld"'
+
+    record.target = '"a\\o'
+    with pytest.raises(DNSConversionError) as exc:
+        converter.process_from_user(record)
+    print(exc.value.error_message)
+    assert exc.value.error_message == (
+        'While processing record from the user: A backslash must not be followed by "o" (index 4)'
+    )
+
+    rrset = DNSRecordSet(record_set_id=None, record_type=record.type)
+    rrset.records.append(record)
+    record.target = '"foo"'
+    converter.process_set_from_user(rrset)
+    assert record.target == "foo"
+
+
+def test_user_unquoted():
+    converter = RecordConverter(
+        CustomProviderInformation(
+            txt_record_handling="decoded", txt_character_encoding="decimal"
+        ),
+        CustomProvideOptions(
+            {"txt_transformation": "unquoted", "txt_character_encoding": "decimal"}
+        ),
+    )
+    assert (
+        converter.process_value_from_user("TXT", 'hello "wörl\\d"') == 'hello "wörl\\d"'
+    )
+    assert converter.process_values_from_user("TXT", ['hello "wörl\\d"']) == [
+        'hello "wörl\\d"'
+    ]
+    assert (
+        converter.process_value_to_user("TXT", 'hello "wörl\\d"') == 'hello "wörl\\d"'
+    )
+    assert converter.process_values_to_user("TXT", ['hello "wörl\\d"']) == [
+        'hello "wörl\\d"'
+    ]
+
+    record = DNSRecord(record_id=None, record_type="TXT", target="")
+
+    record.target = 'hello "wörl\\d"'
+    converter.process_from_user(record)
+    assert record.target == 'hello "wörl\\d"'
+
+    record.target = 'hello "wörl\\d"'
+    converter.process_multiple_from_user([record])
+    assert record.target == 'hello "wörl\\d"'
+
+    record.target = 'hello "wörl\\d"'
+    converter.process_to_user(record)
+    assert record.target == 'hello "wörl\\d"'
+
+    record.target = 'hello "wörl\\d"'
+    converter.process_multiple_to_user([record])
+    assert record.target == 'hello "wörl\\d"'
+
+
+def test_api_decoded():
+    converter = RecordConverter(
+        CustomProviderInformation(
+            txt_record_handling="decoded", txt_character_encoding="decimal"
+        ),
+        CustomProvideOptions(
+            {"txt_transformation": "unquoted", "txt_character_encoding": "decimal"}
+        ),
+    )
+    record = DNSRecord(record_id=None, record_type="TXT", target="")
+
+    record.target = '"xyz \\'
+    record_2 = converter.clone_from_api(record)
+    assert record is not record_2
+    assert record.target == '"xyz \\'
+    assert record_2.target == '"xyz \\'
+    converter.process_from_api(record)
+    assert record.target == '"xyz \\'
+
+    record.target = '"xyz \\'
+    records = converter.clone_multiple_from_api([record])
+    assert len(records) == 1
+    assert record is not records[0]
+    assert record.target == '"xyz \\'
+    assert records[0].target == '"xyz \\'
+    converter.process_multiple_from_api([record])
+    assert record.target == '"xyz \\'
+
+    record.target = '"xyz \\'
+    record_2 = converter.clone_to_api(record)
+    assert record is not record_2
+    assert record.target == '"xyz \\'
+    assert record_2.target == '"xyz \\'
+    converter.process_to_api(record)
+    assert record.target == '"xyz \\'
+
+    record.target = '"xyz \\'
+    records = converter.clone_multiple_to_api([record])
+    assert len(records) == 1
+    assert record is not records[0]
+    assert record.target == '"xyz \\'
+    assert records[0].target == '"xyz \\'
+    converter.process_multiple_to_api([record])
+    assert record.target == '"xyz \\'
+
+
+def test_api_encoded():
+    converter = RecordConverter(
+        CustomProviderInformation(
+            txt_record_handling="encoded", txt_character_encoding="decimal"
+        ),
+        CustomProvideOptions(
+            {"txt_transformation": "unquoted", "txt_character_encoding": "decimal"}
+        ),
+    )
+    record = DNSRecord(record_id=None, record_type="TXT", target="")
+
+    record.target = 'xyz " " \\\\\\195\\182'
+    record_2 = converter.clone_from_api(record)
+    assert record is not record_2
+    assert record.target == 'xyz " " \\\\\\195\\182'
+    print(record_2.target)
+    assert record_2.target == "xyz \\ö"
+    converter.process_from_api(record)
+    assert record.target == "xyz \\ö"
+
+    record.target = 'xyz " " \\\\\\195\\182'
+    records = converter.clone_multiple_from_api([record])
+    assert len(records) == 1
+    assert record is not records[0]
+    assert record.target == 'xyz " " \\\\\\195\\182'
+    assert records[0].target == "xyz \\ö"
+    converter.process_multiple_from_api([record])
+    assert record.target == "xyz \\ö"
+
+    record.target = "xyz \\ö"
+    record_2 = converter.clone_to_api(record)
+    assert record is not record_2
+    assert record.target == "xyz \\ö"
+    assert record_2.target == '"xyz \\\\\\195\\182"'
+    converter.process_to_api(record)
+    assert record.target == '"xyz \\\\\\195\\182"'
+
+    rrset = DNSRecordSet(record_set_id=None, record_type=record.type)
+    rrset.records.append(record)
+    record.target = "xyz \\ö"
+    converter.process_set_to_api(rrset)
+    assert record.target == '"xyz \\\\\\195\\182"'
+
+    record.target = "xyz \\ö"
+    records = converter.clone_multiple_to_api([record])
+    assert len(records) == 1
+    assert record is not records[0]
+    assert record.target == "xyz \\ö"
+    assert records[0].target == '"xyz \\\\\\195\\182"'
+    converter.process_multiple_to_api([record])
+    assert record.target == '"xyz \\\\\\195\\182"'
+
+    record.target = '"a'
+    with pytest.raises(DNSConversionError) as exc:
+        converter.process_from_api(record)
+    print(exc.value.error_message)
+    assert exc.value.error_message == (
+        "While processing record from API: Missing double quotation mark at the end of value"
+    )
+
+
+def test_api_encoded_no_char_encoding():
+    converter = RecordConverter(
+        CustomProviderInformation(
+            txt_record_handling="encoded-no-char-encoding",
+            txt_character_encoding="decimal",
+        ),
+        CustomProvideOptions(
+            {"txt_transformation": "unquoted", "txt_character_encoding": "decimal"}
+        ),
+    )
+    record = DNSRecord(record_id=None, record_type="TXT", target="")
+
+    record.target = 'xyz " " \\\\\\195\\182'
+    record_2 = converter.clone_from_api(record)
+    assert record is not record_2
+    assert record.target == 'xyz " " \\\\\\195\\182'
+    print(record_2.target)
+    assert record_2.target == "xyz \\ö"
+    converter.process_from_api(record)
+    assert record.target == "xyz \\ö"
+
+    record.target = 'xyz " " \\\\\\195\\182'
+    records = converter.clone_multiple_from_api([record])
+    assert len(records) == 1
+    assert record is not records[0]
+    assert record.target == 'xyz " " \\\\\\195\\182'
+    assert records[0].target == "xyz \\ö"
+    converter.process_multiple_from_api([record])
+    assert record.target == "xyz \\ö"
+
+    record.target = 'xyz \\ö"'
+    record_2 = converter.clone_to_api(record)
+    assert record is not record_2
+    assert record.target == 'xyz \\ö"'
+    assert record_2.target == '"xyz \\\\ö\\""'
+    converter.process_to_api(record)
+    assert record.target == '"xyz \\\\ö\\""'
+
+    record.target = 'xyz \\ö"'
+    records = converter.clone_multiple_to_api([record])
+    assert len(records) == 1
+    assert record is not records[0]
+    assert record.target == 'xyz \\ö"'
+    assert records[0].target == '"xyz \\\\ö\\""'
+    converter.process_multiple_to_api([record])
+    assert record.target == '"xyz \\\\ö\\""'

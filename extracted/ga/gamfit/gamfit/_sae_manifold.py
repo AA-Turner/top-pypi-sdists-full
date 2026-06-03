@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -46,6 +47,17 @@ class SaeManifoldAtomFit:
     coords: np.ndarray
     evidence: float
     active_dim: int
+    # Posterior shape uncertainty (populated on a fresh fit; ``None`` on a
+    # deserialized model). ``decoder_covariance`` is the phi-scaled posterior
+    # covariance of this atom's decoder coefficients, shape ``(M_k*p, M_k*p)``
+    # in row-major ``(basis, channel)`` flat layout. The shape band is the
+    # closed-form push-forward to ambient space along the on-atom coordinates:
+    # ``shape_band_mean`` is the fitted point ``(G, p)``, ``shape_band_sd`` its
+    # per-channel posterior sd ``(G, p)``, at ``shape_band_coords`` ``(G, d_k)``.
+    decoder_covariance: np.ndarray | None = None
+    shape_band_coords: np.ndarray | None = None
+    shape_band_mean: np.ndarray | None = None
+    shape_band_sd: np.ndarray | None = None
 
 
 @dataclass(slots=True)
@@ -64,7 +76,9 @@ class SaeManifoldFitResult:
 class ManifoldSAE:
     atoms: list[SaeManifoldAtomFit]
     atom_topology: str
+    atom_topologies: list[str]
     assignment: str
+    assignment_label: str
     primitive_names: list[str]
     fitted: np.ndarray
     assignments: np.ndarray
@@ -90,6 +104,11 @@ class ManifoldSAE:
     learning_rate: float = 0.04
     max_iter: int = 50
     random_state: int = 0
+    top_k: int | None = None
+    jumprelu_threshold: float = 0.0
+    # Gaussian reconstruction scale phi-hat that scales every per-atom decoder
+    # covariance (Cov(beta_k) = phi * S_beta^{-1}[block]).
+    dispersion: float = 1.0
 
     def __repr__(self) -> str:
         d_atom = int(self.coords[0].shape[1]) if self.coords else 0
@@ -102,8 +121,12 @@ class ManifoldSAE:
         )
 
     @classmethod
-    def from_payload(cls, x: np.ndarray, payload: Mapping[str, Any], topology: str, assignment: str, penalties: list[str], alpha: float = 1.0, learnable_alpha: bool = False, *, tau: float = 0.5, sparsity_strength: float = 1.0, smoothness: float = 1.0, learning_rate: float = 0.04, max_iter: int = 50, random_state: int = 0) -> "ManifoldSAE":
+    def from_payload(cls, x: np.ndarray, payload: Mapping[str, Any], topology: str, assignment: str, penalties: list[str], alpha: float = 1.0, learnable_alpha: bool = False, *, assignment_label: str | None = None, tau: float = 0.5, sparsity_strength: float = 1.0, smoothness: float = 1.0, learning_rate: float = 0.04, max_iter: int = 50, random_state: int = 0, top_k: int | None = None, jumprelu_threshold: float = 0.0) -> "ManifoldSAE":
         plans = list(payload.get("atom_plans", []))
+        def _opt_arr(atom: Mapping[str, Any], key: str) -> np.ndarray | None:
+            value = atom.get(key)
+            return None if value is None else np.asarray(value, dtype=float)
+
         atoms = [SaeManifoldAtomFit(
             basis=str(atom.get("basis_kind", "")),
             decoder_coefficients=np.asarray(atom["decoder_B"], dtype=float),
@@ -111,6 +134,10 @@ class ManifoldSAE:
             coords=np.asarray(atom["on_atom_coords_t"], dtype=float),
             evidence=float(payload["reml_score"]),
             active_dim=int(atom.get("active_dim", 0)),
+            decoder_covariance=_opt_arr(atom, "decoder_covariance"),
+            shape_band_coords=_opt_arr(atom, "shape_band_coords"),
+            shape_band_mean=_opt_arr(atom, "shape_band_mean"),
+            shape_band_sd=_opt_arr(atom, "shape_band_sd"),
         ) for atom in payload["atoms"]]
         fitted = np.asarray(payload["fitted"], dtype=float)
         assigns = np.asarray(payload["assignments_z"], dtype=float)
@@ -124,8 +151,12 @@ class ManifoldSAE:
         sizes = [int(p.get("basis_size", 0)) for p in plans] if plans else [int(a.decoder_coefficients.shape[0]) for a in atoms]
         nharm = [int(p.get("n_harmonics", 0)) for p in plans] if plans else [0 for _ in atoms]
         centers: list[np.ndarray | None] = [(None if p.get("duchon_centers") is None else np.asarray(p["duchon_centers"], dtype=float)) for p in plans] if plans else [None for _ in atoms]
+        canonical = _canonical_assignment(assignment, "assignment")
         return cls(
-            atoms=atoms, atom_topology=str(topology), assignment=str(assignment),
+            atoms=atoms, atom_topology=str(topology),
+            atom_topologies=_topologies_for_bases(kinds),
+            assignment=canonical,
+            assignment_label=str(assignment if assignment_label is None else assignment_label),
             primitive_names=["rust_module.sae_manifold_fit_minimal", *penalties],
             fitted=fitted, assignments=assigns, coords=coords,
             decoder_blocks=[a.decoder_coefficients.copy() for a in atoms],
@@ -139,7 +170,40 @@ class ManifoldSAE:
             tau=float(tau), sparsity_strength=float(sparsity_strength),
             smoothness=float(smoothness), learning_rate=float(learning_rate),
             max_iter=int(max_iter), random_state=int(random_state),
+            top_k=None if top_k is None else int(top_k),
+            jumprelu_threshold=float(jumprelu_threshold),
+            dispersion=float(payload.get("dispersion", 1.0)),
         )
+
+    def shape_band(self, atom_k: int, *, n_sd: float = 1.96) -> dict[str, np.ndarray]:
+        """Posterior shape band for atom ``atom_k``.
+
+        Returns ``{"coords", "mean", "sd", "lower", "upper"}`` — the fitted
+        ambient manifold point and its closed-form posterior uncertainty along
+        the atom's on-atom coordinates, with ``lower``/``upper`` the
+        ``mean ± n_sd·sd`` envelope (``n_sd=1.96`` is the pointwise 95% band).
+        The uncertainty is the Laplace posterior of the decoder shape with the
+        latent coordinates marginalized out; it widens automatically where the
+        atom is poorly identified. Available only on a freshly-fit model.
+        """
+        k = int(atom_k)
+        if k < 0 or k >= len(self.atoms):
+            raise IndexError(f"atom_k={atom_k} out of range for K={len(self.atoms)} atoms")
+        atom = self.atoms[k]
+        if atom.shape_band_mean is None or atom.shape_band_sd is None:
+            raise ValueError(
+                "shape_band is only available on a freshly-fit ManifoldSAE; this "
+                "model was deserialized without the (fit-time) uncertainty arrays."
+            )
+        mean = atom.shape_band_mean
+        sd = atom.shape_band_sd
+        return {
+            "coords": atom.shape_band_coords,
+            "mean": mean,
+            "sd": sd,
+            "lower": mean - float(n_sd) * sd,
+            "upper": mean + float(n_sd) * sd,
+        }
 
     def _oos_payload(self, X: Any, *, t_init: Any = None, a_init: Any = None) -> dict[str, Any]:
         """Run the frozen-decoder OOS Newton solve on ``X`` and return the full
@@ -162,6 +226,8 @@ class ManifoldSAE:
             sparsity_strength=float(self.sparsity_strength), smoothness=float(self.smoothness),
             max_iter=int(self.max_iter), learning_rate=float(self.learning_rate),
             initial_logits=logits_init, initial_coords=coords_init,
+            top_k=self.top_k,
+            jumprelu_threshold=float(self.jumprelu_threshold),
         )
         return dict(payload)
 
@@ -266,7 +332,18 @@ class ManifoldSAE:
         return [c.copy() for c in self.coords]
 
     def summary(self) -> dict[str, Any]:
-        threshold = 0.5 if self.assignment == "ibp" else 1.0 / max(1, len(self.atoms))
+        # `self.assignment` is the canonical kind. Active-atom detection is
+        # mode-specific:
+        #   softmax   -> active if its share exceeds the uniform mass 1/K;
+        #   ibp_map   -> active if its posterior gate exceeds the 0.5 threshold;
+        #   jumprelu  -> active if the (hard) gate is nonzero (> 0).
+        kind = _canonical_assignment(self.assignment, "assignment")
+        if kind == "softmax":
+            threshold = 1.0 / max(1, len(self.atoms))
+        elif kind == "jumprelu":
+            threshold = 0.0
+        else:  # ibp_map
+            threshold = 0.5
         avg_active, mean_mass = rust_module().sae_manifold_assignment_summary(self.assignments, threshold)
         return {
             "K": len(self.atoms),
@@ -274,6 +351,7 @@ class ManifoldSAE:
             "atom_topology": self.atom_topology, "assignment": self.assignment,
             "alpha": float(self.alpha), "learnable_alpha": bool(self.learnable_alpha),
             "reml_score": float(self.reml_score), "reconstruction_r2": float(self.reconstruction_r2),
+            "dispersion": float(self.dispersion),
             "avg_active_atoms": float(avg_active), "mean_assignment_mass": float(mean_mass),
             "active_dims": [a.active_dim for a in self.atoms],
             "primitives": list(self.primitive_names),
@@ -289,7 +367,9 @@ class ManifoldSAE:
         return {
             "schema": "gamfit.ManifoldSAE/v1",
             "atom_topology": self.atom_topology,
+            "atom_topologies": list(self.atom_topologies),
             "assignment": self.assignment,
+            "assignment_label": self.assignment_label,
             "alpha": float(self.alpha),
             "learnable_alpha": bool(self.learnable_alpha),
             "tau": float(self.tau),
@@ -298,6 +378,9 @@ class ManifoldSAE:
             "learning_rate": float(self.learning_rate),
             "max_iter": int(self.max_iter),
             "random_state": int(self.random_state),
+            "top_k": self.top_k,
+            "jumprelu_threshold": float(self.jumprelu_threshold),
+            "dispersion": float(self.dispersion),
             "primitive_names": list(self.primitive_names),
             "basis_specs": list(self.basis_specs),
             "reml_score": float(self.reml_score),
@@ -360,10 +443,13 @@ class ManifoldSAE:
         centers: list[np.ndarray | None] = [
             None if c is None else np.asarray(c, dtype=float) for c in payload["duchon_centers"]
         ]
+        raw_assignment = str(payload["assignment"])
+        canonical_assignment = _canonical_assignment(raw_assignment, "assignment")
         return cls(
             atoms=atoms,
             atom_topology=str(payload["atom_topology"]),
-            assignment=str(payload["assignment"]),
+            assignment=canonical_assignment,
+            assignment_label=str(payload.get("assignment_label", raw_assignment)),
             primitive_names=list(payload["primitive_names"]),
             fitted=fitted,
             assignments=assigns,
@@ -389,6 +475,9 @@ class ManifoldSAE:
             learning_rate=float(payload["learning_rate"]),
             max_iter=int(payload["max_iter"]),
             random_state=int(payload["random_state"]),
+            top_k=None if payload.get("top_k") is None else int(payload["top_k"]),
+            jumprelu_threshold=float(payload.get("jumprelu_threshold", 0.0)),
+            dispersion=float(payload.get("dispersion", 1.0)),
         )
 
     @classmethod
@@ -446,7 +535,25 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     The converged supervision targets ``t*`` / ``a*`` are read back via
     :meth:`ManifoldSAE.converged_latents`, :meth:`ManifoldSAE.encode`, and the
     standalone per-atom :meth:`ManifoldSAE.project`.
+
+    Topology evidence is gauge-conditional (issue #673). The decoder smoothness
+    penalty is the raw-coordinate roughness ``0.5*lambda*sum B^T S B`` with ``S``
+    a fixed finite-/cyclic-difference Gram in the latent coordinate ``t``, *not*
+    intrinsic (arc-length) roughness. The penalty — and hence the REML Occam
+    term and joint log-det that enter ``reml_score`` — is therefore tied to the
+    gauge of ``t``. Comparing ``reml_score`` across atom topologies (e.g. circle
+    vs euclidean) is only well posed when the parameterization is approximately
+    isometric, i.e. the pulled-back metric ``g = J^T J`` is near the identity.
+    ``IsometryPenalty`` (``isometry_weight > 0``) is what drives ``g -> I``; it
+    is on by default (``isometry_weight=1.0``) for exactly this reason. Setting
+    ``isometry_weight <= 0`` disables it and makes the topology evidence
+    gauge-dependent — a :class:`UserWarning` is raised in that case.
     """
+    if X is not None and Z is not None:
+        xa = np.asarray(X, dtype=float)
+        za = np.asarray(Z, dtype=float)
+        if xa.shape != za.shape or not np.allclose(xa, za):
+            raise ValueError("X and Z are aliases; pass only one or pass identical arrays.")
     src = Z if Z is not None else X
     if src is None:
         raise TypeError("sae_manifold_fit requires Z= (or X=) input array")
@@ -466,6 +573,7 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     smoothness = float(kwargs.pop("smoothness", smoothness_weight))
     sparsity = float(kwargs.pop("sparsity_strength", sparsity_weight))
     tau = float(kwargs.pop("tau", _schedule_tau_start(gumbel_schedule, 0.5)))
+    jumprelu_threshold = float(kwargs.pop("jumprelu_threshold", 0.0))
     if "mechanism_sparsity_groups" in kwargs:
         raise TypeError(
             "sae_manifold_fit: 'mechanism_sparsity_groups' has been removed. "
@@ -514,6 +622,35 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         raise ValueError(
             f"sparsity_weight (sparsity_strength) must be finite and "
             f"non-negative; got {sparsity}"
+        )
+    if not np.isfinite(jumprelu_threshold):
+        raise ValueError(
+            f"jumprelu_threshold must be finite; got {jumprelu_threshold}"
+        )
+    # Gauge-invariance of the topology evidence (issue #673). The decoder
+    # smoothness penalty is the raw-coordinate roughness 0.5*lambda*sum B^T S B,
+    # with S a fixed finite-/cyclic-difference Gram in the latent coordinate t
+    # (not arc-length). The reported `reml_score` therefore inherits the gauge
+    # of t: it is only comparable across topologies (e.g. circle vs euclidean)
+    # when the latent parameterization is (approximately) isometric, i.e. the
+    # pulled-back metric g = J^T J is near the identity. `IsometryPenalty`
+    # (isometry_weight > 0) is what drives g -> I, so it is on by default
+    # (isometry_weight=1.0) precisely to keep that comparison meaningful. With
+    # isometry off the raw-t roughness — and hence the REML Occam term and the
+    # joint log-det that enter `reml_score` — becomes gauge-dependent, so
+    # ranking topologies by `reml_score` is no longer well posed. Warn rather
+    # than fit silently.
+    if not (float(isometry_weight) > 0.0):
+        warnings.warn(
+            "sae_manifold_fit: isometry_weight <= 0 disables IsometryPenalty. "
+            "The decoder smoothness penalty is computed in the raw latent "
+            "coordinate t (not arc-length), so the resulting reml_score is "
+            "gauge-dependent and is NOT safe to compare across atom topologies "
+            "(e.g. circle vs euclidean) for topology selection. Keep "
+            "isometry_weight > 0 (the default is 1.0) whenever you compare "
+            "reml_score across topologies. See gam issue #673.",
+            UserWarning,
+            stacklevel=2,
         )
     topology_supplied = atom_topology is not _TOPOLOGY_UNSET
     atom_topology_str = str(atom_topology) if topology_supplied else "circle"
@@ -579,7 +716,22 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     # projects the final assignments onto a per-row top-k support and
     # recomputes `fitted` from the projected distribution. The Rust kernel
     # owns the hard top-k contract end to end — there is no Python-side mask.
-    top_k_arg = int(top_k) if (top_k is not None and int(top_k) > 0) else None
+    # Any value outside the disabled sentinel and `[1, k_atoms]` (negatives,
+    # or a `top_k` exceeding the number of atoms it would gate) is a caller
+    # error rather than a silent clamp/no-op.
+    if top_k is None:
+        top_k_arg = None
+    else:
+        top_k_int = int(top_k)
+        if top_k_int == 0:
+            top_k_arg = None
+        elif top_k_int < 1 or top_k_int > k_atoms:
+            raise ValueError(
+                f"top_k must be in [1, K={k_atoms}] (or 0/None to disable); "
+                f"got {top_k_int}"
+            )
+        else:
+            top_k_arg = top_k_int
     # Warm starts (issue #357): `a_init` (N, K) seeds the assignment logits and
     # `t_init` (K, N, D_max) seeds the per-atom on-manifold coordinates, so an
     # amortized encoder can predict `(a_init, t_init)` and have the joint solver
@@ -625,14 +777,17 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         top_k=top_k_arg,
         initial_logits=logits_init,
         initial_coords=coords_init,
+        jumprelu_threshold=float(jumprelu_threshold),
     )
     payload_dict = dict(payload)
     return ManifoldSAE.from_payload(
-        x, payload_dict, resolved_topology, assignment, penalties,
+        x, payload_dict, resolved_topology, kind, penalties,
+        assignment_label=str(assignment),
         alpha=float(alpha_value), learnable_alpha=bool(alpha == "auto"),
         tau=float(tau), sparsity_strength=float(sparsity), smoothness=float(smoothness),
         learning_rate=float(effective_lr), max_iter=int(max_iter_total),
-        random_state=int(random_state),
+        random_state=int(random_state), top_k=top_k_arg,
+        jumprelu_threshold=float(jumprelu_threshold),
     )
 
 
@@ -687,7 +842,11 @@ def _build_analytic_penalties_payload(
         items.append({"kind": "ard", "target": "t"})
     if isometry_weight is not None and float(isometry_weight) > 0.0:
         _require_sae_row_block_penalty("isometry", "isometry_weight")
-        items.append({"kind": "isometry", "target": "t"})
+        items.append({
+            "kind": "isometry",
+            "target": "t",
+            "weight": float(isometry_weight),
+        })
     if (
         block_orthogonality_weight is not None
         and float(block_orthogonality_weight) > 0.0
@@ -788,11 +947,21 @@ def _bases(k_atoms: int, atom_basis: Any, atom_topology: str) -> list[str]:
     return [str(v) for v in raw]
 
 
+def _topologies_for_bases(bases: list[str]) -> list[str]:
+    """Per-atom topology labels for a resolved bases list (``basis_specs`` order)."""
+    return [_BASIS_TO_TOPOLOGY.get(b, b) for b in bases]
+
+
 def _topology_for_bases(bases: list[str]) -> str:
     """Collapse a resolved bases list to a single topology label for metadata.
-    Mixed-topology fits keep the first atom's topology — basis_specs remains
-    the per-atom source of truth."""
-    return _BASIS_TO_TOPOLOGY.get(bases[0], bases[0])
+
+    When all atoms share one topology that common label is returned; when the
+    atoms span more than one topology the honest scalar is ``"mixed"`` and the
+    per-atom truth is exposed via ``atom_topologies`` (``basis_specs`` remains
+    the per-atom source of truth)."""
+    per_atom = _topologies_for_bases(bases)
+    first = per_atom[0]
+    return first if all(t == first for t in per_atom) else "mixed"
 
 
 def _schedule_payload(schedule: Any) -> dict[str, Any] | None:

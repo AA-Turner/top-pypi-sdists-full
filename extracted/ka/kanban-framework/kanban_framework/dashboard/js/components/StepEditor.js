@@ -49,7 +49,7 @@ export const StepEditor = {
 
     // Critical steps that keep the workflow functional if not removed
     const _CRITICAL = new Set([
-      'plan.knowledge_search', 'plan.plan_B',
+      'plan.plan_B',
       'execute.spawn', 'execute.verify',
       'evaluate.spawn', 'evaluate.collect_score', 'evaluate.collect_scores',
       'archive.guard',

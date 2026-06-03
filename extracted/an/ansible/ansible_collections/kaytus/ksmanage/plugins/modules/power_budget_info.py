@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: power_budget_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get power budget information
 description:
    - Get power budget information on kaytus Server.

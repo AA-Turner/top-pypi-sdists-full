@@ -8,7 +8,7 @@ import httpx
 
 from ..types import file_list_params, file_retry_params, file_upload_params
 from .._types import Body, Omit, Query, Headers, NotGiven, FileTypes, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -81,7 +81,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._get(
-            f"/v1/files/{file_id}",
+            path_template("/v1/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -189,7 +189,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._delete(
-            f"/v1/files/{file_id}",
+            path_template("/v1/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -225,7 +225,7 @@ class FilesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         extra_headers = {"Accept": "application/octet-stream", **(extra_headers or {})}
         return self._get(
-            f"/v1/files/{file_id}/download",
+            path_template("/v1/files/{file_id}/download", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -270,8 +270,8 @@ class FilesResource(SyncAPIResource):
 
     def upload(
         self,
-        *,
         content: FileTypes,
+        *,
         content_disposition: str,
         content_type: str,
         graph_id: str | Omit = omit,
@@ -308,6 +308,7 @@ class FilesResource(SyncAPIResource):
             "Content-Type": content_type,
             **(extra_headers or {}),
         }
+        extra_headers["Content-Type"] = "text/plain"
         return self._post(
             "/v1/files",
             options=make_request_options(
@@ -369,7 +370,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._get(
-            f"/v1/files/{file_id}",
+            path_template("/v1/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -477,7 +478,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._delete(
-            f"/v1/files/{file_id}",
+            path_template("/v1/files/{file_id}", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -513,7 +514,7 @@ class AsyncFilesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         extra_headers = {"Accept": "application/octet-stream", **(extra_headers or {})}
         return await self._get(
-            f"/v1/files/{file_id}/download",
+            path_template("/v1/files/{file_id}/download", file_id=file_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -558,8 +559,8 @@ class AsyncFilesResource(AsyncAPIResource):
 
     async def upload(
         self,
-        *,
         content: FileTypes,
+        *,
         content_disposition: str,
         content_type: str,
         graph_id: str | Omit = omit,
@@ -596,6 +597,7 @@ class AsyncFilesResource(AsyncAPIResource):
             "Content-Type": content_type,
             **(extra_headers or {}),
         }
+        extra_headers["Content-Type"] = "text/plain"
         return await self._post(
             "/v1/files",
             options=make_request_options(

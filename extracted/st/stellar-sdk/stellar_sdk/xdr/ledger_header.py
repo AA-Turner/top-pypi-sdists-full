@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
@@ -79,7 +78,7 @@ class LedgerHeader:
         base_fee: Uint32,
         base_reserve: Uint32,
         max_tx_set_size: Uint32,
-        skip_list: List[Hash],
+        skip_list: list[Hash],
         ext: LedgerHeaderExt,
     ) -> None:
         _expect_length = 4

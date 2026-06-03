@@ -58,7 +58,13 @@ def cmd_score(args: list[str]) -> dict:
         report_dir = fs.report_dir(task_id, it)
         if not report_dir.exists():
             continue
-        for role in ["code_reviewer", "qa", "product_reviewer", "pm", "designer"]:
+        from kanban_framework.infra.scheduler import Scheduler
+        mode = getattr(task, 'mode', None)
+        mode_roles = [r["name"] for r in Scheduler.eval_roles(
+            lightweight=task.lightweight, mode=mode, kanban_dir=fs.kanban_dir)]
+        all_roles = list(dict.fromkeys(mode_roles + [
+            "code_reviewer", "qa", "product_reviewer", "pm", "designer", "review"]))
+        for role in all_roles:
             rf = report_dir / "reviews" / f"{role}_report.json"
             if not fs.file_exists(rf):
                 rf = report_dir / f"{role}_report.json"

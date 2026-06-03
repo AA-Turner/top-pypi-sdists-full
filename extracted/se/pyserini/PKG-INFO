@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyserini
-Version: 2.1.0
+Version: 2.2.0
 Summary: A Python toolkit for reproducible information retrieval research with sparse and dense representations
 Author-email: Jimmy Lin <jimmylin@uwaterloo.ca>
 License-Expression: Apache-2.0

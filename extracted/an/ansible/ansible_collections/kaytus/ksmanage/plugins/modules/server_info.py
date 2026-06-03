@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: server_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get server status information
 description:
    - Get server status information on kaytus Server.

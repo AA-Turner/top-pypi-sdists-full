@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: reset_bmc
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: BMC reset
 description:
    - BMC reset on kaytus Server.

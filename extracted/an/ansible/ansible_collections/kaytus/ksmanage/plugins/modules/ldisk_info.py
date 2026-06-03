@@ -13,7 +13,7 @@ DOCUMENTATION = '''
 module: ldisk_info
 version_added: "1.0.0"
 author:
-    - WangBaoshan (@ieisystem)
+    - WangBaoshan (@KSManageOSS)
 short_description: Get logical disks information
 description:
    - Get logical disks information on kaytus Server.

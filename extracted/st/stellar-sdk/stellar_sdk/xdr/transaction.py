@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import List
 
 from xdrlib3 import Packer, Unpacker
 
 from .base import DEFAULT_XDR_MAX_DEPTH
-from .constants import *
+from .constants import MAX_OPS_PER_TX
 from .memo import Memo
 from .muxed_account import MuxedAccount
 from .operation import Operation
@@ -61,7 +60,7 @@ class Transaction:
         seq_num: SequenceNumber,
         cond: Preconditions,
         memo: Memo,
-        operations: List[Operation],
+        operations: list[Operation],
         ext: TransactionExt,
     ) -> None:
         _expect_max_length = MAX_OPS_PER_TX

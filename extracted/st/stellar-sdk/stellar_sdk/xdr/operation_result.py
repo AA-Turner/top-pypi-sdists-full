@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
 from xdrlib3 import Packer, Unpacker
 
@@ -93,7 +92,7 @@ class OperationResult:
     def __init__(
         self,
         code: OperationResultCode,
-        tr: Optional[OperationResultTr] = None,
+        tr: OperationResultTr | None = None,
     ) -> None:
         self.code = code
         self.tr = tr

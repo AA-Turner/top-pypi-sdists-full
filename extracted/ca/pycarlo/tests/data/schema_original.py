@@ -1472,6 +1472,7 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
     * `CUSTOM_CONNECTOR`None
+    * `CUSTOM_ETL_CONNECTOR`None
     * `CUSTOM_INTEGRATION`None
     * `DATABRICKS_METASTORE_SQL_WAREHOUSE`None
     * `DATABRICKS_SQL_WAREHOUSE`None
@@ -1528,6 +1529,7 @@ class ConnectionModelType(sgqlc.types.Enum):
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
         "CUSTOM_CONNECTOR",
+        "CUSTOM_ETL_CONNECTOR",
         "CUSTOM_INTEGRATION",
         "DATABRICKS_METASTORE_SQL_WAREHOUSE",
         "DATABRICKS_SQL_WAREHOUSE",
@@ -1632,6 +1634,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
     * `CUSTOM_CONNECTOR`None
+    * `CUSTOM_ETL_CONNECTOR`None
     * `CUSTOM_INTEGRATION`None
     * `DATABRICKS_METASTORE_SQL_WAREHOUSE`None
     * `DATABRICKS_SQL_WAREHOUSE`None
@@ -1688,6 +1691,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
         "CUSTOM_CONNECTOR",
+        "CUSTOM_ETL_CONNECTOR",
         "CUSTOM_INTEGRATION",
         "DATABRICKS_METASTORE_SQL_WAREHOUSE",
         "DATABRICKS_SQL_WAREHOUSE",
@@ -2721,6 +2725,7 @@ class EtlType(sgqlc.types.Enum):
 
     * `AIRFLOW`None
     * `AZURE_DATA_FACTORY`None
+    * `CUSTOM`None
     * `DATABRICKS`None
     * `DBT`None
     * `FIVETRAN`None
@@ -2733,6 +2738,7 @@ class EtlType(sgqlc.types.Enum):
     __choices__ = (
         "AIRFLOW",
         "AZURE_DATA_FACTORY",
+        "CUSTOM",
         "DATABRICKS",
         "DBT",
         "FIVETRAN",
@@ -8006,6 +8012,42 @@ class ValidationPercentageThresholdOperator(sgqlc.types.Enum):
     __choices__ = ("EQ", "GT", "GTE", "LT", "LTE")
 
 
+class ValidationTimeWindowPeriod(sgqlc.types.Enum):
+    """Rolling-window period for a validation monitor's time filter. Each
+    value maps to a fixed number of hours evaluated relative to run
+    start time: - `PAST_HOUR` = 1 hour - `PAST_1_DAY` = 24 hours -
+    `PAST_2_DAYS` = 48 hours - `PAST_3_DAYS` = 72 hours -
+    `PAST_5_DAYS` = 120 hours - `PAST_1_WEEK` = 168 hours -
+    `PAST_2_WEEKS` = 336 hours - `PAST_3_WEEKS` = 504 hours -
+    `PAST_4_WEEKS` = 672 hours
+
+    Enumeration Choices:
+
+    * `PAST_1_DAY`None
+    * `PAST_1_WEEK`None
+    * `PAST_2_DAYS`None
+    * `PAST_2_WEEKS`None
+    * `PAST_3_DAYS`None
+    * `PAST_3_WEEKS`None
+    * `PAST_4_WEEKS`None
+    * `PAST_5_DAYS`None
+    * `PAST_HOUR`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "PAST_1_DAY",
+        "PAST_1_WEEK",
+        "PAST_2_DAYS",
+        "PAST_2_WEEKS",
+        "PAST_3_DAYS",
+        "PAST_3_WEEKS",
+        "PAST_4_WEEKS",
+        "PAST_5_DAYS",
+        "PAST_HOUR",
+    )
+
+
 class WarehouseModelConnectionType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9474,6 +9516,8 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
         "agent_schema",
         "connection_uuid",
         "domain_uuid",
+        "platform_agent_type",
+        "table_prefix",
     )
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
     """Warehouse UUID"""
@@ -9482,10 +9526,14 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
     """Agent name on the platform"""
 
     agent_database = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentDatabase")
-    """Platform database containing the agent"""
+    """Platform database containing the agent. For Databricks platform
+    agents this is the Unity Catalog catalog name.
+    """
 
     agent_schema = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentSchema")
-    """Platform schema containing the agent"""
+    """Platform schema containing the agent. For Databricks platform
+    agents this is the Unity Catalog schema name.
+    """
 
     connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
     """Connection UUID (optional, defaults to the warehouse's SQL query
@@ -9494,6 +9542,24 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
 
     domain_uuid = sgqlc.types.Field(UUID, graphql_name="domainUuid")
     """Domain UUID to assign the agent to (optional)"""
+
+    platform_agent_type = sgqlc.types.Field(PlatformAgentType, graphql_name="platformAgentType")
+    """Platform agent integration type. Defaults to SNOWFLAKE when
+    omitted, preserving backwards compatibility for Snowflake callers.
+    Databricks Agent Bricks splits into two physical span shapes:
+    DATABRICKS_MLFLOW_SDK (Mosaic AI Agent Framework + autolog) and
+    DATABRICKS_MLFLOW_KA (Knowledge Assistant UI sync) — the SDK and
+    KA shapes differ on disk, so the type cannot change after
+    registration.
+    """
+
+    table_prefix = sgqlc.types.Field(String, graphql_name="tablePrefix")
+    """Trace-table identifier prefix; required for Databricks platform
+    agents, ignored for Snowflake. For DATABRICKS_MLFLOW_SDK the SDK
+    exposes a `<table_prefix>_trace_unified` view (over
+    `<table_prefix>_otel_*` managed tables); for DATABRICKS_MLFLOW_KA
+    the table_prefix IS the Delta table name.
+    """
 
 
 class CreatedByFilters(sgqlc.types.Input):
@@ -14736,6 +14802,51 @@ class UserSettingInput(sgqlc.types.Input):
 
     description = sgqlc.types.Field(String, graphql_name="description")
     """Description for this user's settings"""
+
+
+class ValidationRollingWindowInput(sgqlc.types.Input):
+    """Structured rolling-window time filter for validation monitors.
+    Combines a date/timestamp column with one of a fixed set of
+    rolling periods evaluated relative to the run time.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("time_field", "period")
+    time_field = sgqlc.types.Field(
+        sgqlc.types.non_null(FilterValueFieldInput), graphql_name="timeField"
+    )
+    """The date/timestamp column the rolling window filters on."""
+
+    period = sgqlc.types.Field(
+        sgqlc.types.non_null(ValidationTimeWindowPeriod), graphql_name="period"
+    )
+    """Rolling-window length, evaluated relative to each run's start
+    time.
+    """
+
+
+class ValidationTimeFilterInput(sgqlc.types.Input):
+    """Optional time-window filter applied to a form-mode validation
+    monitor. Exactly one of `rollingWindow` (column + period) or
+    `sqlExpression` (free-form SQL fragment) must be set. Omit the
+    argument entirely to clear any previously-saved filter.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("rolling_window", "sql_expression")
+    rolling_window = sgqlc.types.Field(ValidationRollingWindowInput, graphql_name="rollingWindow")
+    """Structured filter: a date/timestamp column plus a rolling window.
+    Mutually exclusive with `sqlExpression`.
+    """
+
+    sql_expression = sgqlc.types.Field(String, graphql_name="sqlExpression")
+    """Free-form SQL fragment used as the WHERE clause for the time
+    filter. The fragment is rendered verbatim into the executed query.
+    Mutually exclusive with `rollingWindow`. Must be a boolean WHERE-
+    clause expression — expressions beginning with `SELECT` (case-
+    insensitive, ignoring leading whitespace and zero-width
+    characters) are rejected.
+    """
 
 
 class ValidatorTestOptions(sgqlc.types.Input):
@@ -25952,7 +26063,9 @@ class DataCollectorSchedule(sgqlc.types.Type):
         "bulk_monitors",
         "custom_rules",
         "agent_trace_tables",
+        "sql_tool_calls_agent_trace_tables",
         "platform_agents",
+        "sql_tool_calls_platform_agents",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -26148,6 +26261,30 @@ class DataCollectorSchedule(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    sql_tool_calls_agent_trace_tables = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentTraceTableConnection),
+        graphql_name="sqlToolCallsAgentTraceTables",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this trace table.
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
     platform_agents = sgqlc.types.Field(
         sgqlc.types.non_null("PlatformAgentConnection"),
         graphql_name="platformAgents",
@@ -26162,6 +26299,31 @@ class DataCollectorSchedule(sgqlc.types.Type):
         ),
     )
     """Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    sql_tool_calls_platform_agents = sgqlc.types.Field(
+        sgqlc.types.non_null("PlatformAgentConnection"),
+        graphql_name="sqlToolCallsPlatformAgents",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this platform
+    agent.
+
+    Arguments:
 
     * `offset` (`Int`)None
     * `before` (`String`)None
@@ -34531,6 +34693,35 @@ class LineageMconNode(sgqlc.types.Type):
     """Entity importance score"""
 
 
+class LineageMulesoftJobAttributes(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "display_name",
+        "mcon",
+        "resource_id",
+        "resource_name",
+        "status",
+        "last_run_finished_at",
+    )
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Mulesoft flow name"""
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    """Mulesoft job MCON"""
+
+    resource_id = sgqlc.types.Field(String, graphql_name="resourceId")
+    """UUID of the Monte Carlo Mulesoft ETL container resource"""
+
+    resource_name = sgqlc.types.Field(String, graphql_name="resourceName")
+    """Name of the Mulesoft ETL container"""
+
+    status = sgqlc.types.Field(String, graphql_name="status")
+    """Status of most recent flow execution"""
+
+    last_run_finished_at = sgqlc.types.Field(DateTime, graphql_name="lastRunFinishedAt")
+    """Timestamp of the most recent flow execution's completion"""
+
+
 class LineageNodeBlockPattern(sgqlc.types.Type):
     """A pattern defining nodes to be blocked from lineage"""
 
@@ -39955,6 +40146,12 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
                     ),
                 ),
+                (
+                    "time_filter",
+                    sgqlc.types.Arg(
+                        ValidationTimeFilterInput, graphql_name="timeFilter", default=None
+                    ),
+                ),
                 ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
             )
@@ -40012,6 +40209,9 @@ class Mutation(sgqlc.types.Type):
     * `start_time` (`DateTime`): Start time of schedule (DEPRECATED,
       use schedule instead)
     * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `time_filter` (`ValidationTimeFilterInput`): Optional rolling
+      time-window filter scoping the validation query at every run.
+      Omitted on update clears any previously saved filter.
     * `timeout` (`Int`): Timeout for the SQL query
     * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
       scheduleConfig instead
@@ -55685,10 +55885,7 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 ("dc_id", sgqlc.types.Arg(UUID, graphql_name="dcId", default=None)),
-                (
-                    "key",
-                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="key", default=None),
-                ),
+                ("key", sgqlc.types.Arg(String, graphql_name="key", default=None)),
                 (
                     "name",
                     sgqlc.types.Arg(
@@ -55707,7 +55904,8 @@ class Mutation(sgqlc.types.Type):
     * `connection_type` (`String!`): The type of connection to add
     * `dc_id` (`UUID`): DC UUID. To disambiguate accounts with
       multiple collectors
-    * `key` (`String!`): Temp key from testing connections
+    * `key` (`String`): Temp key for testing connections that require
+      credentials.
     * `name` (`String!`): Provide a friendly name for the ETL
       integration.
     """
@@ -60387,6 +60585,57 @@ class PiiFilteringPreferencesOutput(sgqlc.types.Type):
     """
 
 
+class PiiScanFinding(sgqlc.types.Type):
+    """A latest nonzero finding from a PII scan monitor"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "table_mcon",
+        "full_table_id",
+        "field",
+        "pii_type",
+        "metric",
+        "match_rate",
+        "last_scanned_at",
+        "job_execution_uuid",
+        "scanned_row_count",
+    )
+    table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+
+    pii_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="piiType")
+
+    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
+
+    match_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="matchRate")
+
+    last_scanned_at = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="lastScannedAt"
+    )
+
+    job_execution_uuid = sgqlc.types.Field(UUID, graphql_name="jobExecutionUuid")
+
+    scanned_row_count = sgqlc.types.Field(Int, graphql_name="scannedRowCount")
+
+
+class PiiScanFindingsSummary(sgqlc.types.Type):
+    """Latest nonzero PII scan findings for a PII bulk monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("findings", "latest_scan_time", "has_more")
+    findings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanFinding))),
+        graphql_name="findings",
+    )
+
+    latest_scan_time = sgqlc.types.Field(DateTime, graphql_name="latestScanTime")
+
+    has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+
+
 class PiiTypeInfo(sgqlc.types.Type):
     """Metadata for a supported PII type"""
 
@@ -61233,6 +61482,7 @@ class Query(sgqlc.types.Type):
         "get_datadog_incident_types",
         "get_datadog_services",
         "get_pii_types",
+        "get_pii_scan_findings",
         "bulk_monitor",
         "bulk_monitors",
         "get_bulk_monitor",
@@ -64266,6 +64516,30 @@ class Query(sgqlc.types.Type):
         graphql_name="getPiiTypes",
     )
     """(experimental) List all supported PII types with their metrics"""
+
+    get_pii_scan_findings = sgqlc.types.Field(
+        sgqlc.types.non_null(PiiScanFindingsSummary),
+        graphql_name="getPiiScanFindings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "bulk_monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="bulkMonitorUuid", default=None
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=500)),
+            )
+        ),
+    )
+    """(experimental) Return latest nonzero table/field findings for a
+    PII scan bulk monitor.
+
+    Arguments:
+
+    * `bulk_monitor_uuid` (`UUID!`)None
+    * `limit` (`Int`)None (default: `500`)
+    """
 
     bulk_monitor = sgqlc.types.Field(
         "BulkMonitor",
@@ -93739,6 +94013,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
         "table",
         "span_format",
         "schedule",
+        "sql_tool_calls_schedule",
         "recommendations_generated_at",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -93759,6 +94034,11 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     """Format of spans in the table."""
 
     schedule = sgqlc.types.Field(DataCollectorSchedule, graphql_name="schedule")
+
+    sql_tool_calls_schedule = sgqlc.types.Field(
+        DataCollectorSchedule, graphql_name="sqlToolCallsSchedule"
+    )
+    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this trace table."""
 
     recommendations_generated_at = sgqlc.types.Field(
         DateTime, graphql_name="recommendationsGeneratedAt"
@@ -96791,6 +97071,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "agent_span_alert_condition",
         "filters",
         "time_filter",
+        "time_filter_sql_expression",
         "mc_sql",
         "tags",
         "data_quality_dimension",
@@ -97122,10 +97403,24 @@ class CustomRule(sgqlc.types.Type, Node):
     """Agent span alert condition for agent trajectory monitors"""
 
     filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
-    """WHERE condition filters for agent trajectory monitors"""
+    """WHERE condition filters for monitors that support a structured
+    filter group — currently agent trajectory, agent validation, and
+    form-mode validation monitors. Null for all other rule types.
+    """
 
     time_filter = sgqlc.types.Field(TimeFilter, graphql_name="timeFilter")
-    """Time filter for agent trajectory monitors"""
+    """Structured rolling-window time filter, when one was saved on the
+    monitor. Mutually exclusive with `timeFilterSqlExpression`. Only
+    populated for agent trajectory, agent validation, and form-mode
+    validation monitors; null for all other rule types.
+    """
+
+    time_filter_sql_expression = sgqlc.types.Field(String, graphql_name="timeFilterSqlExpression")
+    """Free-form SQL fragment used as the WHERE clause for the time
+    filter, when the monitor was saved with one. Mutually exclusive
+    with `timeFilter`. Only populated for form-mode validation
+    monitors; null for all other rule types.
+    """
 
     mc_sql = sgqlc.types.Field(String, graphql_name="mcSql")
     """SQL query for the monitor"""
@@ -101290,7 +101585,9 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "agent_name",
         "agent_database",
         "agent_schema",
+        "table_prefix",
         "schedule",
+        "sql_tool_calls_schedule",
         "recommendations_generated_at",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -101322,9 +101619,25 @@ class PlatformAgent(sgqlc.types.Type, Node):
     agent_schema = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentSchema")
     """Platform schema containing the agent."""
 
+    table_prefix = sgqlc.types.Field(String, graphql_name="tablePrefix")
+    """Trace-table identifier prefix for Databricks-MLflow platform
+    agents. For DATABRICKS_MLFLOW_SDK, the SDK writes
+    `<table_prefix>_otel_*` managed tables and exposes a
+    `<table_prefix>_trace_unified` view; for DATABRICKS_MLFLOW_KA, the
+    Knowledge Assistant UI sync writes a single Delta table whose name
+    IS the prefix. Null for Snowflake agents.
+    """
+
     schedule = sgqlc.types.Field(
         sgqlc.types.non_null(DataCollectorSchedule), graphql_name="schedule"
     )
+
+    sql_tool_calls_schedule = sgqlc.types.Field(
+        DataCollectorSchedule, graphql_name="sqlToolCallsSchedule"
+    )
+    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this platform
+    agent.
+    """
 
     recommendations_generated_at = sgqlc.types.Field(
         DateTime, graphql_name="recommendationsGeneratedAt"
@@ -105148,6 +105461,7 @@ class LineageJobAttributes(sgqlc.types.Union):
         LineageInformaticaJobAttributes,
         LineageAzureDataFactoryJobAttributes,
         LineageFivetranJobAttributes,
+        LineageMulesoftJobAttributes,
     )
 
 

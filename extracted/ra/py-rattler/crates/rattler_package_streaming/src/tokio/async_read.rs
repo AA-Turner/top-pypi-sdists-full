@@ -6,13 +6,16 @@ use std::path::Path;
 use async_compression::tokio::bufread::BzDecoder;
 use async_spooled_tempfile::SpooledTempFile;
 use async_zip::base::read::stream::ZipFileReader;
+#[cfg(feature = "reqwest")]
 use futures_util::StreamExt;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt};
+#[cfg(feature = "reqwest")]
+use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncSeekExt};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
-use crate::{read::SizeCountingReader, ExtractError, ExtractResult};
+use crate::{ExtractError, ExtractResult, read::SizeCountingReader};
 
-use super::shared::{extract_tar_zst_entry, unpack_tar_archive, DEFAULT_BUF_SIZE};
+use super::shared::{DEFAULT_BUF_SIZE, extract_tar_zst_entry, unpack_tar_archive};
 
 /// Extracts the contents a `.tar.bz2` package archive using fully async implementation.
 pub async fn extract_tar_bz2(
