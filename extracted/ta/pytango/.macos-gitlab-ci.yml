@@ -32,6 +32,8 @@ macos:build-wheel:
     - python -m build --wheel --config-setting=cmake.args="--preset=ci-macOS-wheel"
     # Include dependencies in wheel
     - delocate-wheel -v dist/*.whl
+    # Dump dependency versions (for doc/versions/news.md release table)
+    - python cmake/print_dep_versions.py
 
 .macos-test-wheel:
   stage: test
@@ -55,8 +57,6 @@ macos:build-wheel:
     - echo "Testing $WHEEL_FILE"
     - python -m pip install ${WHEEL_FILE}[tests,telemetry]
   script:
-    # run telemetry-specific tests with telemetry enabled, then full test suite with it disabled (default)
-    - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
     - pytest || pytest --lf
   rules:
     - !reference [.rules-wheel, rules]

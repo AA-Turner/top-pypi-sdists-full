@@ -9,7 +9,8 @@ from kanban_framework.infra.scheduler import Scheduler
 from kanban_framework.types import Phase
 
 
-def _sync_phase_for_mode(current_phase: str, target_mode: str) -> str | None:
+def _sync_phase_for_mode(current_phase: str, target_mode: str,
+                         workflow: dict | None = None, kanban_dir=None) -> str | None:
     """Find the nearest valid phase when switching modes.
 
     If current phase is in the target mode's phase order, return None (no change).
@@ -21,7 +22,8 @@ def _sync_phase_for_mode(current_phase: str, target_mode: str) -> str | None:
     else:
         # Custom mode: load phase order from workflow config
         target_order = [p.value if hasattr(p, "value") else str(p)
-                        for p in Scheduler.dispatch_order(mode=target_mode)]
+                        for p in Scheduler.dispatch_order(mode=target_mode, workflow=workflow,
+                                                          kanban_dir=kanban_dir)]
         if not target_order:
             return None
 
@@ -92,11 +94,16 @@ def _handle_skip_to(task_id: str, target: str, task) -> dict:
 
     progress = load_progress(fs, task_id)
     steps_map = _get_steps("quick" if getattr(task, 'mode', '') == "quick"
-                           else ("lightweight" if task.lightweight else "full"))
+                           else "lightweight")
     from kanban_framework.types import Phase
     from kanban_framework.infra.scheduler import Scheduler
     quick = getattr(task, 'mode', '') == "quick"
-    mode_order = Scheduler.dispatch_order(lightweight=task.lightweight, quick=quick)
+    mode = getattr(task, 'mode', '') or 'lightweight'
+    from kanban_framework.infra.config import Config
+    cfg = Config(fs)
+    mode_order = Scheduler.dispatch_order(lightweight=task.lightweight, quick=quick,
+                                          mode=mode if mode not in Scheduler.BUILTIN_MODE_NAMES else None,
+                                          workflow=cfg.workflow, kanban_dir=fs.kanban_dir)
     phases_to_skip = []
     for p in mode_order:
         if p.value == target:
@@ -156,6 +163,11 @@ def _cmd_task_edit(args: list[str]) -> dict:
 
     updates: dict = {}
     mode = parsed.mode
+    if mode == "full":
+        return {
+            "error": "'full' mode has been removed in v0.126.0. Use 'lightweight' or 'quick' instead.",
+            "hint": "kanban task edit <id> --mode lightweight",
+        }
     if parsed.lightweight:
         mode = "lightweight"
         updates["lightweight"] = True
@@ -163,11 +175,11 @@ def _cmd_task_edit(args: list[str]) -> dict:
         updates["mode"] = mode
         if mode in ("lightweight", "quick") or mode not in Scheduler.BUILTIN_MODE_NAMES:
             updates["lightweight"] = True
-            synced = _sync_phase_for_mode(task.phase_id, mode)
+            synced = _sync_phase_for_mode(task.phase_id, mode,
+                                          workflow=tm._cfg.workflow if tm._cfg else None,
+                                          kanban_dir=tm._fs.kanban_dir)
             if synced is not None:
                 updates["phase"] = synced
-        elif mode == "full":
-            updates["lightweight"] = False
     if parsed.priority is not None:
         updates["priority"] = max(0, min(10, parsed.priority))
     if parsed.control_mode:

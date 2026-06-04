@@ -2,7 +2,9 @@
 
 from typing import Any, Tuple, Union, Literal, Mapping, Sequence, TypedDict
 
+from .rrf_params import RrfParams
 from .decay_params import DecayParams
+from .embed_params import EmbedParams
 from .fuzzy_params import FuzzyParams
 from .saturate_params import SaturateParams
 from .bm25_clause_params import Bm25ClauseParams
@@ -11,7 +13,7 @@ from .contains_all_tokens_filter_params import ContainsAllTokensFilterParams
 
 AggregateBy = Union[Tuple[Literal["Count"]], Tuple[Literal["Sum"], str], Tuple[Literal["Count"], str]]
 ExprRefNew = TypedDict("ExprRefNew", {"$ref_new": str})
-Expr = ExprRefNew
+Expr = Union[ExprRefNew, Tuple[Literal["Embed"], str], Tuple[Literal["Embed"], str, EmbedParams]]
 Filter = Union[
     Tuple[str, Literal["Eq"], Any],
     Tuple[str, Literal["NotEq"], Any],
@@ -52,7 +54,9 @@ Filter = Union[
 GroupByFunction = Tuple[Literal["ForEachUnique"], str]
 GroupBy = Union[str, Mapping[str, GroupByFunction]]
 RankByAnn = Tuple[str, Literal["ANN"], Sequence[float]]
+RankByAnnExpr = Tuple[str, Literal["ANN"], Expr]
 RankByKnn = Tuple[str, Literal["kNN"], Sequence[float]]
+RankByKnnExpr = Tuple[str, Literal["kNN"], Expr]
 RankBySparseKnn = Tuple[str, Literal["SparseKNN"], Mapping[str, float]]
 RankByText = Union[
     Tuple[str, Literal["BM25"], str],
@@ -74,9 +78,12 @@ RankByAttribute = Tuple[str, RankByAttributeOrder]
 RankByAttributes = Sequence[RankByAttribute]
 RankBy = Union[
     RankByAnn,
+    RankByAnnExpr,
     RankByKnn,
+    RankByKnnExpr,
     RankBySparseKnn,
     RankByText,
     RankByAttribute,
     RankByAttributes,
 ]
+RerankBy = Union[Tuple[Literal["RRF"]], Tuple[Literal["RRF"], RrfParams]]

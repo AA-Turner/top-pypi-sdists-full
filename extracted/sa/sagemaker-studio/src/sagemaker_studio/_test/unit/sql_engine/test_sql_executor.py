@@ -724,3 +724,84 @@ class TestExecuteWithOptionalConnection(unittest.TestCase):
         self.assertIn("Database error", results[0].error)
         # Verify connection was not closed by executor
         self.mock_engine.connect.assert_not_called()
+
+
+class TestCreateEngine(unittest.TestCase):
+    """Test suite for SqlExecutor.create_engine method."""
+
+    def setUp(self):
+        self.executor = SqlExecutor()
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor.create_engine")
+    def test_create_engine_with_creator_uses_engine_kwargs(self, mock_create_engine):
+        """Test that all config keys (except connection_string) are passed to create_engine."""
+        from sqlalchemy.pool import NullPool
+
+        mock_engine = Mock()
+        mock_engine.execution_options.return_value = mock_engine
+        mock_create_engine.return_value = mock_engine
+
+        mock_transformer = Mock()
+        mock_transformer.to_sqlalchemy_config.return_value = {
+            "connection_string": "oracle+oracledb://@",
+            "creator": lambda: Mock(),
+            "poolclass": NullPool,
+            "isolation_level": "AUTOCOMMIT",
+            "thick_mode": False,
+        }
+        mock_transformer.get_loggers.return_value = []
+        self.executor._transformer_classes = {"ORACLE": mock_transformer}
+
+        result = self.executor.create_engine("ORACLE", {})
+
+        mock_create_engine.assert_called_once()
+        call_args = mock_create_engine.call_args
+        assert call_args[0][0] == "oracle+oracledb://@"
+        call_kwargs = call_args[1]
+        assert call_kwargs["poolclass"] is NullPool
+        assert call_kwargs["isolation_level"] == "AUTOCOMMIT"
+        assert call_kwargs["thick_mode"] is False
+        assert "creator" in call_kwargs
+        assert "connection_string" not in call_kwargs
+        assert result is mock_engine
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor.create_engine")
+    def test_create_engine_without_creator_uses_connect_args(self, mock_create_engine):
+        """Test that non-creator config passes connect_args to create_engine."""
+        mock_engine = Mock()
+        mock_engine.execution_options.return_value = mock_engine
+        mock_create_engine.return_value = mock_engine
+
+        mock_transformer = Mock()
+        mock_transformer.to_sqlalchemy_config.return_value = {
+            "connection_string": "mysql+pymysql://user@host/db",
+            "connect_args": {"timeout": 30},
+        }
+        mock_transformer.get_loggers.return_value = []
+        self.executor._transformer_classes = {"MYSQL": mock_transformer}
+
+        result = self.executor.create_engine("MYSQL", {})
+
+        mock_create_engine.assert_called_once_with(
+            "mysql+pymysql://user@host/db", connect_args={"timeout": 30}
+        )
+        assert result is mock_engine
+
+    def test_create_engine_missing_connection_string_raises(self):
+        """Test that missing connection_string raises ValueError."""
+        mock_transformer = Mock()
+        mock_transformer.to_sqlalchemy_config.return_value = {"creator": lambda: Mock()}
+        mock_transformer.get_loggers.return_value = []
+        self.executor._transformer_classes = {"ORACLE": mock_transformer}
+
+        with self.assertRaises(ValueError) as cm:
+            self.executor.create_engine("ORACLE", {})
+
+        self.assertIn("must return 'connection_string'", str(cm.exception))
+
+    def test_create_engine_unsupported_type_raises(self):
+        """Test that unsupported connection type raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            self.executor.create_engine("UNSUPPORTED_DB", {})
+
+        self.assertIn("Unsupported connection type", str(cm.exception))

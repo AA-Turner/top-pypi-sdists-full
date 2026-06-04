@@ -6,6 +6,7 @@ from sagemaker_studio.connections.sql_helper.ddb_sql_helper import DDBSQLHelper
 from sagemaker_studio.connections.sql_helper.mssql_sql_helper import MSSQLHelper
 from sagemaker_studio.connections.sql_helper.mysql_sql_helper import MySQLHelper
 from sagemaker_studio.connections.sql_helper.opensearch_sql_helper import OpenSearchSQLHelper
+from sagemaker_studio.connections.sql_helper.oracle_sql_helper import OracleSQLHelper
 from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQLHelper
 from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
@@ -61,6 +62,8 @@ class HelperFactory:
             return PostgreSQLHelper
         if type == "OPENSEARCH":
             return OpenSearchSQLHelper
+        if type == "ORACLE":
+            return OracleSQLHelper
         if type == "VERTICA":
             return VerticaSQLHelper
         if type == "WORKDAYLDQ":

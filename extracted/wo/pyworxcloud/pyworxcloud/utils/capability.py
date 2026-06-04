@@ -78,6 +78,10 @@ class Capability:
                 if "distm" in cfg["sc"] or "enabled" in cfg["sc"]:
                     self.add(DeviceCapability.PARTY_MODE)
 
+            if "sc" in dat:
+                if "ots" in dat["sc"] or "once" in dat["sc"]:
+                    self.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    self.add(DeviceCapability.EDGE_CUT)
         except TypeError:
             pass
 
@@ -101,6 +105,15 @@ class Capability:
             if "tq" in cfg:
                 self.add(DeviceCapability.TORQUE)
         except TypeError:
+            pass
+
+        try:
+            api_capabilities = device_data.get("capabilities")
+            if isinstance(api_capabilities, list):
+                if "border_cut" in api_capabilities:
+                    self.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                    self.add(DeviceCapability.EDGE_CUT)
+        except AttributeError:
             pass
 
     def add(self, capability: DeviceCapability) -> None:

@@ -1,5 +1,8 @@
+import warnings
+
 import numpy as np
 import pytest
+import xarray as xr
 
 try:
     import dask.array as da
@@ -249,3 +252,343 @@ def test_degenerate_shape_dask_cupy(func, shape):
     result = func(agg)
     assert result.shape == shape
     assert np.all(np.isnan(_to_numpy(result)))
+
+
+# ---- Rectangular-cell correctness (issue #2760) ----
+#
+# Planar aspect must honour cellsize_x / cellsize_y. For a raster whose
+# elevation increases by one unit per map-unit in both x and y, the
+# East and North gradients are equal in map units, so the downslope
+# points southwest and aspect is 315 degrees regardless of cell aspect
+# ratio. With the divide-by-8-only kernels (no cell-size correction)
+# this case returned 275.7106. See issue #2760.
+
+def _rectangular_cell_raster(backend='numpy', xres=10.0, yres=1.0):
+    ny, nx = 6, 6
+    yc = np.arange(ny) * yres
+    xc = np.arange(nx) * xres
+    X, Y = np.meshgrid(xc, yc)
+    data = (X + Y).astype(np.float64)
+    return create_test_raster(
+        data, backend=backend,
+        attrs={'res': (xres, yres), 'crs': 'EPSG: 5070'})
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy'])
+def test_rectangular_cell_aspect(backend):
+    if backend.startswith('dask') and not dask_array_available:
+        pytest.skip("dask not available")
+    agg = _rectangular_cell_raster(backend=backend)
+    result = aspect(agg)
+    interior = _to_numpy(result)[1:-1, 1:-1]
+    np.testing.assert_allclose(interior, 315.0, rtol=1e-4)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy'])
+def test_rectangular_cell_northness_eastness(backend):
+    if backend.startswith('dask') and not dask_array_available:
+        pytest.skip("dask not available")
+    agg = _rectangular_cell_raster(backend=backend)
+    north = _to_numpy(northness(agg))[1:-1, 1:-1]
+    east = _to_numpy(eastness(agg))[1:-1, 1:-1]
+    # aspect == 315: cos(315) = +sqrt(2)/2, sin(315) = -sqrt(2)/2
+    np.testing.assert_allclose(north, np.cos(np.deg2rad(315.0)), atol=1e-5)
+    np.testing.assert_allclose(east, np.sin(np.deg2rad(315.0)), atol=1e-5)
+
+
+@cuda_and_cupy_available
+def test_rectangular_cell_aspect_cupy():
+    agg = _rectangular_cell_raster(backend='cupy')
+    interior = _to_numpy(aspect(agg))[1:-1, 1:-1]
+    np.testing.assert_allclose(interior, 315.0, rtol=1e-4)
+
+
+@dask_array_available
+@cuda_and_cupy_available
+def test_rectangular_cell_aspect_dask_cupy():
+    agg = _rectangular_cell_raster(backend='dask+cupy')
+    interior = _to_numpy(aspect(agg))[1:-1, 1:-1]
+    np.testing.assert_allclose(interior, 315.0, rtol=1e-4)
+
+
+# ---- Independent analytic oracle for planar aspect ----
+#
+# The other planar tests only prove the four backends agree with each
+# other. They all share the same _cpu/_gpu kernels, so a defect common to
+# every backend (like the missing-cellsize bug in #2760) passes anyway.
+# The QGIS fixture is a real external reference but uses square cells, so
+# it never checks rectangular cells or that cell size is read from the
+# coordinates.
+#
+# These tests build a surface with a known constant gradient and compare
+# aspect() against the closed-form Horn value computed from the real cell
+# sizes, not against another backend. The raster carries no 'res' attr, so
+# resolution must come from the x/y coordinate spacing.
+
+_RADIAN = 180 / np.pi
+
+
+def _aspect_oracle(gx, gy):
+    """Closed-form compass aspect for a plane z = gx*X + gy*Y (X east, Y
+    south-by-row). The cell-size-correct Horn gradients of such a plane are
+    exactly gx and gy, independent of cell size, so the oracle only needs
+    the gradients.
+
+    The arctan2/compass conversion below is duplicated from aspect._cpu on
+    purpose: an oracle that called aspect() would not be independent. The
+    square-cell tests re-check this against the real function every run, so
+    drift is caught.
+    """
+    if gx == 0 and gy == 0:
+        return -1.0
+    a = np.arctan2(gy, -gx) * _RADIAN
+    if a < 0:
+        return 90.0 - a
+    elif a > 90.0:
+        return 360.0 - a + 90.0
+    else:
+        return 90.0 - a
+
+
+def _gradient_plane(gx, gy, cellsize_x, cellsize_y, n=7):
+    """A DataArray of z = gx*X + gy*Y on a grid with the given cell sizes.
+
+    Coordinates encode the resolution; no 'res' attr is set so cell size
+    must be recovered from the coordinate spacing.
+    """
+    xs = np.arange(n) * cellsize_x
+    ys = np.arange(n) * cellsize_y
+    z = gx * xs[None, :] + gy * ys[:, None]
+    return xr.DataArray(
+        z.astype(np.float64), dims=['y', 'x'], coords={'y': ys, 'x': xs},
+        name='gradient_plane')
+
+
+def _to_backend(agg, backend, chunks=(3, 3)):
+    data = agg.data
+    if 'cupy' in backend:
+        import cupy
+        data = cupy.asarray(data)
+    if 'dask' in backend:
+        data = da.from_array(data, chunks=chunks)
+    return xr.DataArray(data, dims=agg.dims, coords=agg.coords,
+                        attrs=agg.attrs, name=agg.name)
+
+
+_ORACLE_BACKENDS = ['numpy']
+if has_dask_array():
+    _ORACLE_BACKENDS.append('dask+numpy')
+
+
+def _aspect_interior(agg):
+    """Compute aspect and return the realized numpy interior (drop the
+    NaN edge ring)."""
+    result = aspect(agg, method='planar')
+    return _to_numpy(result)[1:-1, 1:-1]
+
+
+# Square cells: aspect is correct today, so this oracle must pass
+# unconditionally on every backend.
+@pytest.mark.parametrize("backend", _ORACLE_BACKENDS)
+@pytest.mark.parametrize("gx,gy", [(1.0, 1.0), (2.0, -3.0), (-1.0, 0.0), (0.0, 0.0)])
+@pytest.mark.parametrize("cellsize", [1.0, 0.5, 10.0])
+def test_planar_aspect_oracle_square(backend, gx, gy, cellsize):
+    agg = _to_backend(_gradient_plane(gx, gy, cellsize, cellsize), backend)
+    interior = _aspect_interior(agg)
+    expected = _aspect_oracle(gx, gy)
+    np.testing.assert_allclose(interior, expected, rtol=1e-4, atol=1e-3)
+
+
+# Rectangular cells (xres != yres). aspect() now reads cell size from the
+# coordinate spacing (#2760), so the East/North gradient ratio is correct.
+@pytest.mark.parametrize("backend", _ORACLE_BACKENDS)
+@pytest.mark.parametrize("gx,gy", [(1.0, 1.0), (2.0, -3.0)])
+@pytest.mark.parametrize("cellsize_x,cellsize_y", [(10.0, 1.0), (1.0, 4.0)])
+def test_planar_aspect_oracle_rectangular(
+        backend, gx, gy, cellsize_x, cellsize_y):
+    agg = _to_backend(_gradient_plane(gx, gy, cellsize_x, cellsize_y), backend)
+    interior = _aspect_interior(agg)
+    expected = _aspect_oracle(gx, gy)
+    np.testing.assert_allclose(interior, expected, rtol=1e-4, atol=1e-3)
+
+
+# Cupy and dask+cupy oracle (separate functions so the cuda/cupy skip
+# marker applies). Same assertion target as the numpy/dask versions.
+@cuda_and_cupy_available
+@pytest.mark.parametrize("backend", ['cupy', 'dask+cupy'])
+@pytest.mark.parametrize("gx,gy", [(1.0, 1.0), (2.0, -3.0), (-1.0, 0.0)])
+@pytest.mark.parametrize("cellsize", [1.0, 0.5, 10.0])
+def test_planar_aspect_oracle_square_cupy(backend, gx, gy, cellsize):
+    if backend == 'dask+cupy' and not has_dask_array():
+        pytest.skip("Requires dask.Array")
+    agg = _to_backend(_gradient_plane(gx, gy, cellsize, cellsize), backend)
+    interior = _aspect_interior(agg)
+    expected = _aspect_oracle(gx, gy)
+    np.testing.assert_allclose(interior, expected, rtol=1e-4, atol=1e-3)
+
+
+@cuda_and_cupy_available
+@pytest.mark.parametrize("backend", ['cupy', 'dask+cupy'])
+@pytest.mark.parametrize("gx,gy", [(1.0, 1.0), (2.0, -3.0)])
+@pytest.mark.parametrize("cellsize_x,cellsize_y", [(10.0, 1.0), (1.0, 4.0)])
+def test_planar_aspect_oracle_rectangular_cupy(
+        backend, gx, gy, cellsize_x, cellsize_y):
+    if backend == 'dask+cupy' and not has_dask_array():
+        pytest.skip("Requires dask.Array")
+    agg = _to_backend(_gradient_plane(gx, gy, cellsize_x, cellsize_y), backend)
+    interior = _aspect_interior(agg)
+    expected = _aspect_oracle(gx, gy)
+    np.testing.assert_allclose(interior, expected, rtol=1e-4, atol=1e-3)
+
+
+# ---- Near-360 aspect band: cupy must match numpy (issue #2827) ----
+#
+# A plane with a tiny east gradient and a strong north gradient produces an
+# aspect just under 360 (e.g. 359.99994). The numpy/numba kernel emits that
+# value; the cupy kernel used to snap anything above 359.999 to 0, so the two
+# backends disagreed by ~360 on the same input. The random-data cross-backend
+# tests never land in this band, so it went unnoticed. See issue #2827.
+
+def _near_360_plane(backend='numpy'):
+    # gx tiny positive, gy positive -> downslope faces just west of north.
+    return _to_backend(_gradient_plane(1e-6, 1.0, 1.0, 1.0, n=5), backend)
+
+
+def test_near_360_aspect_numpy_lands_in_band():
+    """numpy emits a value in (359.999, 360); it never snaps to 0."""
+    interior = _aspect_interior(_near_360_plane('numpy'))
+    assert np.all(interior > 359.999)
+    assert np.all(interior < 360.0)
+
+
+@pytest.mark.parametrize("backend", _ORACLE_BACKENDS)
+def test_near_360_aspect_oracle(backend):
+    interior = _aspect_interior(_near_360_plane(backend))
+    expected = _aspect_oracle(1e-6, 1.0)
+    np.testing.assert_allclose(interior, expected, rtol=1e-6, atol=1e-3)
+
+
+@cuda_and_cupy_available
+@pytest.mark.parametrize("backend", ['cupy', 'dask+cupy'])
+def test_near_360_aspect_cupy_matches_numpy(backend):
+    if backend == 'dask+cupy' and not has_dask_array():
+        pytest.skip("Requires dask.Array")
+    np_interior = _aspect_interior(_near_360_plane('numpy'))
+    gpu_interior = _aspect_interior(_near_360_plane(backend))
+    np.testing.assert_allclose(
+        gpu_interior, np_interior, rtol=1e-6, atol=1e-3)
+
+
+def _degree_coord_meter_elevation_raster():
+    # degree-like coords (lon/lat) with meter-scale elevation values
+    data = np.linspace(0, 999, 10 * 10, dtype=float).reshape(10, 10)
+    y = np.linspace(5.0, 5.0025, 10)
+    x = np.linspace(-74.93, -74.9275, 10)
+    return xr.DataArray(
+        data,
+        dims=('y', 'x'),
+        coords={'y': y, 'x': x},
+        attrs={'units': 'm'},
+    )
+
+
+def _projected_meter_raster():
+    # projected coords in meters (UTM-ish) with meter-scale elevation values
+    data = np.linspace(0, 999, 10 * 10, dtype=float).reshape(10, 10)
+    y = np.arange(10) * 30.0
+    x = 500_000.0 + np.arange(10) * 30.0
+    return xr.DataArray(
+        data,
+        dims=('y', 'x'),
+        coords={'y': y, 'x': x},
+        attrs={'units': 'm'},
+    )
+
+
+def test_planar_warns_on_degree_coords_meter_elevation():
+    raster = _degree_coord_meter_elevation_raster()
+    with pytest.warns(UserWarning, match="appears to have coordinates in degrees"):
+        aspect(raster)  # method='planar' is the default
+
+
+def test_planar_no_warn_on_projected_meter_coords():
+    raster = _projected_meter_raster()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        aspect(raster)  # must not raise: no unit-mismatch warning expected
+
+
+# The output .name must agree across backends. xr.DataArray keeps a dask
+# array's internal graph token (e.g. '_trim-<hash>' planar, 'getitem-<hash>'
+# geodesic) as .name when name=None, so the dask backends used to disagree
+# with numpy/cupy. Regression for the aspect .name leak (same class as zonal
+# #2611, focal #2733, slope #2838).
+def _assert_name_planar(backend, name):
+    data = np.random.default_rng(0).random((8, 10)).astype(np.float64) * 100
+    agg = create_test_raster(data, backend=backend, attrs={'res': (1, 1)},
+                             chunks=(3, 4))
+    assert aspect(agg, name=name).name == name
+
+
+def _geodesic_raster(backend):
+    H, W = 8, 10
+    lat = np.linspace(40.0, 41.0, H)
+    lon = np.linspace(10.0, 11.0, W)
+    data = np.random.default_rng(1).random((H, W)) * 100
+    raster = xr.DataArray(
+        data, dims=['lat', 'lon'], coords={'lat': lat, 'lon': lon},
+    )
+    if 'cupy' in backend:
+        import cupy
+        raster.data = cupy.asarray(raster.data)
+    if 'dask' in backend:
+        import dask.array as da
+        raster.data = da.from_array(raster.data, chunks=(4, 5))
+    return raster
+
+
+def _assert_name_geodesic(backend, name):
+    result = aspect(_geodesic_raster(backend), method='geodesic', name=name)
+    assert result.name == name
+
+
+# northness() and eastness() wrap aspect() and build their own DataArray, so
+# they leak the same dask graph token (e.g. 'where-<hash>') when name=None.
+def _assert_name_derived(backend, name):
+    data = np.random.default_rng(2).random((8, 10)).astype(np.float64) * 100
+    agg = create_test_raster(data, backend=backend, attrs={'res': (1, 1)},
+                             chunks=(3, 4))
+    assert northness(agg, name=name).name == name
+    assert eastness(agg, name=name).name == name
+
+
+@pytest.mark.parametrize("name", [None, 'aspect'])
+def test_name_consistent_numpy(name):
+    _assert_name_planar('numpy', name)
+    _assert_name_geodesic('numpy', name)
+    _assert_name_derived('numpy', name)
+
+
+@dask_array_available
+@pytest.mark.parametrize("name", [None, 'aspect'])
+def test_name_consistent_dask_numpy(name):
+    _assert_name_planar('dask+numpy', name)
+    _assert_name_geodesic('dask+numpy', name)
+    _assert_name_derived('dask+numpy', name)
+
+
+@cuda_and_cupy_available
+@pytest.mark.parametrize("name", [None, 'aspect'])
+def test_name_consistent_cupy(name):
+    _assert_name_planar('cupy', name)
+    _assert_name_geodesic('cupy', name)
+    _assert_name_derived('cupy', name)
+
+
+@dask_array_available
+@cuda_and_cupy_available
+@pytest.mark.parametrize("name", [None, 'aspect'])
+def test_name_consistent_dask_cupy(name):
+    _assert_name_planar('dask+cupy', name)
+    _assert_name_geodesic('dask+cupy', name)
+    _assert_name_derived('dask+cupy', name)

@@ -118,7 +118,7 @@ def get_data_usage_filename(job_folder):
 
 def load_data_usage(job_folder):
     data_usage_filename = get_data_usage_filename(job_folder)
-    with util.safe_open(data_usage_filename, 'r') as f:
+    with util.safe_open(data_usage_filename, 'r', encoding='utf-8') as f:
         loaded = json.load(f)
 
     for usage_dict in loaded.values():
@@ -131,7 +131,7 @@ def load_data_usage(job_folder):
 
 def save_data_usage(job_folder, data_usage_dict):
     data_usage_filename = get_data_usage_filename(job_folder)
-    with util.safe_open(data_usage_filename, 'w') as f:
+    with util.safe_open(data_usage_filename, 'w', encoding='utf-8') as f:
         return f.write(_common.safe_json_dumps(data_usage_dict))
 
 

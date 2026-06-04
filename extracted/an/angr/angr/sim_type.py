@@ -1,25 +1,25 @@
-# pylint:disable=abstract-method,line-too-long,missing-class-docstring,wrong-import-position,too-many-positional-arguments
+# pylint:disable=abstract-method,line-too-long,missing-class-docstring,too-many-positional-arguments
 from __future__ import annotations
 
 import contextlib
 import copy
 import enum
-import re
 import logging
-from typing import Literal, Any, cast, overload, TYPE_CHECKING
-from collections import OrderedDict, defaultdict, ChainMap
-from collections.abc import Iterable
-from collections.abc import MutableMapping
+import re
+from collections import ChainMap, OrderedDict, defaultdict
+from collections.abc import Iterable, MutableMapping
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
-from archinfo import Endness, Arch
 import claripy
-import cxxheaderparser.simple
 import cxxheaderparser.errors
+import cxxheaderparser.simple
 import cxxheaderparser.types
 import pycparser
+from archinfo import Arch, Endness
 from pycparser import c_ast
 
-from angr.errors import AngrTypeError, AngrMissingTypeError
+import angr
+from angr.errors import AngrMissingTypeError, AngrTypeError
 from angr.sim_state import SimState
 
 StoreType = int | claripy.ast.BV
@@ -1715,7 +1715,7 @@ class SimStruct(NamedTypeMixin, SimType):
         values = {}
         for name, offset in self.offsets.items():
             ty = self.fields[name]
-            v = SimMemView(ty=ty, addr=addr + offset, state=state)
+            v = angr.state_plugins.view.SimMemView(ty=ty, addr=addr + offset, state=state)
             if concrete:
                 values[name] = v.concrete
             else:
@@ -1959,7 +1959,7 @@ class SimUnion(NamedTypeMixin, SimType):
     def extract(self, state, addr, concrete=False):
         values = {}
         for name, ty in self.members.items():
-            v = SimMemView(ty=ty, addr=addr, state=state)
+            v = angr.state_plugins.view.SimMemView(ty=ty, addr=addr, state=state)
             if concrete:
                 values[name] = v.concrete
             else:
@@ -2402,7 +2402,7 @@ class SimCppClass(SimStruct):
         values = {}
         for name, offset in self.offsets.items():
             ty = self.fields[name]
-            v = SimMemView(ty=ty, addr=addr + offset, state=state)
+            v = angr.state_plugins.view.SimMemView(ty=ty, addr=addr + offset, state=state)
             if concrete:
                 values[name] = v.concrete
             else:
@@ -4476,5 +4476,3 @@ struct timeval {
 };
 """)
     )
-
-from .state_plugins.view import SimMemView

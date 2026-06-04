@@ -368,6 +368,10 @@ pub struct PdfDocument {
     /// `FontInfo::from_dict()` when a structurally identical font was already parsed.
     /// Bounded at 512 entries.
     font_identity_cache: Mutex<BoundedEntryCache<u64, Arc<crate::fonts::FontInfo>>>,
+    /// Per-object `font_identity_hash_cheap`, memoized. An object's content is
+    /// fixed within a document, so the Layer-4 cache guard (#408) need not
+    /// re-load and re-hash each font's `/Widths` on every page.
+    font_id_hash_cache: Mutex<HashMap<ObjectRef, u64>>,
     /// Cached structure tree (None = not yet checked, Some(None) = untagged, Some(Some) = tagged).
     /// Uses Arc to avoid expensive deep clones on every page extraction.
     /// Mutex provides interior mutability for `&self` read-path methods (#398).
@@ -376,6 +380,11 @@ pub struct PdfDocument {
     /// Built once from the structure tree, then O(1) lookup per page.
     /// Mutex provides interior mutability for `&self` read-path methods (#398).
     structure_content_cache: Mutex<Option<HashMap<u32, Vec<crate::structure::OrderedContent>>>>,
+    /// `Table` structure elements bucketed by page, built once via
+    /// `find_table_elements_all_pages` (one tree walk) so the converter table
+    /// path does an O(1) lookup instead of walking the tree per page.
+    /// `None` = not yet built.
+    table_elements_cache: Mutex<Option<HashMap<u32, Vec<crate::structure::StructElem>>>>,
     /// Page object cache keyed by page index to avoid re-traversing the page tree.
     /// The page tree structure is static (§7.7.3.2), so pages can be safely cached.
     /// Mutex provides interior mutability for `&self` read-path methods (#398).
@@ -420,6 +429,12 @@ pub struct PdfDocument {
     pub(crate) erase_regions: Mutex<HashMap<usize, Vec<crate::geometry::Rect>>>,
     /// LRU cache of decompressed page content streams, keyed by page index.
     page_content_cache: Mutex<BoundedEntryCache<usize, std::sync::Arc<Vec<u8>>>>,
+    /// LRU cache of postprocessed [`TextSpan`]s per page. `to_markdown`/`to_html`
+    /// reach `extract_spans` twice per page — once directly, once via
+    /// `extract_page_tables` → `extract_words` → `page_reading_order`; this serves
+    /// the second from cache. Cleared by redaction (`erase_region` /
+    /// `clear_erase_regions`), the only span-affecting mutation.
+    page_spans_cache: Mutex<BoundedEntryCache<usize, std::sync::Arc<Vec<crate::layout::TextSpan>>>>,
     /// Cached signatures of running headers/footers detected via cross-page
     /// repetition. A span whose normalized text matches a signature
     /// sits near the top/bottom of the page is treated as an artifact.
@@ -632,6 +647,80 @@ fn contains_objstm_marker(window: &[u8]) -> bool {
     false
 }
 
+/// Append ink names declared by `Separation` and `DeviceN` colour spaces
+/// in `cs_dict` to `out`. Reserved colorants `/All` and `/None` (§8.6.6.4)
+/// are skipped. Caller is responsible for deduping across multiple calls.
+///
+/// When `doc` is `Some`, indirect references inside each colour-space array
+/// (e.g. a DeviceN whose names list is `4 0 R` rather than inline) are
+/// resolved. Tools that hand-build inline arrays and don't need indirection
+/// resolution can pass `None`.
+///
+/// Used by both [`PdfDocument::get_page_inks`] and
+/// [`PdfDocument::get_page_inks_deep`] so the per-colorant rules live in
+/// exactly one place.
+fn extract_inks_from_color_space_dict(
+    cs_dict: &std::collections::HashMap<String, Object>,
+    doc: Option<&PdfDocument>,
+    out: &mut Vec<String>,
+) {
+    let deref = |obj: &Object| -> Object {
+        match (obj.as_reference(), doc) {
+            (Some(r), Some(d)) => d.load_object(r).unwrap_or_else(|_| obj.clone()),
+            _ => obj.clone(),
+        }
+    };
+
+    for cs_def in cs_dict.values() {
+        let arr = match cs_def.as_array() {
+            Some(a) => a,
+            None => continue,
+        };
+        if arr.len() < 2 {
+            continue;
+        }
+        let cs_type = match arr.first().and_then(Object::as_name) {
+            Some(n) => n,
+            None => continue,
+        };
+        match cs_type {
+            "Separation" => {
+                // §8.6.6.2: [/Separation /InkName /AlternateCS /TintTransform].
+                // The name slot is usually inline but resolve indirects for safety.
+                let name_obj = match arr.get(1) {
+                    Some(o) => deref(o),
+                    None => continue,
+                };
+                if let Some(ink) = name_obj.as_name() {
+                    if ink != "All" && ink != "None" {
+                        out.push(ink.to_string());
+                    }
+                }
+            },
+            "DeviceN" => {
+                // §8.6.6.3: [/DeviceN <names-array> /AlternateCS /TintTransform <attrs>].
+                // The names array is commonly emitted as an indirect reference
+                // when the same colorant set is shared across multiple DeviceN
+                // spaces; resolve before unpacking the names.
+                let names_obj = match arr.get(1) {
+                    Some(o) => deref(o),
+                    None => continue,
+                };
+                if let Some(inks) = names_obj.as_array() {
+                    for ink_obj in inks {
+                        if let Some(ink) = ink_obj.as_name() {
+                            if ink != "All" && ink != "None" {
+                                out.push(ink.to_string());
+                            }
+                        }
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+}
+
 impl PdfDocument {
     /// Open a PDF document from in-memory bytes.
     ///
@@ -831,8 +920,10 @@ impl PdfDocument {
             font_fingerprint_cache: Mutex::new(BoundedEntryCache::new(256)),
             font_name_set_cache: Mutex::new(BoundedEntryCache::new(256)),
             font_identity_cache: Mutex::new(BoundedEntryCache::new(512)),
+            font_id_hash_cache: Mutex::new(HashMap::new()),
             structure_tree_cache: Mutex::new(None),
             structure_content_cache: Mutex::new(None),
+            table_elements_cache: Mutex::new(None),
             page_cache: Mutex::new(HashMap::new()),
             page_cache_populated: AtomicBool::new(false),
             scanned_object_offsets: Mutex::new(prepopulated_scan),
@@ -849,6 +940,7 @@ impl PdfDocument {
             )),
             erase_regions: Mutex::new(HashMap::new()),
             page_content_cache: Mutex::new(BoundedEntryCache::new(64)),
+            page_spans_cache: Mutex::new(BoundedEntryCache::new(8)),
             running_artifact_signatures: Mutex::new(None),
             accumulated_warnings: Mutex::new(Vec::new()),
             warning_sink: crate::extractors::warnings::WarningSink::new(),
@@ -1539,6 +1631,15 @@ impl PdfDocument {
             return Err(Error::EncryptedPdf);
         }
         Ok(())
+    }
+
+    /// True once the empty user password has been tried and the document is
+    /// still locked. Text extraction degrades to empty output in this case
+    /// (matching pdftotext/PyMuPDF) rather than erroring; `page_count` and
+    /// write paths keep using [`Self::require_authenticated`].
+    fn is_encrypted_unreadable(&self) -> bool {
+        let _ = self.ensure_encryption_initialized();
+        self.is_encrypted_and_unauthenticated()
     }
 
     /// Get the PDF version.
@@ -4857,31 +4958,39 @@ impl PdfDocument {
             .join("\n")
     }
 
+    /// Apply caller-specified region filters to a span set: drop spans matching
+    /// any `exclude_regions` (under `exclude_regions_mode`), then keep only spans
+    /// inside `include_region` if one is set. Exclusion runs first so it takes
+    /// precedence. Shared by the plain-text, markdown, and HTML conversion paths
+    /// so `ConversionOptions` region filtering behaves identically across every
+    /// text surface (#609). A no-op when neither field is set.
+    fn apply_region_filters(
+        base_spans: Vec<crate::layout::TextSpan>,
+        options: &crate::converters::ConversionOptions,
+    ) -> Vec<crate::layout::TextSpan> {
+        use crate::layout::SpatialCollectionFiltering;
+        let mut spans = base_spans;
+        if !options.exclude_regions.is_empty() {
+            spans = spans.exclude_rects(&options.exclude_regions, options.exclude_regions_mode);
+        }
+        if let Some((ref region, mode)) = options.include_region {
+            spans = spans.filter_by_rect(region, mode);
+        }
+        spans
+    }
+
     fn assemble_text_from_spans(
         &self,
         page_index: usize,
         base_spans: Vec<crate::layout::TextSpan>,
         options: &crate::converters::ConversionOptions,
     ) -> Result<String> {
-        self.require_authenticated()?;
-
-        let mut base_spans = base_spans;
-
-        // Drop spans that fall inside any caller-specified exclusion region.
-        // This runs before the structure-tree and table pipelines so that
-        // excluded regions are stripped from all downstream processing paths.
-        if !options.exclude_regions.is_empty() {
-            use crate::layout::SpatialCollectionFiltering;
-            base_spans =
-                base_spans.exclude_rects(&options.exclude_regions, options.exclude_regions_mode);
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty text");
+            return Ok(String::new());
         }
 
-        // Keep only spans inside the caller-specified include region (if any).
-        // Applied after exclusions so that exclude takes precedence.
-        if let Some((ref region, mode)) = options.include_region {
-            use crate::layout::SpatialCollectionFiltering;
-            base_spans = base_spans.filter_by_rect(region, mode);
-        }
+        let base_spans = Self::apply_region_filters(base_spans, options);
 
         // Structure tree: use it for reading order only when it is trustworthy
         // per the shared predicate (§14.8.2.3.1) — the document is /Marked or
@@ -5505,12 +5614,15 @@ impl PdfDocument {
             .entry(page_index)
             .or_default()
             .push(rect);
+        // Redaction changes a page's spans; drop the span cache.
+        self.page_spans_cache.lock_or_recover().clear();
         Ok(())
     }
 
     /// Clear all erase regions for a page.
     pub fn clear_erase_regions(&self, page_index: usize) -> Result<()> {
         self.erase_regions.lock_or_recover().remove(&page_index);
+        self.page_spans_cache.lock_or_recover().clear();
         Ok(())
     }
 
@@ -6770,13 +6882,15 @@ impl PdfDocument {
             }
         }
 
-        // Remove the sub spans in reverse index order to preserve earlier indices.
-        let mut to_remove: Vec<usize> = ops.iter().map(|(_, si, _, _, _, _)| *si).collect();
-        to_remove.sort_unstable();
-        to_remove.dedup();
-        for idx in to_remove.iter().rev() {
-            spans.remove(*idx);
-        }
+        // Drop the merged sub/superscript spans in one pass.
+        let to_remove: std::collections::HashSet<usize> =
+            ops.iter().map(|(_, si, _, _, _, _)| *si).collect();
+        let mut idx = 0usize;
+        spans.retain(|_| {
+            let keep = !to_remove.contains(&idx);
+            idx += 1;
+            keep
+        });
     }
 
     /// Append span text to `out`, splitting merged runs for cleaner word tokenisation.
@@ -7193,6 +7307,7 @@ impl PdfDocument {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             });
         }
 
@@ -7357,6 +7472,7 @@ impl PdfDocument {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             });
         }
 
@@ -8024,7 +8140,10 @@ impl PdfDocument {
         page_index: usize,
     ) -> Result<(Vec<crate::layout::TextSpan>, crate::pipeline::reading_order::ReadingOrderClass)>
     {
-        self.require_authenticated()?;
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty text");
+            return Ok((Vec::new(), crate::pipeline::reading_order::ReadingOrderClass::Default));
+        }
         let spans = self.extract_spans(page_index)?;
         // Convert spans to detector input. We only need the geometric
         // signal (x/y/width/font_size), not the full TextSpan
@@ -8350,6 +8469,27 @@ impl PdfDocument {
         ordered
     }
 
+    /// Page's MCID reading order from the all-pages traversal cache
+    /// (`structure_content_cache`, populated once). `build_context` previously
+    /// re-walked the whole tree per page (≈ O(pages²) on a tagged document);
+    /// the cached all-pages walk (#608) yields the same per-page order.
+    pub(crate) fn cached_mcid_order_for_page(
+        &self,
+        struct_tree: &crate::structure::StructTreeRoot,
+        page_index: u32,
+    ) -> Vec<u32> {
+        if self.structure_content_cache.lock_or_recover().is_none() {
+            let all_content = crate::structure::traverse_structure_tree_all_pages(struct_tree);
+            *self.structure_content_cache.lock_or_recover() = Some(all_content);
+        }
+        self.structure_content_cache
+            .lock_or_recover()
+            .as_ref()
+            .and_then(|c| c.get(&page_index))
+            .map(|content| content.iter().filter_map(|c| c.mcid).collect())
+            .unwrap_or_default()
+    }
+
     /// Extract text from a Tagged PDF page using pre-computed structure traversal cache.
     ///
     /// This is the optimized version of `extract_text_structure_order` that uses
@@ -8482,11 +8622,8 @@ impl PdfDocument {
                 "Found {} text spans without MCID (including form field widgets) - appending sorted by position",
                 spans_without_mcid.len()
             );
-            // Row-aware sort: Y-band descending (top→bottom), then X
-            // ascending (left→right within a row).
-            spans_without_mcid.sort_by(|a, b| {
-                crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
-            });
+            // Row-aware sort: Y-band descending (top→bottom), then X ascending.
+            crate::utils::sort_by_row_band(&mut spans_without_mcid, |s| s.bbox.y, |s| s.bbox.x);
             for span in &spans_without_mcid {
                 if let Some(prev) = prev_span {
                     let y_diff = (prev.bbox.y - span.bbox.y).abs();
@@ -8542,8 +8679,17 @@ impl PdfDocument {
     /// # }
     /// ```
     pub fn extract_spans(&self, page_index: usize) -> Result<Vec<crate::layout::TextSpan>> {
+        // Serve repeat per-page extractions from cache (the converters reach
+        // here twice per page; see `page_spans_cache`).
+        if let Some(cached) = self.page_spans_cache.lock_or_recover().get(&page_index) {
+            return Ok((**cached).clone());
+        }
         let spans = self.extract_spans_raw(page_index)?;
-        self.postprocess_spans(page_index, spans)
+        let spans = self.postprocess_spans(page_index, spans)?;
+        self.page_spans_cache
+            .lock_or_recover()
+            .insert(page_index, std::sync::Arc::new(spans.clone()));
+        Ok(spans)
     }
 
     fn extract_spans_filtered(
@@ -8606,6 +8752,181 @@ impl PdfDocument {
         s.bbox.height = m.height;
     }
 
+    /// Order rotated runs that were segregated out of the horizontal reading
+    /// flow. Spans drawn with a rotated text matrix (`rotation_degrees != 0`)
+    /// break the axis-aligned assumptions of the row-band / XY-cut sort, so they
+    /// are pulled out, ordered here, and appended as their own blocks. Runs are
+    /// grouped by rotation (first-seen group order preserved); within a group
+    /// each span's origin is rotated back into an upright frame and the standard
+    /// row-aware comparator (top→bottom, left→right) is applied there.
+    fn order_rotated_blocks(spans: Vec<crate::layout::TextSpan>) -> Vec<crate::layout::TextSpan> {
+        let mut groups: Vec<(f32, Vec<crate::layout::TextSpan>)> = Vec::new();
+        for s in spans {
+            let key = s.rotation_degrees;
+            match groups.iter_mut().find(|(k, _)| (*k - key).abs() < 0.5) {
+                Some(g) => g.1.push(s),
+                None => groups.push((key, vec![s])),
+            }
+        }
+        let mut out = Vec::new();
+        for (deg, mut group) in groups {
+            let (sin, cos) = (-deg).to_radians().sin_cos();
+            // Upright frame: rotate each origin by -deg, then read top→bottom,
+            // left→right exactly as horizontal text.
+            group.sort_by(|a, b| {
+                let ax = a.bbox.x * cos - a.bbox.y * sin;
+                let ay = a.bbox.x * sin + a.bbox.y * cos;
+                let bx = b.bbox.x * cos - b.bbox.y * sin;
+                let by = b.bbox.x * sin + b.bbox.y * cos;
+                crate::utils::row_aware_span_cmp(ay, ax, by, bx)
+            });
+            out.extend(group);
+        }
+        out
+    }
+
+    /// Re-attach an oversized lone leading capital (a drop-cap / table-title
+    /// initial that the producer set in a larger font, so it became its own
+    /// span) to the body run immediately to its right on the same line —
+    /// otherwise reading-order strands it (`TABLE` → `T` … `ABLE`).
+    ///
+    /// Conservative gates so prose drop-caps / standalone capitals aren't glued
+    /// to the wrong word: the candidate must be a single uppercase ASCII letter
+    /// at ≥1.5× the body run's font size, its right edge within ~0.3 em of the
+    /// body's left edge, vertically overlapping it, and the body must start with
+    /// a letter. Runs in raw span order before reading-order sorting.
+    fn merge_drop_cap_initials(spans: &mut Vec<crate::layout::TextSpan>) {
+        let n = spans.len();
+        if n < 2 {
+            return;
+        }
+        // A genuine drop cap is oversized relative to the page's *normal* body
+        // text, not merely relative to its right-hand neighbor. Inline math such
+        // as "A_st" pairs a normal-size capital with a shrunken subscript; gating
+        // on the neighbor alone would treat that capital as oversized and glue
+        // "A" + "st" into "Ast". Anchor the size gate to the median size of
+        // multi-character spans (real words) so a body-size capital cannot
+        // qualify.
+        let mut body_sizes: Vec<f32> = spans
+            .iter()
+            .filter(|s| s.font_size > 0.0 && s.text.chars().nth(1).is_some())
+            .map(|s| s.font_size)
+            .collect();
+        if body_sizes.is_empty() {
+            return;
+        }
+        body_sizes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let body_size = body_sizes[body_sizes.len() / 2];
+
+        // For each initial candidate, the closest qualifying body span to its right.
+        let mut target: Vec<Option<usize>> = vec![None; n];
+        for i in 0..n {
+            let init = &spans[i];
+            if init.text.chars().count() != 1 || init.font_size <= 0.0 {
+                continue;
+            }
+            if !init
+                .text
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_uppercase())
+            {
+                continue;
+            }
+            if init.font_size < body_size * 1.5 {
+                continue; // initial must be clearly oversized vs normal body text
+            }
+            let init_right = init.bbox.x + init.bbox.width;
+            let mut best: Option<usize> = None;
+            let mut best_gap = f32::MAX;
+            for (j, body) in spans.iter().enumerate() {
+                if j == i || body.font_size <= 0.0 {
+                    continue;
+                }
+                if !body.text.chars().next().is_some_and(|c| c.is_alphabetic()) {
+                    continue;
+                }
+                // Continuation shares the initial's baseline (same text line). A
+                // tall oversized initial also vertically overlaps the line *above*
+                // it, so a raw bbox-overlap test would let it reach up and steal a
+                // word from the previous line (alice_old: the 16.8pt "A" of "A very
+                // heavy weight" overlapping "Or if" → "OrAif"). Baseline proximity
+                // (≈ bbox bottom) keeps the merge on the initial's own line.
+                if (init.bbox.y - body.bbox.y).abs() > body.font_size * 0.5 {
+                    continue;
+                }
+                // Body immediately to the right, essentially touching. A genuine
+                // oversized initial is the first glyph of one word ("T" of
+                // "TABLE", "P" of "PENALTY"), so its continuation begins within a
+                // hair of the initial's advance — never across a word space. A
+                // word-space gap (~0.25 em) would wrongly glue a standalone "A"
+                // or "I" onto the next word ("A Perspective" → "APerspective"),
+                // so the upper bound stays well below it.
+                let gap = body.bbox.x - init_right;
+                if gap < -body.font_size * 0.5 || gap > body.font_size * 0.12 {
+                    continue;
+                }
+                if gap.abs() < best_gap {
+                    best_gap = gap.abs();
+                    best = Some(j);
+                }
+            }
+            target[i] = best;
+        }
+
+        let mut taken = vec![false; n];
+        let mut remove = vec![false; n];
+        for i in 0..n {
+            let Some(j) = target[i] else { continue };
+            if taken[j] || remove[j] || remove[i] {
+                continue; // a body receives at most one initial
+            }
+            taken[j] = true;
+            remove[i] = true;
+            let init_text = spans[i].text.clone();
+            let init_left = spans[i].bbox.x;
+            let body = &mut spans[j];
+            body.text = format!("{init_text}{}", body.text);
+            let right = body.bbox.x + body.bbox.width;
+            body.bbox.x = init_left.min(body.bbox.x);
+            body.bbox.width = right - body.bbox.x;
+        }
+        let mut k = 0;
+        spans.retain(|_| {
+            let keep = !remove[k];
+            k += 1;
+            keep
+        });
+    }
+
+    /// True for Computer-Modern (`CM*`) or symbol font names, after stripping a
+    /// `ABCDEF+` subset tag. Used to scope the `¬`→`.` decimal recovery.
+    fn is_cm_or_symbol_font(font_name: &str) -> bool {
+        let base = font_name.split('+').next_back().unwrap_or(font_name);
+        let lower = base.to_ascii_lowercase();
+        lower.starts_with("cm") || lower.contains("symbol")
+    }
+
+    /// Replace a `¬` (U+00AC) that sits directly between two ASCII digits with
+    /// `.` (the decimal point a math subset drew from its `logicalnot` slot).
+    /// Leaves every other `¬` untouched.
+    fn fix_digit_logicalnot_decimal(text: &str) -> String {
+        let chars: Vec<char> = text.chars().collect();
+        let mut out = String::with_capacity(text.len());
+        for (i, &c) in chars.iter().enumerate() {
+            if c == '\u{00AC}'
+                && i > 0
+                && chars[i - 1].is_ascii_digit()
+                && chars.get(i + 1).is_some_and(|n| n.is_ascii_digit())
+            {
+                out.push('.');
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    }
+
     fn postprocess_spans(
         &self,
         page_index: usize,
@@ -8638,6 +8959,21 @@ impl PdfDocument {
                 sx2 > left && sx1 < right && sy2 > bottom && sy1 < top
             });
         }
+
+        // Recover decimal points mis-decoded as `¬` (U+00AC) in Computer-Modern
+        // math subsets, where the `/Differences` names the decimal slot
+        // `logicalnot`. Only a `¬` sitting *directly between two digits* (no
+        // space) is rewritten — real logic/set `¬` is always spaced, so this
+        // cannot corrupt it.
+        for span in &mut spans {
+            if Self::is_cm_or_symbol_font(&span.font_name) && span.text.contains('\u{00AC}') {
+                span.text = Self::fix_digit_logicalnot_decimal(&span.text);
+            }
+        }
+
+        // Re-attach oversized lone leading capitals to their word before the
+        // reading-order sort can strand them (drop-cap / table-title initials).
+        Self::merge_drop_cap_initials(&mut spans);
 
         // Apply page /Rotate to span geometry BEFORE reading-order sorting.
         // Spans are extracted in raw PDF user space; a page with a /Rotate entry
@@ -8709,6 +9045,26 @@ impl PdfDocument {
             });
             // Lift multi-row-spanning labels to the top of their block.
             Self::reorder_rowspan_labels(&mut spans);
+        }
+
+        // Per-span rotation firewall. Runs drawn with a rotated text matrix
+        // (the vertical `arXiv:…` margin stamp, figure/axis labels, rotated
+        // table headers, transit-poster route names) break the axis-aligned
+        // row-band / XY-cut assumptions, so interleaving them with the
+        // horizontal flow scrambles reading order. The reordering above ran on
+        // the FULL span set (so its column/XY-cut decisions are unchanged — the
+        // horizontal body keeps its exact baseline order); now stably lift the
+        // rotated runs out (preserving horizontal order) and re-append them as
+        // their own blocks, each ordered in an upright frame. No-op (and
+        // byte-identical) when the page has no rotated spans.
+        if spans.iter().any(|s| s.rotation_degrees != 0.0) {
+            let rotated: Vec<crate::layout::TextSpan> = spans
+                .iter()
+                .filter(|s| s.rotation_degrees != 0.0)
+                .cloned()
+                .collect();
+            spans.retain(|s| s.rotation_degrees == 0.0);
+            spans.extend(Self::order_rotated_blocks(rotated));
         }
 
         // Filter out spans in erase regions
@@ -8976,40 +9332,11 @@ impl PdfDocument {
         let mut sorted_by_y: Vec<usize> = (0..n).collect();
         sorted_by_y
             .sort_by(|&a, &b| crate::utils::safe_float_cmp(spans[a].bbox.y, spans[b].bbox.y));
-        let mut band_anchor: Vec<(f32, f32)> = vec![(0.0, 0.0); n];
-        for (pos, &i) in sorted_by_y.iter().enumerate() {
-            let cy = spans[i].bbox.y;
-            let mut max_fs = spans[i].font_size;
-            let mut anchor_y = spans[i].bbox.y;
-            // Walk backwards through the sorted view while y stays
-            // within LINE_BAND_PT of cy.
-            let mut k = pos;
-            while k > 0 {
-                let j = sorted_by_y[k - 1];
-                if (spans[j].bbox.y - cy).abs() > LINE_BAND_PT {
-                    break;
-                }
-                if spans[j].font_size > max_fs {
-                    max_fs = spans[j].font_size;
-                    anchor_y = spans[j].bbox.y;
-                }
-                k -= 1;
-            }
-            // Walk forwards similarly.
-            let mut k = pos + 1;
-            while k < n {
-                let j = sorted_by_y[k];
-                if (spans[j].bbox.y - cy).abs() > LINE_BAND_PT {
-                    break;
-                }
-                if spans[j].font_size > max_fs {
-                    max_fs = spans[j].font_size;
-                    anchor_y = spans[j].bbox.y;
-                }
-                k += 1;
-            }
-            band_anchor[i] = (max_fs, anchor_y);
-        }
+        let band_anchor = Self::compute_band_anchors(spans, &sorted_by_y, LINE_BAND_PT);
+        // Spatial index: bucket spans by Y-band so `span_is_token_internal`
+        // queries only nearby spans instead of all of them (its same-line
+        // neighbour scan was O(n) per candidate → O(n²) on dense pages).
+        let y_index = Self::build_y_band_index(spans, LINE_BAND_PT);
         for i in 0..n {
             let (anchor_fs, anchor_y) = band_anchor[i];
             let curr_fs = spans[i].font_size;
@@ -9038,12 +9365,61 @@ impl PdfDocument {
             // runs keeps the chemistry / exponent cases that the
             // GT does want as Unicode (S², H₂O, k₁) and skips the
             // trailing footnote callouts.
-            if !Self::span_is_token_internal(spans, i) {
+            if !Self::span_is_token_internal(spans, i, &y_index, LINE_BAND_PT) {
                 continue;
             }
             let substituted: String = spans[i].text.chars().map(|c| map(c).unwrap()).collect();
             spans[i].text = substituted;
         }
+    }
+
+    /// For every span, the `(max_font_size, anchor_y)` over the spans within
+    /// `±band` of its Y, in O(n) via a sliding-window maximum (monotonic deque)
+    /// over the Y-sorted order. Replaces a per-span window walk that was O(n²)
+    /// when many spans share a Y band (wide table rows).
+    ///
+    /// Tie-break on equal max font size: the lowest-Y span (deque keeps the
+    /// earliest sorted position). A substitution only fires when the span's own
+    /// font is strictly smaller than the anchor, so the tie-break merely picks
+    /// which equal-sized body span supplies `anchor_y`, all within `band`.
+    fn compute_band_anchors(
+        spans: &[crate::layout::TextSpan],
+        sorted_by_y: &[usize],
+        band: f32,
+    ) -> Vec<(f32, f32)> {
+        let n = sorted_by_y.len();
+        let mut band_anchor = vec![(0.0f32, 0.0f32); n];
+        let y = |p: usize| spans[sorted_by_y[p]].bbox.y;
+        let fs = |p: usize| spans[sorted_by_y[p]].font_size;
+        // Deque of sorted positions, font size non-increasing front→back;
+        // positions are pushed in increasing order so the deque is also
+        // position-increasing front→back (front = smallest position = max fs).
+        let mut deque: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+        let mut lo = 0usize;
+        let mut hi = 0usize;
+        for pos in 0..n {
+            let cy = y(pos);
+            while hi < n && y(hi) <= cy + band {
+                while let Some(&back) = deque.back() {
+                    if fs(back) < fs(hi) {
+                        deque.pop_back();
+                    } else {
+                        break;
+                    }
+                }
+                deque.push_back(hi);
+                hi += 1;
+            }
+            while lo < n && y(lo) < cy - band {
+                if deque.front() == Some(&lo) {
+                    deque.pop_front();
+                }
+                lo += 1;
+            }
+            let best = *deque.front().expect("window always contains pos");
+            band_anchor[sorted_by_y[pos]] = (fs(best), y(best));
+        }
+        band_anchor
     }
 
     /// Return true when span `i` has a base-sized alphabetic
@@ -9052,25 +9428,58 @@ impl PdfDocument {
     /// "H₂O" / "k₁ + …" pattern but excludes footnote markers
     /// that hang off the end of a word with no following body
     /// character.
-    fn span_is_token_internal(spans: &[crate::layout::TextSpan], i: usize) -> bool {
+    /// Bucket span indices by Y-band (`round(y / band)`) so same-line lookups
+    /// scan only nearby bands instead of every span. Querying a band `k`'s
+    /// `[k-2, k+2]` neighbours is a guaranteed superset of all spans within
+    /// `band` points of any Y in band `k`, so an exact `|Δy|` filter on the
+    /// result is byte-identical to a full scan.
+    fn build_y_band_index(
+        spans: &[crate::layout::TextSpan],
+        band: f32,
+    ) -> HashMap<i32, Vec<usize>> {
+        let mut idx: HashMap<i32, Vec<usize>> = HashMap::new();
+        for (j, s) in spans.iter().enumerate() {
+            idx.entry((s.bbox.y / band).round() as i32)
+                .or_default()
+                .push(j);
+        }
+        idx
+    }
+
+    /// Indices in the Y-bands within ±2 of `y`'s band (superset of `|Δy| ≤ band`).
+    fn y_band_candidates<'a>(
+        y_index: &'a HashMap<i32, Vec<usize>>,
+        y: f32,
+        band: f32,
+    ) -> impl Iterator<Item = usize> + 'a {
+        let k = (y / band).round() as i32;
+        (k - 2..=k + 2).flat_map(move |b| y_index.get(&b).into_iter().flatten().copied())
+    }
+
+    fn span_is_token_internal(
+        spans: &[crate::layout::TextSpan],
+        i: usize,
+        y_index: &HashMap<i32, Vec<usize>>,
+        band: f32,
+    ) -> bool {
         let curr = &spans[i];
         let curr_y = curr.bbox.y;
         let curr_x = curr.bbox.x;
         let curr_right = curr.bbox.x + curr.bbox.width;
-        let body_fs = spans
-            .iter()
-            .filter(|s| (s.bbox.y - curr_y).abs() <= 4.0)
-            .map(|s| s.font_size)
+        let body_fs = Self::y_band_candidates(y_index, curr_y, band)
+            .filter(|&j| (spans[j].bbox.y - curr_y).abs() <= 4.0)
+            .map(|j| spans[j].font_size)
             .fold(0f32, f32::max)
             .max(1.0);
         let neighbour_fs_min = body_fs * 0.85;
         let max_em = body_fs;
         let mut has_left = false;
         let mut has_right = false;
-        for (j, s) in spans.iter().enumerate() {
+        for j in Self::y_band_candidates(y_index, curr_y, band) {
             if j == i {
                 continue;
             }
+            let s = &spans[j];
             if (s.bbox.y - curr_y).abs() > 4.0 {
                 continue;
             }
@@ -10009,7 +10418,10 @@ impl PdfDocument {
         excluded_layers: HashSet<String>,
         excluded_inks: HashSet<String>,
     ) -> Result<Vec<crate::layout::TextSpan>> {
-        self.require_authenticated()?;
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning no spans");
+            return Ok(Vec::new());
+        }
         use crate::extractors::TextExtractor;
 
         let page = self.get_page(page_index)?;
@@ -10506,9 +10918,11 @@ impl PdfDocument {
     /// declared inside a Form XObject's local `/Resources /ColorSpace`
     /// dictionary will not be enumerated — even though the renderer and
     /// extractor will still honor them at use time. Callers populating a
-    /// UI picker from this list may miss XObject-local inks; if that
-    /// matters, walk the page's XObject resources separately or
-    /// enumerate inks from the content stream operators.
+    /// UI picker from this list may miss XObject-local inks.
+    ///
+    /// For the full walk that follows `Do` operators into Form XObject
+    /// resources, use [`Self::get_page_inks_deep`] — that is what the
+    /// separation renderer uses to allocate plates.
     pub fn get_page_inks(&self, page_index: usize) -> Result<Vec<String>> {
         let page = self.get_page(page_index)?;
         let page_dict = page.as_dict().ok_or_else(|| Error::ParseError {
@@ -10548,9 +10962,12 @@ impl PdfDocument {
             None => return Ok(Vec::new()),
         };
 
-        let mut ink_names = Vec::new();
-        for (_name, cs_def) in cs_dict.iter() {
-            let cs_arr_obj = if let Some(r) = cs_def.as_reference() {
+        // Resolve any indirect references so the extractor sees inline
+        // arrays. Mirrors the pre-existing per-entry resolve loop.
+        let mut resolved: std::collections::HashMap<String, Object> =
+            std::collections::HashMap::with_capacity(cs_dict.len());
+        for (name, cs_def) in cs_dict.iter() {
+            let v = if let Some(r) = cs_def.as_reference() {
                 match self.load_object(r) {
                     Ok(o) => o,
                     Err(_) => continue,
@@ -10558,43 +10975,208 @@ impl PdfDocument {
             } else {
                 cs_def.clone()
             };
-
-            if let Some(arr) = cs_arr_obj.as_array() {
-                if arr.len() >= 2 {
-                    if let Some(Object::Name(cs_type)) = arr.first() {
-                        match cs_type.as_str() {
-                            "Separation" => {
-                                // [/Separation /InkName /AlternateCS /TintTransform]
-                                // §8.6.6.4: /All and /None are reserved colorant names
-                                // (paint to all / paint to none) and never name a plate.
-                                if let Some(Object::Name(ink)) = arr.get(1) {
-                                    if ink != "All" && ink != "None" {
-                                        ink_names.push(ink.clone());
-                                    }
-                                }
-                            },
-                            "DeviceN" => {
-                                // [/DeviceN [/Ink1 /Ink2 ...] /AlternateCS /TintTransform]
-                                if let Some(Object::Array(inks)) = arr.get(1) {
-                                    for ink_obj in inks {
-                                        if let Object::Name(ink) = ink_obj {
-                                            if ink != "All" && ink != "None" {
-                                                ink_names.push(ink.clone());
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            _ => {},
-                        }
-                    }
-                }
-            }
+            resolved.insert(name.clone(), v);
         }
+
+        let mut ink_names = Vec::new();
+        extract_inks_from_color_space_dict(&resolved, Some(self), &mut ink_names);
 
         ink_names.sort();
         ink_names.dedup();
         Ok(ink_names)
+    }
+
+    /// List ink / separation names declared on a page **including** those
+    /// declared inside Form XObjects reached through the page's content-stream
+    /// `Do` operators.
+    ///
+    /// Walks the page's content stream looking for `Do` operators that invoke
+    /// Form XObjects (§8.10), recurses into each form's `/Resources/ColorSpace`
+    /// dictionary, and accumulates `/Separation` and `/DeviceN` ink names from
+    /// every visited resource tree.
+    ///
+    /// **Cycle handling:** indirect XObject references are deduplicated by
+    /// `ObjectRef`; recursion depth is bounded at `MAX_RECURSION_DEPTH` (100).
+    /// A cycle below the depth bound is silently terminated; a tree deeper
+    /// than the bound returns [`Error::RecursionLimitExceeded`].
+    ///
+    /// **Out of scope:** tiling / shading patterns (§8.7) and annotation
+    /// appearance streams (§12.5.5) — both can declare their own colour
+    /// spaces but the separation renderer does not paint into them, so
+    /// surfacing their inks here would create plates that stay empty.
+    pub fn get_page_inks_deep(&self, page_index: usize) -> Result<Vec<String>> {
+        let resources = self.page_resources_for_inks(page_index)?;
+        let content_data = self.get_page_content_data(page_index)?;
+        let operators = crate::content::parser::parse_content_stream(&content_data)?;
+
+        let mut ink_names: Vec<String> = Vec::new();
+        let mut visited: std::collections::HashSet<crate::object::ObjectRef> =
+            std::collections::HashSet::new();
+
+        self.collect_inks_from_resources(&resources, &mut ink_names)?;
+        self.walk_form_xobject_tree_for_inks(
+            &operators,
+            &resources,
+            &mut ink_names,
+            &mut visited,
+            0,
+        )?;
+
+        ink_names.sort();
+        ink_names.dedup();
+        Ok(ink_names)
+    }
+
+    /// Resolve the page's `/Resources` entry, following an indirect
+    /// reference if present. Mirrors the same pattern used by
+    /// [`Self::get_page_inks`]. Internal helper that does not depend on
+    /// the `rendering`-feature-gated [`Self::get_page_resources`].
+    fn page_resources_for_inks(&self, page_index: usize) -> Result<Object> {
+        let page = self.get_page(page_index)?;
+        let page_dict = page.as_dict().ok_or_else(|| Error::ParseError {
+            offset: 0,
+            reason: "Page is not a dictionary".to_string(),
+        })?;
+        let resources = match page_dict.get("Resources") {
+            Some(r) => match r.as_reference() {
+                Some(rr) => self.load_object(rr)?,
+                None => r.clone(),
+            },
+            None => Object::Dictionary(std::collections::HashMap::new()),
+        };
+        Ok(resources)
+    }
+
+    /// Dereference `obj` if it is an indirect reference; otherwise clone.
+    /// Internal helper that mirrors the rendering-gated
+    /// [`Self::resolve_object`] without taking the gate.
+    fn deref_object_for_inks(&self, obj: &Object) -> Result<Object> {
+        match obj.as_reference() {
+            Some(r) => self.load_object(r),
+            None => Ok(obj.clone()),
+        }
+    }
+
+    /// Append inks declared in `resources./ColorSpace` (resolving indirect
+    /// references) to `out`. Internal helper for both
+    /// [`Self::get_page_inks_deep`] and the recursive form walker.
+    fn collect_inks_from_resources(&self, resources: &Object, out: &mut Vec<String>) -> Result<()> {
+        let res_dict = match resources.as_dict() {
+            Some(d) => d,
+            None => return Ok(()),
+        };
+        let cs_obj = match res_dict.get("ColorSpace") {
+            Some(obj) => self.deref_object_for_inks(obj)?,
+            None => return Ok(()),
+        };
+        let cs_dict_raw = match cs_obj.as_dict() {
+            Some(d) => d,
+            None => return Ok(()),
+        };
+
+        let mut resolved: std::collections::HashMap<String, Object> =
+            std::collections::HashMap::with_capacity(cs_dict_raw.len());
+        for (name, cs_def) in cs_dict_raw.iter() {
+            let v = match cs_def.as_reference() {
+                Some(r) => match self.load_object(r) {
+                    Ok(o) => o,
+                    Err(_) => continue,
+                },
+                None => cs_def.clone(),
+            };
+            resolved.insert(name.clone(), v);
+        }
+        extract_inks_from_color_space_dict(&resolved, Some(self), out);
+        Ok(())
+    }
+
+    /// Recursive walker: for every `Operator::Do { name }` in `operators` that
+    /// resolves to a Form XObject, scan that form's `/Resources/ColorSpace`
+    /// and recurse into the form's own content stream.
+    ///
+    /// `visited` is keyed on the XObject's `ObjectRef` (indirect references
+    /// only). Inline-stream forms cannot self-reference (no name to invoke);
+    /// the depth limit is the backstop for any other malformed shape.
+    fn walk_form_xobject_tree_for_inks(
+        &self,
+        operators: &[crate::content::operators::Operator],
+        parent_resources: &Object,
+        out: &mut Vec<String>,
+        visited: &mut std::collections::HashSet<crate::object::ObjectRef>,
+        depth: u32,
+    ) -> Result<()> {
+        if depth >= MAX_RECURSION_DEPTH {
+            return Err(Error::RecursionLimitExceeded(MAX_RECURSION_DEPTH));
+        }
+        let xobjects = match parent_resources.as_dict() {
+            Some(rd) => match rd.get("XObject") {
+                Some(o) => self.deref_object_for_inks(o)?,
+                None => return Ok(()),
+            },
+            None => return Ok(()),
+        };
+        let xobj_dict = match xobjects.as_dict() {
+            Some(d) => d,
+            None => return Ok(()),
+        };
+
+        for op in operators {
+            let name = match op {
+                crate::content::operators::Operator::Do { name } => name,
+                _ => continue,
+            };
+            let xobj_entry = match xobj_dict.get(name) {
+                Some(o) => o,
+                None => continue,
+            };
+            let xobj_ref = xobj_entry.as_reference();
+            if let Some(r) = xobj_ref {
+                // Cycle through indirect refs: silent skip below depth bound.
+                if !visited.insert(r) {
+                    continue;
+                }
+            }
+            let xobj = match self.deref_object_for_inks(xobj_entry) {
+                Ok(o) => o,
+                Err(_) => continue,
+            };
+            let (form_dict, form_stream) = match xobj {
+                Object::Stream { ref dict, .. } => {
+                    if dict.get("Subtype").and_then(Object::as_name) != Some("Form") {
+                        continue;
+                    }
+                    let data = match xobj_ref {
+                        Some(r) => self.decode_stream_with_encryption(&xobj, r)?,
+                        None => xobj.decode_stream_data()?,
+                    };
+                    (dict.clone(), data)
+                },
+                _ => continue,
+            };
+
+            // §8.10.1: form may override resources or inherit the parent's.
+            let form_resources = match form_dict.get("Resources") {
+                Some(res) => self.deref_object_for_inks(res)?,
+                None => parent_resources.clone(),
+            };
+            self.collect_inks_from_resources(&form_resources, out)?;
+
+            // Recurse into the form's own content stream looking for nested
+            // `Do`. Malformed streams are tolerated — we want graceful
+            // degradation in a discovery API, not a hard error.
+            let form_ops = match crate::content::parser::parse_content_stream(&form_stream) {
+                Ok(ops) => ops,
+                Err(_) => continue,
+            };
+            self.walk_form_xobject_tree_for_inks(
+                &form_ops,
+                &form_resources,
+                out,
+                visited,
+                depth + 1,
+            )?;
+        }
+        Ok(())
     }
 
     /// # Performance Note
@@ -11804,6 +12386,7 @@ impl PdfDocument {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             })
             .collect();
 
@@ -12565,7 +13148,7 @@ impl PdfDocument {
                 return Ok(arc);
             }
         }
-        let resolved = self.resolve_object(font_obj)?;
+        let resolved = self.deref_object_for_inks(font_obj)?;
         let info = crate::fonts::FontInfo::from_dict(&resolved, self)?;
         let arc = Arc::new(info);
         if let Some(font_ref) = font_obj.as_reference() {
@@ -12582,6 +13165,20 @@ impl PdfDocument {
     /// uniquely identify fonts within a document. For reference-only fields (ToUnicode,
     /// FontDescriptor, DescendantFonts), hashes their presence to avoid false positives
     /// between fonts with vs without these features.
+    /// `font_identity_hash_cheap` of `font_ref`'s object, memoized (an object's
+    /// content is fixed within a document).
+    fn cached_font_identity_hash(&self, font_ref: ObjectRef) -> Option<u64> {
+        if let Some(&h) = self.font_id_hash_cache.lock_or_recover().get(&font_ref) {
+            return Some(h);
+        }
+        let font = self.load_object(font_ref).ok()?;
+        let h = Self::font_identity_hash_cheap(&font);
+        self.font_id_hash_cache
+            .lock_or_recover()
+            .insert(font_ref, h);
+        Some(h)
+    }
+
     fn font_identity_hash_cheap(font_obj: &Object) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -12850,9 +13447,9 @@ impl PdfDocument {
                         let mut h = std::collections::hash_map::DefaultHasher::new();
                         for (name, font_obj) in &sorted_font_entries {
                             if let Some(font_ref) = font_obj.as_reference() {
-                                if let Ok(font) = self.load_object(font_ref) {
+                                if let Some(fh) = self.cached_font_identity_hash(font_ref) {
                                     name.as_str().hash(&mut h);
-                                    Self::font_identity_hash_cheap(&font).hash(&mut h);
+                                    fh.hash(&mut h);
                                 }
                             }
                         }
@@ -13016,9 +13613,9 @@ impl PdfDocument {
                         let mut h = std::collections::hash_map::DefaultHasher::new();
                         for (name, font_obj) in &sorted_font_entries {
                             if let Some(font_ref) = font_obj.as_reference() {
-                                if let Ok(font) = self.load_object(font_ref) {
+                                if let Some(fh) = self.cached_font_identity_hash(font_ref) {
                                     name.as_str().hash(&mut h);
-                                    Self::font_identity_hash_cheap(&font).hash(&mut h);
+                                    fh.hash(&mut h);
                                 }
                             }
                         }
@@ -13081,10 +13678,21 @@ impl PdfDocument {
             }
         };
         if let Some(ref struct_tree) = struct_tree_opt {
-            let table_elems = crate::structure::find_table_elements(struct_tree, page_index as u32);
+            // Build the per-page Table-element buckets once, then look up.
+            if self.table_elements_cache.lock_or_recover().is_none() {
+                let all = crate::structure::find_table_elements_all_pages(struct_tree);
+                *self.table_elements_cache.lock_or_recover() = Some(all);
+            }
+            let table_elems: Vec<crate::structure::StructElem> = self
+                .table_elements_cache
+                .lock_or_recover()
+                .as_ref()
+                .and_then(|c| c.get(&(page_index as u32)))
+                .cloned()
+                .unwrap_or_default();
             if !table_elems.is_empty() {
                 let mut tables = Vec::new();
-                for table_elem in table_elems {
+                for table_elem in &table_elems {
                     match crate::structure::extract_table_from_spans(table_elem, spans) {
                         Ok(mut table) if !table.is_empty() => {
                             // Compute bbox from spans matching the table's MCIDs
@@ -13160,6 +13768,21 @@ impl PdfDocument {
             })
             .collect();
 
+        // A page with thousands of line/rect paths is a drawing or chart, not a
+        // ruled table; skip the O(E²) collinear-join + intersection sweep. Real
+        // ruled tables have at most a few hundred edges. (Tagged tables already
+        // returned above via the structure tree.)
+        const MAX_TABLE_EDGES: usize = 1500;
+        if table_paths.len() > MAX_TABLE_EDGES {
+            log::debug!(
+                "Page {} has {} line/rect paths (> {}) — skipping spatial table sweep",
+                page_index,
+                table_paths.len(),
+                MAX_TABLE_EDGES
+            );
+            return Vec::new();
+        }
+
         if table_paths.is_empty() {
             use crate::structure::spatial_table_detector::TableStrategy;
             let is_text_only = matches!(
@@ -13205,6 +13828,7 @@ impl PdfDocument {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             })
             .collect();
 
@@ -13456,8 +14080,15 @@ impl PdfDocument {
         page_index: usize,
         options: &crate::converters::ConversionOptions,
     ) -> Result<String> {
-        self.require_authenticated()?;
-        let base_spans = self.extract_spans(page_index)?;
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty markdown");
+            return Ok(String::new());
+        }
+        // Apply caller-specified region filters up front so excluded content is
+        // gone from EVERY downstream path — tables, headings, reading order
+        // (#609: markdown previously ignored `exclude_regions`/`include_region`,
+        // which were only honoured by the plain-text path).
+        let base_spans = Self::apply_region_filters(self.extract_spans(page_index)?, options);
 
         let tables = if options.extract_tables {
             // text_fallback=true: to_markdown explicitly targets structured output,
@@ -13647,6 +14278,25 @@ impl PdfDocument {
             if !images.is_empty() {
                 let image_markdown = self.generate_image_markdown(&images, options, page_index)?;
                 markdown.push_str(&image_markdown);
+            }
+        }
+
+        // A scanned / image page produces no extractable text and would
+        // render as a silently-blank page. Emit a visible marker so a reader
+        // knows content was lost and OCR is required, rather than dropping
+        // (on a scanned corpus) ~half the document with no explanation. Gated
+        // to genuinely scanned/image pages (not legitimately-blank ones) and
+        // suppressible via `annotate_skipped_pages`.
+        if options.annotate_skipped_pages && markdown.trim().is_empty() {
+            if let Ok(c) = self.classify_page(page_index) {
+                use crate::extractors::auto::PageKind;
+                if matches!(c.kind, PageKind::Scanned | PageKind::ImageText) {
+                    return Ok(format!(
+                        "> [OCR REQUIRED — page {}]\n> This page is a scanned/rasterised image with no \
+                         extractable text layer; run OCR to recover its content.\n",
+                        page_index + 1
+                    ));
+                }
             }
         }
 
@@ -13887,8 +14537,13 @@ impl PdfDocument {
         page_index: usize,
         options: &crate::converters::ConversionOptions,
     ) -> Result<String> {
-        self.require_authenticated()?;
-        let base_spans = self.extract_spans(page_index)?;
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty HTML");
+            return Ok(String::new());
+        }
+        // Region filters applied up front so excluded content is gone from every
+        // downstream path (#609), matching the markdown and plain-text surfaces.
+        let base_spans = Self::apply_region_filters(self.extract_spans(page_index)?, options);
 
         let tables = if options.extract_tables {
             // text_fallback=true: to_html explicitly targets structured output,
@@ -14137,8 +14792,13 @@ impl PdfDocument {
         &self,
         options: &crate::converters::ConversionOptions,
     ) -> Result<String> {
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty markdown");
+            return Ok(String::new());
+        }
         let page_count = self.page_count()?;
-        let mut result = String::new();
+        // Pre-reserve ~4 KB/page to avoid repeated reallocation.
+        let mut result = String::with_capacity(page_count.saturating_mul(4096));
 
         for i in 0..page_count {
             if i > 0 {
@@ -14186,8 +14846,13 @@ impl PdfDocument {
         &self,
         options: &crate::converters::ConversionOptions,
     ) -> Result<String> {
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty text");
+            return Ok(String::new());
+        }
         let page_count = self.page_count()?;
-        let mut result = String::new();
+        // Pre-reserve ~4 KB/page (see to_markdown_all).
+        let mut result = String::with_capacity(page_count.saturating_mul(4096));
 
         for i in 0..page_count {
             if i > 0 {
@@ -14331,11 +14996,18 @@ impl PdfDocument {
     /// ```
     #[allow(clippy::wrong_self_convention)] // Needs mutable access for caching
     pub fn to_html_all(&self, options: &crate::converters::ConversionOptions) -> Result<String> {
+        use std::fmt::Write as _;
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty HTML");
+            return Ok(String::new());
+        }
         let page_count = self.page_count()?;
-        let mut result = String::new();
+        // Pre-reserve ~4 KB/page (see to_markdown_all).
+        let mut result = String::with_capacity(page_count.saturating_mul(4096));
 
         for i in 0..page_count {
-            result.push_str(&format!("<div class=\"page\" data-page=\"{}\">\n", i + 1));
+            // writeln! into the buffer (infallible for String) — no per-page format! temporary.
+            let _ = writeln!(result, "<div class=\"page\" data-page=\"{}\">", i + 1);
             let page_html = self.to_html(i, options)?;
             result.push_str(&page_html);
             result.push_str("</div>\n");
@@ -16020,7 +16692,7 @@ impl PdfDocument {
                     // produce the misleading identity mapping.
                     let unicode_str =
                         match to_unicode_cmap.as_ref().and_then(|cmap| cmap.get(&code)) {
-                            Some(s) if !s.is_empty() && s != "\u{FFFD}" => s.clone(),
+                            Some(s) if !s.is_empty() && s.as_ref() != "\u{FFFD}" => s.into_owned(),
                             _ => continue,
                         };
                     let cp = match unicode_str.chars().next() {
@@ -17471,6 +18143,7 @@ mod tests {
             primary_detected: false,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: 0.0,
         }
     }
 
@@ -17480,6 +18153,139 @@ mod tests {
         let current = make_test_span("World", 56.0, 100.0, 50.0, 12.0);
         // 6pt gap (> 0.25 * 12 = 3pt)
         assert!(PdfDocument::should_insert_space(&prev, &current));
+    }
+
+    #[test]
+    fn test_y_band_candidates_is_superset_of_tolerance() {
+        // The Y-band index query must include every span within `band` of the
+        // target Y (so the exact filter downstream is byte-identical to a full
+        // scan). Check against a brute-force scan over assorted Y positions.
+        let band = 4.0_f32;
+        let spans: Vec<TextSpan> = [0.0, 1.5, 3.9, 4.0, 4.1, 8.0, 100.0, -3.0, -8.0]
+            .iter()
+            .map(|&y| make_test_span("x", 0.0, y, 5.0, 10.0))
+            .collect();
+        let idx = PdfDocument::build_y_band_index(&spans, band);
+        for &cy in &[0.0_f32, 4.0, 4.05, 100.0, -3.0] {
+            let got: std::collections::HashSet<usize> =
+                PdfDocument::y_band_candidates(&idx, cy, band).collect();
+            for (j, s) in spans.iter().enumerate() {
+                if (s.bbox.y - cy).abs() <= band {
+                    assert!(
+                        got.contains(&j),
+                        "index missed span {j} (y={}) within band of cy={cy}",
+                        s.bbox.y
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_merge_drop_cap_initial() {
+        // Oversized "T" (20pt) immediately left of body "ABLE 102.3" (12pt) → merged.
+        let mut spans = vec![
+            make_test_span("T", 0.0, 100.0, 14.0, 20.0),
+            make_test_span("ABLE 102.3", 15.0, 100.0, 60.0, 12.0),
+        ];
+        PdfDocument::merge_drop_cap_initials(&mut spans);
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].text, "TABLE 102.3");
+        assert_eq!(spans[0].bbox.x, 0.0); // bbox extended left to the initial
+    }
+
+    #[test]
+    fn test_merge_drop_cap_skips_same_size_capital() {
+        // A same-size standalone capital (e.g. an article/initialism, normal gap)
+        // must NOT be glued to the next word.
+        // Tightly adjacent (gap ~1pt) but same size — only the size gate stops it.
+        let mut spans = vec![
+            make_test_span("A", 0.0, 100.0, 8.0, 12.0),
+            make_test_span("word", 9.0, 100.0, 30.0, 12.0),
+        ];
+        PdfDocument::merge_drop_cap_initials(&mut spans);
+        assert_eq!(spans.len(), 2, "same-size capital is not a drop-cap initial");
+    }
+
+    #[test]
+    fn test_merge_drop_cap_skips_math_subscript_base() {
+        // Inline math "A_st": a body-size capital (10pt) followed by a smaller
+        // subscript (6.5pt). The capital is oversized vs its neighbour but NOT
+        // vs the page body text, so it must NOT be glued into "Ast".
+        let mut spans = vec![
+            make_test_span("the shuffle algebra", 0.0, 100.0, 90.0, 10.0),
+            make_test_span("A", 92.0, 100.0, 7.0, 10.0),
+            make_test_span("st", 99.0, 98.0, 6.0, 6.5),
+            make_test_span("of a statistic", 106.0, 100.0, 70.0, 10.0),
+        ];
+        PdfDocument::merge_drop_cap_initials(&mut spans);
+        assert_eq!(spans.len(), 4, "inline math base letter is not a drop-cap initial");
+        assert_eq!(spans[1].text, "A");
+        assert_eq!(spans[2].text, "st");
+    }
+
+    #[test]
+    fn test_merge_drop_cap_skips_word_spaced_standalone_capital() {
+        // A heading "A Perspective ..." set in 18pt over 10pt body: the oversized
+        // "A" is a complete word followed by a real word space, not the first
+        // glyph of "Perspective". It must NOT glue into "APerspective".
+        let mut spans = vec![
+            make_test_span("ordinary body sentence one", 0.0, 200.0, 120.0, 10.0),
+            make_test_span("ordinary body sentence two", 0.0, 188.0, 120.0, 10.0),
+            make_test_span("A", 0.0, 100.0, 12.0, 18.0),
+            make_test_span("Perspective", 17.0, 100.0, 90.0, 18.0), // gap 5pt = 0.28em
+        ];
+        PdfDocument::merge_drop_cap_initials(&mut spans);
+        assert_eq!(spans.len(), 4, "word-spaced standalone capital is not a drop cap");
+        assert_eq!(spans[2].text, "A");
+        assert_eq!(spans[3].text, "Perspective");
+    }
+
+    #[test]
+    fn test_order_rotated_blocks_groups_by_rotation() {
+        let mk = |t: &str, x: f32, y: f32, rot: f32| {
+            let mut s = make_test_span(t, x, y, 10.0, 10.0);
+            s.rotation_degrees = rot;
+            s
+        };
+        // Two 90° runs (seen first) then one -90° run.
+        let spans = vec![
+            mk("A", 10.0, 50.0, 90.0),
+            mk("B", 10.0, 80.0, 90.0),
+            mk("C", 200.0, 50.0, -90.0),
+        ];
+        let out = PdfDocument::order_rotated_blocks(spans);
+        assert_eq!(out.len(), 3, "no spans dropped");
+        // Groups stay contiguous in first-seen order; 90° block before -90°.
+        let rots: Vec<f32> = out.iter().map(|s| s.rotation_degrees).collect();
+        assert_eq!(rots, vec![90.0, 90.0, -90.0]);
+        // Within the 90° block, upright-frame order keeps A before B.
+        assert_eq!(out[0].text, "A");
+        assert_eq!(out[1].text, "B");
+    }
+
+    #[test]
+    fn test_merge_drop_cap_does_not_reach_line_above() {
+        // A tall oversized "A" (16.8pt, baseline y=328) whose bbox top reaches
+        // up into the previous line ("Or if", y~342). It must NOT merge with
+        // "if" on the line above — only with same-baseline words on its own line
+        // (which here are word-spaced and so also stay separate). Reproduces the
+        // alice_old "OrAif" corruption.
+        let mut spans = vec![
+            make_test_span("Or", 44.0, 344.0, 14.4, 12.0),
+            make_test_span("if", 62.0, 342.5, 10.7, 8.9),
+            make_test_span("Idrop upon my toe", 74.0, 343.9, 90.0, 12.2),
+            make_test_span("A", 54.7, 328.1, 10.1, 16.8),
+            make_test_span("very heavy weight", 69.8, 327.8, 90.0, 8.4),
+        ];
+        PdfDocument::merge_drop_cap_initials(&mut spans);
+        assert!(
+            spans
+                .iter()
+                .all(|s| s.text != "Aif" && !s.text.contains("OrA")),
+            "tall initial must not steal a word from the line above"
+        );
+        assert!(spans.iter().any(|s| s.text == "A"), "initial left intact on its own line");
     }
 
     #[test]
@@ -17546,6 +18352,7 @@ mod tests {
             artifact_type: None,
             char_widths,
             heading_level: None,
+            rotation_degrees: 0.0,
         }
     }
 
@@ -20768,6 +21575,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             }
         }
 
@@ -20830,6 +21638,7 @@ mod tests {
             primary_detected: false,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: 0.0,
         }
     }
 
@@ -21091,11 +21900,37 @@ mod tests {
         assert!(json.contains("page_height"));
     }
 
-    /// Encrypted PDFs that require a password must return `Error::EncryptedPdf`
-    /// instead of silently returning empty text / zero pages.
+    #[test]
+    fn test_fix_digit_logicalnot_decimal() {
+        // `¬` between digits → `.`; spaced or non-digit-flanked `¬` is left alone.
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("1\u{00AC}00"), "1.00");
+        assert_eq!(
+            PdfDocument::fix_digit_logicalnot_decimal("0\u{00AC}75 1\u{00AC}00"),
+            "0.75 1.00"
+        );
+        // Logic/set notation (spaced) is untouched.
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("A \u{00AC} B"), "A \u{00AC} B");
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("5 \u{00AC} 3"), "5 \u{00AC} 3");
+        // Leading/trailing `¬` with only one digit neighbour: untouched.
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("\u{00AC}5"), "\u{00AC}5");
+    }
+
+    #[test]
+    fn test_is_cm_or_symbol_font() {
+        assert!(PdfDocument::is_cm_or_symbol_font("ABCDEF+CMSY10"));
+        assert!(PdfDocument::is_cm_or_symbol_font("CMR12"));
+        assert!(PdfDocument::is_cm_or_symbol_font("Symbol"));
+        assert!(!PdfDocument::is_cm_or_symbol_font("ABCDEF+Helvetica"));
+        assert!(!PdfDocument::is_cm_or_symbol_font("TimesNewRoman"));
+    }
+
+    /// A password-protected PDF is detected as encrypted, and text extraction
+    /// degrades to empty output (warn + empty) rather than erroring — matching
+    /// pdftotext/PyMuPDF. (`page_count` still surfaces `Error::EncryptedPdf`;
+    /// see `tests/test_extraction_robustness.rs`.)
     #[cfg(feature = "legacy-crypto")]
     #[test]
-    fn test_encrypted_pdf_returns_error_without_password() {
+    fn test_encrypted_pdf_extracts_empty_without_password() {
         let pdf_path = "tests/fixtures/encrypted_needs_password.pdf";
         if !std::path::Path::new(pdf_path).exists() {
             eprintln!("Skipping: fixture not found at {}", pdf_path);
@@ -21103,24 +21938,12 @@ mod tests {
         }
 
         let doc = PdfDocument::open(pdf_path).expect("open should succeed even without password");
-
-        // is_encrypted() must report true
         assert!(doc.is_encrypted(), "PDF should be detected as encrypted");
 
-        // extract_text must return EncryptedPdf error, not empty string
-        let err = doc.extract_text(0).unwrap_err();
-        assert!(
-            matches!(err, Error::EncryptedPdf),
-            "Expected EncryptedPdf error, got: {:?}",
-            err,
-        );
-        // Error message should mention password
-        let msg = format!("{}", err);
-        assert!(
-            msg.contains("password"),
-            "Error message should mention 'password', got: {}",
-            msg,
-        );
+        let text = doc
+            .extract_text(0)
+            .expect("extract_text degrades to empty, not an error");
+        assert!(text.is_empty(), "undecryptable extraction should be empty, got: {:?}", text,);
     }
 
     /// After authenticating with the correct password, extraction should succeed.
@@ -21187,6 +22010,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             }
         }
 
@@ -21255,6 +22079,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             }
         }
 
@@ -21873,5 +22698,80 @@ mod tests {
         let paths = doc.extract_paths(0).unwrap();
         assert_eq!(paths.len(), 1);
         assert_eq!(paths[0].layer, None);
+    }
+}
+
+#[cfg(test)]
+mod ink_dict_extractor_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn name(s: &str) -> Object {
+        Object::Name(s.to_string())
+    }
+
+    fn separation_cs(ink: &str) -> Object {
+        Object::Array(vec![
+            name("Separation"),
+            name(ink),
+            name("DeviceCMYK"),
+            Object::Null,
+        ])
+    }
+
+    fn device_n_cs(inks: &[&str]) -> Object {
+        Object::Array(vec![
+            name("DeviceN"),
+            Object::Array(inks.iter().map(|s| name(s)).collect()),
+            name("DeviceCMYK"),
+            Object::Null,
+        ])
+    }
+
+    #[test]
+    fn extracts_separation_ink_name() {
+        let mut cs_dict = HashMap::new();
+        cs_dict.insert("CS0".to_string(), separation_cs("Pantone-185"));
+        let mut out = Vec::new();
+        extract_inks_from_color_space_dict(&cs_dict, None, &mut out);
+        assert_eq!(out, vec!["Pantone-185".to_string()]);
+    }
+
+    #[test]
+    fn extracts_devicen_ink_names_in_declared_order() {
+        let mut cs_dict = HashMap::new();
+        cs_dict.insert("CS0".to_string(), device_n_cs(&["Cyan", "Magenta", "SpotGold"]));
+        let mut out = Vec::new();
+        extract_inks_from_color_space_dict(&cs_dict, None, &mut out);
+        assert_eq!(
+            out,
+            vec![
+                "Cyan".to_string(),
+                "Magenta".to_string(),
+                "SpotGold".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn skips_all_and_none_colorants() {
+        // §8.6.6.4: /All and /None are reserved; never plate names.
+        let mut cs_dict = HashMap::new();
+        cs_dict.insert("CS0".to_string(), separation_cs("All"));
+        cs_dict.insert("CS1".to_string(), separation_cs("None"));
+        cs_dict.insert("CS2".to_string(), device_n_cs(&["All", "Spot1", "None"]));
+        let mut out = Vec::new();
+        extract_inks_from_color_space_dict(&cs_dict, None, &mut out);
+        assert_eq!(out, vec!["Spot1".to_string()]);
+    }
+
+    #[test]
+    fn ignores_non_separation_color_spaces() {
+        let mut cs_dict = HashMap::new();
+        cs_dict.insert("CS0".to_string(), Object::Array(vec![name("ICCBased"), Object::Null]));
+        cs_dict.insert("CS1".to_string(), name("DeviceCMYK"));
+        let mut out = Vec::new();
+        extract_inks_from_color_space_dict(&cs_dict, None, &mut out);
+        assert!(out.is_empty());
     }
 }

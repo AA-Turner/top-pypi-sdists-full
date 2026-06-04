@@ -41,11 +41,8 @@ inline void add_names_values_to_native_enum(py::object enum_class) {
     enum_class.attr("values") = create_dict_from_list(values);
     enum_class.attr("names") = create_dict_from_lists(keys, values);
 
-    enum_class.attr("__str__") = py::cpp_function(
-        [](py::object self) {
-            return self.attr("name");
-        },
-        py::is_method(enum_class) // Tell pybind11 this will be a method
+    enum_class.attr("__str__") = py::cpp_function([](py::object self) { return self.attr("name"); },
+                                                  py::is_method(enum_class) // Tell pybind11 this will be a method
     );
 }
 
@@ -67,7 +64,7 @@ void dev_var_command_array_deleter(void *ptr) {
 /// on Python 3.13+, so objects stored in the __dict__ of py::dynamic_attr() instances
 /// have their refcounts permanently abandoned when the pybind11 object is freed.
 /// Call this after defining any py::class_<T> with py::dynamic_attr().
-/// Can be removed once a fixed pybind11 release is used.
+/// Can be removed once pybind11 >= 3.0.3 is used (fix is on pybind11 side).
 ///
 /// Templatized so that each instantiation has its own `orig` static, ensuring
 /// correctness if different types ever have different tp_dealloc implementations.
@@ -75,7 +72,10 @@ void dev_var_command_array_deleter(void *ptr) {
 /// local variables have fixed storage and require no closure.
 template <typename T>
 inline void fix_dynamic_attr_dealloc() {
-#if PY_VERSION_HEX >= 0x030D0000
+    // clang-format off
+#if PY_VERSION_HEX >= 0x030D0000 && \
+    PYBIND11_VERSION_MAJOR == 3 && PYBIND11_VERSION_MINOR == 0 && PYBIND11_VERSION_PATCH < 3
+    // clang-format on
     static destructor orig = nullptr;
     auto *type = reinterpret_cast<PyTypeObject *>(py::type::of<T>().ptr());
     if(!PyType_HasFeature(type, Py_TPFLAGS_MANAGED_DICT)) {

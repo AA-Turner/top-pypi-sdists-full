@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope-runtime
-Version: 1.1.6
+Version: 1.1.6.post2
 Summary: A production-ready runtime framework for agent applications, providing secure sandboxed execution environments and scalable deployment solutions with multi-framework support.
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -73,6 +73,15 @@ Requires-Dist: boxlite>=0.5.2; extra == "ext"
 Requires-Dist: alibabacloud-eas20210701<8.0.0,>=7.0.0; extra == "ext"
 Requires-Dist: alibabacloud-aiworkspace20210204<8.0.0,>=7.0.0; extra == "ext"
 Dynamic: license-file
+
+> [!IMPORTANT]
+> ## Archive Notice
+>
+> With the release of [AgentScope 2.0](https://github.com/agentscope-ai/agentscope), all capabilities of AgentScope Runtime — including tool sandboxing, Agent-as-a-Service APIs, and full-stack observability — have been natively integrated into AgentScope 2.0.
+>
+> We recommend all users migrate to AgentScope 2.0 (https://github.com/agentscope-ai/agentscope) for continued updates, new features and community support. This repository will remain available in read-only mode for reference and will be archived soon.
+>
+> Thank you to everyone who contributed to and used AgentScope Runtime!
 
 <div align="center">
 

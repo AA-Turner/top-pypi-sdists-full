@@ -36,10 +36,12 @@ def _validate_fsm_state(task, tm) -> dict | None:
     """Validate task's FSM state before executing CLI commands.
     Returns error dict if state is inconsistent, None if OK."""
     mode = getattr(task, 'mode', 'full')
+    workflow = tm._cfg.workflow if tm._cfg else None
     order = Scheduler.dispatch_order(
         lightweight=task.lightweight,
         quick=(mode == 'quick'),
         mode=mode,
+        workflow=workflow,
         kanban_dir=tm._fs.kanban_dir,
     )
     mode_label = mode

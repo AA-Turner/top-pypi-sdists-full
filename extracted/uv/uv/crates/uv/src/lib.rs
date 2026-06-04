@@ -62,7 +62,7 @@ pub(crate) mod child;
 pub(crate) mod commands;
 #[cfg(not(feature = "self-update"))]
 mod install_source;
-pub(crate) mod logging;
+mod logging;
 pub(crate) mod printer;
 pub(crate) mod settings;
 
@@ -230,7 +230,11 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
             }) => false,
 
             // Supports `--isolated` as its own argument, so we can't warn either way.
-            Commands::Project(command) if matches!(**command, ProjectCommand::Run(_)) => false,
+            Commands::Project(command)
+                if matches!(**command, ProjectCommand::Run(_) | ProjectCommand::Check(_)) =>
+            {
+                false
+            }
 
             // `--isolated` moved to `--no-workspace`.
             Commands::Project(command) if matches!(**command, ProjectCommand::Init(_)) => {
@@ -1014,7 +1018,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 &client_builder.subcommand(vec!["pip".to_owned(), "uninstall".to_owned()]),
                 args.dry_run,
                 printer,
-                globals.preview,
             )
             .await
         }
@@ -1040,7 +1043,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.paths,
                 &cache,
                 printer,
-                globals.preview,
             )
         }
         Commands::Pip(PipNamespace {
@@ -1075,7 +1077,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.settings.prefix,
                 &cache,
                 printer,
-                globals.preview,
             )
             .await
         }
@@ -1100,7 +1101,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.files,
                 &cache,
                 printer,
-                globals.preview,
             )
         }
         Commands::Pip(PipNamespace {
@@ -1133,7 +1133,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.settings.system,
                 &cache,
                 printer,
-                globals.preview,
             )
             .await
         }
@@ -1155,7 +1154,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 &args.settings.dependency_metadata,
                 &cache,
                 printer,
-                globals.preview,
             )
         }
         Commands::Pip(PipNamespace {
@@ -1717,7 +1715,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 &client_builder.subcommand(vec!["python".to_owned(), "list".to_owned()]),
                 &cache,
                 printer,
-                globals.preview,
             )
             .await
         }
@@ -1820,7 +1817,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                     cli.top_level.no_config,
                     &cache,
                     printer,
-                    globals.preview,
                 )
                 .await
             } else {
@@ -1838,7 +1834,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                     &cache,
                     &workspace_cache,
                     printer,
-                    globals.preview,
                 )
                 .await
             }
@@ -1866,7 +1861,6 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 &cache,
                 &workspace_cache,
                 printer,
-                globals.preview,
             ))
             .await
         }
@@ -2154,7 +2148,6 @@ async fn run_project(
                 no_config,
                 &cache,
                 printer,
-                globals.preview,
             ))
             .await
         }
@@ -2709,6 +2702,7 @@ async fn run_project(
                 args.lock_check,
                 args.frozen,
                 args.no_sync,
+                args.isolated,
                 args.extras,
                 args.groups,
                 args.python,

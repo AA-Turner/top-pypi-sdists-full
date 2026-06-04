@@ -120,6 +120,70 @@ class ArtifactManifest:
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
         :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            artifact_manifest = cloud_assembly_schema.ArtifactManifest(
+                type=cloud_assembly_schema.ArtifactType.NONE,
+            
+                # the properties below are optional
+                additional_metadata_file="additionalMetadataFile",
+                dependencies=["dependencies"],
+                display_name="displayName",
+                environment="environment",
+                metadata={
+                    "metadata_key": [cloud_assembly_schema.MetadataEntry(
+                        type="type",
+            
+                        # the properties below are optional
+                        data="data",
+                        trace=["trace"]
+                    )]
+                },
+                properties=cloud_assembly_schema.AwsCloudFormationStackProperties(
+                    template_file="templateFile",
+            
+                    # the properties below are optional
+                    assume_role_additional_options={
+                        "assume_role_additional_options_key": assume_role_additional_options
+                    },
+                    assume_role_arn="assumeRoleArn",
+                    assume_role_external_id="assumeRoleExternalId",
+                    bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                    cloud_formation_execution_role_arn="cloudFormationExecutionRoleArn",
+                    lookup_role=cloud_assembly_schema.BootstrapRole(
+                        arn="arn",
+            
+                        # the properties below are optional
+                        assume_role_additional_options={
+                            "assume_role_additional_options_key": assume_role_additional_options
+                        },
+                        assume_role_external_id="assumeRoleExternalId",
+                        bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                        requires_bootstrap_stack_version=123
+                    ),
+                    notification_arns=["notificationArns"],
+                    parameters={
+                        "parameters_key": "parameters"
+                    },
+                    requires_bootstrap_stack_version=123,
+                    stack_name="stackName",
+                    stack_template_asset_object_url="stackTemplateAssetObjectUrl",
+                    tags={
+                        "tags_key": "tags"
+                    },
+                    termination_protection=False,
+                    validate_on_synth=False
+                )
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8929e1c8fa42a2da90248ef476a9635f914a58bd1f9f1e211137b8ee50724a63)
@@ -307,6 +371,102 @@ class AssemblyManifest:
         :param minimum_cli_version: Required CLI version, if available. If the manifest producer knows, it can put the minimum version of the CLI here that supports reading this assembly. If set, it can be used to show a more informative error message to users. Default: - Minimum CLI version unknown
         :param missing: Missing context information. If this field has values, it means that the cloud assembly is not complete and should not be deployed. Default: - no missing context.
         :param runtime: Runtime information. Default: - no info.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            assembly_manifest = cloud_assembly_schema.AssemblyManifest(
+                version="version",
+            
+                # the properties below are optional
+                artifacts={
+                    "artifacts_key": cloud_assembly_schema.ArtifactManifest(
+                        type=cloud_assembly_schema.ArtifactType.NONE,
+            
+                        # the properties below are optional
+                        additional_metadata_file="additionalMetadataFile",
+                        dependencies=["dependencies"],
+                        display_name="displayName",
+                        environment="environment",
+                        metadata={
+                            "metadata_key": [cloud_assembly_schema.MetadataEntry(
+                                type="type",
+            
+                                # the properties below are optional
+                                data="data",
+                                trace=["trace"]
+                            )]
+                        },
+                        properties=cloud_assembly_schema.AwsCloudFormationStackProperties(
+                            template_file="templateFile",
+            
+                            # the properties below are optional
+                            assume_role_additional_options={
+                                "assume_role_additional_options_key": assume_role_additional_options
+                            },
+                            assume_role_arn="assumeRoleArn",
+                            assume_role_external_id="assumeRoleExternalId",
+                            bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                            cloud_formation_execution_role_arn="cloudFormationExecutionRoleArn",
+                            lookup_role=cloud_assembly_schema.BootstrapRole(
+                                arn="arn",
+            
+                                # the properties below are optional
+                                assume_role_additional_options={
+                                    "assume_role_additional_options_key": assume_role_additional_options
+                                },
+                                assume_role_external_id="assumeRoleExternalId",
+                                bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                                requires_bootstrap_stack_version=123
+                            ),
+                            notification_arns=["notificationArns"],
+                            parameters={
+                                "parameters_key": "parameters"
+                            },
+                            requires_bootstrap_stack_version=123,
+                            stack_name="stackName",
+                            stack_template_asset_object_url="stackTemplateAssetObjectUrl",
+                            tags={
+                                "tags_key": "tags"
+                            },
+                            termination_protection=False,
+                            validate_on_synth=False
+                        )
+                    )
+                },
+                minimum_cli_version="minimumCliVersion",
+                missing=[cloud_assembly_schema.MissingContext(
+                    key="key",
+                    props=cloud_assembly_schema.AmiContextQuery(
+                        account="account",
+                        filters={
+                            "filters_key": ["filters"]
+                        },
+                        region="region",
+            
+                        # the properties below are optional
+                        assume_role_additional_options={
+                            "assume_role_additional_options_key": assume_role_additional_options
+                        },
+                        lookup_role_arn="lookupRoleArn",
+                        lookup_role_external_id="lookupRoleExternalId",
+                        owners=["owners"]
+                    ),
+                    provider=cloud_assembly_schema.ContextProvider.AMI_PROVIDER
+                )],
+                runtime=cloud_assembly_schema.RuntimeInfo(
+                    libraries={
+                        "libraries_key": "libraries"
+                    }
+                )
+            )
         '''
         if isinstance(runtime, dict):
             runtime = RuntimeInfo(**runtime)
@@ -416,6 +576,105 @@ class AssetManifest:
         :param version: Version of the manifest.
         :param docker_images: The Docker image assets in this manifest. Default: - No Docker images
         :param files: The file assets in this manifest. Default: - No files
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            asset_manifest = cloud_assembly_schema.AssetManifest(
+                version="version",
+            
+                # the properties below are optional
+                docker_images={
+                    "docker_images_key": cloud_assembly_schema.DockerImageAsset(
+                        destinations={
+                            "destinations_key": cloud_assembly_schema.DockerImageDestination(
+                                image_tag="imageTag",
+                                repository_name="repositoryName",
+            
+                                # the properties below are optional
+                                assume_role_additional_options={
+                                    "assume_role_additional_options_key": assume_role_additional_options
+                                },
+                                assume_role_arn="assumeRoleArn",
+                                assume_role_external_id="assumeRoleExternalId",
+                                region="region"
+                            )
+                        },
+                        source=cloud_assembly_schema.DockerImageSource(
+                            cache_disabled=False,
+                            cache_from=[cloud_assembly_schema.DockerCacheOption(
+                                type="type",
+            
+                                # the properties below are optional
+                                params={
+                                    "params_key": "params"
+                                }
+                            )],
+                            cache_to=cloud_assembly_schema.DockerCacheOption(
+                                type="type",
+            
+                                # the properties below are optional
+                                params={
+                                    "params_key": "params"
+                                }
+                            ),
+                            directory="directory",
+                            docker_build_args={
+                                "docker_build_args_key": "dockerBuildArgs"
+                            },
+                            docker_build_contexts={
+                                "docker_build_contexts_key": "dockerBuildContexts"
+                            },
+                            docker_build_secrets={
+                                "docker_build_secrets_key": "dockerBuildSecrets"
+                            },
+                            docker_build_ssh="dockerBuildSsh",
+                            docker_build_target="dockerBuildTarget",
+                            docker_file="dockerFile",
+                            docker_outputs=["dockerOutputs"],
+                            executable=["executable"],
+                            network_mode="networkMode",
+                            platform="platform"
+                        ),
+            
+                        # the properties below are optional
+                        display_name="displayName"
+                    )
+                },
+                files={
+                    "files_key": cloud_assembly_schema.FileAsset(
+                        destinations={
+                            "destinations_key": cloud_assembly_schema.FileDestination(
+                                bucket_name="bucketName",
+                                object_key="objectKey",
+            
+                                # the properties below are optional
+                                assume_role_additional_options={
+                                    "assume_role_additional_options_key": assume_role_additional_options
+                                },
+                                assume_role_arn="assumeRoleArn",
+                                assume_role_external_id="assumeRoleExternalId",
+                                region="region"
+                            )
+                        },
+                        source=cloud_assembly_schema.FileSource(
+                            executable=["executable"],
+                            packaging=cloud_assembly_schema.FileAssetPackaging.FILE,
+                            path="path"
+                        ),
+            
+                        # the properties below are optional
+                        display_name="displayName"
+                    )
+                }
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc97c2081360bde2b73175fa7652c15be644c6613b045edbcf3c646783fb8645)
@@ -488,6 +747,19 @@ class AssetManifestOptions:
 
         :param bootstrap_stack_version_ssm_parameter: SSM parameter where the bootstrap stack version number can be found. - If this value is not set, the bootstrap stack name must be known at deployment time so the stack version can be looked up from the stack outputs. - If this value is set, the bootstrap stack can have any name because we won't need to look it up. Default: - Bootstrap stack version number looked up
         :param requires_bootstrap_stack_version: Version of bootstrap stack required to deploy this stack. Default: - Version 1 (basic modern bootstrap stack)
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            asset_manifest_options = cloud_assembly_schema.AssetManifestOptions(
+                bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                requires_bootstrap_stack_version=123
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebe4bdf8ba8d960818ce9fa39d494de457d4fe9e024146bd88e1a7666566a979)
@@ -557,6 +829,22 @@ class AssetManifestProperties(AssetManifestOptions):
         :param bootstrap_stack_version_ssm_parameter: SSM parameter where the bootstrap stack version number can be found. - If this value is not set, the bootstrap stack name must be known at deployment time so the stack version can be looked up from the stack outputs. - If this value is set, the bootstrap stack can have any name because we won't need to look it up. Default: - Bootstrap stack version number looked up
         :param requires_bootstrap_stack_version: Version of bootstrap stack required to deploy this stack. Default: - Version 1 (basic modern bootstrap stack)
         :param file: Filename of the asset manifest.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            asset_manifest_properties = cloud_assembly_schema.AssetManifestProperties(
+                file="file",
+            
+                # the properties below are optional
+                bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                requires_bootstrap_stack_version=123
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1fc2c39e21d6c20f297387785b78bda083811d77cac0b06650331ad43398006)
@@ -672,6 +960,52 @@ class AwsCloudFormationStackProperties:
         :param tags: Values for CloudFormation stack tags that should be passed when the stack is deployed. N.B.: Tags are also written to stack metadata, under the path of the Stack construct. Only in CDK CLI v1 are those tags found in metadata used for actual deployments; in all stable versions of CDK only the stack tags directly found in the ``tags`` property of ``AwsCloudFormationStack`` artifact (i.e., this property) are used. Default: - No tags
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
         :param validate_on_synth: Whether this stack should be validated by the CLI after synthesis. Default: - false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            aws_cloud_formation_stack_properties = cloud_assembly_schema.AwsCloudFormationStackProperties(
+                template_file="templateFile",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                assume_role_arn="assumeRoleArn",
+                assume_role_external_id="assumeRoleExternalId",
+                bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                cloud_formation_execution_role_arn="cloudFormationExecutionRoleArn",
+                lookup_role=cloud_assembly_schema.BootstrapRole(
+                    arn="arn",
+            
+                    # the properties below are optional
+                    assume_role_additional_options={
+                        "assume_role_additional_options_key": assume_role_additional_options
+                    },
+                    assume_role_external_id="assumeRoleExternalId",
+                    bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                    requires_bootstrap_stack_version=123
+                ),
+                notification_arns=["notificationArns"],
+                parameters={
+                    "parameters_key": "parameters"
+                },
+                requires_bootstrap_stack_version=123,
+                stack_name="stackName",
+                stack_template_asset_object_url="stackTemplateAssetObjectUrl",
+                tags={
+                    "tags_key": "tags"
+                },
+                termination_protection=False,
+                validate_on_synth=False
+            )
         '''
         if isinstance(lookup_role, dict):
             lookup_role = BootstrapRole(**lookup_role)
@@ -915,6 +1249,25 @@ class AwsDestination:
         :param assume_role_arn: The role that needs to be assumed while publishing this asset. Default: - No role will be assumed
         :param assume_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
         :param region: The region where this asset will need to be published. Default: - Current region
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            aws_destination = cloud_assembly_schema.AwsDestination(
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                assume_role_arn="assumeRoleArn",
+                assume_role_external_id="assumeRoleExternalId",
+                region="region"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d4387902c8044ff57dcc17c7ae5dcff6575e79b8dd9de120108560d27236ca7)
@@ -1015,6 +1368,28 @@ class BootstrapRole:
         :param assume_role_external_id: External ID to use when assuming the bootstrap role. Default: - No external ID
         :param bootstrap_stack_version_ssm_parameter: Name of SSM parameter with bootstrap stack version. Default: - Discover SSM parameter by reading stack
         :param requires_bootstrap_stack_version: Version of bootstrap stack required to use this role. Default: - No bootstrap stack required
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            bootstrap_role = cloud_assembly_schema.BootstrapRole(
+                arn="arn",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                assume_role_external_id="assumeRoleExternalId",
+                bootstrap_stack_version_ssm_parameter="bootstrapStackVersionSsmParameter",
+                requires_bootstrap_stack_version=123
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8312254ba026da8d32fb0402fe23fbcb07a4862942025fa5bd9da926fa1da89d)
@@ -1119,6 +1494,20 @@ class CdkCommand:
         :param enabled: Whether or not to run this command as part of the workflow This can be used if you only want to test some of the workflow for example enable ``synth`` and disable ``deploy`` & ``destroy`` in order to limit the test to synthesis. Default: true
         :param expected_message: This can be used in combination with ``expectedError`` to validate that a specific message is returned. Default: - do not validate message
         :param expect_error: If the runner should expect this command to fail. Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            cdk_command = cloud_assembly_schema.CdkCommand(
+                enabled=False,
+                expected_message="expectedMessage",
+                expect_error=False
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__537cc0a582eff90f545dcbb5cf71b07a8103291f955df39810623c4c1f2dc33c)
@@ -1188,6 +1577,99 @@ class CdkCommands:
 
         :param deploy: Options to for the cdk deploy command. Default: - default deploy options
         :param destroy: Options to for the cdk destroy command. Default: - default destroy options
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            cdk_commands = cloud_assembly_schema.CdkCommands(
+                deploy=cloud_assembly_schema.DeployCommand(
+                    args=cloud_assembly_schema.DeployOptions(
+                        all=False,
+                        app="app",
+                        asset_metadata=False,
+                        ca_bundle_path="caBundlePath",
+                        change_set_name="changeSetName",
+                        ci=False,
+                        color=False,
+                        concurrency=123,
+                        context={
+                            "context_key": "context"
+                        },
+                        debug=False,
+                        ec2_creds=False,
+                        exclusively=False,
+                        execute=False,
+                        force=False,
+                        ignore_errors=False,
+                        json=False,
+                        lookups=False,
+                        notices=False,
+                        notification_arns=["notificationArns"],
+                        output="output",
+                        outputs_file="outputsFile",
+                        parameters={
+                            "parameters_key": "parameters"
+                        },
+                        path_metadata=False,
+                        profile="profile",
+                        proxy="proxy",
+                        require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                        reuse_assets=["reuseAssets"],
+                        role_arn="roleArn",
+                        rollback=False,
+                        stacks=["stacks"],
+                        staging=False,
+                        strict=False,
+                        toolkit_stack_name="toolkitStackName",
+                        trace=False,
+                        use_previous_parameters=False,
+                        verbose=False,
+                        version_reporting=False
+                    ),
+                    enabled=False,
+                    expected_message="expectedMessage",
+                    expect_error=False
+                ),
+                destroy=cloud_assembly_schema.DestroyCommand(
+                    args=cloud_assembly_schema.DestroyOptions(
+                        all=False,
+                        app="app",
+                        asset_metadata=False,
+                        ca_bundle_path="caBundlePath",
+                        color=False,
+                        context={
+                            "context_key": "context"
+                        },
+                        debug=False,
+                        ec2_creds=False,
+                        exclusively=False,
+                        force=False,
+                        ignore_errors=False,
+                        json=False,
+                        lookups=False,
+                        notices=False,
+                        output="output",
+                        path_metadata=False,
+                        profile="profile",
+                        proxy="proxy",
+                        role_arn="roleArn",
+                        stacks=["stacks"],
+                        staging=False,
+                        strict=False,
+                        trace=False,
+                        verbose=False,
+                        version_reporting=False
+                    ),
+                    enabled=False,
+                    expected_message="expectedMessage",
+                    expect_error=False
+                )
+            )
         '''
         if isinstance(deploy, dict):
             deploy = DeployCommand(**deploy)
@@ -1255,6 +1737,22 @@ class CloudFormationResourceJson:
         :param logical_id: The logical ID of the resource in the CloudFormation template.
         :param template_path: The path to the CloudFormation template containing this resource.
         :param property_paths: Properties within the construct where the violation was detected. Either a single component, in which case it regards a top-level property name, or a JSON path (starting with ``$.``) to indicate a deeper property. Default: - no locations
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            cloud_formation_resource_json = cloud_assembly_schema.CloudFormationResourceJson(
+                logical_id="logicalId",
+                template_path="templatePath",
+            
+                # the properties below are optional
+                property_paths=["propertyPaths"]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__196f925349696ccfb09b5c5688d15502322c2b6b9f4c3c70f64845094a7db00a)
@@ -1322,6 +1820,23 @@ class ContainerImageAssetCacheOption:
 
         :param type: The type of cache to use. Refer to https://docs.docker.com/build/cache/backends/ for full list of backends. Default: - unspecified
         :param params: Any parameters to pass into the docker cache backend configuration. Refer to https://docs.docker.com/build/cache/backends/ for cache backend configuration. Default: {} No options provided
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            container_image_asset_cache_option = cloud_assembly_schema.ContainerImageAssetCacheOption(
+                type="type",
+            
+                # the properties below are optional
+                params={
+                    "params_key": "params"
+                }
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a176d2c2028cf996606e36d65f059e663cfcb4be9d776ed736d8d3a953f4a65)
@@ -1757,6 +2272,28 @@ class ContextLookupRoleOptions:
         :param assume_role_additional_options: Additional options to pass to STS when assuming the lookup role. - ``RoleArn`` should not be used. Use the dedicated ``lookupRoleArn`` property instead. - ``ExternalId`` should not be used. Use the dedicated ``lookupRoleExternalId`` instead. Default: - No additional options.
         :param lookup_role_arn: The ARN of the role that should be used to look up the missing values. Default: - None
         :param lookup_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            context_lookup_role_options = cloud_assembly_schema.ContextLookupRoleOptions(
+                account="account",
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8cac551258c664fa22546d9e22165fa40b5f44145662e897e795ccebafb8d3b)
@@ -1948,6 +2485,42 @@ class DefaultCdkOptions:
         :param trace: Print trace for stack warnings. Default: false
         :param verbose: show debug logs. Default: false
         :param version_reporting: Include "AWS::CDK::Metadata" resource in synthesized templates. Default: true
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            default_cdk_options = cloud_assembly_schema.DefaultCdkOptions(
+                all=False,
+                app="app",
+                asset_metadata=False,
+                ca_bundle_path="caBundlePath",
+                color=False,
+                context={
+                    "context_key": "context"
+                },
+                debug=False,
+                ec2_creds=False,
+                ignore_errors=False,
+                json=False,
+                lookups=False,
+                notices=False,
+                output="output",
+                path_metadata=False,
+                profile="profile",
+                proxy="proxy",
+                role_arn="roleArn",
+                stacks=["stacks"],
+                staging=False,
+                strict=False,
+                trace=False,
+                verbose=False,
+                version_reporting=False
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0899633c73fd2c73f9c6c2b2894e20ca7222b2dfd4977df4c8d18455ca92f77)
@@ -2278,6 +2851,63 @@ class DeployCommand(CdkCommand):
         :param expected_message: This can be used in combination with ``expectedError`` to validate that a specific message is returned. Default: - do not validate message
         :param expect_error: If the runner should expect this command to fail. Default: false
         :param args: Additional arguments to pass to the command This can be used to test specific CLI functionality. Default: - only default args are used
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            deploy_command = cloud_assembly_schema.DeployCommand(
+                args=cloud_assembly_schema.DeployOptions(
+                    all=False,
+                    app="app",
+                    asset_metadata=False,
+                    ca_bundle_path="caBundlePath",
+                    change_set_name="changeSetName",
+                    ci=False,
+                    color=False,
+                    concurrency=123,
+                    context={
+                        "context_key": "context"
+                    },
+                    debug=False,
+                    ec2_creds=False,
+                    exclusively=False,
+                    execute=False,
+                    force=False,
+                    ignore_errors=False,
+                    json=False,
+                    lookups=False,
+                    notices=False,
+                    notification_arns=["notificationArns"],
+                    output="output",
+                    outputs_file="outputsFile",
+                    parameters={
+                        "parameters_key": "parameters"
+                    },
+                    path_metadata=False,
+                    profile="profile",
+                    proxy="proxy",
+                    require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                    reuse_assets=["reuseAssets"],
+                    role_arn="roleArn",
+                    rollback=False,
+                    stacks=["stacks"],
+                    staging=False,
+                    strict=False,
+                    toolkit_stack_name="toolkitStackName",
+                    trace=False,
+                    use_previous_parameters=False,
+                    verbose=False,
+                    version_reporting=False
+                ),
+                enabled=False,
+                expected_message="expectedMessage",
+                expect_error=False
+            )
         '''
         if isinstance(args, dict):
             args = DeployOptions(**args)
@@ -2469,6 +3099,58 @@ class DeployOptions(DefaultCdkOptions):
         :param rollback: Rollback failed deployments. Default: true
         :param toolkit_stack_name: Name of the toolkit stack to use/deploy. Default: CDKToolkit
         :param use_previous_parameters: Use previous values for unspecified parameters. If not set, all parameters must be specified for every deployment. Default: true
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            deploy_options = cloud_assembly_schema.DeployOptions(
+                all=False,
+                app="app",
+                asset_metadata=False,
+                ca_bundle_path="caBundlePath",
+                change_set_name="changeSetName",
+                ci=False,
+                color=False,
+                concurrency=123,
+                context={
+                    "context_key": "context"
+                },
+                debug=False,
+                ec2_creds=False,
+                exclusively=False,
+                execute=False,
+                force=False,
+                ignore_errors=False,
+                json=False,
+                lookups=False,
+                notices=False,
+                notification_arns=["notificationArns"],
+                output="output",
+                outputs_file="outputsFile",
+                parameters={
+                    "parameters_key": "parameters"
+                },
+                path_metadata=False,
+                profile="profile",
+                proxy="proxy",
+                require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                reuse_assets=["reuseAssets"],
+                role_arn="roleArn",
+                rollback=False,
+                stacks=["stacks"],
+                staging=False,
+                strict=False,
+                toolkit_stack_name="toolkitStackName",
+                trace=False,
+                use_previous_parameters=False,
+                verbose=False,
+                version_reporting=False
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a103d023ecc8f4af691d654c6ebfdc77d30a512c5b2ecfc097ed2bccc76a6bd1)
@@ -2971,6 +3653,49 @@ class DestroyCommand(CdkCommand):
         :param expected_message: This can be used in combination with ``expectedError`` to validate that a specific message is returned. Default: - do not validate message
         :param expect_error: If the runner should expect this command to fail. Default: false
         :param args: Additional arguments to pass to the command This can be used to test specific CLI functionality. Default: - only default args are used
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            destroy_command = cloud_assembly_schema.DestroyCommand(
+                args=cloud_assembly_schema.DestroyOptions(
+                    all=False,
+                    app="app",
+                    asset_metadata=False,
+                    ca_bundle_path="caBundlePath",
+                    color=False,
+                    context={
+                        "context_key": "context"
+                    },
+                    debug=False,
+                    ec2_creds=False,
+                    exclusively=False,
+                    force=False,
+                    ignore_errors=False,
+                    json=False,
+                    lookups=False,
+                    notices=False,
+                    output="output",
+                    path_metadata=False,
+                    profile="profile",
+                    proxy="proxy",
+                    role_arn="roleArn",
+                    stacks=["stacks"],
+                    staging=False,
+                    strict=False,
+                    trace=False,
+                    verbose=False,
+                    version_reporting=False
+                ),
+                enabled=False,
+                expected_message="expectedMessage",
+                expect_error=False
+            )
         '''
         if isinstance(args, dict):
             args = DestroyOptions(**args)
@@ -3126,6 +3851,44 @@ class DestroyOptions(DefaultCdkOptions):
         :param version_reporting: Include "AWS::CDK::Metadata" resource in synthesized templates. Default: true
         :param exclusively: Only destroy the given stack. Default: false
         :param force: Do not ask for permission before destroying stacks. Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            destroy_options = cloud_assembly_schema.DestroyOptions(
+                all=False,
+                app="app",
+                asset_metadata=False,
+                ca_bundle_path="caBundlePath",
+                color=False,
+                context={
+                    "context_key": "context"
+                },
+                debug=False,
+                ec2_creds=False,
+                exclusively=False,
+                force=False,
+                ignore_errors=False,
+                json=False,
+                lookups=False,
+                notices=False,
+                output="output",
+                path_metadata=False,
+                profile="profile",
+                proxy="proxy",
+                role_arn="roleArn",
+                stacks=["stacks"],
+                staging=False,
+                strict=False,
+                trace=False,
+                verbose=False,
+                version_reporting=False
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__284b36eefd847af8eef59cd2d256f0fc1255a2f524b3fe151070b4c81e14c056)
@@ -3471,6 +4234,23 @@ class DockerCacheOption:
 
         :param type: The type of cache to use. Refer to https://docs.docker.com/build/cache/backends/ for full list of backends. Default: - unspecified
         :param params: Any parameters to pass into the docker cache backend configuration. Refer to https://docs.docker.com/build/cache/backends/ for cache backend configuration. Default: {} No options provided
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            docker_cache_option = cloud_assembly_schema.DockerCacheOption(
+                type="type",
+            
+                # the properties below are optional
+                params={
+                    "params_key": "params"
+                }
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c838d3bf7ce5d6fb384a055e25f3cad0b0e3f17a14f62a5239ff83e7dd2cb790)
@@ -3553,6 +4333,72 @@ class DockerImageAsset:
         :param destinations: Destinations for this container asset.
         :param source: Source description for container assets.
         :param display_name: A display name for this asset. Default: - The identifier will be used as the display name
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            docker_image_asset = cloud_assembly_schema.DockerImageAsset(
+                destinations={
+                    "destinations_key": cloud_assembly_schema.DockerImageDestination(
+                        image_tag="imageTag",
+                        repository_name="repositoryName",
+            
+                        # the properties below are optional
+                        assume_role_additional_options={
+                            "assume_role_additional_options_key": assume_role_additional_options
+                        },
+                        assume_role_arn="assumeRoleArn",
+                        assume_role_external_id="assumeRoleExternalId",
+                        region="region"
+                    )
+                },
+                source=cloud_assembly_schema.DockerImageSource(
+                    cache_disabled=False,
+                    cache_from=[cloud_assembly_schema.DockerCacheOption(
+                        type="type",
+            
+                        # the properties below are optional
+                        params={
+                            "params_key": "params"
+                        }
+                    )],
+                    cache_to=cloud_assembly_schema.DockerCacheOption(
+                        type="type",
+            
+                        # the properties below are optional
+                        params={
+                            "params_key": "params"
+                        }
+                    ),
+                    directory="directory",
+                    docker_build_args={
+                        "docker_build_args_key": "dockerBuildArgs"
+                    },
+                    docker_build_contexts={
+                        "docker_build_contexts_key": "dockerBuildContexts"
+                    },
+                    docker_build_secrets={
+                        "docker_build_secrets_key": "dockerBuildSecrets"
+                    },
+                    docker_build_ssh="dockerBuildSsh",
+                    docker_build_target="dockerBuildTarget",
+                    docker_file="dockerFile",
+                    docker_outputs=["dockerOutputs"],
+                    executable=["executable"],
+                    network_mode="networkMode",
+                    platform="platform"
+                ),
+            
+                # the properties below are optional
+                display_name="displayName"
+            )
         '''
         if isinstance(source, dict):
             source = DockerImageSource(**source)
@@ -3634,6 +4480,29 @@ class DockerImageDestination(AwsDestination):
         :param region: The region where this asset will need to be published. Default: - Current region
         :param image_tag: Tag of the image to publish.
         :param repository_name: Name of the ECR repository to publish to.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            docker_image_destination = cloud_assembly_schema.DockerImageDestination(
+                image_tag="imageTag",
+                repository_name="repositoryName",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                assume_role_arn="assumeRoleArn",
+                assume_role_external_id="assumeRoleExternalId",
+                region="region"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c0f545a6695051a1f710c49815c2924bf787c485ff8bd643e73ca33d6f44ccb)
@@ -3780,6 +4649,51 @@ class DockerImageSource:
         :param executable: A command-line executable that returns the name of a local Docker image on stdout after being run. Default: - Exactly one of ``directory`` and ``executable`` is required
         :param network_mode: Networking mode for the RUN commands during build. *Requires Docker Engine API v1.25+*. Specify this property to build images on a specific networking mode. Default: - no networking mode specified
         :param platform: Platform to build for. *Requires Docker Buildx*. Specify this property to build images on a specific platform/architecture. Default: - current machine platform
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            docker_image_source = cloud_assembly_schema.DockerImageSource(
+                cache_disabled=False,
+                cache_from=[cloud_assembly_schema.DockerCacheOption(
+                    type="type",
+            
+                    # the properties below are optional
+                    params={
+                        "params_key": "params"
+                    }
+                )],
+                cache_to=cloud_assembly_schema.DockerCacheOption(
+                    type="type",
+            
+                    # the properties below are optional
+                    params={
+                        "params_key": "params"
+                    }
+                ),
+                directory="directory",
+                docker_build_args={
+                    "docker_build_args_key": "dockerBuildArgs"
+                },
+                docker_build_contexts={
+                    "docker_build_contexts_key": "dockerBuildContexts"
+                },
+                docker_build_secrets={
+                    "docker_build_secrets_key": "dockerBuildSecrets"
+                },
+                docker_build_ssh="dockerBuildSsh",
+                docker_build_target="dockerBuildTarget",
+                docker_file="dockerFile",
+                docker_outputs=["dockerOutputs"],
+                executable=["executable"],
+                network_mode="networkMode",
+                platform="platform"
+            )
         '''
         if isinstance(cache_to, dict):
             cache_to = DockerCacheOption(**cache_to)
@@ -4028,6 +4942,29 @@ class EndpointServiceAvailabilityZonesContextQuery(ContextLookupRoleOptions):
         :param lookup_role_arn: The ARN of the role that should be used to look up the missing values. Default: - None
         :param lookup_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
         :param service_name: Query service name.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            endpoint_service_availability_zones_context_query = cloud_assembly_schema.EndpointServiceAvailabilityZonesContextQuery(
+                account="account",
+                region="region",
+                service_name="serviceName",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__294168e37bcda14debc206d75185efc2faf88ad9549471172c3c48fae0abfc2c)
@@ -4141,6 +5078,29 @@ class FeatureFlag:
         :param recommended_value: The library-recommended value for this flag, if any. It is possible that there is no recommended value. Default: - No recommended value.
         :param unconfigured_behaves_like: The value of the flag that produces the same behavior as when the flag is not configured at all. The structure of this field is a historical accident. The type of this field should have been boolean, which should have contained the default value for the flag appropriate for the *current* version of the CDK library. We are not rectifying this accident because doing so Instead, the canonical way to access this value is by evaluating ``unconfiguredBehavesLike?.v2 ?? false``. Default: false
         :param user_value: The value configured by the user. This is the value configured at the root of the tree. Users may also have configured values at specific locations in the tree; we don't report on those. Default: - Not configured by the user
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # recommended_value: Any
+            # user_value: Any
+            # v1: Any
+            # v2: Any
+            
+            feature_flag = cloud_assembly_schema.FeatureFlag(
+                explanation="explanation",
+                recommended_value=recommended_value,
+                unconfigured_behaves_like=cloud_assembly_schema.UnconfiguredBehavesLike(
+                    v1=v1,
+                    v2=v2
+                ),
+                user_value=user_value
+            )
         '''
         if isinstance(unconfigured_behaves_like, dict):
             unconfigured_behaves_like = UnconfiguredBehavesLike(**unconfigured_behaves_like)
@@ -4241,6 +5201,34 @@ class FeatureFlagReportProperties:
 
         :param flags: Information about every feature flag supported by this library.
         :param module: The library that this feature flag report applies to.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # recommended_value: Any
+            # user_value: Any
+            # v1: Any
+            # v2: Any
+            
+            feature_flag_report_properties = cloud_assembly_schema.FeatureFlagReportProperties(
+                flags={
+                    "flags_key": cloud_assembly_schema.FeatureFlag(
+                        explanation="explanation",
+                        recommended_value=recommended_value,
+                        unconfigured_behaves_like=cloud_assembly_schema.UnconfiguredBehavesLike(
+                            v1=v1,
+                            v2=v2
+                        ),
+                        user_value=user_value
+                    )
+                },
+                module="module"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1aba385c39bebe2c936684e9457255825ef604100d21a8db42669bf04a741197)
@@ -4299,6 +5287,41 @@ class FileAsset:
         :param destinations: Destinations for this file asset.
         :param source: Source description for file assets.
         :param display_name: A display name for this asset. Default: - The identifier will be used as the display name
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            file_asset = cloud_assembly_schema.FileAsset(
+                destinations={
+                    "destinations_key": cloud_assembly_schema.FileDestination(
+                        bucket_name="bucketName",
+                        object_key="objectKey",
+            
+                        # the properties below are optional
+                        assume_role_additional_options={
+                            "assume_role_additional_options_key": assume_role_additional_options
+                        },
+                        assume_role_arn="assumeRoleArn",
+                        assume_role_external_id="assumeRoleExternalId",
+                        region="region"
+                    )
+                },
+                source=cloud_assembly_schema.FileSource(
+                    executable=["executable"],
+                    packaging=cloud_assembly_schema.FileAssetPackaging.FILE,
+                    path="path"
+                ),
+            
+                # the properties below are optional
+                display_name="displayName"
+            )
         '''
         if isinstance(source, dict):
             source = FileSource(**source)
@@ -4514,6 +5537,29 @@ class FileDestination(AwsDestination):
         :param region: The region where this asset will need to be published. Default: - Current region
         :param bucket_name: The name of the bucket.
         :param object_key: The destination object key.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            file_destination = cloud_assembly_schema.FileDestination(
+                bucket_name="bucketName",
+                object_key="objectKey",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                assume_role_arn="assumeRoleArn",
+                assume_role_external_id="assumeRoleExternalId",
+                region="region"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d10c92471067275f326c7c7d4e110314247bc7c18f6a16f3fa7f8e43653625bc)
@@ -4627,6 +5673,20 @@ class FileSource:
         :param executable: External command which will produce the file asset to upload. Default: - Exactly one of ``executable`` and ``path`` is required.
         :param packaging: Packaging method. Only allowed when ``path`` is specified. Default: FILE
         :param path: The filesystem object to upload. This path is relative to the asset manifest location. Default: - Exactly one of ``executable`` and ``path`` is required.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            file_source = cloud_assembly_schema.FileSource(
+                executable=["executable"],
+                packaging=cloud_assembly_schema.FileAssetPackaging.FILE,
+                path="path"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bc1844b341cb38ecb3363fa5e7a948caec3aaa09c66a4eb6c358132ba0e3b4a)
@@ -4709,6 +5769,21 @@ class Hooks:
         :param post_destroy: Commands to run after destroying the cdk stacks in the integration test. Default: - no commands
         :param pre_deploy: Commands to run prior to deploying the cdk stacks in the integration test. Default: - no commands
         :param pre_destroy: Commands to run prior to destroying the cdk stacks in the integration test. Default: - no commands
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            hooks = cloud_assembly_schema.Hooks(
+                post_deploy=["postDeploy"],
+                post_destroy=["postDestroy"],
+                pre_deploy=["preDeploy"],
+                pre_destroy=["preDestroy"]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3733f1e6e673d88bd132255b58006034de9ee37333b00886c1e264a27b8136ab)
@@ -4811,6 +5886,31 @@ class HostedZoneContextQuery(ContextLookupRoleOptions):
         :param domain_name: The domain name e.g. example.com to lookup.
         :param private_zone: True if the zone you want to find is a private hosted zone. Default: false
         :param vpc_id: The VPC ID to that the private zone must be associated with. If you provide VPC ID and privateZone is false, this will return no results and raise an error. Default: - Required if privateZone=true
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            hosted_zone_context_query = cloud_assembly_schema.HostedZoneContextQuery(
+                account="account",
+                domain_name="domainName",
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId",
+                private_zone=False,
+                vpc_id="vpcId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8eccaae9a756f96022a414a6e6ebf0ce50691546bc6d8cde2ca3680510f04929)
@@ -5009,6 +6109,128 @@ class IntegManifest:
         :param version: Version of the manifest.
         :param enable_lookups: Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitly testing lookups. Default: false
         :param synth_context: Additional context to use when performing a synth. Any context provided here will override any default context Default: - no additional context
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            integ_manifest = cloud_assembly_schema.IntegManifest(
+                test_cases={
+                    "test_cases_key": cloud_assembly_schema.TestCase(
+                        stacks=["stacks"],
+            
+                        # the properties below are optional
+                        allow_delete_failures=False,
+                        allow_destroy=["allowDestroy"],
+                        assertion_stack="assertionStack",
+                        assertion_stack_name="assertionStackName",
+                        cdk_command_options=cloud_assembly_schema.CdkCommands(
+                            deploy=cloud_assembly_schema.DeployCommand(
+                                args=cloud_assembly_schema.DeployOptions(
+                                    all=False,
+                                    app="app",
+                                    asset_metadata=False,
+                                    ca_bundle_path="caBundlePath",
+                                    change_set_name="changeSetName",
+                                    ci=False,
+                                    color=False,
+                                    concurrency=123,
+                                    context={
+                                        "context_key": "context"
+                                    },
+                                    debug=False,
+                                    ec2_creds=False,
+                                    exclusively=False,
+                                    execute=False,
+                                    force=False,
+                                    ignore_errors=False,
+                                    json=False,
+                                    lookups=False,
+                                    notices=False,
+                                    notification_arns=["notificationArns"],
+                                    output="output",
+                                    outputs_file="outputsFile",
+                                    parameters={
+                                        "parameters_key": "parameters"
+                                    },
+                                    path_metadata=False,
+                                    profile="profile",
+                                    proxy="proxy",
+                                    require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                                    reuse_assets=["reuseAssets"],
+                                    role_arn="roleArn",
+                                    rollback=False,
+                                    stacks=["stacks"],
+                                    staging=False,
+                                    strict=False,
+                                    toolkit_stack_name="toolkitStackName",
+                                    trace=False,
+                                    use_previous_parameters=False,
+                                    verbose=False,
+                                    version_reporting=False
+                                ),
+                                enabled=False,
+                                expected_message="expectedMessage",
+                                expect_error=False
+                            ),
+                            destroy=cloud_assembly_schema.DestroyCommand(
+                                args=cloud_assembly_schema.DestroyOptions(
+                                    all=False,
+                                    app="app",
+                                    asset_metadata=False,
+                                    ca_bundle_path="caBundlePath",
+                                    color=False,
+                                    context={
+                                        "context_key": "context"
+                                    },
+                                    debug=False,
+                                    ec2_creds=False,
+                                    exclusively=False,
+                                    force=False,
+                                    ignore_errors=False,
+                                    json=False,
+                                    lookups=False,
+                                    notices=False,
+                                    output="output",
+                                    path_metadata=False,
+                                    profile="profile",
+                                    proxy="proxy",
+                                    role_arn="roleArn",
+                                    stacks=["stacks"],
+                                    staging=False,
+                                    strict=False,
+                                    trace=False,
+                                    verbose=False,
+                                    version_reporting=False
+                                ),
+                                enabled=False,
+                                expected_message="expectedMessage",
+                                expect_error=False
+                            )
+                        ),
+                        diff_assets=False,
+                        hooks=cloud_assembly_schema.Hooks(
+                            post_deploy=["postDeploy"],
+                            post_destroy=["postDestroy"],
+                            pre_deploy=["preDeploy"],
+                            pre_destroy=["preDestroy"]
+                        ),
+                        regions=["regions"],
+                        stack_update_workflow=False
+                    )
+                },
+                version="version",
+            
+                # the properties below are optional
+                enable_lookups=False,
+                synth_context={
+                    "synth_context_key": "synthContext"
+                }
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4f76db560ef5b47d8c2b9122ca11c9dc4ece0a23be47262c81bac0f289b7186)
@@ -5110,6 +6332,29 @@ class KeyContextQuery(ContextLookupRoleOptions):
         :param lookup_role_arn: The ARN of the role that should be used to look up the missing values. Default: - None
         :param lookup_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
         :param alias_name: Alias name used to search the Key.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            key_context_query = cloud_assembly_schema.KeyContextQuery(
+                account="account",
+                alias_name="aliasName",
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__331a732ca33b9b47bd03ed819972d2e65c21007707ea8ea1f7ecb0124bc33b53)
@@ -5235,6 +6480,34 @@ class LoadBalancerFilter(ContextLookupRoleOptions):
         :param load_balancer_type: Filter load balancers by their type.
         :param load_balancer_arn: Find by load balancer's ARN. Default: - does not search by load balancer arn
         :param load_balancer_tags: Match load balancer tags. Default: - does not match load balancers by tags
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            load_balancer_filter = cloud_assembly_schema.LoadBalancerFilter(
+                account="account",
+                load_balancer_type=cloud_assembly_schema.LoadBalancerType.NETWORK,
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                load_balancer_arn="loadBalancerArn",
+                load_balancer_tags=[cloud_assembly_schema.Tag(
+                    key="key",
+                    value="value"
+                )],
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88b03d4aa71b745dfeea8aadaf6fe243743c6c080d842adbe793ceeab364f430)
@@ -5393,6 +6666,37 @@ class LoadBalancerListenerContextQuery(LoadBalancerFilter):
         :param listener_arn: Find by listener's arn. Default: - does not find by listener arn
         :param listener_port: Filter listeners by listener port. Default: - does not filter by a listener port
         :param listener_protocol: Filter by listener protocol. Default: - does not filter by listener protocol
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            load_balancer_listener_context_query = cloud_assembly_schema.LoadBalancerListenerContextQuery(
+                account="account",
+                load_balancer_type=cloud_assembly_schema.LoadBalancerType.NETWORK,
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                listener_arn="listenerArn",
+                listener_port=123,
+                listener_protocol=cloud_assembly_schema.LoadBalancerListenerProtocol.HTTP,
+                load_balancer_arn="loadBalancerArn",
+                load_balancer_tags=[cloud_assembly_schema.Tag(
+                    key="key",
+                    value="value"
+                )],
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fcd243289078c247e40f595e624fa49a28f9a4c817237ed44defcb35997db4a)
@@ -5594,6 +6898,21 @@ class LoadManifestOptions:
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
         :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            load_manifest_options = cloud_assembly_schema.LoadManifestOptions(
+                skip_enum_check=False,
+                skip_version_check=False,
+                topo_sort=False,
+                validate_schema=False
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__185f78e45d1b609ea45acca81931dd5b5992991a7423c244b8cc7b4d203f8361)
@@ -5881,6 +7200,22 @@ class MetadataEntry:
         :param type: The type of the metadata entry.
         :param data: The data. Default: - no data.
         :param trace: A stack trace for when the entry was created. Default: - no trace.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            metadata_entry = cloud_assembly_schema.MetadataEntry(
+                type="type",
+            
+                # the properties below are optional
+                data="data",
+                trace=["trace"]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57833f80f1b2df590b5e91b75b52a1e9f98ddd4831080bc83367183e412d6914)
@@ -5952,6 +7287,36 @@ class MissingContext:
         :param key: The missing context key.
         :param props: A set of provider-specific options.
         :param provider: The provider from which we expect this context key to be obtained.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            missing_context = cloud_assembly_schema.MissingContext(
+                key="key",
+                props=cloud_assembly_schema.AmiContextQuery(
+                    account="account",
+                    filters={
+                        "filters_key": ["filters"]
+                    },
+                    region="region",
+            
+                    # the properties below are optional
+                    assume_role_additional_options={
+                        "assume_role_additional_options_key": assume_role_additional_options
+                    },
+                    lookup_role_arn="lookupRoleArn",
+                    lookup_role_external_id="lookupRoleExternalId",
+                    owners=["owners"]
+                ),
+                provider=cloud_assembly_schema.ContextProvider.AMI_PROVIDER
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d2810e890c5f86bbf1b5e1171b84741b2e1a33b480b6fa9607485f30d392966)
@@ -6015,6 +7380,21 @@ class NestedCloudAssemblyProperties:
 
         :param directory_name: Relative path to the nested cloud assembly.
         :param display_name: Display name for the cloud assembly. Default: - The artifact ID
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            nested_cloud_assembly_properties = cloud_assembly_schema.NestedCloudAssemblyProperties(
+                directory_name="directoryName",
+            
+                # the properties below are optional
+                display_name="displayName"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8d8e2a3b3221fe0ebbf9a1e150d3485208466d606d1495e12837594e4642e1f)
@@ -6067,6 +7447,18 @@ class PluginContextQuery:
         we do on on the cloud assembly -- we cannot know the properties that will be used a priori.
 
         :param plugin_name: The name of the plugin.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            plugin_context_query = cloud_assembly_schema.PluginContextQuery(
+                plugin_name="pluginName"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a412879879a442f136b5a913c4ab5a5e1b62e2a4a0297b01b929d26013f1ff8)
@@ -6103,6 +7495,7 @@ class PluginContextQuery:
         "violations": "violations",
         "metadata": "metadata",
         "plugin_version": "pluginVersion",
+        "suppressed_violations": "suppressedViolations",
     },
 )
 class PluginReportJson:
@@ -6114,6 +7507,7 @@ class PluginReportJson:
         violations: typing.Sequence[typing.Union["PolicyViolationJson", typing.Dict[builtins.str, typing.Any]]],
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         plugin_version: typing.Optional[builtins.str] = None,
+        suppressed_violations: typing.Optional[typing.Sequence[typing.Union["SuppressedViolationJson", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''A report from a single validation plugin.
 
@@ -6122,6 +7516,19 @@ class PluginReportJson:
         :param violations: Violations found by this plugin.
         :param metadata: Additional plugin-specific metadata. Default: - no metadata
         :param plugin_version: Version of the plugin that produced this report. Default: - no version
+        :param suppressed_violations: Violations that were suppressed via acknowledgement. These violations matched an acknowledged rule ID and were excluded from the active violations list. They are retained for audit trail and reporting purposes. Default: - no suppressed violations
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import PluginReportJson
+            from aws_cdk.cloud_assembly_schema import PluginReportJson
+            
+            
+            report = PluginReportJson(
+                plugin_name="my-plugin",
+                conclusion="success",
+                violations=[]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12d9034a523d5e1b70ce03c12c614dbdf637694660012238ce4f3c820f2b294a)
@@ -6130,6 +7537,7 @@ class PluginReportJson:
             check_type(argname="argument violations", value=violations, expected_type=type_hints["violations"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
             check_type(argname="argument plugin_version", value=plugin_version, expected_type=type_hints["plugin_version"])
+            check_type(argname="argument suppressed_violations", value=suppressed_violations, expected_type=type_hints["suppressed_violations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "conclusion": conclusion,
             "plugin_name": plugin_name,
@@ -6139,6 +7547,8 @@ class PluginReportJson:
             self._values["metadata"] = metadata
         if plugin_version is not None:
             self._values["plugin_version"] = plugin_version
+        if suppressed_violations is not None:
+            self._values["suppressed_violations"] = suppressed_violations
 
     @builtins.property
     def conclusion(self) -> builtins.str:
@@ -6179,6 +7589,21 @@ class PluginReportJson:
         result = self._values.get("plugin_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def suppressed_violations(
+        self,
+    ) -> typing.Optional[typing.List["SuppressedViolationJson"]]:
+        '''Violations that were suppressed via acknowledgement.
+
+        These violations matched an acknowledged rule ID and were excluded
+        from the active violations list. They are retained for audit
+        trail and reporting purposes.
+
+        :default: - no suppressed violations
+        '''
+        result = self._values.get("suppressed_violations")
+        return typing.cast(typing.Optional[typing.List["SuppressedViolationJson"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -6213,6 +7638,21 @@ class PolicyValidationReportJson:
         :param plugin_reports: Reports from all validation plugins that ran during synthesis.
         :param version: Protocol version.
         :param title: Report title, if present.
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import PolicyValidationReportJson, PluginReportJson
+            from aws_cdk.cloud_assembly_schema import PolicyValidationReportJson
+            
+            
+            report = PolicyValidationReportJson(
+                version="1.0",
+                plugin_reports=[PluginReportJson(
+                    plugin_name="my-plugin",
+                    conclusion="success",
+                    violations=[]
+                )]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e1317fac44f2c3b8504883ed830f609b68b5b87ac3b25765c0a2457eeae72af)
@@ -6292,6 +7732,19 @@ class PolicyViolationJson:
         :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
         :param rule_metadata: Additional rule-specific metadata. Default: - no metadata
         :param suggested_fix: How to fix the violation. Default: - no fix provided
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import PolicyViolationJson, ViolatingConstructJson
+            from aws_cdk.cloud_assembly_schema import PolicyViolationJson
+            
+            
+            violation = PolicyViolationJson(
+                rule_name="no-public-access",
+                description="S3 bucket should not allow public access",
+                severity="error",
+                violating_constructs=[ViolatingConstructJson(construct_path="MyStack/MyBucket")]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcde3a625348e3e8f67b81b338da206a992b7dc357454bef1a69462b2af19447)
@@ -6397,6 +7850,19 @@ class PropertyMutationMetadataEntry:
 
         :param property_name: Name of the property.
         :param stack_trace: Stack trace of the mutation.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            property_mutation_metadata_entry = cloud_assembly_schema.PropertyMutationMetadataEntry(
+                property_name="propertyName",
+                stack_trace=["stackTrace"]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93b5b4d15dff99ef5fbc310a6752cb7f2089d127f27c38d708580d8f6a9e52eb)
@@ -6459,6 +7925,20 @@ class RuntimeInfo:
         '''Information about the application's runtime components.
 
         :param libraries: The list of libraries loaded in the application, associated with their versions.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            runtime_info = cloud_assembly_schema.RuntimeInfo(
+                libraries={
+                    "libraries_key": "libraries"
+                }
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__178743947ef3209351713d04d738bc71d2ecae3ae59c1abd10c4a6b56cd5aa00)
@@ -6517,6 +7997,29 @@ class SSMParameterContextQuery(ContextLookupRoleOptions):
         :param lookup_role_arn: The ARN of the role that should be used to look up the missing values. Default: - None
         :param lookup_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
         :param parameter_name: Parameter name to query.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            s_sm_parameter_context_query = cloud_assembly_schema.SSMParameterContextQuery(
+                account="account",
+                parameter_name="parameterName",
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__980305d4784782c3752b01ac3e03f15a39bc258229940c9259dffc4c0ef0dad5)
@@ -6642,6 +8145,31 @@ class SecurityGroupContextQuery(ContextLookupRoleOptions):
         :param security_group_id: Security group id. Default: - None
         :param security_group_name: Security group name. Default: - None
         :param vpc_id: VPC ID. Default: - None
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            security_group_context_query = cloud_assembly_schema.SecurityGroupContextQuery(
+                account="account",
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId",
+                security_group_id="securityGroupId",
+                security_group_name="securityGroupName",
+                vpc_id="vpcId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__636adc5f8dd05156bcdda2b5b46333a469800041d6536bc240fd98937bedf070)
@@ -6758,6 +8286,205 @@ class SecurityGroupContextQuery(ContextLookupRoleOptions):
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.SuppressedViolationJson",
+    jsii_struct_bases=[PolicyViolationJson],
+    name_mapping={
+        "description": "description",
+        "rule_name": "ruleName",
+        "severity": "severity",
+        "violating_constructs": "violatingConstructs",
+        "custom_severity": "customSeverity",
+        "rule_metadata": "ruleMetadata",
+        "suggested_fix": "suggestedFix",
+        "acknowledged_id": "acknowledgedId",
+        "acknowledged_at": "acknowledgedAt",
+        "acknowledged_stack_trace": "acknowledgedStackTrace",
+        "reason": "reason",
+    },
+)
+class SuppressedViolationJson(PolicyViolationJson):
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        rule_name: builtins.str,
+        severity: builtins.str,
+        violating_constructs: typing.Sequence[typing.Union["ViolatingConstructJson", typing.Dict[builtins.str, typing.Any]]],
+        custom_severity: typing.Optional[builtins.str] = None,
+        rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        suggested_fix: typing.Optional[builtins.str] = None,
+        acknowledged_id: builtins.str,
+        acknowledged_at: typing.Optional[builtins.str] = None,
+        acknowledged_stack_trace: typing.Optional[builtins.str] = None,
+        reason: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''A violation that was acknowledged/suppressed and excluded from the active violation set.
+
+        :param description: A description of the violation.
+        :param rule_name: The name of the rule that was violated.
+        :param severity: The severity of the violation.
+        :param violating_constructs: Constructs that violated the rule.
+        :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
+        :param rule_metadata: Additional rule-specific metadata. Default: - no metadata
+        :param suggested_fix: How to fix the violation. Default: - no fix provided
+        :param acknowledged_id: The acknowledgement ID that caused this violation to be suppressed. Format: ``<plugin-name>::<rule-name>`` (spaces replaced with hyphens).
+        :param acknowledged_at: The construct path where the acknowledgement was declared. Default: - unknown
+        :param acknowledged_stack_trace: Stack trace showing where the acknowledgement was declared. A ``\\n``-delimited string of stack frames. Default: - no stack trace
+        :param reason: The reason given for the acknowledgement, if provided. Default: - no reason given
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import SuppressedViolationJson, ViolatingConstructJson
+            from aws_cdk.cloud_assembly_schema import SuppressedViolationJson
+            
+            
+            suppressed = SuppressedViolationJson(
+                rule_name="no-public-access",
+                description="S3 bucket should not allow public access",
+                severity="warning",
+                violating_constructs=[ViolatingConstructJson(construct_path="MyStack/MyBucket")],
+                acknowledged_id="my-plugin::no-public-access"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e21f6dba4dee667759c17cb931b5b0fe7ba7b33a5ddba43f2627743f7543c4f1)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument violating_constructs", value=violating_constructs, expected_type=type_hints["violating_constructs"])
+            check_type(argname="argument custom_severity", value=custom_severity, expected_type=type_hints["custom_severity"])
+            check_type(argname="argument rule_metadata", value=rule_metadata, expected_type=type_hints["rule_metadata"])
+            check_type(argname="argument suggested_fix", value=suggested_fix, expected_type=type_hints["suggested_fix"])
+            check_type(argname="argument acknowledged_id", value=acknowledged_id, expected_type=type_hints["acknowledged_id"])
+            check_type(argname="argument acknowledged_at", value=acknowledged_at, expected_type=type_hints["acknowledged_at"])
+            check_type(argname="argument acknowledged_stack_trace", value=acknowledged_stack_trace, expected_type=type_hints["acknowledged_stack_trace"])
+            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "rule_name": rule_name,
+            "severity": severity,
+            "violating_constructs": violating_constructs,
+            "acknowledged_id": acknowledged_id,
+        }
+        if custom_severity is not None:
+            self._values["custom_severity"] = custom_severity
+        if rule_metadata is not None:
+            self._values["rule_metadata"] = rule_metadata
+        if suggested_fix is not None:
+            self._values["suggested_fix"] = suggested_fix
+        if acknowledged_at is not None:
+            self._values["acknowledged_at"] = acknowledged_at
+        if acknowledged_stack_trace is not None:
+            self._values["acknowledged_stack_trace"] = acknowledged_stack_trace
+        if reason is not None:
+            self._values["reason"] = reason
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the violation.'''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule that was violated.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def severity(self) -> builtins.str:
+        '''The severity of the violation.'''
+        result = self._values.get("severity")
+        assert result is not None, "Required property 'severity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violating_constructs(self) -> typing.List["ViolatingConstructJson"]:
+        '''Constructs that violated the rule.'''
+        result = self._values.get("violating_constructs")
+        assert result is not None, "Required property 'violating_constructs' is missing"
+        return typing.cast(typing.List["ViolatingConstructJson"], result)
+
+    @builtins.property
+    def custom_severity(self) -> typing.Optional[builtins.str]:
+        '''If the plugin wants to report using a non-standard severity, put it here.'''
+        result = self._values.get("custom_severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_metadata(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional rule-specific metadata.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("rule_metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def suggested_fix(self) -> typing.Optional[builtins.str]:
+        '''How to fix the violation.
+
+        :default: - no fix provided
+        '''
+        result = self._values.get("suggested_fix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def acknowledged_id(self) -> builtins.str:
+        '''The acknowledgement ID that caused this violation to be suppressed.
+
+        Format: ``<plugin-name>::<rule-name>`` (spaces replaced with hyphens).
+        '''
+        result = self._values.get("acknowledged_id")
+        assert result is not None, "Required property 'acknowledged_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def acknowledged_at(self) -> typing.Optional[builtins.str]:
+        '''The construct path where the acknowledgement was declared.
+
+        :default: - unknown
+        '''
+        result = self._values.get("acknowledged_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def acknowledged_stack_trace(self) -> typing.Optional[builtins.str]:
+        '''Stack trace showing where the acknowledgement was declared.
+
+        A ``\\n``-delimited string of stack frames.
+
+        :default: - no stack trace
+        '''
+        result = self._values.get("acknowledged_stack_trace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def reason(self) -> typing.Optional[builtins.str]:
+        '''The reason given for the acknowledgement, if provided.
+
+        :default: - no reason given
+        '''
+        result = self._values.get("reason")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SuppressedViolationJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/cloud-assembly-schema.Tag",
     jsii_struct_bases=[],
     name_mapping={"key": "key", "value": "value"},
@@ -6768,6 +8495,19 @@ class Tag:
 
         :param key: Tag key. (In the actual file on disk this will be cased as "Key", and the structure is patched to match this structure upon loading: https://github.com/aws/aws-cdk/blob/4aadaa779b48f35838cccd4e25107b2338f05547/packages/%40aws-cdk/cloud-assembly-schema/lib/manifest.ts#L137)
         :param value: Tag value. (In the actual file on disk this will be cased as "Value", and the structure is patched to match this structure upon loading: https://github.com/aws/aws-cdk/blob/4aadaa779b48f35838cccd4e25107b2338f05547/packages/%40aws-cdk/cloud-assembly-schema/lib/manifest.ts#L137)
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            tag = cloud_assembly_schema.Tag(
+                key="key",
+                value="value"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8797876976a9abc554ff74078b31cecfbd526dc4824e1a41edd7dc1e980f9796)
@@ -6818,6 +8558,7 @@ class Tag:
     jsii_type="@aws-cdk/cloud-assembly-schema.TestOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
         "allow_destroy": "allowDestroy",
         "cdk_command_options": "cdkCommandOptions",
         "diff_assets": "diffAssets",
@@ -6830,6 +8571,7 @@ class TestOptions:
     def __init__(
         self,
         *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
@@ -6839,12 +8581,119 @@ class TestOptions:
     ) -> None:
         '''The set of options to control the workflow of the test runner.
 
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
         :param hooks: Additional commands to run at predefined points in the test workflow. e.g. { postDeploy: ['yarn', 'test'] } Default: - no hooks
         :param regions: Limit deployment to these regions. Default: - can run in any region
         :param stack_update_workflow: Run update workflow on this test case This should only be set to false to test scenarios that are not possible to test as part of the update workflow. Default: true
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            test_options = cloud_assembly_schema.TestOptions(
+                allow_delete_failures=False,
+                allow_destroy=["allowDestroy"],
+                cdk_command_options=cloud_assembly_schema.CdkCommands(
+                    deploy=cloud_assembly_schema.DeployCommand(
+                        args=cloud_assembly_schema.DeployOptions(
+                            all=False,
+                            app="app",
+                            asset_metadata=False,
+                            ca_bundle_path="caBundlePath",
+                            change_set_name="changeSetName",
+                            ci=False,
+                            color=False,
+                            concurrency=123,
+                            context={
+                                "context_key": "context"
+                            },
+                            debug=False,
+                            ec2_creds=False,
+                            exclusively=False,
+                            execute=False,
+                            force=False,
+                            ignore_errors=False,
+                            json=False,
+                            lookups=False,
+                            notices=False,
+                            notification_arns=["notificationArns"],
+                            output="output",
+                            outputs_file="outputsFile",
+                            parameters={
+                                "parameters_key": "parameters"
+                            },
+                            path_metadata=False,
+                            profile="profile",
+                            proxy="proxy",
+                            require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                            reuse_assets=["reuseAssets"],
+                            role_arn="roleArn",
+                            rollback=False,
+                            stacks=["stacks"],
+                            staging=False,
+                            strict=False,
+                            toolkit_stack_name="toolkitStackName",
+                            trace=False,
+                            use_previous_parameters=False,
+                            verbose=False,
+                            version_reporting=False
+                        ),
+                        enabled=False,
+                        expected_message="expectedMessage",
+                        expect_error=False
+                    ),
+                    destroy=cloud_assembly_schema.DestroyCommand(
+                        args=cloud_assembly_schema.DestroyOptions(
+                            all=False,
+                            app="app",
+                            asset_metadata=False,
+                            ca_bundle_path="caBundlePath",
+                            color=False,
+                            context={
+                                "context_key": "context"
+                            },
+                            debug=False,
+                            ec2_creds=False,
+                            exclusively=False,
+                            force=False,
+                            ignore_errors=False,
+                            json=False,
+                            lookups=False,
+                            notices=False,
+                            output="output",
+                            path_metadata=False,
+                            profile="profile",
+                            proxy="proxy",
+                            role_arn="roleArn",
+                            stacks=["stacks"],
+                            staging=False,
+                            strict=False,
+                            trace=False,
+                            verbose=False,
+                            version_reporting=False
+                        ),
+                        enabled=False,
+                        expected_message="expectedMessage",
+                        expect_error=False
+                    )
+                ),
+                diff_assets=False,
+                hooks=cloud_assembly_schema.Hooks(
+                    post_deploy=["postDeploy"],
+                    post_destroy=["postDestroy"],
+                    pre_deploy=["preDeploy"],
+                    pre_destroy=["preDestroy"]
+                ),
+                regions=["regions"],
+                stack_update_workflow=False
+            )
         '''
         if isinstance(cdk_command_options, dict):
             cdk_command_options = CdkCommands(**cdk_command_options)
@@ -6852,6 +8701,7 @@ class TestOptions:
             hooks = Hooks(**hooks)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b8b692b60499cf01ad0eb22936de4d85bca11a0cd5085ee1a7a2d042fe54b7d)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
             check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
@@ -6859,6 +8709,8 @@ class TestOptions:
             check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
             check_type(argname="argument stack_update_workflow", value=stack_update_workflow, expected_type=type_hints["stack_update_workflow"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
         if allow_destroy is not None:
             self._values["allow_destroy"] = allow_destroy
         if cdk_command_options is not None:
@@ -6871,6 +8723,18 @@ class TestOptions:
             self._values["regions"] = regions
         if stack_update_workflow is not None:
             self._values["stack_update_workflow"] = stack_update_workflow
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6960,6 +8824,18 @@ class TreeArtifactProperties:
         '''Artifact properties for the Construct Tree Artifact.
 
         :param file: Filename of the tree artifact.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            tree_artifact_properties = cloud_assembly_schema.TreeArtifactProperties(
+                file="file"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2876ff1cecf9646045f557584f99de9afa25af35026c0611aa36d9be9ceda2f0)
@@ -6997,6 +8873,22 @@ class UnconfiguredBehavesLike:
         '''
         :param v1: Historical accident, don't use. This value may be present, but it should never be used. The actual value is in the ``v2`` field, regardless of the version of the CDK library. Default: - ignore
         :param v2: The value of the flag that produces the same behavior as when the flag is not configured at all. Even though it is called 'v2', this is the official name of this field. In any future versions of CDK (v3, v4, ...), this field will still be called 'v2'. The structure of this field is a historical accident. See the comment on ``unconfiguredBehavesLike`` for more information. Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # v1: Any
+            # v2: Any
+            
+            unconfigured_behaves_like = cloud_assembly_schema.UnconfiguredBehavesLike(
+                v1=v1,
+                v2=v2
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24e6acea6db216da68872ce6a70889e9d753101f47a05729ee1577a0c96387f4)
@@ -7075,6 +8967,30 @@ class ViolatingConstructJson:
         :param construct_fqn: The fully qualified name of the construct class (includes the library name). Default: - no construct info
         :param library_version: The version of the library that contains this construct. The library name is the first component of the construct FQN. Default: - no version info
         :param stack_traces: Stack traces associated with this violation. This can be all the stack traces where a violating property got its value, or just the construct creation stack trace. Every element of the array is a stack trace, where each stack trace is a ``\\n``-delimited string. Default: - No stack traces
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            violating_construct_json = cloud_assembly_schema.ViolatingConstructJson(
+                construct_path="constructPath",
+            
+                # the properties below are optional
+                cloud_formation_resource=cloud_assembly_schema.CloudFormationResourceJson(
+                    logical_id="logicalId",
+                    template_path="templatePath",
+            
+                    # the properties below are optional
+                    property_paths=["propertyPaths"]
+                ),
+                construct_fqn="constructFqn",
+                library_version="libraryVersion",
+                stack_traces=["stackTraces"]
+            )
         '''
         if isinstance(cloud_formation_resource, dict):
             cloud_formation_resource = CloudFormationResourceJson(**cloud_formation_resource)
@@ -7199,6 +9115,34 @@ class VpcContextQuery(ContextLookupRoleOptions):
         :param return_asymmetric_subnets: Whether to populate the subnetGroups field of the ``VpcContextResponse``, which contains potentially asymmetric subnet groups. Default: false
         :param return_vpn_gateways: Whether to populate the ``vpnGatewayId`` field of the ``VpcContextResponse``, which contains the VPN Gateway ID, if one exists. You can explicitly disable this in order to avoid the lookup if you know the VPC does not have a VPN Gatway attached. Default: true
         :param subnet_group_name_tag: Optional tag for subnet group name. If not provided, we'll look at the aws-cdk:subnet-name tag. If the subnet does not have the specified tag, we'll use its type as the name. Default: 'aws-cdk:subnet-name'
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            vpc_context_query = cloud_assembly_schema.VpcContextQuery(
+                account="account",
+                filter={
+                    "filter_key": "filter"
+                },
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId",
+                return_asymmetric_subnets=False,
+                return_vpn_gateways=False,
+                subnet_group_name_tag="subnetGroupNameTag"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b344502e3b6e6f7f3ea36aea745221e80503fe01dbd1896f774782d7359c6b63)
@@ -7370,6 +9314,32 @@ class AmiContextQuery(ContextLookupRoleOptions):
         :param lookup_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
         :param filters: Filters to DescribeImages call.
         :param owners: Owners to DescribeImages call. Default: - All owners
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            ami_context_query = cloud_assembly_schema.AmiContextQuery(
+                account="account",
+                filters={
+                    "filters_key": ["filters"]
+                },
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId",
+                owners=["owners"]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4a7ca6bdb4ab65083322a53377e46c3e76de9489d9307e6fe5d5c1d341c0b8d)
@@ -7498,6 +9468,28 @@ class AvailabilityZonesContextQuery(ContextLookupRoleOptions):
         :param assume_role_additional_options: Additional options to pass to STS when assuming the lookup role. - ``RoleArn`` should not be used. Use the dedicated ``lookupRoleArn`` property instead. - ``ExternalId`` should not be used. Use the dedicated ``lookupRoleExternalId`` instead. Default: - No additional options.
         :param lookup_role_arn: The ARN of the role that should be used to look up the missing values. Default: - None
         :param lookup_role_external_id: The ExternalId that needs to be supplied while assuming this role. Default: - No ExternalId will be supplied
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            availability_zones_context_query = cloud_assembly_schema.AvailabilityZonesContextQuery(
+                account="account",
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__adbf08ea9af9f33e65db1f0b9da5b59e3bba9d6ac6a15f200c89f16fbcf54304)
@@ -7926,6 +9918,34 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         :param load_balancer_type: Filter load balancers by their type.
         :param load_balancer_arn: Find by load balancer's ARN. Default: - does not search by load balancer arn
         :param load_balancer_tags: Match load balancer tags. Default: - does not match load balancers by tags
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            # assume_role_additional_options: Any
+            
+            load_balancer_context_query = cloud_assembly_schema.LoadBalancerContextQuery(
+                account="account",
+                load_balancer_type=cloud_assembly_schema.LoadBalancerType.NETWORK,
+                region="region",
+            
+                # the properties below are optional
+                assume_role_additional_options={
+                    "assume_role_additional_options_key": assume_role_additional_options
+                },
+                load_balancer_arn="loadBalancerArn",
+                load_balancer_tags=[cloud_assembly_schema.Tag(
+                    key="key",
+                    value="value"
+                )],
+                lookup_role_arn="lookupRoleArn",
+                lookup_role_external_id="lookupRoleExternalId"
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc7611528c17bdeb8bb2d2e7f66ccf8a1cc334604b406f62bfffded2c0ca5cf5)
@@ -8042,6 +10062,7 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
     jsii_type="@aws-cdk/cloud-assembly-schema.TestCase",
     jsii_struct_bases=[TestOptions],
     name_mapping={
+        "allow_delete_failures": "allowDeleteFailures",
         "allow_destroy": "allowDestroy",
         "cdk_command_options": "cdkCommandOptions",
         "diff_assets": "diffAssets",
@@ -8057,6 +10078,7 @@ class TestCase(TestOptions):
     def __init__(
         self,
         *,
+        allow_delete_failures: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
@@ -8069,6 +10091,7 @@ class TestCase(TestOptions):
     ) -> None:
         '''Represents an integration test case.
 
+        :param allow_delete_failures: Whether to allow resources that fail to delete during a stack update. When false, the test will fail if CloudFormation skips deleting a resource during a stack update. When true, only a warning is printed. Default: false
         :param allow_destroy: List of CloudFormation resource types in this stack that can be destroyed as part of an update without failing the test. This list should only include resources that for this specific integration test we are sure will not cause errors or an outage if destroyed. For example, maybe we know that a new resource will be created first before the old resource is destroyed which prevents any outage. e.g. ['AWS::IAM::Role'] Default: - do not allow destruction of any resources on update
         :param cdk_command_options: Additional options to use for each CDK command. Default: - runner default options
         :param diff_assets: Whether or not to include asset hashes in the diff Asset hashes can introduces a lot of unneccessary noise into tests, but there are some cases where asset hashes *should* be included. For example any tests involving custom resources or bundling Default: false
@@ -8078,6 +10101,117 @@ class TestCase(TestOptions):
         :param stacks: Stacks that should be tested as part of this test case The stackNames will be passed as args to the cdk commands so dependent stacks will be automatically deployed unless ``exclusively`` is passed.
         :param assertion_stack: The node id of the stack that contains assertions. This is the value that can be used to deploy the stack with the CDK CLI Default: - no assertion stack
         :param assertion_stack_name: The name of the stack that contains assertions. Default: - no assertion stack
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.cloud_assembly_schema as cloud_assembly_schema
+            
+            test_case = cloud_assembly_schema.TestCase(
+                stacks=["stacks"],
+            
+                # the properties below are optional
+                allow_delete_failures=False,
+                allow_destroy=["allowDestroy"],
+                assertion_stack="assertionStack",
+                assertion_stack_name="assertionStackName",
+                cdk_command_options=cloud_assembly_schema.CdkCommands(
+                    deploy=cloud_assembly_schema.DeployCommand(
+                        args=cloud_assembly_schema.DeployOptions(
+                            all=False,
+                            app="app",
+                            asset_metadata=False,
+                            ca_bundle_path="caBundlePath",
+                            change_set_name="changeSetName",
+                            ci=False,
+                            color=False,
+                            concurrency=123,
+                            context={
+                                "context_key": "context"
+                            },
+                            debug=False,
+                            ec2_creds=False,
+                            exclusively=False,
+                            execute=False,
+                            force=False,
+                            ignore_errors=False,
+                            json=False,
+                            lookups=False,
+                            notices=False,
+                            notification_arns=["notificationArns"],
+                            output="output",
+                            outputs_file="outputsFile",
+                            parameters={
+                                "parameters_key": "parameters"
+                            },
+                            path_metadata=False,
+                            profile="profile",
+                            proxy="proxy",
+                            require_approval=cloud_assembly_schema.RequireApproval.NEVER,
+                            reuse_assets=["reuseAssets"],
+                            role_arn="roleArn",
+                            rollback=False,
+                            stacks=["stacks"],
+                            staging=False,
+                            strict=False,
+                            toolkit_stack_name="toolkitStackName",
+                            trace=False,
+                            use_previous_parameters=False,
+                            verbose=False,
+                            version_reporting=False
+                        ),
+                        enabled=False,
+                        expected_message="expectedMessage",
+                        expect_error=False
+                    ),
+                    destroy=cloud_assembly_schema.DestroyCommand(
+                        args=cloud_assembly_schema.DestroyOptions(
+                            all=False,
+                            app="app",
+                            asset_metadata=False,
+                            ca_bundle_path="caBundlePath",
+                            color=False,
+                            context={
+                                "context_key": "context"
+                            },
+                            debug=False,
+                            ec2_creds=False,
+                            exclusively=False,
+                            force=False,
+                            ignore_errors=False,
+                            json=False,
+                            lookups=False,
+                            notices=False,
+                            output="output",
+                            path_metadata=False,
+                            profile="profile",
+                            proxy="proxy",
+                            role_arn="roleArn",
+                            stacks=["stacks"],
+                            staging=False,
+                            strict=False,
+                            trace=False,
+                            verbose=False,
+                            version_reporting=False
+                        ),
+                        enabled=False,
+                        expected_message="expectedMessage",
+                        expect_error=False
+                    )
+                ),
+                diff_assets=False,
+                hooks=cloud_assembly_schema.Hooks(
+                    post_deploy=["postDeploy"],
+                    post_destroy=["postDestroy"],
+                    pre_deploy=["preDeploy"],
+                    pre_destroy=["preDestroy"]
+                ),
+                regions=["regions"],
+                stack_update_workflow=False
+            )
         '''
         if isinstance(cdk_command_options, dict):
             cdk_command_options = CdkCommands(**cdk_command_options)
@@ -8085,6 +10219,7 @@ class TestCase(TestOptions):
             hooks = Hooks(**hooks)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a15ed4761f9994da082716c3f328395dce904f39530d9fe41636f5e52ae67e79)
+            check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
             check_type(argname="argument diff_assets", value=diff_assets, expected_type=type_hints["diff_assets"])
@@ -8097,6 +10232,8 @@ class TestCase(TestOptions):
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stacks": stacks,
         }
+        if allow_delete_failures is not None:
+            self._values["allow_delete_failures"] = allow_delete_failures
         if allow_destroy is not None:
             self._values["allow_destroy"] = allow_destroy
         if cdk_command_options is not None:
@@ -8113,6 +10250,18 @@ class TestCase(TestOptions):
             self._values["assertion_stack"] = assertion_stack
         if assertion_stack_name is not None:
             self._values["assertion_stack_name"] = assertion_stack_name
+
+    @builtins.property
+    def allow_delete_failures(self) -> typing.Optional[builtins.bool]:
+        '''Whether to allow resources that fail to delete during a stack update.
+
+        When false, the test will fail if CloudFormation skips deleting a resource
+        during a stack update. When true, only a warning is printed.
+
+        :default: false
+        '''
+        result = self._values.get("allow_delete_failures")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_destroy(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8281,6 +10430,7 @@ __all__ = [
     "RuntimeInfo",
     "SSMParameterContextQuery",
     "SecurityGroupContextQuery",
+    "SuppressedViolationJson",
     "Tag",
     "TestCase",
     "TestOptions",
@@ -8889,6 +11039,7 @@ def _typecheckingstub__12d9034a523d5e1b70ce03c12c614dbdf637694660012238ce4f3c820
     violations: typing.Sequence[typing.Union[PolicyViolationJson, typing.Dict[builtins.str, typing.Any]]],
     metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     plugin_version: typing.Optional[builtins.str] = None,
+    suppressed_violations: typing.Optional[typing.Sequence[typing.Union[SuppressedViolationJson, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8956,6 +11107,23 @@ def _typecheckingstub__636adc5f8dd05156bcdda2b5b46333a469800041d6536bc240fd98937
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e21f6dba4dee667759c17cb931b5b0fe7ba7b33a5ddba43f2627743f7543c4f1(
+    *,
+    description: builtins.str,
+    rule_name: builtins.str,
+    severity: builtins.str,
+    violating_constructs: typing.Sequence[typing.Union[ViolatingConstructJson, typing.Dict[builtins.str, typing.Any]]],
+    custom_severity: typing.Optional[builtins.str] = None,
+    rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    suggested_fix: typing.Optional[builtins.str] = None,
+    acknowledged_id: builtins.str,
+    acknowledged_at: typing.Optional[builtins.str] = None,
+    acknowledged_stack_trace: typing.Optional[builtins.str] = None,
+    reason: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8797876976a9abc554ff74078b31cecfbd526dc4824e1a41edd7dc1e980f9796(
     *,
     key: builtins.str,
@@ -8966,6 +11134,7 @@ def _typecheckingstub__8797876976a9abc554ff74078b31cecfbd526dc4824e1a41edd7dc1e9
 
 def _typecheckingstub__3b8b692b60499cf01ad0eb22936de4d85bca11a0cd5085ee1a7a2d042fe54b7d(
     *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,
@@ -9076,6 +11245,7 @@ def _typecheckingstub__bc7611528c17bdeb8bb2d2e7f66ccf8a1cc334604b406f62bfffded2c
 
 def _typecheckingstub__a15ed4761f9994da082716c3f328395dce904f39530d9fe41636f5e52ae67e79(
     *,
+    allow_delete_failures: typing.Optional[builtins.bool] = None,
     allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
     diff_assets: typing.Optional[builtins.bool] = None,

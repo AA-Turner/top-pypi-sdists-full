@@ -5,12 +5,10 @@ Priority: modes.<mode>.phases[].steps[] → top-level phases[].steps[] → hardc
 from __future__ import annotations
 
 from kanban_framework.domain.steps_types import StepDef
-from kanban_framework.domain.steps_full import FULL_STEPS
 from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS
 from kanban_framework.domain.steps_quick import QUICK_STEPS
 
 _DEFAULTS = {
-    "full":        FULL_STEPS,
     "lightweight": LIGHTWEIGHT_STEPS,
     "quick":       QUICK_STEPS,
 }
@@ -97,4 +95,4 @@ def load_steps_for_mode(workflow: dict, mode: str,
             return _parse_phases_to_steps(top_phases)
 
     # Priority 4: hardcoded defaults
-    return _DEFAULTS.get(mode, FULL_STEPS)
+    return _DEFAULTS.get(mode, LIGHTWEIGHT_STEPS)

@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from ..models.edit_copilot_config_response_200_effective_ai_config_max_tokens_per_model import (
         EditCopilotConfigResponse200EffectiveAiConfigMaxTokensPerModel,
     )
+    from ..models.edit_copilot_config_response_200_effective_ai_config_metadata_model import (
+        EditCopilotConfigResponse200EffectiveAiConfigMetadataModel,
+    )
     from ..models.edit_copilot_config_response_200_effective_ai_config_providers import (
         EditCopilotConfigResponse200EffectiveAiConfigProviders,
     )
@@ -32,6 +35,7 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
     Attributes:
         providers (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigProviders]):
         default_model (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigDefaultModel]):
+        metadata_model (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigMetadataModel]):
         code_completion_model (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigCodeCompletionModel]):
         custom_prompts (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigCustomPrompts]):
         max_tokens_per_model (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigMaxTokensPerModel]):
@@ -39,6 +43,7 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
 
     providers: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigProviders"] = UNSET
     default_model: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigDefaultModel"] = UNSET
+    metadata_model: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigMetadataModel"] = UNSET
     code_completion_model: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigCodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigCustomPrompts"] = UNSET
     max_tokens_per_model: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigMaxTokensPerModel"] = UNSET
@@ -52,6 +57,10 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         default_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
+
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
 
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
@@ -72,6 +81,8 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             field_dict["providers"] = providers
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
@@ -95,6 +106,9 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         from ..models.edit_copilot_config_response_200_effective_ai_config_max_tokens_per_model import (
             EditCopilotConfigResponse200EffectiveAiConfigMaxTokensPerModel,
         )
+        from ..models.edit_copilot_config_response_200_effective_ai_config_metadata_model import (
+            EditCopilotConfigResponse200EffectiveAiConfigMetadataModel,
+        )
         from ..models.edit_copilot_config_response_200_effective_ai_config_providers import (
             EditCopilotConfigResponse200EffectiveAiConfigProviders,
         )
@@ -113,6 +127,13 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             default_model = UNSET
         else:
             default_model = EditCopilotConfigResponse200EffectiveAiConfigDefaultModel.from_dict(_default_model)
+
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigMetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = EditCopilotConfigResponse200EffectiveAiConfigMetadataModel.from_dict(_metadata_model)
 
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigCodeCompletionModel]
@@ -142,6 +163,7 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         edit_copilot_config_response_200_effective_ai_config = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
             max_tokens_per_model=max_tokens_per_model,

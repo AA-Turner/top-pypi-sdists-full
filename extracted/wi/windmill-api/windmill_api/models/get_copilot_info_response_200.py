@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
     from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
     from ..models.get_copilot_info_response_200_max_tokens_per_model import GetCopilotInfoResponse200MaxTokensPerModel
+    from ..models.get_copilot_info_response_200_metadata_model import GetCopilotInfoResponse200MetadataModel
     from ..models.get_copilot_info_response_200_providers import GetCopilotInfoResponse200Providers
 
 
@@ -24,6 +25,7 @@ class GetCopilotInfoResponse200:
     Attributes:
         providers (Union[Unset, GetCopilotInfoResponse200Providers]):
         default_model (Union[Unset, GetCopilotInfoResponse200DefaultModel]):
+        metadata_model (Union[Unset, GetCopilotInfoResponse200MetadataModel]):
         code_completion_model (Union[Unset, GetCopilotInfoResponse200CodeCompletionModel]):
         custom_prompts (Union[Unset, GetCopilotInfoResponse200CustomPrompts]):
         max_tokens_per_model (Union[Unset, GetCopilotInfoResponse200MaxTokensPerModel]):
@@ -31,6 +33,7 @@ class GetCopilotInfoResponse200:
 
     providers: Union[Unset, "GetCopilotInfoResponse200Providers"] = UNSET
     default_model: Union[Unset, "GetCopilotInfoResponse200DefaultModel"] = UNSET
+    metadata_model: Union[Unset, "GetCopilotInfoResponse200MetadataModel"] = UNSET
     code_completion_model: Union[Unset, "GetCopilotInfoResponse200CodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "GetCopilotInfoResponse200CustomPrompts"] = UNSET
     max_tokens_per_model: Union[Unset, "GetCopilotInfoResponse200MaxTokensPerModel"] = UNSET
@@ -44,6 +47,10 @@ class GetCopilotInfoResponse200:
         default_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
+
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
 
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
@@ -64,6 +71,8 @@ class GetCopilotInfoResponse200:
             field_dict["providers"] = providers
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
@@ -83,6 +92,7 @@ class GetCopilotInfoResponse200:
         from ..models.get_copilot_info_response_200_max_tokens_per_model import (
             GetCopilotInfoResponse200MaxTokensPerModel,
         )
+        from ..models.get_copilot_info_response_200_metadata_model import GetCopilotInfoResponse200MetadataModel
         from ..models.get_copilot_info_response_200_providers import GetCopilotInfoResponse200Providers
 
         d = src_dict.copy()
@@ -99,6 +109,13 @@ class GetCopilotInfoResponse200:
             default_model = UNSET
         else:
             default_model = GetCopilotInfoResponse200DefaultModel.from_dict(_default_model)
+
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, GetCopilotInfoResponse200MetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = GetCopilotInfoResponse200MetadataModel.from_dict(_metadata_model)
 
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, GetCopilotInfoResponse200CodeCompletionModel]
@@ -124,6 +141,7 @@ class GetCopilotInfoResponse200:
         get_copilot_info_response_200 = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
             max_tokens_per_model=max_tokens_per_model,

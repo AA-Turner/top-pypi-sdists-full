@@ -17,7 +17,7 @@ try:
 except ImportError:  # pragma: no cover — Windows path
     _HAS_FCNTL = False
 
-from ...helpers.atomic_io import atomic_write
+from ...helpers.atomic_io import atomic_write, read_bytes_with_retry
 from ...helpers.json import JSONDecodeError, dumps_indent, loads
 
 _METADATA_FILE = ".device-builder.json"
@@ -88,7 +88,10 @@ def _load_metadata(config_dir: Path) -> dict[str, Any]:
     try:
         # orjson decodes bytes directly, so skip the read_text → encode
         # round-trip. JSONDecodeError is a subclass of ValueError.
-        data = loads(path.read_bytes())
+        # read_bytes_with_retry rides out a Windows sharing-violation race
+        # against a concurrent ``_save_metadata`` replace — the read is
+        # lock-free, so it can open the file mid-rename.
+        data = loads(read_bytes_with_retry(path))
         return data if isinstance(data, dict) else {}
     except (FileNotFoundError, JSONDecodeError):
         return {}
@@ -110,6 +113,7 @@ def set_device_metadata(
     filename: str,
     *,
     board_id: str | None = None,
+    board_id_user_set: bool | None = None,
     friendly_name: str | None = None,
     comment: str | None = None,
     ip: str | None = None,
@@ -124,6 +128,10 @@ def set_device_metadata(
 ) -> None:
     """
     Set metadata fields for a device.
+
+    ``board_id_user_set`` marks ``board_id`` as a deliberate user pick
+    rather than an auto-derived guess. Only ever written ``True``;
+    absence means auto-derived.
 
     ``ip`` is the last-known resolved IP — persisted so the address
     cache survives backend restarts. Pass an empty string to leave the
@@ -204,6 +212,7 @@ def set_device_metadata(
         # tri-state field doesn't bump this function's branch
         # count (ruff PLR0912 caps at 12).
         for key, value in (
+            ("board_id_user_set", board_id_user_set),
             ("expected_config_hash", expected_config_hash),
             ("mac_address", mac_address),
             ("regen_failed_mtime", regen_failed_mtime),

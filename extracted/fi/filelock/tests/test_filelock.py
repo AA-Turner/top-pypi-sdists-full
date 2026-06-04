@@ -61,8 +61,10 @@ def test_simple(
 def make_ro(path: Path) -> Iterator[None]:
     write = S_IWUSR | S_IWGRP | S_IWOTH
     path.chmod(path.stat().st_mode & ~write)
-    yield
-    path.chmod(path.stat().st_mode | write)
+    try:
+        yield
+    finally:
+        path.chmod(path.stat().st_mode | write)
 
 
 @pytest.fixture
@@ -737,6 +739,46 @@ def test_lock_can_be_non_thread_local(
     assert lock.lock_counter == 2
 
     lock.release(force=True)
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_thread_local_setter_visibility(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
+    """Document that property setters are per-thread when thread_local=True.
+
+    Setting ``poll_interval`` on the constructing thread must not affect the
+    value observed from a different thread. The other thread sees the value
+    supplied to the constructor (``threading.local`` re-applies the original
+    constructor arguments the first time each new thread accesses the
+    context).
+    """
+    lock = lock_type(tmp_path / "x.lock", thread_local=True, poll_interval=0.05)
+    lock.poll_interval = 0.5
+
+    observed: list[float] = []
+
+    def read_from_thread() -> None:
+        observed.append(lock.poll_interval)
+
+    t = threading.Thread(target=read_from_thread)
+    t.start()
+    t.join()
+
+    # setter is local to the writing thread; reader sees the constructor default
+    assert observed == [pytest.approx(0.05)]
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_non_thread_local_setter_visibility(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
+    """With thread_local=False, property setters are visible across threads."""
+    lock = lock_type(tmp_path / "x.lock", thread_local=False, poll_interval=0.05)
+    lock.poll_interval = 0.5
+
+    observed: list[float] = []
+    t = threading.Thread(target=lambda: observed.append(lock.poll_interval))
+    t.start()
+    t.join()
+
+    assert observed == [pytest.approx(0.5)]
 
 
 def test_subclass_compatibility(tmp_path: Path) -> None:

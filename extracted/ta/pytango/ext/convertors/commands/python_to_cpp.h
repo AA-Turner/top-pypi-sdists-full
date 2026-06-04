@@ -12,8 +12,7 @@
 #include "convertors/data_array_from_py.h"
 
 template <typename T, int tangoTypeConst>
-inline void scalar_python_data_to_cpp(T &self,
-                                      py::object &py_value) {
+inline void scalar_python_data_to_cpp(T &self, py::object &py_value) {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
     TangoScalarType value;
     python_scalar_to_cpp<tangoTypeConst>::convert(py_value, value);
@@ -43,8 +42,7 @@ inline void scalar_python_data_to_cpp<Tango::DeviceData, Tango::DEV_VOID>([[mayb
 
 template <>
 inline void scalar_python_data_to_cpp<CORBA::Any, Tango::DEV_VOID>([[maybe_unused]] CORBA::Any &self,
-                                                                   [[maybe_unused]] py::object &py_value) {
-}
+                                                                   [[maybe_unused]] py::object &py_value) { }
 
 template <>
 inline void scalar_python_data_to_cpp<Tango::DeviceData, Tango::DEV_PIPE_BLOB>([[maybe_unused]] Tango::DeviceData &self,
@@ -59,8 +57,7 @@ inline void scalar_python_data_to_cpp<CORBA::Any, Tango::DEV_PIPE_BLOB>([[maybe_
 }
 
 template <typename T, int tangoArrayTypeConst>
-inline void array_python_data_to_cpp(T &self,
-                                     py::object &py_value) {
+inline void array_python_data_to_cpp(T &self, py::object &py_value) {
     using TangoArrayType = typename TANGO_const2type(tangoArrayTypeConst);
 
     // Destruction will be handled by CORBA, not by Tango.

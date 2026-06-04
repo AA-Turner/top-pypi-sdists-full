@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2020-2025 CERN.
+# Copyright (C) 2020-2026 CERN.
 # Copyright (C) 2020 Northwestern University.
 # Copyright (C) 2023 Graz University of Technology.
 # Copyright (C) 2025 CESNET i.a.l.e.
@@ -77,6 +77,21 @@ class ValidationErrorGroup(Exception):
 
 class TransferException(Exception):
     """File transfer exception."""
+
+
+class ArchiveDownloadTooLargeException(Exception):
+    """Raised when a record's files exceed the archive download size cap."""
+
+    def __init__(self, max_size):
+        """Constructor."""
+        self.max_size = max_size
+        super().__init__(
+            _(
+                "Archive download is only available for records with total "
+                "file size up to %(max_size)s bytes.",
+                max_size=max_size,
+            )
+        )
 
 
 class FacetNotFoundError(Exception):

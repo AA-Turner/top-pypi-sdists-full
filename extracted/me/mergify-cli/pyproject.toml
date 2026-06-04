@@ -8,7 +8,7 @@ name = "mergify_cli"
 # (`2026.4.23.1`); `mergify --version` from the Rust binary will
 # report the placeholder until Phase 6, when versioning becomes
 # Rust-native end-to-end.
-version = "2026.6.2.4"
+version = "2026.6.3.1"
 description = "Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload"
 authors = [{ name = "Mergify Team", email = "hello@mergify.com" }]
 requires-python = ">=3.13"
@@ -32,14 +32,6 @@ dependencies = [
     "rich==15.0.0",
     "aiofiles==25.1.0",
     "click==8.4.1",
-    # `opentelemetry-exporter-otlp-proto-http` is gone — the OTLP
-    # encode-and-upload step now shells out to the native Rust
-    # binary (`mergify _internal junit-upload`) instead. The SDK
-    # stays because the Python `junit_to_spans` bridge still
-    # builds `ReadableSpan` objects so the quarantine + report
-    # paths can keep using span attributes; that goes away too
-    # in Phase C when the orchestrator is fully native.
-    "opentelemetry-sdk==1.42.1",
     "tenacity==9.1.4",
     "pyyaml==6.0.3",
     "pydantic==2.13.4",

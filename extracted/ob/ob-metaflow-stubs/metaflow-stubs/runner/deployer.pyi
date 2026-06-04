@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.29.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-21T21:10:55.436413                                                            #
+# MF version: 2.19.32.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-06-03T22:23:58.502526                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.argo.argo_workflows_deployer
-    import metaflow
-    import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
-    import metaflow.plugins.argo.argo_workflows_deployer_objects
-    import metaflow.plugins.aws.step_functions.step_functions_deployer
     import metaflow.runner.deployer
+    import metaflow.plugins.aws.step_functions.step_functions_deployer
+    import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow
+    import metaflow.plugins.argo.argo_workflows_deployer
+    import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
 
 from ..exception import MetaflowNotFound as MetaflowNotFound
 
@@ -58,16 +58,6 @@ class Deployer(object, metaclass=DeployerMeta):
     """
     def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Union[str, None] = None, env: typing.Union[typing.Dict, None] = None, cwd: typing.Union[str, None] = None, file_read_timeout: int = 3600, **kwargs):
         ...
-    def argo_workflows(self, *, name: typing.Union[str, None] = None) -> "metaflow.plugins.argo.argo_workflows_deployer.ArgoWorkflowsDeployer":
-        """
-        Deployer implementation for Argo Workflows.
-        
-        Parameters
-        ----------
-        name : str, optional, default None
-            Argo workflow name. The flow name is used instead if this option is not specified.
-        """
-        ...
     def step_functions(self, *, name: typing.Union[str, None] = None) -> "metaflow.plugins.aws.step_functions.step_functions_deployer.StepFunctionsDeployer":
         """
         Deployer implementation for AWS Step Functions.
@@ -76,6 +66,16 @@ class Deployer(object, metaclass=DeployerMeta):
         ----------
         name : str, optional, default None
             State Machine name. The flow name is used instead if this option is not specified.
+        """
+        ...
+    def argo_workflows(self, *, name: typing.Union[str, None] = None) -> "metaflow.plugins.argo.argo_workflows_deployer.ArgoWorkflowsDeployer":
+        """
+        Deployer implementation for Argo Workflows.
+        
+        Parameters
+        ----------
+        name : str, optional, default None
+            Argo workflow name. The flow name is used instead if this option is not specified.
         """
         ...
     ...
@@ -206,6 +206,30 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         """
         ...
     @classmethod
+    def from_step_functions(cls) -> "metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsDeployedFlow":
+        """
+        This method is not currently implemented for Step Functions.
+        
+        Raises
+        ------
+        NotImplementedError
+            This method is not implemented for Step Functions.
+        
+        Parameters
+        ----------
+        
+        
+        Returns
+        -------
+        """
+        ...
+    @classmethod
+    def list_step_functions(cls, flow_name: typing.Union[str, None] = None):
+        ...
+    @classmethod
+    def get_triggered_step_functions_run(cls, identifier: str, run_id: str, metadata: typing.Union[str, None] = None):
+        ...
+    @classmethod
     def from_argo_workflows(cls, *, identifier: str, metadata: typing.Union[str, None] = None) -> "metaflow.plugins.argo.argo_workflows_deployer_objects.ArgoWorkflowsDeployedFlow":
         """
         Retrieves a `ArgoWorkflowsDeployedFlow` object from an identifier and optional
@@ -234,30 +258,6 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         ...
     @classmethod
     def get_triggered_argo_workflows_run(cls, identifier: str, run_id: str, metadata: typing.Union[str, None] = None):
-        ...
-    @classmethod
-    def from_step_functions(cls) -> "metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsDeployedFlow":
-        """
-        This method is not currently implemented for Step Functions.
-        
-        Raises
-        ------
-        NotImplementedError
-            This method is not implemented for Step Functions.
-        
-        Parameters
-        ----------
-        
-        
-        Returns
-        -------
-        """
-        ...
-    @classmethod
-    def list_step_functions(cls, flow_name: typing.Union[str, None] = None):
-        ...
-    @classmethod
-    def get_triggered_step_functions_run(cls, identifier: str, run_id: str, metadata: typing.Union[str, None] = None):
         ...
     ...
 

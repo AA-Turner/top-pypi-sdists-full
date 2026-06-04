@@ -117,6 +117,20 @@ SUPPORTED_TABLES: Set[str] = {
 MAX_DIFF_LINES = 120
 
 
+def _normalize_for_compare(text: str) -> str:
+    """Line-ending–insensitive view of *text* for change detection.
+
+    ServiceNow normalizes EOLs on store, so a CRLF<->LF-only delta is NOT a real
+    change. A raw ``local == remote`` check is byte-sensitive and would flag such
+    a delta as 'modified' — yet the rendered diff uses ``splitlines()`` (which
+    collapses EOL differences), so it comes back EMPTY. That mismatch produced the
+    phantom "status: modified, diff: '', local_lines == remote_lines" report.
+    Comparing on the same ``splitlines()`` basis the diff uses keeps the two
+    consistent and stops phantom pushes of pure line-ending noise.
+    """
+    return "\n".join(text.splitlines())
+
+
 # ---------------------------------------------------------------------------
 # Pydantic Parameter Models
 # ---------------------------------------------------------------------------
@@ -431,14 +445,25 @@ def _reverse_lookup_name(map_data: Dict[str, str], safe_name: str) -> str | None
 
 
 def _validate_instance_url(resolved: _ResolvedComponent, config: ServerConfig) -> None:
-    """Ensure local files belong to the currently connected instance."""
+    """Ensure local files belong to the instance this write will hit.
+
+    On a mismatch, the local file records WHERE it came from, so the fix is not
+    "re-download" — it's "push it back to that origin". Guide the caller to the
+    single safe target: the cross-instance write gate (instance + confirm_instance).
+    """
     if resolved.instance_url and resolved.instance_url.rstrip("/") != config.instance_url.rstrip(
         "/"
     ):
+        origin = resolved.instance_url.rstrip("/")
+        active = config.instance_url.rstrip("/")
         raise ValueError(
-            f"Instance mismatch: local files are from '{resolved.instance_url}' "
-            f"but current connection is '{config.instance_url}'. "
-            f"Re-download from the correct instance first."
+            f"Instance mismatch: this local component is from '{origin}', but the active "
+            f"instance is '{active}' — operating against the active one targets the WRONG "
+            f"instance, so it's blocked. The local file records its origin, so route the "
+            f"call to it (alias for '{origin}' — see list_instances): for a read/diff pass "
+            f"instance=<alias>; for a push pass instance=<alias> confirm_instance=<alias> "
+            f"confirm='approve' (scope is aligned automatically). Do NOT edit config or "
+            f"re-download just to change the target."
         )
 
 
@@ -715,7 +740,9 @@ def diff_local_component(
         local_content = file_path.read_text(encoding="utf-8")
         remote_content = str(remote_record.get(field_name) or "")
 
-        if local_content == remote_content:
+        # Compare on a line-ending–normalized basis (same as the diff render) so a
+        # pure CRLF<->LF delta is not reported as a phantom "modified".
+        if _normalize_for_compare(local_content) == _normalize_for_compare(remote_content):
             diffs.append({"field": field_name, "status": "unchanged"})
             continue
 
@@ -786,8 +813,9 @@ def update_remote_from_local(
     except ValueError as e:
         return {"error": str(e)}
 
-    # 1. Fetch remote content + sys_updated_on
-    all_fields = list(resolved.fields.keys()) + ["sys_updated_on"]
+    # 1. Fetch remote content + sys_updated_on (+ sys_scope so we can align the
+    #    session scope before writing — see the pre-write scope alignment below).
+    all_fields = list(resolved.fields.keys()) + ["sys_updated_on", "sys_scope"]
     try:
         remote_record = _fetch_portal_component_record(
             config, auth_manager, resolved.table, resolved.sys_id, all_fields
@@ -826,7 +854,10 @@ def update_remote_from_local(
             continue
         local_content = file_path.read_text(encoding="utf-8")
         remote_content = str(remote_record.get(field_name) or "")
-        if local_content != remote_content:
+        # Line-ending–normalized: never push a pure CRLF<->LF delta (ServiceNow
+        # normalizes EOLs on store anyway, and a noise-only write can spuriously
+        # trip ACL/conflict paths).
+        if _normalize_for_compare(local_content) != _normalize_for_compare(remote_content):
             update_data[field_name] = local_content
 
     if not update_data:
@@ -838,6 +869,26 @@ def update_remote_from_local(
                 "name": resolved.name,
             },
         }
+
+    # 3b. Align the session scope to the component's scope BEFORE writing. A REST
+    # write to a scoped record is rejected (403 cross-scope) when the session's
+    # current app is a different scope — even though the same user can save it in
+    # the in-scope UI. The component's scope is known from the record we just
+    # read, so set it proactively (browser auth only; best-effort — if it can't
+    # switch, the write still attempts and the 403 path below explains why).
+    from servicenow_mcp.tools.session_context_tools import _is_browser_auth, set_application_scope
+
+    if _is_browser_auth(config):
+        sc = remote_record.get("sys_scope")
+        scope_sys_id = str(sc.get("value") or "") if isinstance(sc, dict) else str(sc or "")
+        if scope_sys_id:
+            switched = set_application_scope(config, auth_manager, scope_sys_id)
+            if not switched.get("success"):
+                logger.info(
+                    "Pre-write scope align to %s did not confirm: %s",
+                    scope_sys_id,
+                    switched.get("error"),
+                )
 
     # 4. Delegate to existing update_portal_component
     try:
@@ -890,6 +941,23 @@ def update_remote_from_local(
                 "(3) scoped-app protection or wrong scope. Local files and _sync_meta are "
                 "UNCHANGED — free/switch the update set (or use a privileged session), then retry."
             )
+            # Service Portal tables carry protections BEYOND the table role ACL.
+            # The user's account can hold sp_admin and the update set can be open,
+            # yet a Table-API write to an sp_* script field still 403s because the
+            # request lacks the SP Designer context (Referer/source check) or the
+            # record/field has an instance-specific protection policy or
+            # condition-scripted field ACL. This commonly differs per instance
+            # (works on dev, blocked on test) even with identical roles.
+            if resolved.table.startswith("sp_"):
+                hint += (
+                    f" NOTE: '{resolved.table}' is a Service Portal table — its write is "
+                    "gated by protections layered on top of role/ACL (script-field source-"
+                    "context checks, sys_policy record protection, condition-scripted field "
+                    "ACLs) that the generic Table API path does not satisfy and that can "
+                    "differ per instance even with sp_admin. If roles + update set check out, "
+                    "edit this record in the SP Designer UI on that instance, or compare the "
+                    "record's ACLs/protection policy between the working and blocked instances."
+                )
         else:
             hint = (
                 "Remote rejected the write. Local files and _sync_meta are UNCHANGED; "

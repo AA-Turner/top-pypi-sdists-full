@@ -11,7 +11,7 @@ import click
 from launchable.utils.env_keys import TOKEN_KEY
 from launchable.utils.tracking import Tracking, TrackingClient
 
-from ..utils.authentication import get_org_workspace, ensure_org_workspace
+from ..utils.authentication import ensure_org_workspace, get_org_workspace
 from ..utils.click import emoji
 from ..utils.commands import Command
 from ..utils.http_client import DEFAULT_BASE_URL

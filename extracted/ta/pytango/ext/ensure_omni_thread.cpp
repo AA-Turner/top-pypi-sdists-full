@@ -70,7 +70,61 @@ void export_ensure_omni_thread(py::module_ &m) {
             the lifetime of the thread, and must be released before the thread
             is cleaned up.
 
-            Here is an example::
+            tango.utils.PyTangoThread (added in 10.3.0) runs with this context
+            handler automatically active, so it is not necessary to use this
+            context handler when using that class:
+
+            Supplying a target::
+
+                import tango
+                from time import sleep
+
+
+                def thread_task():
+                    eid = dp.subscribe_event(
+                        "double_scalar", tango.EventType.PERIODIC_EVENT, cb)
+                    while running:
+                        print(f"num events stored {len(cb.get_events())}")
+                        sleep(1)
+                    dp.unsubscribe_event(eid)
+
+
+                cb = tango.utils.EventCallback()  # print events to stdout
+                dp = tango.DeviceProxy("sys/tg_test/1")
+                dp.poll_attribute("double_scalar", 1000)
+                thread = tango.utils.PyTangoThread(target=thread_task)
+                running = True
+                thread.start()
+                sleep(5)
+                running = False
+                thread.join()
+
+            Overriding `tango.utils.PyTangoThread.run`::
+
+                import tango
+                from time import sleep
+
+                class myPyTangoTask(tango.utils.PyTangoThread):
+                    def run():
+                        eid = dp.subscribe_event(
+                            "double_scalar", tango.EventType.PERIODIC_EVENT, cb)
+                        while running:
+                            print(f"num events stored {len(cb.get_events())}")
+                            sleep(1)
+                        dp.unsubscribe_event(eid)
+
+
+                cb = tango.utils.EventCallback()  # print events to stdout
+                dp = tango.DeviceProxy("sys/tg_test/1")
+                dp.poll_attribute("double_scalar", 1000)
+                thread = myPyTangoTask()
+                running = True
+                thread.start()
+                sleep(5)
+                running = False
+                thread.join()
+
+            Here is an example directly using EnsureOmniThread::
 
                 import tango
                 from threading import Thread
@@ -109,9 +163,8 @@ void export_ensure_omni_thread(py::module_ &m) {
             This includes user threads that have a dummy omniORB thread ID, such
             as that provided by EnsureOmniThread.
 
-                Parameters : None
+            :return: True if the calling thread is an omnithread.
+            :rtype: bool
 
-                Return     : (bool) True if the calling thread is an omnithread.
-
-            New in PyTango 9.3.2)doc");
+            .. versionadded:: 9.3.2)doc");
 }

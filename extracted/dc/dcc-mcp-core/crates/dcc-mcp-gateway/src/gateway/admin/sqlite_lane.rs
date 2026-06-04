@@ -74,6 +74,22 @@ impl AdminSqliteReader {
             .collect()
     }
 
+    /// Read persisted audit rows in a time range, newest first (for analytics aggregation).
+    pub fn list_audits_since(
+        &self,
+        cutoff: Option<SystemTime>,
+        limit: usize,
+    ) -> Vec<AdminAuditRecord> {
+        self.inner
+            .list_audits_since_json(cutoff, limit)
+            .into_iter()
+            .filter_map(|s| {
+                let p: GatewayAdminAuditPersistedJson = serde_json::from_str(&s).ok()?;
+                Some(admin_audit_from_persisted(p))
+            })
+            .collect()
+    }
+
     pub fn list_custom_skill_paths(&self) -> Vec<(i64, String)> {
         self.inner.list_custom_skill_paths()
     }
@@ -121,6 +137,9 @@ fn admin_audit_from_persisted(p: GatewayAdminAuditPersistedJson) -> AdminAuditRe
         duration_ms: p.duration_ms,
         token_accounting: p
             .token_accounting
+            .and_then(|value| serde_json::from_value(value).ok()),
+        llm_usage: p
+            .llm_usage
             .and_then(|value| serde_json::from_value(value).ok()),
     }
 }
@@ -220,6 +239,10 @@ fn audit_to_persisted(r: &AdminAuditRecord) -> GatewayAdminAuditPersistedJson {
             .token_accounting
             .as_ref()
             .and_then(|value| serde_json::to_value(value).ok()),
+        llm_usage: r
+            .llm_usage
+            .as_ref()
+            .and_then(|value| serde_json::to_value(value).ok()),
     }
 }
 
@@ -267,6 +290,14 @@ impl AdminSqliteReader {
     }
 
     pub fn list_audits_recent(&self, _limit: usize) -> Vec<AdminAuditRecord> {
+        vec![]
+    }
+
+    pub fn list_audits_since(
+        &self,
+        _cutoff: Option<SystemTime>,
+        _limit: usize,
+    ) -> Vec<AdminAuditRecord> {
         vec![]
     }
 
@@ -353,6 +384,7 @@ mod tests {
             input: None,
             output: None,
             token_accounting: None,
+            llm_usage: None,
         };
         lane.try_persist_trace(&t);
         drop(lane);

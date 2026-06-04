@@ -72,6 +72,19 @@ static void log_to_stream(log4tango::LoggerStream &stream, const std::string &fi
 
 namespace PyDeviceImpl {
 
+#if defined(PYTANGO_USE_TELEMETRY)
+
+inline bool check_telemetry_topic(Tango::DeviceImpl &self, const std::string &topic_str) {
+    for(const auto &configured_topic : self.get_telemetry_topics()) {
+        if(configured_topic == "all" || configured_topic == topic_str) {
+            return true;
+        }
+    }
+    return false;
+}
+
+#endif
+
 inline py::dict get_version_info_dict(Tango::DeviceImpl &self) {
     py::dict result;
     Tango::DevInfoVersionList list = self.get_version_info();
@@ -84,18 +97,10 @@ inline py::dict get_version_info_dict(Tango::DeviceImpl &self) {
     return result;
 }
 
-#if defined(TANGO_USE_TELEMETRY)
+#if defined(PYTANGO_USE_TELEMETRY)
 inline bool is_telemetry_enabled(Tango::DeviceImpl &self) {
     if(self.telemetry()) {
         return self.telemetry()->is_enabled();
-    } else {
-        return false;
-    }
-}
-
-inline bool is_kernel_tracing_enabled(Tango::DeviceImpl &self) {
-    if(self.telemetry()) {
-        return self.telemetry()->are_kernel_traces_enabled();
     } else {
         return false;
     }
@@ -106,17 +111,13 @@ inline bool is_kernel_tracing_enabled(Tango::DeviceImpl &self) {
  * firing event for change, alarm, archive events
  * **********************************/
 
-inline void generic_push_event(Tango::DeviceImpl &self,
-                               py::str &name,
-                               Tango::EventType eventType) {
+inline void generic_push_event(Tango::DeviceImpl &self, py::str &name, Tango::EventType eventType) {
     py::str name_lower = name.attr("lower")();
     std::string name_cpp = name_lower.cast<std::string>();
     if(name_cpp != "state" && name_cpp != "status") {
         std::string err = "Cannot push event for attribute " + name_cpp + " without data. ";
         err += "Pushing event without data parameter is only allowed for State and Status attributes.";
-        Tango::Except::throw_exception("PyDs_InvalidCall",
-                                       err,
-                                       "PyDeviceImpl::generic_push_event");
+        Tango::Except::throw_exception("PyDs_InvalidCall", err, "PyDeviceImpl::generic_push_event");
     }
     TAKE_MONITOR_LOCK_AND_GET_ATTRIBUTE(self, name_lower) // this creates attr
     attr.reset_value();
@@ -170,18 +171,13 @@ inline void generic_push_event(Tango::DeviceImpl &self,
  * firing user event
  * **********************************/
 
-inline void push_event(Tango::DeviceImpl &self,
-                       py::str &name,
-                       py::object &filt_names,
-                       py::object &filt_vals) {
+inline void push_event(Tango::DeviceImpl &self, py::str &name, py::object &filt_names, py::object &filt_vals) {
     py::str name_lower = name.attr("lower")();
     std::string name_cpp = name_lower.cast<std::string>();
     if(name_cpp != "state" && name_cpp != "status") {
         std::string err = "Cannot push event for attribute " + name_cpp + " without data. ";
         err += "Pushing event without data parameter is only allowed for State and Status attributes.";
-        Tango::Except::throw_exception("PyDs_InvalidCall",
-                                       err,
-                                       "PyDeviceImpl::push_event");
+        Tango::Except::throw_exception("PyDs_InvalidCall", err, "PyDeviceImpl::push_event");
     }
     CONVERT_FILTERS_TO_CPP(filt_names, filt_vals)         // this creates cpp_filt_names and cpp_filt_vals
     TAKE_MONITOR_LOCK_AND_GET_ATTRIBUTE(self, name_lower) // this creates attr
@@ -407,19 +403,11 @@ inline void fatal(Tango::DeviceImpl &self, const std::string &file, int line, co
 }
 } // namespace PyDeviceImpl
 
-void no_op_void_handler_method([[maybe_unused]] PyObject *self) { }
-
-bool always_false([[maybe_unused]] PyObject *self) {
-    return false;
-}
-
 void export_device_impl(py::module &m) {
-    py::class_<Tango::DeviceImpl,
-               LeakingSmartPtr<Tango::DeviceImpl>,
-               DeviceImplTrampoline>(m,
-                                     "DeviceImpl",
-                                     py::dynamic_attr(),
-                                     R"doc(
+    py::class_<Tango::DeviceImpl, LeakingSmartPtr<Tango::DeviceImpl>, DeviceImplTrampoline>(m,
+                                                                                            "DeviceImpl",
+                                                                                            py::dynamic_attr(),
+                                                                                            R"doc(
             Base class for all TANGO device.
 
             This class inherits from CORBA classes where all the network layer is implemented.)doc")
@@ -432,78 +420,54 @@ void export_device_impl(py::module &m) {
         .def("init_device",
              &Tango::DeviceImpl::init_device,
              R"doc(
-                init_device(self)
-
-                    Initialize the device.)doc")
+                 Initialize the device.
+             )doc")
         .def("get_exported_flag",
              &Tango::DeviceImpl::get_exported_flag,
              R"doc(
-            get_exported_flag(self) -> bool
-
                 Returns the state of the exported flag
 
-            :returns: the state of the exported flag
-            :rtype: bool
-
-            New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+            )doc")
         .def("set_state",
              &Tango::DeviceImpl::set_state,
              R"doc(
-                set_state(self, new_state)
-
                 Set device state.
 
                 :param new_state: the new device state
-                :type new_state: DevState)doc",
+                :type new_state: :obj:`~tango.DevState`
+            )doc",
              py::arg("new_state"))
         .def("get_state",
              &Tango::DeviceImpl::get_state,
              py::return_value_policy::copy,
              R"doc(
-                get_state(self) -> DevState
-
-                    Get a COPY of the device state.
-
-                :returns: Current device state
-                :rtype: DevState)doc")
+                Get the device state.
+             )doc")
         .def("get_prev_state",
              &Tango::DeviceImpl::get_prev_state,
              py::return_value_policy::copy,
              R"doc(
-                get_prev_state(self) -> DevState
-
-                    Get a COPY of the device's previous state.
-
-                :returns: the device's previous state
-                :rtype: DevState)doc")
+                Get the device's previous state.
+             )doc")
         .def("get_name",
              &Tango::DeviceImpl::get_name,
              py::return_value_policy::copy,
              R"doc(
-                get_name(self) -> (str)
-
-                    Get a COPY of the device name.
-
-                :returns: the device name
-                :rtype: str)doc")
+                Get the device name.
+             )doc")
         .def("get_device_attr",
              &Tango::DeviceImpl::get_device_attr,
              py::return_value_policy::reference,
              R"doc(
-                get_device_attr(self) -> MultiAttribute
-
-                    Get device multi attribute object.
-
-                :returns: the device's MultiAttribute object
-                :rtype: MultiAttribute)doc")
+                Get device multi attribute object.
+             )doc")
 #if !defined WIN32
         .def("register_signal",
              py::overload_cast<long, bool>(&Tango::DeviceImpl::register_signal),
              R"doc(
-                register_signal(self, signo, own_handler)
-
-                    Register this device as device to be informed when signal signo
-                    is sent to to the device server process
+                Register this device as device to be informed when signal signo
+                is sent to to the device server process
 
                 :param signo: signal identifier
                 :type signo: int
@@ -513,208 +477,183 @@ void export_device_impl(py::module &m) {
                                     executed by the signal thread. If this parameter
                                     is set to true, care should be taken on how the
                                     handler is written. A default false value is provided
-                :type own_handler: bool)doc",
+                :type own_handler: bool
+             )doc",
              py::arg("signo"),
-             py::arg("own_handler"))
+             py::arg("own_handler") = false)
 #else
         .def("register_signal",
              py::overload_cast<long>(&Tango::DeviceImpl::register_signal),
              R"doc(
-                register_signal(self, signo)
-
-                    Register a signal.
-
                 Register this device as device to be informed when signal signo
                 is sent to to the device server process
 
                 :param signo: signal identifier
-                :type signo: int)doc",
+                :type signo: int
+             )doc",
              py::arg("signo"))
 #endif
         .def("unregister_signal",
              &Tango::DeviceImpl::unregister_signal,
              R"doc(
-                unregister_signal(self, signo)
-
-                    Unregister this device as device to be informed when signal signo
-                    is sent to to the device server process
+                Unregister this device as device to be informed when signal signo
+                is sent to to the device server process
 
                 :param signo: signal identifier
-                :type signo: int)doc",
+                :type signo: int
+             )doc",
              py::arg("signo"))
         .def("get_status",
              &Tango::DeviceImpl::get_status,
              py::return_value_policy::copy,
              R"doc(
-                get_status(self) -> str
-
-                    Get a COPY of the device status.
-
-                :returns: the device status
-                :rtype: str)doc")
+                Get the device status.
+             )doc")
         .def("set_status",
              &Tango::DeviceImpl::set_status,
              R"doc(
-                set_status(self, new_status)
-
-                    Set device status.
+                Set device status.
 
                 :param new_status: the new device status
-                :type new_status: str)doc",
+                :type new_status: :py:obj:`str`
+             )doc",
              py::arg("new_status"))
         .def("append_status",
              &Tango::DeviceImpl::append_status,
              R"doc(
-                append_status(self, status, new_line=False)
-
-                    Appends a string to the device status.
+                 Appends a string to the device status.
 
                 :param status: the string to be appended to the device status
-                :type status: str
+                :type status: :py:obj:`str`
+
                 :param new_line: If true, appends a new line character before the string. Default is False
-                :type new_line: bool)doc",
+                :type new_line: bool
+             )doc",
              py::arg("status"),
              py::arg("new_line") = false)
         .def("dev_state",
              &Tango::DeviceImpl::dev_state,
              R"doc(
-                dev_state(self) -> DevState
+                Get device state.
 
-                    Get device state.
+                Default method to get device state. The behaviour of this method depends
+                on the device state. If the device state is ON or ALARM, it reads the
+                attribute(s) with an alarm level defined, check if the read value is
+                above/below the alarm and eventually change the state to ALARM, return
+                the device state. For all the other device states, this method simply
+                returns the state This method can be redefined in sub-classes in case
+                of the default behaviour does not fullfill the needs.
 
-                    Default method to get device state. The behaviour of this method depends
-                    on the device state. If the device state is ON or ALARM, it reads the
-                    attribute(s) with an alarm level defined, check if the read value is
-                    above/below the alarm and eventually change the state to ALARM, return
-                    the device state. For all th other device state, this method simply
-                    returns the state This method can be redefined in sub-classes in case
-                    of the default behaviour does not fullfill the needs.
-
-                :returns: the device state
-                :rtype: DevState
-
-                :raises DevFailed: If it is necessary to read attribute(s) and a problem occurs during the reading)doc")
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
         .def("dev_status",
              &Tango::DeviceImpl::dev_status,
              R"doc(
-                dev_status(self) -> str
+                Get device status.
 
-                    Get device status.
+                Default method to get device status. It returns the contents of the device
+                dev_status field. If the device state is ALARM, alarm messages are added
+                to the device status. This method can be redefined in sub-classes in case
+                of the default behaviour does not fullfill the needs.
 
-                    Default method to get device status. It returns the contents of the device
-                    dev_status field. If the device state is ALARM, alarm messages are added
-                    to the device status. This method can be redefined in sub-classes in case
-                    of the default behaviour does not fullfill the needs.
-
-                :returns: the device status
-                :rtype: str
-
-                :raises DevFailed: If it is necessary to read attribute(s) and a problem occurs during the reading)doc")
+                 :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
         .def("set_attribute_config",
              &Tango::DeviceImpl::set_attribute_config,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                set_attribute_config(self, new_conf) -> None
-
-                    Sets attribute configuration locally and in the Tango database
+                Sets attribute configuration locally and in the Tango database
 
                 :param new_conf: The new attribute(s) configuration. One AttributeConfig structure is needed for each attribute to update
                 :type new_conf: list[:class:`tango.AttributeConfig`]
 
-                :returns: None
-                :rtype: None
-
-                .. versionadded:: 10.0.0)doc",
+                .. versionadded:: 10.0.0
+             )doc",
              py::arg("new_conf"))
-        .def("_get_attribute_config",
-             &Tango::DeviceImpl::get_attribute_config,
-             py::call_guard<py::gil_scoped_release>())
+        .def(
+            "_get_attribute_config", &Tango::DeviceImpl::get_attribute_config, py::call_guard<py::gil_scoped_release>())
         .def("set_change_event",
              &Tango::DeviceImpl::set_change_event,
              R"doc(
-                set_change_event(self, attr_name, implemented, detect=True)
+                Set an implemented flag for the attribute to indicate that the server fires
+                change events manually, without the polling to be started.
 
-                    Set an implemented flag for the attribute to indicate that the server fires
-                    change events manually, without the polling to be started.
-
-                    If the detect parameter is set to true, the criteria specified for the
-                    change event (rel_change and abs_change) are verified and
-                    the event is only pushed if a least one of them are fulfilled
-                    (change in value compared to previous event exceeds a threshold).
-                    If detect is set to false the event is fired without any value checking!
+                If the detect parameter is set to true, the criteria specified for the
+                change event (rel_change and abs_change) are verified and
+                the event is only pushed if a least one of them are fulfilled
+                (change in value compared to previous event exceeds a threshold).
+                If detect is set to false the event is fired without any value checking!
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
                 :param implemented: True when the server fires change events manually.
                 :type implemented: bool
                 :param detect: Triggers the verification of the change event properties
                                 when set to true. Default value is true.
-                :type detect: bool)doc",
+                :type detect: bool
+             )doc",
              py::arg("attr_name"),
              py::arg("implemented"),
              py::arg("detect") = true)
         .def("set_alarm_event",
              &Tango::DeviceImpl::set_alarm_event,
              R"doc(
-                set_alarm_event(self, attr_name, implemented, detect=True)
+                Set an implemented flag for the attribute to indicate that the server fires
+                alarm events manually, without the polling to be started.
 
-                    Set an implemented flag for the attribute to indicate that the server fires
-                    alarm events manually, without the polling to be started.
-
-                    If the detect parameter is set to true, the criteria specified for the
-                    alarm event (rel_change and abs_change) are verified and
-                    the event is only pushed if a least one of them are fulfilled
-                    (change in value compared to previous event exceeds a threshold).
-                    If detect is set to false the event is fired without any value checking!
+                If the detect parameter is set to true, the criteria specified for the
+                alarm event (rel_change and abs_change) are verified and
+                the event is only pushed if a least one of them are fulfilled
+                (change in value compared to previous event exceeds a threshold).
+                If detect is set to false the event is fired without any value checking!
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
                 :param implemented: True when the server fires alarm events manually.
                 :type implemented: bool
                 :param detect: Triggers the verification of the alarm event properties
                                when set to true. Default value is true.
                 :type detect: bool
 
-                .. versionadded:: 10.0.0)doc",
+                .. versionadded:: 10.0.0
+             )doc",
              py::arg("attr_name"),
              py::arg("implemented"),
              py::arg("detect") = true)
         .def("set_archive_event",
              &Tango::DeviceImpl::set_archive_event,
              R"doc(
-                set_alarm_event(self, attr_name, implemented, detect)
+                Set an implemented flag for the attribute to indicate that the server fires
+                archive events manually, without the polling to be started.
 
-                    Set an implemented flag for the attribute to indicate that the server fires
-                    archive events manually, without the polling to be started.
-
-                    If the detect parameter is set to true, the criteria specified for the
-                    archive event (rel_change and abs_change) are verified and
-                    the event is only pushed if a least one of them are fulfilled
-                    (change in value compared to previous event exceeds a threshold).
-                    If detect is set to false the event is fired without any value checking!
+                If the detect parameter is set to true, the criteria specified for the
+                archive event (rel_change and abs_change) are verified and
+                the event is only pushed if a least one of them are fulfilled
+                (change in value compared to previous event exceeds a threshold).
+                If detect is set to false the event is fired without any value checking!
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
                 :param implemented: True when the server fires change events manually.
                 :type implemented: bool
                 :param detect: Triggers the verification of the change event properties
                                 when set to true. Default value is true.
-                :type detect: bool)doc",
+                :type detect: bool
+             )doc",
              py::arg("attr_name"),
              py::arg("implemented"),
              py::arg("detect") = true)
         .def("set_data_ready_event",
              &Tango::DeviceImpl::set_data_ready_event,
              R"doc(
-                set_alarm_event(self, attr_name, implemented)
-
-                    Set an implemented flag for the attribute to indicate that the server fires
-                    data ready events manually.
+                Set an implemented flag for the attribute to indicate that the server fires
+                data ready events manually.
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
                 :param implemented: True when the server fires change events manually.
-                :type implemented: bool)doc",
+                :type implemented: bool
+             )doc",
              py::arg("attr_name"),
              py::arg("implemented"))
         .def("_add_attribute",
@@ -745,15 +684,11 @@ void export_device_impl(py::module &m) {
             },
             py::call_guard<py::gil_scoped_release>(),
             R"doc(
-                is_attribute_polled(self, attr_name) -> bool
-
-                    True if the attribute is polled.
+                True if the attribute is polled.
 
                 :param attr_name: attribute name
-                :type attr_name: str
-
-                :return: True if the attribute is polled
-                :rtype: bool)doc",
+                :type attr_name: :py:obj:`str`
+            )doc",
             py::arg("attr_name"))
         .def(
             "is_command_polled",
@@ -762,15 +697,11 @@ void export_device_impl(py::module &m) {
             },
             py::call_guard<py::gil_scoped_release>(),
             R"doc(
-                is_command_polled(self, cmd_name) -> bool
-
-                    True if the command is polled.
+                True if the command is polled.
 
                 :param cmd_name: attribute name
-                :type cmd_name: str
-
-                :return: True if the command is polled
-                :rtype: bool)doc",
+                :type cmd_name: :py:obj:`str`
+            )doc",
             py::arg("cmd_name"))
         .def(
             "get_attribute_poll_period",
@@ -778,18 +709,14 @@ void export_device_impl(py::module &m) {
                 return static_cast<DeviceImplTrampoline &>(self).get_attribute_poll_period_public(att_name);
             },
             R"doc(
-                get_attribute_poll_period(self, attr_name) -> int
-
-                    Returns the attribute polling period (milliseconds) or 0 if the attribute
-                    is not polled.
+                Returns the attribute polling period (milliseconds) or 0 if the attribute
+                is not polled.
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
 
-                :returns: attribute polling period (ms) or 0 if it is not polled
-                :rtype: int
-
-                New in PyTango 8.0.0)doc",
+                .. versionadded:: 8.0.0
+            )doc",
             py::arg("attr_name"))
         .def(
             "get_command_poll_period",
@@ -797,18 +724,14 @@ void export_device_impl(py::module &m) {
                 return static_cast<DeviceImplTrampoline &>(self).get_command_poll_period_public(cmd_name);
             },
             R"doc(
-                get_command_poll_period(self, cmd_name) -> int
-
-                    Returns the command polling period (milliseconds) or 0 if the command
-                    is not polled.
+                Returns the command polling period (milliseconds) or 0 if the command
+                is not polled.
 
                 :param cmd_name: command name
-                :type cmd_name: str
+                :type cmd_name: :py:obj:`str`
 
-                :returns: command polling period (ms) or 0 if it is not polled
-                :rtype: int
-
-                New in PyTango 8.0.0)doc",
+                .. versionadded:: 8.0.0
+            )doc",
             py::arg("cmd_name"))
         .def(
             "poll_attribute",
@@ -817,18 +740,14 @@ void export_device_impl(py::module &m) {
             },
             py::call_guard<py::gil_scoped_release>(),
             R"doc(
-                poll_attribute(self, attr_name, period_ms) -> None
-
-                    Add an attribute to the list of polled attributes.
+                Add an attribute to the list of polled attributes.
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
 
                 :param period_ms: polling period in milliseconds
                 :type period_ms: int
-
-                :return: None
-                :rtype: None)doc",
+            )doc",
             py::arg("attr_name"),
             py::arg("period_ms"))
         .def(
@@ -838,18 +757,14 @@ void export_device_impl(py::module &m) {
             },
             py::call_guard<py::gil_scoped_release>(),
             R"doc(
-                poll_command(self, cmd_name, period_ms) -> None
-
-                    Add a command to the list of polled commands.
+                Add a command to the list of polled commands.
 
                 :param cmd_name: command name
-                :type cmd_name: str
+                :type cmd_name: :py:obj:`str`
 
                 :param period_ms: polling period in milliseconds
                 :type period_ms: int
-
-                :return: None
-                :rtype: None)doc",
+            )doc",
             py::arg("cmd_name"),
             py::arg("period_ms"))
         .def(
@@ -859,15 +774,11 @@ void export_device_impl(py::module &m) {
             },
             py::call_guard<py::gil_scoped_release>(),
             R"doc(
-                stop_poll_attribute(self, attr_name) -> None
-
-                    Remove an attribute from the list of polled attributes.
+                Remove an attribute from the list of polled attributes.
 
                 :param attr_name: attribute name
-                :type attr_name: str
-
-                :return: None
-                :rtype: None)doc",
+                :type attr_name: :py:obj:`str`
+            )doc",
             py::arg("attr_name"))
         .def(
             "stop_poll_command",
@@ -876,359 +787,235 @@ void export_device_impl(py::module &m) {
             },
             py::call_guard<py::gil_scoped_release>(),
             R"doc(
-                stop_poll_command(self, cmd_name) -> None
-
-                    Remove a command from the list of polled commands.
+                Remove a command from the list of polled commands.
 
                 :param cmd_name: cmd_name name
-                :type cmd_name: str
-
-                :return: None
-                :rtype: None)doc",
+                :type cmd_name: :py:obj:`str`
+            )doc",
             py::arg("cmd_name"))
 
         .def("get_poll_ring_depth",
              &Tango::DeviceImpl::get_poll_ring_depth,
              R"doc(
-                get_poll_ring_depth(self) -> int
+                Returns the poll ring depth
 
-                    Returns the poll ring depth
-
-                :returns: the poll ring depth
-                :rtype: int
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("get_poll_old_factor",
              &Tango::DeviceImpl::get_poll_old_factor,
              R"doc(
-                get_poll_old_factor(self) -> int
+                Returns the poll old factor
 
-                    Returns the poll old factor
-
-                :returns: the poll old factor
-                :rtype: int
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("is_polled",
              py::overload_cast<>(&Tango::DeviceImpl::is_polled),
              R"doc(
-                is_polled(self) -> bool
+                Returns if it is polled
 
-                    Returns if it is polled
-
-                :returns: True if it is polled or False otherwise
-                :rtype: bool
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("get_polled_cmd",
              &Tango::DeviceImpl::get_polled_cmd,
              py::return_value_policy::copy,
              R"doc(
-                get_polled_cmd(self) -> Sequence[str]
+                Returns the list of polled commands
 
-                    Returns a COPY of the list of polled commands
-
-                :returns: a COPY of the list of polled commands
-                :rtype: Sequence[str]
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("get_polled_attr",
              &Tango::DeviceImpl::get_polled_attr,
              py::return_value_policy::copy,
              R"doc(
-                get_polled_attr(self) -> Sequence[str]
+                Returns the list of polled attributes
 
-                    Returns a COPY of the list of polled attributes
-
-                :returns: a COPY of the list of polled attributes
-                :rtype: Sequence[str]
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("get_non_auto_polled_cmd",
              &Tango::DeviceImpl::get_non_auto_polled_cmd,
              py::return_value_policy::copy,
              R"doc(
-                get_non_auto_polled_cmd(self) -> Sequence[str]
+                Returns the list of non automatic polled commands
 
-                    Returns a COPY of the list of non automatic polled commands
-
-                :returns: a COPY of the list of non automatic polled commands
-                :rtype: Sequence[str]
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("get_non_auto_polled_attr",
              &Tango::DeviceImpl::get_non_auto_polled_attr,
              py::return_value_policy::copy,
              R"doc(
-                get_non_auto_polled_attr(self) -> Sequence[str]
+                Returns the list of non automatic polled attributes
 
-                    Returns a COPY of the list of non automatic polled attributes
-
-                :returns: a COPY of the list of non automatic polled attributes
-                :rtype: Sequence[str]
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         //@TODO .def("get_poll_obj_list", &PyDeviceImpl::get_poll_obj_list)
         .def("stop_polling",
              py::overload_cast<>(&Tango::DeviceImpl::stop_polling),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                stop_polling(self)
+                Stop all polling for a device. If the device is polled, call this
+                method before deleting it.
 
-                    Stop all polling for a device. if the device is polled, call this
-                    method before deleting it.
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("stop_polling",
              py::overload_cast<bool>(&Tango::DeviceImpl::stop_polling),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                stop_polling(self, with_db_upd)(self)
-
-                    Stop all polling for a device. if the device is polled, call this
-                    method before deleting it.
+                Stop all polling for a device. If the device is polled, call this
+                method before deleting it.
 
                 :param with_db_upd: Is it necessary to update db?
                 :type with_db_upd: bool
 
-                New in PyTango 7.1.2)doc",
+                .. versionadded:: 7.1.2
+             )doc",
              py::arg("with_db_upd"))
         .def("check_command_exists",
              &Tango::DeviceImpl::check_command_exists,
              R"doc(
-                check_command_exists(self, cmd_name)
+                Check that a command is supported by the device and
+                does not need input value.
 
-                    Check that a command is supported by the device and
-                    does not need input value.
-
-                    The method throws an exception if the
-                    command is not defined or needs an input value.
+                The method throws an exception if the
+                command is not defined or needs an input value.
 
                 :param cmd_name: the command name
-                :type cmd_name: str
+                :type cmd_name: :py:obj:`str`
 
-                :raises DevFailed:
-                :raises API_IncompatibleCmdArgumentType:
-                :raises API_CommandNotFound:)doc",
+                :raises: :py:obj:`~tango.DevFailed`
+                :raises: :py:obj:`~tango.API_IncompatibleCmdArgumentType`
+                :raises: :py:obj:`~tango.API_CommandNotFound`
+             )doc",
              py::arg("cmd_name"))
         //@TODO .def("get_command", &PyDeviceImpl::get_command)
         .def("get_dev_idl_version",
              &Tango::DeviceImpl::get_dev_idl_version,
              R"doc(
-                get_dev_idl_version(self) -> int
+                Returns the IDL version.
 
-                    Returns the IDL version.
-
-                :returns: the IDL version
-                :rtype: int
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("get_cmd_poll_ring_depth",
              &Tango::DeviceImpl::get_cmd_poll_ring_depth,
              R"doc(
-                get_cmd_poll_ring_depth(self, cmd_name) -> int
-
-                    Returns the command poll ring depth.
+                Returns the command poll ring depth.
 
                 :param cmd_name: the command name
-                :type cmd_name: str
+                :type cmd_name: :py:obj:`str`
 
-                :returns: the command poll ring depth
-                :rtype: int
-
-                New in PyTango 7.1.2)doc",
+                .. versionadded:: 7.1.2
+             )doc",
              py::arg("cmd_name"))
         .def("get_attr_poll_ring_depth",
              &Tango::DeviceImpl::get_attr_poll_ring_depth,
              R"doc(
-                get_attr_poll_ring_depth(self, attr_name) -> int
-
-                    Returns the attribute poll ring depth.
+                Returns the attribute poll ring depth.
 
                 :param attr_name: the attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
 
-                :returns: the attribute poll ring depth
-                :rtype: int
-
-                New in PyTango 7.1.2)doc",
+                .. versionadded:: 7.1.2
+             )doc",
              py::arg("attr_name"))
         .def("is_device_locked",
              &Tango::DeviceImpl::is_device_locked,
              R"doc(
-                is_device_locked(self) -> bool
+                Returns if this device is locked by a client.
 
-                    Returns if this device is locked by a client.
-
-                :returns: True if it is locked or False otherwise
-                :rtype: bool
-
-                New in PyTango 7.1.2)doc")
+                .. versionadded:: 7.1.2
+             )doc")
         .def("add_version_info",
              &Tango::DeviceImpl::add_version_info,
              R"doc(
-                add_version_info(self, key, value) -> dict
-
-                    Method to add information about the module version a device is using
+                Method to add information about the module version a device is using
 
                 :param key: Module name
-                :type key: str
+                :type key: :py:obj:`str`
 
                 :param value: Module version, or other relevant information.
-                :type value: str
+                :type value: :py:obj:`str`
 
-                .. versionadded:: 10.0.0)doc",
+                .. versionadded:: 10.0.0
+             )doc",
              py::arg("key"),
              py::arg("value"))
         .def("get_version_info",
              &PyDeviceImpl::get_version_info_dict,
              R"doc(
-                get_version_info(self) -> dict
+                Returns a dict with versioning of different modules related to the
+                pytango device.
 
-                    Returns a dict with versioning of different modules related to the
-                    pytango device.
+                Example:
+                    {
+                        "Build.PyTango.NumPy": "1.26.4",
+                        "Build.PyTango.Pybind11": "3.0.1",
+                        "Build.PyTango.Python": "3.12.2",
+                        "Build.PyTango.cppTango":"10.0.0",
+                        "NumPy": "1.26.4",
+                        "PyTango": "10.0.0.dev0",
+                        "Python": "3.12.2",
+                        "cppTango": "10.0.0",
+                        "omniORB": "4.3.2",
+                        "zmq": "4.3.5"
+                    }
 
-                    Example:
-                        {
-                            "Build.PyTango.NumPy": "1.26.4",
-                            "Build.PyTango.Pybind11": "3.0.1",
-                            "Build.PyTango.Python": "3.12.2",
-                            "Build.PyTango.cppTango":"10.0.0",
-                            "NumPy": "1.26.4",
-                            "PyTango": "10.0.0.dev0",
-                            "Python": "3.12.2",
-                            "cppTango": "10.0.0",
-                            "omniORB": "4.3.2",
-                            "zmq": "4.3.5"
-                        }
-
-
-                :returns: modules version dict
-                :rtype: dict
-
-                .. versionadded:: 10.0.0)doc")
-
+                .. versionadded:: 10.0.0
+             )doc")
         .def("get_logger",
              &Tango::DeviceImpl::get_logger,
              py::return_value_policy::reference_internal,
              R"doc(
-            get_logger(self) -> Logger
-
                 Returns the Logger object for this device
-
-            :returns: the Logger object for this device
-            :rtype: Logger)doc")
-        .def("__debug_stream",
-             &PyDeviceImpl::debug,
-             py::arg("file"),
-             py::arg("lineno"),
-             py::arg("msg"))
-        .def("__info_stream",
-             &PyDeviceImpl::info,
-             py::arg("file"),
-             py::arg("lineno"),
-             py::arg("msg"))
-        .def("__warn_stream",
-             &PyDeviceImpl::warn,
-             py::arg("file"),
-             py::arg("lineno"),
-             py::arg("msg"))
-        .def("__error_stream",
-             &PyDeviceImpl::error,
-             py::arg("file"),
-             py::arg("lineno"),
-             py::arg("msg"))
-        .def("__fatal_stream",
-             &PyDeviceImpl::fatal,
-             py::arg("file"),
-             py::arg("lineno"),
-             py::arg("msg"))
+             )doc")
+        .def("__debug_stream", &PyDeviceImpl::debug, py::arg("file"), py::arg("lineno"), py::arg("msg"))
+        .def("__info_stream", &PyDeviceImpl::info, py::arg("file"), py::arg("lineno"), py::arg("msg"))
+        .def("__warn_stream", &PyDeviceImpl::warn, py::arg("file"), py::arg("lineno"), py::arg("msg"))
+        .def("__error_stream", &PyDeviceImpl::error, py::arg("file"), py::arg("lineno"), py::arg("msg"))
+        .def("__fatal_stream", &PyDeviceImpl::fatal, py::arg("file"), py::arg("lineno"), py::arg("msg"))
         .def("init_logger",
              &Tango::DeviceImpl::init_logger,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                init_logger(self) -> None
-
-                    Setups logger for the device.  Called automatically when device starts.)doc")
+                Setups logger for the device. Called automatically when device starts.
+             )doc")
         .def("start_logging",
              &Tango::DeviceImpl::start_logging,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                start_logging(self) -> None
-
-                    Starts logging)doc")
+                Starts logging
+             )doc")
         .def("stop_logging",
              &Tango::DeviceImpl::stop_logging,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                stop_logging(self) -> None
+                Stops logging
+             )doc")
 
-                    Stops logging)doc")
-
-#if defined(TANGO_USE_TELEMETRY)
-        .def("is_telemetry_enabled",
+#if defined(PYTANGO_USE_TELEMETRY)
+        .def("_is_telemetry_enabled",
              &PyDeviceImpl::is_telemetry_enabled,
-             R"doc(
-                is_telemetry_enabled(self) -> bool
-
-                    Indicates if telemetry tracing is enabled for the device.
-
-                    Always False if telemetry support isn't compiled into cppTango.
-
-                :returns: if device telemetry tracing is enabled
-                :rtype: bool
-
-                .. versionadded:: 10.0.0)doc")
-        .def("_enable_telemetry", &Tango::DeviceImpl::enable_telemetry)
-        .def("_disable_telemetry", &Tango::DeviceImpl::disable_telemetry)
-        .def("_enable_kernel_traces", &Tango::DeviceImpl::enable_kernel_traces)
-        .def("_disable_kernel_traces", &Tango::DeviceImpl::disable_kernel_traces)
-        .def("is_kernel_tracing_enabled",
-             &PyDeviceImpl::is_kernel_tracing_enabled,
-             R"doc(
-                is_kernel_tracing_enabled(self) -> bool
-
-                    Indicates if telemetry tracing of the cppTango kernel API is enabled.
-
-                    Always False if telemetry support isn't compiled into cppTango.
-
-                :returns: if kernel tracing is enabled
-                :rtype: bool
-
-                .. versionadded:: 10.0.0)doc")
+             py::call_guard<py::gil_scoped_release>(),
+             py::doc("Internal telemetry helper."))
+        .def("_check_telemetry_topic",
+             &PyDeviceImpl::check_telemetry_topic,
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("topic"))
+        .def("_is_telemetry_tracing_enabled",
+             &Tango::DeviceImpl::is_telemetry_tracing_enabled,
+             py::call_guard<py::gil_scoped_release>(),
+             py::doc("Internal telemetry helper."))
+        .def("_get_telemetry_tracing_endpoints",
+             &Tango::DeviceImpl::get_telemetry_tracing_endpoints,
+             py::call_guard<py::gil_scoped_release>(),
+             py::doc("Internal telemetry helper."))
 #else
         // If support for telemetry is not compiled in, we use no-op handlers, so the Python
         // code can still run without errors, but does nothing.
-        .def("is_telemetry_enabled",
-             &always_false,
-             R"doc(
-                is_telemetry_enabled(self) -> bool
-
-                    Indicates if telemetry tracing is enabled for the device.
-
-                    Always False if telemetry support isn't compiled into cppTango.
-
-                :returns: if device telemetry tracing is enabled
-                :rtype: bool
-
-                .. versionadded:: 10.0.0)doc")
-        .def("_enable_telemetry", &no_op_void_handler_method)
-        .def("_disable_telemetry", &no_op_void_handler_method)
-        .def("is_kernel_tracing_enabled",
-             &always_false,
-             R"doc(
-                is_kernel_tracing_enabled(self) -> bool
-
-                    Indicates if telemetry tracing of the cppTango kernel API is enabled.
-
-                    Always False if telemetry support isn't compiled into cppTango.
-
-                :returns: if kernel tracing is enabled
-                :rtype: bool
-
-                .. versionadded:: 10.0.0)doc")
-        .def("_enable_kernel_traces", &no_op_void_handler_method)
-        .def("_disable_kernel_traces", &no_op_void_handler_method)
+        .def("_is_telemetry_enabled", [](Tango::DeviceImpl &) { return false; })
+        .def(
+            "_check_telemetry_topic", [](Tango::DeviceImpl &, const std::string &) { return false; }, py::arg("topic"))
+        .def("_is_telemetry_tracing_enabled", [](Tango::DeviceImpl &) { return false; })
+        .def("_get_telemetry_tracing_endpoints", [](Tango::DeviceImpl &) { return py::list(); })
 #endif
 
         //.def("set_exported_flag", &Tango::DeviceImpl::set_exported_flag)
@@ -1257,7 +1044,12 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__generic_push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, Tango::EventType event_type, py::object &data, double time, Tango::AttrQuality quality) {
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               Tango::EventType event_type,
+               py::object &data,
+               double time,
+               Tango::AttrQuality quality) {
                 PyDeviceImpl::generic_push_event(self, attr_name, event_type, data, &time, &quality);
             },
             py::arg("attr_name"),
@@ -1268,9 +1060,11 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__generic_push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, Tango::EventType event_type, py::object &encoding, py::object &data) {
-                PyDeviceImpl::generic_push_event(self, attr_name, event_type, encoding, data);
-            },
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               Tango::EventType event_type,
+               py::object &encoding,
+               py::object &data) { PyDeviceImpl::generic_push_event(self, attr_name, event_type, encoding, data); },
             py::arg("attr_name"),
             py::arg("event_type"),
             py::arg("encoding"),
@@ -1278,7 +1072,13 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__generic_push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, Tango::EventType event_type, py::object &encoding, py::object &data, double time, Tango::AttrQuality quality) {
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               Tango::EventType event_type,
+               py::object &encoding,
+               py::object &data,
+               double time,
+               Tango::AttrQuality quality) {
                 PyDeviceImpl::generic_push_event(self, attr_name, event_type, encoding, data, &time, &quality);
             },
             py::arg("attr_name"),
@@ -1303,9 +1103,11 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, py::object &filt_names, py::object &filt_vals, py::object &data) {
-                PyDeviceImpl::push_event(self, attr_name, filt_names, filt_vals, data);
-            },
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               py::object &filt_names,
+               py::object &filt_vals,
+               py::object &data) { PyDeviceImpl::push_event(self, attr_name, filt_names, filt_vals, data); },
             py::arg("attr_name"),
             py::arg("filt_names"),
             py::arg("filt_vals"),
@@ -1313,9 +1115,12 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, py::object &filt_names, py::object &filt_vals, py::object &encoding, py::object &data) {
-                PyDeviceImpl::push_event(self, attr_name, filt_names, filt_vals, encoding, data);
-            },
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               py::object &filt_names,
+               py::object &filt_vals,
+               py::object &encoding,
+               py::object &data) { PyDeviceImpl::push_event(self, attr_name, filt_names, filt_vals, encoding, data); },
             py::arg("attr_name"),
             py::arg("filt_names"),
             py::arg("filt_vals"),
@@ -1324,7 +1129,13 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, py::object &filt_names, py::object &filt_vals, py::object &data, double time, Tango::AttrQuality quality) {
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               py::object &filt_names,
+               py::object &filt_vals,
+               py::object &data,
+               double time,
+               Tango::AttrQuality quality) {
                 PyDeviceImpl::push_event(self, attr_name, filt_names, filt_vals, data, &time, &quality);
             },
             py::arg("attr_name"),
@@ -1336,7 +1147,14 @@ void export_device_impl(py::module &m) {
 
         .def(
             "__push_event",
-            [](Tango::DeviceImpl &self, py::str &attr_name, py::object &filt_names, py::object &filt_vals, py::object &encoding, py::object &data, double time, Tango::AttrQuality quality) {
+            [](Tango::DeviceImpl &self,
+               py::str &attr_name,
+               py::object &filt_names,
+               py::object &filt_vals,
+               py::object &encoding,
+               py::object &data,
+               double time,
+               Tango::AttrQuality quality) {
                 PyDeviceImpl::push_event(self, attr_name, filt_names, filt_vals, encoding, data, &time, &quality);
             },
             py::arg("attr_name"),
@@ -1353,107 +1171,87 @@ void export_device_impl(py::module &m) {
         .def("push_data_ready_event",
              &PyDeviceImpl::push_data_ready_event,
              R"doc(
-                push_data_ready_event(self, attr_name, counter)
+                 Push a data ready event for the given attribute name.
 
-                    Push a data ready event for the given attribute name.
-
-                    The method needs the attribute name and a
-                    "counter" which will be passed within the event
+                The method needs the attribute name and a
+                "counter" which will be passed within the event
 
                 :param attr_name: attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
                 :param counter: the user counter
                 :type counter: int
 
-                :raises DevFailed: If the attribute name is unknown.)doc",
+                :raises: :py:obj:`~tango.DevFailed`: If the attribute name is unknown
+             )doc",
              py::arg("attr_name"),
              py::arg("counter"))
 
         .def("push_att_conf_event",
              &Tango::DeviceImpl::push_att_conf_event,
              R"doc(
-                push_att_conf_event(self, attr)
-
-                    Push an attribute configuration event.
+                Push an attribute configuration event.
 
                 :param attr: the attribute for which the configuration event
                              will be sent.
-                :type attr: Attribute
+                :type attr: :obj:`~tango.Attribute`
 
-                New in PyTango 7.2.1)doc",
+                .. versionadded:: 7.2.1
+             )doc",
              py::arg("attr"))
 
         .def("get_min_poll_period",
              &Tango::DeviceImpl::get_min_poll_period,
              R"doc(
-                get_min_poll_period(self) -> int
+                Returns the min poll period in milliseconds.
 
-                    Returns the min poll period in milliseconds.
-
-                :returns: the min poll period in ms
-                :rtype: int
-
-                New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc")
         .def("get_cmd_min_poll_period",
              &Tango::DeviceImpl::get_cmd_min_poll_period,
              py::return_value_policy::reference_internal,
              R"doc(
-                get_cmd_min_poll_period(self) -> Sequence[str]
+                Returns the min command poll period in milliseconds.
 
-                    Returns the min command poll period in milliseconds.
-
-                :returns: the min command poll period in ms
-                :rtype: Sequence[str]
-
-                New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc")
         .def("get_attr_min_poll_period",
              &Tango::DeviceImpl::get_attr_min_poll_period,
              py::return_value_policy::reference_internal,
              R"doc(
-                get_attr_min_poll_period(self) -> Sequence[str]
+                Returns the min attribute poll period in milliseconds
 
-                    Returns the min attribute poll period in milliseconds
-
-                :returns: the min attribute poll period in ms
-                :rtype: Sequence[str]
-
-                New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc")
         .def("is_there_subscriber",
              &Tango::DeviceImpl::is_there_subscriber,
              R"doc(
-                is_there_subscriber(self, attr_name, event_type) -> bool
+                Check if there is subscriber(s) listening for the event.
 
-                    Check if there is subscriber(s) listening for the event.
+                This method returns a boolean set to true if there are some
+                subscriber(s) listening on the event specified by the two method
+                arguments. Be aware that there is some delay (up to 600 sec)
+                between this method returning false and the last subscriber
+                unsubscription or crash...
 
-                    This method returns a boolean set to true if there are some
-                    subscriber(s) listening on the event specified by the two method
-                    arguments. Be aware that there is some delay (up to 600 sec)
-                    between this method returning false and the last subscriber
-                    unsubscription or crash...
-
-                    The device interface change event is not supported by this method.
+                The device interface change event is not supported by this method.
 
                 :param attr_name: the attribute name
-                :type attr_name: str
+                :type attr_name: :py:obj:`str`
                 :param event_type: the event type
-                :type event_type: EventType
-
-                :returns: True if there is at least one listener or False otherwise
-                :rtype: bool)doc",
+                :type event_type: :obj:`~tango.EventType`
+             )doc",
              py::arg("attr_name"),
              py::arg("event_type"))
         .def("get_client_ident",
              &Tango::DeviceImpl::get_client_ident,
              R"doc(
-                get_client_ident(self) -> ClientAddr | None
+                Get client identification.
 
-                    Get client identification.
-
-                    This method is only useful while handling a command or
-                    attribute read/write. I.e., when a method has been invoked
-                    by a client. It will return `None` if the method was not
-                    invoked in the context of a client call.  E.g., called on startup,
-                    or called internally (e.g., from the polling loop).
+                This method is only useful while handling a command or
+                attribute read/write. I.e., when a method has been invoked
+                by a client. It will return `None` if the method was not
+                invoked in the context of a client call.  E.g., called on startup,
+                or called internally (e.g., from the polling loop).
 
                     It can only be used with :obj:`tango.GreenMode.Synchronous` device
                     servers. Other device servers will not have the correct context active
@@ -1462,12 +1260,11 @@ void export_device_impl(py::module &m) {
                     thread.
 
                 :returns: client identification structure
-                :rtype: ClientAddr | None)doc");
+                :rtype: :py:obj:`~tango.ClientAddr` | :py:obj:`None`
+             )doc");
 
-    py::class_<Tango::Device_2Impl,
-               LeakingSmartPtr<Tango::Device_2Impl>,
-               Device_2ImplTrampoline,
-               Tango::DeviceImpl>(m, "Device_2Impl", py::dynamic_attr())
+    py::class_<Tango::Device_2Impl, LeakingSmartPtr<Tango::Device_2Impl>, Device_2ImplTrampoline, Tango::DeviceImpl>(
+        m, "Device_2Impl", py::dynamic_attr())
         .def(py::init<Tango::DeviceClass *, const char *, const char *, Tango::DevState, const char *>(),
              py::arg("klass"),
              py::arg("name"),
@@ -1490,136 +1287,118 @@ void export_device_impl(py::module &m) {
         .def("server_init_hook",
              &Tango::Device_3Impl::server_init_hook,
              R"doc(
-                server_init_hook(self)
+                Hook method.
 
-                    Hook method.
+                This method is called once the device server admin device is exported.
+                This allows for instance for the different devices to subscribe
+                to events at server startup on attributes from other devices
+                of the same device server with stateless parameter set to false.
 
-                    This method is called once the device server admin device is exported.
-                    This allows for instance for the different devices to subscribe
-                    to events at server startup on attributes from other devices
-                    of the same device server with stateless parameter set to false.
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs
 
-                    This method can be redefined in sub-classes in case of the default
-                    behaviour does not fullfill the needs
-
-                .. versionadded:: 9.4.2)doc")
-        .def("delete_device",
-             &Tango::Device_3Impl::delete_device,
-             R"doc(
-                delete_device(self)
-
-                    Delete the device.)doc")
+                .. versionadded:: 9.4.2
+             )doc")
+        .def("delete_device", &Tango::Device_3Impl::delete_device, R"doc(Delete the device.)doc")
         .def("always_executed_hook",
              &Tango::Device_3Impl::always_executed_hook,
              R"doc(
-                always_executed_hook(self)
+                Hook method.
 
-                    Hook method.
+                Default method to implement an action necessary on a device before
+                any command is executed. This method can be redefined in sub-classes
+                in case of the default behaviour does not fullfill the needs
 
-                    Default method to implement an action necessary on a device before
-                    any command is executed. This method can be redefined in sub-classes
-                    in case of the default behaviour does not fullfill the needs
-
-                :raises DevFailed: This method does not throw exception but a redefined method can.)doc")
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc")
         .def("read_attr_hardware",
              &Tango::Device_3Impl::read_attr_hardware,
              R"doc(
-                read_attr_hardware(self, attr_list)
+                Read the hardware to return attribute value(s).
 
-                    Read the hardware to return attribute value(s).
-
-                    Default method to implement an action necessary on a device to read
-                    the hardware involved in a read attribute CORBA call. This method
-                    must be redefined in sub-classes in order to support attribute reading
+                Default method to implement an action necessary on a device to read
+                the hardware involved in a read attribute CORBA call. This method
+                must be redefined in sub-classes in order to support attribute reading
 
                 :param attr_list: list of indices in the device object attribute vector
                                   of an attribute to be read.
-                :type attr_list: Sequence[int]
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
 
-                :raises DevFailed: This method does not throw exception but a redefined method can.)doc",
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
              py::arg("attr_list"))
         .def("write_attr_hardware",
              &Tango::Device_3Impl::write_attr_hardware,
              R"doc(
-                write_attr_hardware(self, attr_list)
+                Write the hardware for attributes.
 
-                    Write the hardware for attributes.
-
-                    Default method to implement an action necessary on a device to write
-                    the hardware involved in a write attribute. This method must be
-                    redefined in sub-classes in order to support writable attribute
+                Default method to implement an action necessary on a device to write
+                the hardware involved in a write attribute. This method must be
+                redefined in sub-classes in order to support writable attribute
 
                 :param attr_list: list of indices in the device object attribute vector
                                   of an attribute to be written.
-                :type attr_list: Sequence[int]
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
 
-                :raises DevFailed: This method does not throw exception but a redefined method can.)doc",
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
              py::arg("attr_list"))
         .def("dev_state",
              &Tango::Device_3Impl::dev_state,
              R"doc(
-                dev_state(self) -> DevState
+                Get device state.
 
-                    Get device state.
+                Default method to get device state. The behaviour of this method depends
+                on the device state. If the device state is ON or ALARM, it reads the
+                attribute(s) with an alarm level defined, check if the read value is
+                above/below the alarm and eventually change the state to ALARM, return
+                the device state. For all the other device states, this method simply
+                returns the state.
 
-                    Default method to get device state. The behaviour of this method depends
-                    on the device state. If the device state is ON or ALARM, it reads the
-                    attribute(s) with an alarm level defined, check if the read value is
-                    above/below the alarm and eventually change the state to ALARM, return
-                    the device state. For all th other device state, this method simply
-                    returns the state This method can be redefined in sub-classes in case
-                    of the default behaviour does not fullfill the needs.
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
 
-                :returns: the device state
-                :rtype: DevState
-
-                :raises DevFailed: If it is necessary to read attribute(s) and a problem occurs during the reading)doc")
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
         .def("dev_status",
              &Tango::Device_3Impl::dev_status,
              R"doc(
-                dev_status(self) -> str
+                Get device status.
 
-                    Get device status.
+                Default method to get device status. It returns the contents of the device
+                dev_status field. If the device state is ALARM, alarm messages are added
+                to the device status.
 
-                    Default method to get device status. It returns the contents of the device
-                    dev_status field. If the device state is ALARM, alarm messages are added
-                    to the device status. This method can be redefined in sub-classes in case
-                    of the default behaviour does not fullfill the needs.
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
 
-                :returns: the device status
-                :rtype: str
-
-                :raises DevFailed: If it is necessary to read attribute(s) and a problem occurs during the reading)doc")
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
         .def("signal_handler",
              &Tango::Device_3Impl::signal_handler,
              R"doc(
-                signal_handler(self, signo)
+                Signal handler.
 
-                    Signal handler.
-
-                    The method executed when the signal arrived in the device server process.
-                    This method is defined as virtual and then, can be redefined following
-                    device needs.
+                The method executed when the signal arrived in the device server process.
+                This method is defined as virtual and then, can be redefined following
+                device needs.
 
                 :param signo: the signal number
                 :type signo: int
 
-                :raises DevFailed: This method does not throw exception but a redefined method can.)doc",
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
              py::arg("signo"))
         .def("_get_attribute_config_3", &Tango::Device_3Impl::get_attribute_config_3)
         .def("set_attribute_config_3",
              &Tango::Device_3Impl::set_attribute_config_3,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                set_attribute_config_3(self, new_conf) -> None
-
-                    Sets attribute configuration locally and in the Tango database
+                Sets attribute configuration locally and in the Tango database
 
                 :param new_conf: The new attribute(s) configuration. One AttributeConfig structure is needed for each attribute to update
                 :type new_conf: list[:class:`tango.AttributeConfig_3`]
-
-                :returns: None
-                :rtype: None)doc",
+             )doc",
              py::arg("new_conf"));
 
     py::class_<Tango::Device_4Impl,
@@ -1633,13 +1412,96 @@ void export_device_impl(py::module &m) {
              py::arg("state") = Tango::UNKNOWN,
              py::arg("status") = Tango::StatusNotSet)
         .def("init_device", &Tango::Device_4Impl::init_device)
-        .def("server_init_hook", &Tango::Device_4Impl::server_init_hook)
+        .def("server_init_hook",
+             &Tango::Device_4Impl::server_init_hook,
+             R"doc(
+                Hook method.
+
+                This method is called once the device server admin device is exported.
+                This allows for instance for the different devices to subscribe
+                to events at server startup on attributes from other devices
+                of the same device server with stateless parameter set to false.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                .. versionadded:: 9.4.2
+             )doc")
         .def("delete_device", &Tango::Device_4Impl::delete_device)
-        .def("always_executed_hook", &Tango::Device_4Impl::always_executed_hook)
-        .def("read_attr_hardware", &Tango::Device_4Impl::read_attr_hardware)
-        .def("write_attr_hardware", &Tango::Device_4Impl::write_attr_hardware)
-        .def("dev_state", &Tango::Device_4Impl::dev_state)
-        .def("dev_status", &Tango::Device_4Impl::dev_status);
+        .def("always_executed_hook",
+             &Tango::Device_4Impl::always_executed_hook,
+             R"doc(
+                Hook method.
+
+                Default method to implement an action necessary on a device before
+                any command is executed. This method can be redefined in sub-classes
+                in case of the default behaviour does not fullfill the needs
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc")
+        .def("read_attr_hardware",
+             &Tango::Device_4Impl::read_attr_hardware,
+             R"doc(
+                Read the hardware to return attribute value(s).
+
+                Default method to implement an action necessary on a device to read
+                the hardware involved in a read attribute CORBA call. This method
+                must be redefined in sub-classes in order to support attribute reading
+
+                :param attr_list: list of indices in the device object attribute vector
+                                  of an attribute to be read.
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
+             py::arg("attr_list"))
+        .def("write_attr_hardware",
+             &Tango::Device_4Impl::write_attr_hardware,
+             R"doc(
+                Write the hardware for attributes.
+
+                Default method to implement an action necessary on a device to write
+                the hardware involved in a write attribute. This method must be
+                redefined in sub-classes in order to support writable attribute
+
+                :param attr_list: list of indices in the device object attribute vector
+                                  of an attribute to be written.
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
+             py::arg("attr_list"))
+        .def("dev_state",
+             &Tango::Device_4Impl::dev_state,
+             R"doc(
+                Get device state.
+
+                Default method to get device state. The behaviour of this method depends
+                on the device state. If the device state is ON or ALARM, it reads the
+                attribute(s) with an alarm level defined, check if the read value is
+                above/below the alarm and eventually change the state to ALARM, return
+                the device state. For all the other device states, this method simply
+                returns the state.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
+        .def("dev_status",
+             &Tango::Device_4Impl::dev_status,
+             R"doc(
+                Get device status.
+
+                Default method to get device status. It returns the contents of the device
+                dev_status field. If the device state is ALARM, alarm messages are added
+                to the device status.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc");
 
     py::class_<Tango::Device_5Impl,
                LeakingSmartPtr<Tango::Device_5Impl>,
@@ -1652,13 +1514,96 @@ void export_device_impl(py::module &m) {
              py::arg("state") = Tango::UNKNOWN,
              py::arg("status") = Tango::StatusNotSet)
         .def("init_device", &Tango::Device_5Impl::init_device)
-        .def("server_init_hook", &Tango::Device_5Impl::server_init_hook)
+        .def("server_init_hook",
+             &Tango::Device_5Impl::server_init_hook,
+             R"doc(
+                Hook method.
+
+                This method is called once the device server admin device is exported.
+                This allows for instance for the different devices to subscribe
+                to events at server startup on attributes from other devices
+                of the same device server with stateless parameter set to false.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                .. versionadded:: 9.4.2
+             )doc")
         .def("delete_device", &Tango::Device_5Impl::delete_device)
-        .def("always_executed_hook", &Tango::Device_5Impl::always_executed_hook)
-        .def("read_attr_hardware", &Tango::Device_5Impl::read_attr_hardware)
-        .def("write_attr_hardware", &Tango::Device_5Impl::write_attr_hardware)
-        .def("dev_state", &Tango::Device_5Impl::dev_state)
-        .def("dev_status", &Tango::Device_5Impl::dev_status);
+        .def("always_executed_hook",
+             &Tango::Device_5Impl::always_executed_hook,
+             R"doc(
+                Hook method.
+
+                Default method to implement an action necessary on a device before
+                any command is executed. This method can be redefined in sub-classes
+                in case of the default behaviour does not fullfill the needs
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc")
+        .def("read_attr_hardware",
+             &Tango::Device_5Impl::read_attr_hardware,
+             R"doc(
+                Read the hardware to return attribute value(s).
+
+                Default method to implement an action necessary on a device to read
+                the hardware involved in a read attribute CORBA call. This method
+                must be redefined in sub-classes in order to support attribute reading
+
+                :param attr_list: list of indices in the device object attribute vector
+                                  of an attribute to be read.
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
+             py::arg("attr_list"))
+        .def("write_attr_hardware",
+             &Tango::Device_5Impl::write_attr_hardware,
+             R"doc(
+                Write the hardware for attributes.
+
+                Default method to implement an action necessary on a device to write
+                the hardware involved in a write attribute. This method must be
+                redefined in sub-classes in order to support writable attribute
+
+                :param attr_list: list of indices in the device object attribute vector
+                                  of an attribute to be written.
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
+             py::arg("attr_list"))
+        .def("dev_state",
+             &Tango::Device_5Impl::dev_state,
+             R"doc(
+                Get device state.
+
+                Default method to get device state. The behaviour of this method depends
+                on the device state. If the device state is ON or ALARM, it reads the
+                attribute(s) with an alarm level defined, check if the read value is
+                above/below the alarm and eventually change the state to ALARM, return
+                the device state. For all the other device states, this method simply
+                returns the state.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
+        .def("dev_status",
+             &Tango::Device_5Impl::dev_status,
+             R"doc(
+                Get device status.
+
+                Default method to get device status. It returns the contents of the device
+                dev_status field. If the device state is ALARM, alarm messages are added
+                to the device status.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc");
 
     py::class_<Tango::Device_6Impl,
                LeakingSmartPtr<Tango::Device_6Impl>,
@@ -1671,13 +1616,96 @@ void export_device_impl(py::module &m) {
              py::arg("state") = Tango::UNKNOWN,
              py::arg("status") = Tango::StatusNotSet)
         .def("init_device", &Tango::Device_6Impl::init_device)
-        .def("server_init_hook", &Tango::Device_6Impl::server_init_hook)
+        .def("server_init_hook",
+             &Tango::Device_6Impl::server_init_hook,
+             R"doc(
+                Hook method.
+
+                This method is called once the device server admin device is exported.
+                This allows for instance for the different devices to subscribe
+                to events at server startup on attributes from other devices
+                of the same device server with stateless parameter set to false.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                .. versionadded:: 9.4.2
+             )doc")
         .def("delete_device", &Tango::Device_6Impl::delete_device)
-        .def("always_executed_hook", &Tango::Device_6Impl::always_executed_hook)
-        .def("read_attr_hardware", &Tango::Device_6Impl::read_attr_hardware)
-        .def("write_attr_hardware", &Tango::Device_6Impl::write_attr_hardware)
-        .def("dev_state", &Tango::Device_6Impl::dev_state)
-        .def("dev_status", &Tango::Device_6Impl::dev_status);
+        .def("always_executed_hook",
+             &Tango::Device_6Impl::always_executed_hook,
+             R"doc(
+                Hook method.
+
+                Default method to implement an action necessary on a device before
+                any command is executed. This method can be redefined in sub-classes
+                in case of the default behaviour does not fullfill the needs
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc")
+        .def("read_attr_hardware",
+             &Tango::Device_6Impl::read_attr_hardware,
+             R"doc(
+                Read the hardware to return attribute value(s).
+
+                Default method to implement an action necessary on a device to read
+                the hardware involved in a read attribute CORBA call. This method
+                must be redefined in sub-classes in order to support attribute reading
+
+                :param attr_list: list of indices in the device object attribute vector
+                                  of an attribute to be read.
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
+             py::arg("attr_list"))
+        .def("write_attr_hardware",
+             &Tango::Device_6Impl::write_attr_hardware,
+             R"doc(
+                Write the hardware for attributes.
+
+                Default method to implement an action necessary on a device to write
+                the hardware involved in a write attribute. This method must be
+                redefined in sub-classes in order to support writable attribute
+
+                :param attr_list: list of indices in the device object attribute vector
+                                  of an attribute to be written.
+                :type attr_list: :py:obj:`list`\[:py:obj:`int`]
+
+                :raises: :py:obj:`~tango.DevFailed`: This method does not throw exception but a redefined method can
+             )doc",
+             py::arg("attr_list"))
+        .def("dev_state",
+             &Tango::Device_6Impl::dev_state,
+             R"doc(
+                Get device state.
+
+                Default method to get device state. The behaviour of this method depends
+                on the device state. If the device state is ON or ALARM, it reads the
+                attribute(s) with an alarm level defined, check if the read value is
+                above/below the alarm and eventually change the state to ALARM, return
+                the device state. For all the other device states, this method simply
+                returns the state.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc")
+        .def("dev_status",
+             &Tango::Device_6Impl::dev_status,
+             R"doc(
+                Get device status.
+
+                Default method to get device status. It returns the contents of the device
+                dev_status field. If the device state is ALARM, alarm messages are added
+                to the device status.
+
+                This method can be redefined in sub-classes in case of the default
+                behaviour does not fullfill the needs.
+
+                :raises: :py:obj:`~tango.DevFailed`: If it is necessary to read attribute(s) and a problem occurs during the reading
+             )doc");
     fix_dynamic_attr_dealloc<Tango::DeviceImpl>();
     fix_dynamic_attr_dealloc<Tango::Device_2Impl>();
     fix_dynamic_attr_dealloc<Tango::Device_3Impl>();

@@ -1,6 +1,6 @@
 """
 Names for the standard and extended color set.
-Extended set is similar to `vim wiki <http://vim.wikia.com/wiki/Xterm256_color_names_for_console_Vim>`_, `colored <https://pypi.python.org/pypi/colored>`_, etc. Colors based on `wikipedia <https://en.wikipedia.org/wiki/ANSI_escape_code#Colors>`_.
+Extended set is similar to `vim wiki <https://en.wikipedia.org/wiki/ANSI_escape_code#Colors>`_, `colored <https://pypi.org/project/colored/>`_, etc. Colors based on `wikipedia <https://en.wikipedia.org/wiki/ANSI_escape_code#Colors>`_.
 
 You can access the index of the colors with names.index(name). You can access the
 rgb values with ``r=int(html[n][1:3],16)``, etc.
@@ -347,12 +347,14 @@ class FindNearest:
     """This is a class for finding the nearest color given rgb values.
     Different find methods are available."""
 
+    __slots__ = ("b", "g", "r")
+
     def __init__(self, r: int, g: int, b: int) -> None:
         self.r = r
         self.b = b
         self.g = g
 
-    def only_basic(self):
+    def only_basic(self) -> int:
         """This will only return the first 8 colors!
         Breaks the colorspace into cubes, returns color"""
         midlevel = 0x40  # Since bright is not included
@@ -425,6 +427,22 @@ def from_html(color: str) -> tuple[int, int, int]:
     return (int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16))
 
 
-def to_html(r, g, b):
+def to_html(r: int, g: int, b: int) -> str:
     """Convert rgb to html hex code."""
     return f"#{r:02x}{g:02x}{b:02x}"
+
+
+__all__ = [
+    "FindNearest",
+    "attributes_ansi",
+    "color_codes_simple",
+    "color_html",
+    "color_names",
+    "default_styles",
+    "from_html",
+    "to_html",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

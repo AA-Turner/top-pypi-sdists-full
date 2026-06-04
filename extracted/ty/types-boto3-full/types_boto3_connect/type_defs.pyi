@@ -202,6 +202,8 @@ __all__ = (
     "AgentsCriteriaTypeDef",
     "AgentsCriteriaUnionTypeDef",
     "AiAgentInfoTypeDef",
+    "AiAgentSearchCriteriaTypeDef",
+    "AiAgentsCriteriaTypeDef",
     "AliasConfigurationTypeDef",
     "AllowedCapabilitiesTypeDef",
     "AllowedExtensionTypeDef",
@@ -331,6 +333,7 @@ __all__ = (
     "ContactMetricResultTypeDef",
     "ContactMetricValueTypeDef",
     "ContactSearchSummaryAgentInfoTypeDef",
+    "ContactSearchSummaryAiAgentInfoTypeDef",
     "ContactSearchSummaryPaginatorTypeDef",
     "ContactSearchSummaryQueueInfoTypeDef",
     "ContactSearchSummarySegmentAttributeValuePaginatorTypeDef",
@@ -1623,6 +1626,12 @@ class AiAgentInfoTypeDef(TypedDict):
     AiAgentVersionId: NotRequired[str]
     AiAgentEscalated: NotRequired[bool]
 
+class AiAgentSearchCriteriaTypeDef(TypedDict):
+    Id: NotRequired[str]
+    VersionNumber: NotRequired[int]
+    AiAgentEscalated: NotRequired[bool]
+    AiUseCase: NotRequired[AiUseCaseType]
+
 class AliasConfigurationTypeDef(TypedDict):
     EmailAddressId: str
 
@@ -2082,6 +2091,11 @@ class ContactMetricValueTypeDef(TypedDict):
 class ContactSearchSummaryAgentInfoTypeDef(TypedDict):
     Id: NotRequired[str]
     ConnectedToAgentTimestamp: NotRequired[datetime]
+
+class ContactSearchSummaryAiAgentInfoTypeDef(TypedDict):
+    AiAgentVersionId: NotRequired[str]
+    AiAgentEscalated: NotRequired[bool]
+    AiUseCase: NotRequired[AiUseCaseType]
 
 class ContactSearchSummaryQueueInfoTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -5082,6 +5096,9 @@ AgentsCriteriaUnionTypeDef = Union[AgentsCriteriaTypeDef, AgentsCriteriaOutputTy
 class WisdomInfoTypeDef(TypedDict):
     SessionArn: NotRequired[str]
     AiAgents: NotRequired[list[AiAgentInfoTypeDef]]
+
+class AiAgentsCriteriaTypeDef(TypedDict):
+    Criteria: NotRequired[Sequence[AiAgentSearchCriteriaTypeDef]]
 
 class AssociateEmailAddressAliasRequestTypeDef(TypedDict):
     EmailAddressId: str
@@ -8580,6 +8597,7 @@ class SearchCriteriaTypeDef(TypedDict):
     SearchableSegmentAttributes: NotRequired[SearchableSegmentAttributesTypeDef]
     ActiveRegions: NotRequired[Sequence[str]]
     ContactTags: NotRequired[ControlPlaneTagFilterTypeDef]
+    AiAgents: NotRequired[AiAgentsCriteriaTypeDef]
 
 class EvaluationFormItemEnablementConfigurationOutputTypeDef(TypedDict):
     Condition: EvaluationFormItemEnablementConditionOutputTypeDef
@@ -8865,6 +8883,7 @@ class ContactSearchSummaryTypeDef(TypedDict):
     RoutingCriteria: NotRequired[RoutingCriteriaTypeDef]
     Tags: NotRequired[dict[str, str]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
+    AiAgentInfo: NotRequired[list[ContactSearchSummaryAiAgentInfoTypeDef]]
 
 class ContactTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -8935,6 +8954,7 @@ class ContactSearchSummaryPaginatorTypeDef(TypedDict):
     RoutingCriteria: NotRequired[RoutingCriteriaPaginatorTypeDef]
     Tags: NotRequired[dict[str, str]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
+    AiAgentInfo: NotRequired[list[ContactSearchSummaryAiAgentInfoTypeDef]]
 
 class ExpressionTypeDef(TypedDict):
     AttributeCondition: NotRequired[AttributeConditionUnionTypeDef]

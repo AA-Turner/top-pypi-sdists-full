@@ -7,7 +7,7 @@ include(cmake/prelude.cmake)
 
 project(
     pytango
-    VERSION 10.1.4
+    VERSION 10.3.0
     DESCRIPTION "Python bindings for the Tango distributed control system"
     HOMEPAGE_URL "https://pytango.readthedocs.io/"
     LANGUAGES CXX
@@ -28,6 +28,7 @@ include(cmake/project-is-top-level.cmake)
 # Use the environment/cache variable Tango_ROOT to set the tango installation prefix.
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/TangoCMakeModules)
 find_package(Tango REQUIRED)
+include(cmake/show-cpptango-version.cmake)
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 17)
@@ -159,6 +160,16 @@ target_link_libraries(pytango_tango PRIVATE Python::Module Python::NumPy pybind1
 install(TARGETS pytango_tango
 	LIBRARY DESTINATION tango
 	RUNTIME DESTINATION tango)
+
+option(
+    PYTANGO_FORCE_DISABLE_TELEMETRY
+    "Build PyTango as if cppTango telemetry was unavailable"
+    OFF
+)
+target_compile_definitions(
+    pytango_tango PRIVATE
+    $<$<BOOL:${PYTANGO_FORCE_DISABLE_TELEMETRY}>:PYTANGO_FORCE_DISABLE_TELEMETRY=1>
+)
 
 if(NOT CMAKE_CROSSCOMPILING)
   include(cmake/generate_stubs.cmake)

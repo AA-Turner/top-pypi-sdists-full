@@ -59,7 +59,7 @@ def rollback_step(fs: Filesystem, task_id: str, target_step_id: str) -> dict:
     quick = task_data.get("mode") == "quick"
 
     dag = build_step_dag(lightweight=lightweight, quick=quick,
-                         mode=task_data.get("mode"))
+                         mode=task_data.get("mode"), kanban_dir=fs.kanban_dir)
     all_step_ids = [s["id"] for s in dag["steps"]]
 
     try:

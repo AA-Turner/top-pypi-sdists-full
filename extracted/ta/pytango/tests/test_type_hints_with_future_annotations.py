@@ -15,8 +15,7 @@ from tango import (
     AttrWriteType,
     DevState,
 )
-from tango.server import Device
-from tango.server import command, attribute
+from tango.server import Device, attribute, command
 from tango.test_utils import (
     DeviceTestContext,
     assert_close,
@@ -29,9 +28,7 @@ def test_scalar_attribute_declared_with_typing():
     class TestDevice(Device):
         attr_value = None
 
-        hint_scalar: int = attribute(
-            access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
-        )
+        hint_scalar: int = attribute(access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr")
 
         hint_scalar_quality: tuple[int, float, AttrQuality] = attribute(
             access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
@@ -41,9 +38,7 @@ def test_scalar_attribute_declared_with_typing():
             access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
         )
 
-        hint_with_tuple_quality_spectrum: tuple[
-            tuple[int, int, int], float, AttrQuality
-        ] = attribute(
+        hint_with_tuple_quality_spectrum: tuple[tuple[int, int, int], float, AttrQuality] = attribute(
             access=AttrWriteType.READ_WRITE,
             fget="read_attr_with_quality",
             fset="write_attr",
@@ -57,9 +52,7 @@ def test_scalar_attribute_declared_with_typing():
             fset="write_attr",
         )
 
-        hint_with_tuple_image: tuple[
-            tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]
-        ] = attribute(
+        hint_with_tuple_image: tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]] = attribute(
             access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
         )
 
@@ -113,12 +106,8 @@ def test_scalar_attribute_declared_with_typing():
         check_attribute_with_size(proxy, "hint_with_tuple_spectrum", [1, 2, 3])
         check_attribute_with_size(proxy, "hint_with_tuple_quality_spectrum", [1, 2, 3])
         check_attribute_with_size(proxy, "hint_with_list_spectrum", [1, 2, 3])
-        check_attribute_with_size(
-            proxy, "hint_with_tuple_image", [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-        )
-        check_attribute_with_size(
-            proxy, "hint_with_tuple_quality_image", [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-        )
+        check_attribute_with_size(proxy, "hint_with_tuple_image", [[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        check_attribute_with_size(proxy, "hint_with_tuple_quality_image", [[1, 2, 3], [4, 5, 6], [7, 8, 9]])
         check_attribute_with_size(proxy, "attribute_hint", 1)
         check_attribute_with_size(proxy, "attribute_hint_quality", 2)
 
@@ -126,25 +115,21 @@ def test_scalar_attribute_declared_with_typing():
 def test_attribute_self_typed_with_not_defined_name():
     _value = [None]
 
-    def non_bound_read(device: "TestDevice") -> int:
+    def non_bound_read(device: TestDevice) -> int:
         return _value[0]
 
-    def non_bound_read_no_return_hint(device: "TestDevice"):
+    def non_bound_read_no_return_hint(device: TestDevice):
         return _value[0]
 
-    def non_bound_write(device: "TestDevice", val_in: int):
+    def non_bound_write(device: TestDevice, val_in: int):
         _value[0] = val_in
 
     class TestDevice(Device):
         _value = None
 
-        assignment_attr: int = attribute(
-            access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
-        )
+        assignment_attr: int = attribute(access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr")
 
-        non_bound_attr: int = attribute(
-            access=AttrWriteType.READ_WRITE, fget=non_bound_read, fset=non_bound_write
-        )
+        non_bound_attr: int = attribute(access=AttrWriteType.READ_WRITE, fget=non_bound_read, fset=non_bound_write)
 
         non_bound_attr_in_write: int = attribute(
             access=AttrWriteType.READ_WRITE,
@@ -152,40 +137,40 @@ def test_attribute_self_typed_with_not_defined_name():
             fset=non_bound_write,
         )
 
-        def read_attr(self: "TestDevice"):
+        def read_attr(self: TestDevice):
             return self._value
 
-        def write_attr(self: "TestDevice", val_in):
+        def write_attr(self: TestDevice, val_in):
             self._value = val_in
 
         @attribute
-        def decorator_attr(self: "TestDevice") -> int:
+        def decorator_attr(self: TestDevice) -> int:
             return self._value
 
         @decorator_attr.write
-        def set_value(self: "TestDevice", val_in: int):
+        def set_value(self: TestDevice, val_in: int):
             self._value = val_in
 
         @attribute
-        def decorator_attr_def_in_write(self: "TestDevice"):
+        def decorator_attr_def_in_write(self: TestDevice):
             return self._value
 
         @decorator_attr_def_in_write.write
-        def set_value_2(self: "TestDevice", val_in: int):
+        def set_value_2(self: TestDevice, val_in: int):
             self._value = val_in
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.assignment_attr = 1
-        assert 1 == proxy.assignment_attr
+        assert proxy.assignment_attr == 1
         proxy.decorator_attr = 2
-        assert 2 == proxy.decorator_attr
+        assert proxy.decorator_attr == 2
         proxy.decorator_attr_def_in_write = 3
-        assert 3 == proxy.decorator_attr_def_in_write
+        assert proxy.decorator_attr_def_in_write == 3
 
         proxy.non_bound_attr = 1
-        assert 1 == proxy.non_bound_attr
+        assert proxy.non_bound_attr == 1
         proxy.non_bound_attr_in_write = 2
-        assert 2 == proxy.non_bound_attr_in_write
+        assert proxy.non_bound_attr_in_write == 2
 
 
 if npt:
@@ -259,7 +244,6 @@ if npt:
 def test_devstate_attribute_declared_with_typing():
 
     class TestDevice(Device):
-
         @attribute()
         def state_attr(self) -> DevState:
             return DevState.MOVING

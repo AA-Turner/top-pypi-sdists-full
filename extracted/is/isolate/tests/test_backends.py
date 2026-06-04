@@ -555,6 +555,7 @@ class TestConda(GenericEnvironmentTests):
             "packages": [],
         },
         "black": {
+            "python_version": "3.11",
             "packages": ["black=22.12.0"],
         },
         "old-python": {

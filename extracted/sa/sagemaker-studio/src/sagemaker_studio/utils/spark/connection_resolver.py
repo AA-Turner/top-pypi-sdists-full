@@ -74,7 +74,7 @@ def _identify_service_from_props(connection) -> str:
 
 
 def _create_session_manager(
-    connection, connection_name, connection_id, config, is_explicit_choice=False
+    connection, connection_name, connection_id, config, is_explicit_choice=False, spark_conf=None
 ):
     """Route to the correct session manager based on connection type and props.
 
@@ -99,7 +99,10 @@ def _create_session_manager(
 
         if service == "EMR_SERVERLESS":
             return EMRServerlessSparkSessionManager(
-                connection=connection, connection_name=connection_name, config=config
+                connection=connection,
+                connection_name=connection_name,
+                config=config,
+                spark_conf=spark_conf,
             )
 
         if service in ("GLUE", "EMR_EKS", "EMR_EC2"):
@@ -121,6 +124,7 @@ def _create_session_manager(
                 connection_name=connection_name,
                 connection_id=connection_id,
                 config=config,
+                spark_conf=spark_conf,
             )
 
         # Should not reach here for SPARK_CONNECT
@@ -148,7 +152,7 @@ def _create_session_manager(
         "sparkEmrProperties, sparkGlueProperties).",
         stacklevel=2,
     )
-    return AthenaSparkSessionManager(config=config)
+    return AthenaSparkSessionManager(config=config, spark_conf=spark_conf)
 
 
 def get_spark_options(connection_name: str):
@@ -165,6 +169,7 @@ def get_spark_options(connection_name: str):
 def _resolve_connection_and_create_session_manager(
     connection_name: str = None,
     config: ClientConfig = None,
+    spark_conf: dict = None,
 ):
     """Resolve the connection and create the appropriate session manager.
 
@@ -207,7 +212,12 @@ def _resolve_connection_and_create_session_manager(
     logger.info(f"Connection resolution took {int((time.time() - t0) * 1000)}ms")
 
     session_manager = _create_session_manager(
-        connection, connection_name, connection_id, config, is_explicit_choice
+        connection,
+        connection_name,
+        connection_id,
+        config,
+        is_explicit_choice,
+        spark_conf=spark_conf,
     )
 
     logger.info(

@@ -1,4 +1,5 @@
 import functools
+import json
 import re
 import traceback
 from collections import namedtuple
@@ -80,7 +81,7 @@ class HrefPrnFieldMixin:
         return super().to_internal_value(data)
 
 
-class _MatchingRegexViewName(object):
+class _MatchingRegexViewName:
     """This is a helper class to help defining object matching rules for master-detail.
 
     If you can be specific, please specify the `view_name`, but if you cannot, this allows
@@ -306,7 +307,11 @@ def validate_unknown_fields(initial_data, defined_fields):
     The `csrfmiddlewaretoken` field is silently ignored.
     """
     ignored_fields = {"csrfmiddlewaretoken"}
-    unknown_fields = set(initial_data) - set(defined_fields) - ignored_fields
+    unknown_fields = (
+        {key.split(".", maxsplit=1)[0] for key in initial_data}
+        - set(defined_fields)
+        - ignored_fields
+    )
     if unknown_fields:
         unknown_fields = {field: _("Unexpected field") for field in unknown_fields}
         raise serializers.ValidationError(unknown_fields)
@@ -778,11 +783,23 @@ class RemoteNetworkConfigSerializer(serializers.Serializer):
                     "Invalid {} specified, error '{}'".format(which_cert, e.args)
                 )
 
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            try:
+                # Nested Serializers in from-urlencoded bodies are stringified as json by default.
+                data = json.loads(data)
+            except json.DecodeError:
+                raise serializers.ValidationError(
+                    "Invalid json data for (nested) downloader config."
+                )
+        return super().to_internal_value(data)
+
     def validate(self, data):
         """
         Check that proxy credentials are only provided completely and if a proxy is configured.
         Adapted to work for both ModelSerializers (Remotes) and standard Serializers (Uploads).
         """
+        data = super().validate(data)
         # Handle cases where we don't have an instance (e.g. Uploads)
         instance = getattr(self, "instance", None)
         partial = getattr(self, "partial", False)

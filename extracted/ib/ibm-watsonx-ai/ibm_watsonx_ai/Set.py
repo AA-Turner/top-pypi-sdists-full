@@ -49,6 +49,13 @@ class Set(WMLResource):
             kwargs, space_id, "space", can_be_none=False
         )
 
+        # Skip API request if space_id is already set as default
+        if space_id == self._client.default_space_id:
+            self._logger.info(
+                f"Space '{space_id}' is already set as the default space. Skipping API request."
+            )
+            return "SUCCESS"
+
         self._client.default_space_id = space_id
         if self._client.default_project_id is not None:
             print("Unsetting the project_id ...")
@@ -117,58 +124,58 @@ class Set(WMLResource):
             client.set.default_project(project_id)
         """
 
-        if project_id is not None:
-            self._client.default_project_id = project_id
-            if self._client.default_space_id is not None:
-                print("Unsetting the space_id ...")
-            self._client.default_space_id = None
-
-            project_endpoint = self._client._href_definitions.get_project_href(
-                project_id
-            )
-            project_details = self._client.httpx_client.get(
-                url=project_endpoint, headers=self._client._get_headers()
-            )
-            if project_details.status_code == 429:
-                raise ExceededLimitOfAPICalls(
-                    project_endpoint, reason=project_details.text
-                )
-            elif (
-                project_details.status_code != 200
-                and project_details.status_code != 204
-            ):
-                raise CannotSetProjectOrSpace(reason=project_details.text)
-            else:
-                self._client.project_type = project_details.json()["entity"]["storage"][
-                    "type"
-                ]
-                if self._client.CLOUD_PLATFORM_SPACES:
-                    instance_id = "not_found"
-                    comp_obj_type = None
-                    if "compute" in project_details.json()["entity"].keys():
-                        for comp_obj in project_details.json()["entity"]["compute"]:
-                            if comp_obj["type"] in [
-                                "machine_learning",
-                                "code-assistant",
-                            ]:
-                                comp_obj_type = comp_obj["type"]
-                                instance_id = comp_obj["guid"]
-                                break
-                        self._client.service_instance = ServiceInstance(self._client)
-                        self._client.service_instance._instance_id = instance_id
-                        if comp_obj_type == "code-assistant":
-                            self._client.service_instance.details = None
-                            self._client.WCA = True
-                        else:
-                            self._client.service_instance._refresh_details = True
-                    else:
-                        # It`s possible that a previous project is used in the context of
-                        # this client which had compute but this project doesn't have
-                        self._client.service_instance = ServiceInstance(self._client)
-                        self._client.service_instance.details = None
-                else:
-                    self._client.service_instance = ServiceInstance(self._client)
-                return "SUCCESS"
-        else:
+        if project_id is None:
             error_msg = "Project id cannot be None."
             raise CannotSetProjectOrSpace(reason=error_msg)
+
+        # Skip API request if project_id is already set as default
+        if project_id == self._client.default_project_id:
+            self._logger.info(
+                f"Project '{project_id}' is already set as the default project. Skipping API request."
+            )
+            return "SUCCESS"
+
+        self._client.default_project_id = project_id
+        if self._client.default_space_id is not None:
+            print("Unsetting the space_id ...")
+        self._client.default_space_id = None
+
+        project_endpoint = self._client._href_definitions.get_project_href(project_id)
+        project_details = self._client.httpx_client.get(
+            url=project_endpoint, headers=self._client._get_headers()
+        )
+        if project_details.status_code == 429:
+            raise ExceededLimitOfAPICalls(project_endpoint, reason=project_details.text)
+        elif project_details.status_code != 200 and project_details.status_code != 204:
+            raise CannotSetProjectOrSpace(reason=project_details.text)
+        else:
+            self._client.project_type = project_details.json()["entity"]["storage"][
+                "type"
+            ]
+            if self._client.CLOUD_PLATFORM_SPACES:
+                instance_id = "not_found"
+                comp_obj_type = None
+                if "compute" in project_details.json()["entity"].keys():
+                    for comp_obj in project_details.json()["entity"]["compute"]:
+                        if comp_obj["type"] in [
+                            "machine_learning",
+                            "code-assistant",
+                        ]:
+                            comp_obj_type = comp_obj["type"]
+                            instance_id = comp_obj["guid"]
+                            break
+                    self._client.service_instance = ServiceInstance(self._client)
+                    self._client.service_instance._instance_id = instance_id
+                    if comp_obj_type == "code-assistant":
+                        self._client.service_instance.details = None
+                        self._client.WCA = True
+                    else:
+                        self._client.service_instance._refresh_details = True
+                else:
+                    # It`s possible that a previous project is used in the context of
+                    # this client which had compute but this project doesn't have
+                    self._client.service_instance = ServiceInstance(self._client)
+                    self._client.service_instance.details = None
+            else:
+                self._client.service_instance = ServiceInstance(self._client)
+            return "SUCCESS"

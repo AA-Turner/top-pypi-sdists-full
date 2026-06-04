@@ -1,79 +1,80 @@
 # pylint:disable=superfluous-parens,too-many-boolean-expressions,line-too-long
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING
+
 import itertools
 import logging
 import math
 import re
 import string
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
 from enum import Enum, unique
+from typing import TYPE_CHECKING, Any
 
-import networkx
-from sortedcontainers import SortedDict
 import capstone
-
 import claripy
 import cle
+import networkx
 import pyvex
-from cle.address_translator import AT
 from archinfo import Endness
+from archinfo.arch_arm import get_real_address_if_arm, is_arm_arch
 from archinfo.arch_soot import SootAddressDescriptor
-from archinfo.arch_arm import is_arm_arch, get_real_address_if_arm
+from cle.address_translator import AT
+from sortedcontainers import SortedDict
 
-from angr.analyses import AnalysesHub
-from angr.misc.ux import once
-from angr.knowledge_plugins.cfg.spilling_cfg import get_block_key, block_key_to_addr, block_key_to_size
-from angr.knowledge_plugins.cfg import (
-    CFGNode,
-    MEMORY_DATA_SORTS,
-    MemoryDataSort,
-    MemoryData,
-    IndirectJump,
-    IndirectJumpType,
-)
-from angr.knowledge_plugins.xrefs import XRef, XRefType
-from angr.codenode import HookNode, FuncNode
-from angr.utils.ins_addr_list import InsAddrList
 from angr import sim_options as o
+from angr.analyses.analysis import AnalysesHub
+from angr.analyses.forward_analysis import ForwardAnalysis
+from angr.codenode import FuncNode, HookNode
 from angr.errors import (
     AngrCFGError,
     AngrSkipJobNotice,
     SimEngineError,
+    SimIRSBNoDecodeError,
     SimMemoryError,
     SimTranslationError,
     SimValueError,
-    SimIRSBNoDecodeError,
 )
+from angr.knowledge_plugins.cfg import (
+    MEMORY_DATA_SORTS,
+    CFGNode,
+    IndirectJump,
+    IndirectJumpType,
+    MemoryData,
+    MemoryDataSort,
+)
+from angr.knowledge_plugins.cfg.spilling_cfg import block_key_to_addr, block_key_to_size, get_block_key
+from angr.knowledge_plugins.xrefs import XRef, XRefType
+from angr.misc.ux import once
+from angr.rustylib import SegmentList
 from angr.utils.constants import DEFAULT_STATEMENT
 from angr.utils.funcid import (
+    is_function_likely_security_init_cookie,
     is_function_security_check_cookie,
     is_function_security_check_cookie_strict,
     is_function_security_init_cookie,
     is_function_security_init_cookie_win8,
-    is_function_likely_security_init_cookie,
 )
-from angr.analyses import ForwardAnalysis
-from angr.rustylib import SegmentList
+from angr.utils.ins_addr_list import InsAddrList
+
 from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
 from .indirect_jump_resolvers.jumptable import JumpTableResolver
 from .meta_structs import get_data_regions_from_meta_regions, get_pointer_array_hints
 from .pe_msvc_eh_structs import (
-    parse_funcinfo,
-    parse_unwind_map,
-    parse_try_block_map,
-    parse_eh4_scopetable,
     FUNCINFO_SIZE,
-    UNWINDMAPENTRY_SIZE,
-    TRYBLOCKMAPENTRY_SIZE,
     HANDLERTYPE_SIZE,
+    TRYBLOCKMAPENTRY_SIZE,
+    UNWINDMAPENTRY_SIZE,
+    parse_eh4_scopetable,
+    parse_funcinfo,
+    parse_try_block_map,
+    parse_unwind_map,
 )
 
 if TYPE_CHECKING:
     from angr.block import Block
-    from angr.knowledge_plugins.cfg.spilling_cfg import SpillingCFG
     from angr.engines.pcode.lifter import IRSB as PcodeIRSB
+    from angr.knowledge_plugins.cfg.spilling_cfg import SpillingCFG
     from angr.knowledge_plugins.cfg.types import CFGNODE_K
 
 
@@ -705,7 +706,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                                         table resolver and must be resolved using their specific resolvers. By default,
                                         we will only disable JumpTableResolver from resolving indirect calls for large
                                         binaries (region > 50 KB).
-        :param check_funcret_max_job    When popping return-site jobs out of the job queue, angr will prioritize jobs
+        :param check_funcret_max_job:   When popping return-site jobs out of the job queue, angr will prioritize jobs
                                         for which the callee is known to return. This check may be slow when there are
                                         a large amount of jobs in different caller functions, and this situation often
                                         occurs in obfuscated binaries where many functions never return. This parameter
@@ -721,11 +722,8 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                                         useful during analysis; You can set retedges to True or call
                                         make_return_edges() after CFG recovery to create return edges. Note that this
                                         option does not impact function graphs.
-
-        Extra parameters that angr.Analysis takes:
-
-        :param progress_callback:       Specify a callback function to get the progress during CFG recovery.
-        :param bool show_progressbar:   Should CFGFast show a progressbar during CFG recovery or not.
+        :param progress_callback:       (Inherited from angr.Analysis.) Callback for CFG recovery progress.
+        :param bool show_progressbar:   (Inherited from angr.Analysis.) Show a progressbar during CFG recovery.
         :return: None
         """
 
@@ -1098,20 +1096,33 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 return None
         return val
 
-    def _scan_for_printable_strings(self, start_addr):
+    def _scan_for_printable_strings(
+        self, start_addr: int, min_length_nullterminated: int = 3, min_length_non_nullterminated: int = 13
+    ) -> int:
+        """
+        This method finds both zero-terminated strings and non-zero terminated strings. In the case of zero-terminated
+        strings, the returned stirng length will include the ending null byte.
+        """
+
         addr = start_addr
         sz = []
         is_sz = True
 
         # Get data until we meet a null-byte
-        while self._inside_regions(addr):
-            l.debug("Searching address %x", addr)
+        region_end = None
+        while True:
+            if region_end is None or addr >= region_end:
+                inside_region, region_end = self._inside_regions_and_region_end(addr)
+            else:
+                inside_region = addr < region_end
+            if not inside_region:
+                break
+
+            # l.debug("Searching address %x", addr)
             val = self._load_a_byte_as_int(addr)
             if val is None:
                 break
             if val == 0:
-                if len(sz) < 4:
-                    is_sz = False
                 break
             if val not in self.PRINTABLES:
                 is_sz = False
@@ -1119,29 +1130,41 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             sz.append(val)
             addr += 1
 
-        if sz and is_sz:
+        if sz and len(sz) >= min(min_length_nullterminated, min_length_non_nullterminated):
             # avoid commonly seen ambiguous cases
             if is_arm_arch(self.project.arch):
                 # little endian
                 sz_bytes = bytes(sz)
                 if self.project.arch.memory_endness == Endness.LE and b"\x70\x47" in sz_bytes:  # bx lr
-                    return 0
+                    return sz_bytes.find(b"\x70\x47")
                 if self.project.arch.memory_endness == Endness.BE and b"\x47\x70" in sz_bytes:  # bx lr
-                    return 0
-            l.debug("Got a string of %d chars", len(sz))
-            return len(sz) + 1
+                    return sz_bytes.find(b"\x47\x70")
+            if is_sz and len(sz) >= min_length_nullterminated:
+                return len(sz) + 1
+            if not is_sz and len(sz) >= min_length_non_nullterminated:
+                return len(sz)
 
         # no string is found
         return 0
 
-    def _scan_for_printable_widestrings(self, start_addr: int, min_length: int = 3) -> int:
+    def _scan_for_printable_widestrings(
+        self, start_addr: int, min_length_nullterminated: int = 3, min_length_non_nullterminated: int = 9
+    ) -> int:
         addr = start_addr
         sz = []
         is_sz = True
 
         # Get data until we meet two null bytes
-        while self._inside_regions(addr):
-            l.debug("Searching address %x", addr)
+        region_end = None
+        while True:
+            if region_end is None or addr >= region_end:
+                inside_region, region_end = self._inside_regions_and_region_end(addr)
+            else:
+                inside_region = addr < region_end
+            if not inside_region:
+                break
+
+            # l.debug("Searching address %x", addr)
             val0 = self._load_a_byte_as_int(addr)
             if val0 is None:
                 break
@@ -1149,8 +1172,6 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             if val1 is None:
                 break
             if val0 == 0 and val1 == 0:
-                if len(sz) < min_length * 2:
-                    is_sz = False
                 break
             if val0 != 0 and val1 == 0 and val0 in self.PRINTABLES:
                 sz += [val0, val1]
@@ -1160,9 +1181,12 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             is_sz = False
             break
 
-        if sz and is_sz:
+        if sz and len(sz) >= min(min_length_nullterminated, min_length_non_nullterminated) * 2:
             l.debug("Got a wide-string of %d wide chars", len(sz))
-            return len(sz) + 2
+            if is_sz and len(sz) >= min_length_nullterminated * 2:
+                return len(sz) + 2
+            if not is_sz and len(sz) >= min_length_non_nullterminated * 2:
+                return len(sz)
 
         # no wide string is found
         return 0

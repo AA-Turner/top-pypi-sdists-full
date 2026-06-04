@@ -1,16 +1,12 @@
-from tango import Util, DeviceProxy
+from tango import DeviceProxy, Util
 from tango.server import Device, command
 from tango.test_context import DeviceTestContext, MultiDeviceTestContext
 
 
 class DeviceToTest1(Device):
-
     @command
     def check_device(self, device_instance: str):
-        assert (
-            Util.instance().get_sub_dev_diag().get_associated_device()
-            == device_instance
-        )
+        assert Util.instance().get_sub_dev_diag().get_associated_device() == device_instance
 
 
 devices_info = (
@@ -33,7 +29,6 @@ def test_associated_device_is_device_instance():
 
 
 class DeviceToTest2(Device):
-
     sdd = None
 
     def init_device(self):
@@ -58,9 +53,7 @@ class DeviceToTest2(Device):
 
 def test_register_sub_device():
 
-    with DeviceTestContext(
-        DeviceToTest2, device_name="test/device/1", process=True
-    ) as dev:
+    with DeviceTestContext(DeviceToTest2, device_name="test/device/1", process=True) as dev:
         dev.check_device("")
         dev.add_device("test/device/1")
         dev.check_device("test/device/1 test_device")

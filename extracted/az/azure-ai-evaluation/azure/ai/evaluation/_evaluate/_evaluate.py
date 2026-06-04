@@ -294,8 +294,19 @@ def _aggregation_binary_output(df: pd.DataFrame) -> Dict[str, float]:
             )
             continue
         if evaluator_name:
-            # Count the occurrences of each unique value (pass/fail)
-            value_counts = df[col].value_counts().to_dict()
+            try:
+                # Count the occurrences of each unique value (pass/fail)
+                value_counts = df[col].value_counts().to_dict()
+            except TypeError as ex:
+                # Column contains unhashable values (e.g., lists/dicts) and is therefore
+                # not a binary pass/fail result column. Skip it instead of aborting the
+                # entire evaluation aggregation.
+                LOGGER.warning(
+                    "Skipping column '%s' for binary aggregation due to unhashable values: %s",
+                    col,
+                    ex,
+                )
+                continue
 
             # Calculate the proportion of EVALUATION_PASS_FAIL_MAPPING[True] results
             total_rows = len(df)
@@ -1385,6 +1396,7 @@ def emit_eval_result_events_to_app_insights(
         LOGGER.debug("No results to log to App Insights")
         return
 
+    logger_provider = None
     try:
         # Configure OpenTelemetry logging with anonymized Resource attributes
 
@@ -1452,6 +1464,14 @@ def emit_eval_result_events_to_app_insights(
 
     except Exception as e:
         LOGGER.error(f"Failed to emit evaluation results to App Insights: {e}")
+    finally:
+        # Shut down the logger provider to stop background threads (e.g. OneSettings
+        # configuration poller) that would otherwise keep the process alive indefinitely.
+        if logger_provider is not None:
+            try:
+                logger_provider.shutdown()
+            except Exception:
+                pass
 
 
 def _preprocess_data(
@@ -2798,7 +2818,7 @@ def _update_metric_value(
     elif metric_key.endswith("_result") or metric_key == "result" or metric_key.endswith("_label"):
         metric_dict["label"] = metric_value
         result_name = "label"
-        if criteria_type == "azure_ai_evaluator":
+        if criteria_type == "azure_ai_evaluator" and "passed" not in metric_dict:
             if metric_value is None:
                 passed = False
             else:

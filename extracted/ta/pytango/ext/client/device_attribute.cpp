@@ -55,22 +55,26 @@ void attribute_values_from_cpp_into_python(Tango::DeviceAttribute &self,
         bool is_image = false;
         switch(data_format) {
         case Tango::SCALAR:
+            // clang-format off
             TANGO_CALL_ON_ATTRIBUTE_DATA_TYPE_ID(data_type,
                                                  scalar_value_from_cpp_into_python,
                                                  self,
                                                  py_value,
                                                  extract_as);
+            // clang-format on
             break;
         case Tango::IMAGE:
             is_image = true;
             [[fallthrough]];
         case Tango::SPECTRUM:
+            // clang-format off
             TANGO_CALL_ON_ATTRIBUTE_DATA_TYPE_ID(data_type,
                                                  array_value_from_cpp_into_python,
                                                  self,
                                                  py_value,
                                                  is_image,
                                                  extract_as);
+            // clang-format on
             break;
         case Tango::FMT_UNKNOWN:
         default:
@@ -132,32 +136,33 @@ void export_device_attribute(py::module &m) {
         It contains several fields. The most important ones depend on the
         ExtractAs method used to get the value. Normally they are:
 
-            - value   : Normal scalar value or numpy array of values.
-            - w_value : The write part of the attribute.
+        - value   : Normal scalar value or numpy array of values.
+        - w_value : The write part of the attribute.
 
-        See other ExtractAs for different possibilities. There are some more
+        See other :py:obj:`~tango.ExtractAs` for different possibilities. There are some more
         fields, these really fixed:
 
-            - name        : (str)
-            - data_format : (AttrDataFormat) Attribute format
-            - quality     : (AttrQuality)
-            - time        : (TimeVal)
-            - dim_x       : (int) attribute dimension x
-            - dim_y       : (int) attribute dimension y
-            - w_dim_x     : (int) attribute written dimension x
-            - w_dim_y     : (int) attribute written dimension y
-            - r_dimension : (tuple<int,int>) Attribute read dimensions.
-            - w_dimension : (tuple<int,int>) Attribute written dimensions.
-            - nb_read     : (int) attribute read total length
-            - nb_written  : (int) attribute written total length
+        - name        : (str)
+        - data_format : (AttrDataFormat) Attribute format
+        - quality     : (AttrQuality)
+        - time        : (TimeVal)
+        - dim_x       : (int) attribute dimension x
+        - dim_y       : (int) attribute dimension y
+        - w_dim_x     : (int) attribute written dimension x
+        - w_dim_y     : (int) attribute written dimension y
+        - r_dimension : (tuple[int,int]) Attribute read dimensions.
+        - w_dimension : (tuple[int,int]) Attribute written dimensions.
+        - nb_read     : (int) attribute read total length
+        - nb_written  : (int) attribute written total length
 
 
         And two methods:
-            - get_date
-            - get_err_stack)doc");
 
-    DeviceAttribute
-        .def(py::init<>())
+        - get_date
+        - get_err_stack
+        )doc");
+
+    DeviceAttribute.def(py::init<>())
         .def(py::init<const Tango::DeviceAttribute &>())
         .def_readwrite("name", &Tango::DeviceAttribute::name)
         .def_readwrite("quality", &Tango::DeviceAttribute::quality)
@@ -175,52 +180,37 @@ void export_device_attribute(py::module &m) {
              &Tango::DeviceAttribute::get_date,
              py::return_value_policy::reference_internal,
              R"doc(
-                get_date(self) -> TimeVal
+                Get the time at which the attribute was read by the server.
 
-                        Get the time at which the attribute was read by the server.
-
-                        Note: It's the same as reading the "time" attribute.
-
-                    Parameters : None
-                    Return     : (TimeVal) The attribute read timestamp.)doc")
+                Note: It's the same as reading the "time" attribute.
+             )doc")
         .def("get_err_stack",
              &Tango::DeviceAttribute::get_err_stack,
              py::return_value_policy::copy,
              R"doc(
-                get_err_stack(self) -> sequence<DevError>
-
-                        Returns the error stack reported by the server when the
-                        attribute was read.
-
-                    Parameters : None
-                    Return     : (sequence<DevError>))doc")
+                Returns the error stack reported by the server when the attribute was read.
+             )doc")
         .def("set_w_dim_x",
              &Tango::DeviceAttribute::set_w_dim_x,
              R"doc(
-                set_w_dim_x(self, val) -> None
+                Sets the write value dim x.
 
-                        Sets the write value dim x.
+                :param val: new write dim x
+                :type val: int
 
-                    Parameters :
-                        - val : (int) new write dim x
-
-                    Return     : None
-
-                    New in PyTango 8.0.0)doc",
+                .. versionadded:: 8.0.0
+             )doc",
              py::arg("val"))
         .def("set_w_dim_y",
              &Tango::DeviceAttribute::set_w_dim_y,
              R"doc(
-                set_w_dim_y(self, val) -> None
+                Sets the write value dim y.
 
-                        Sets the write value dim y.
+                :param val: new write dim y
+                :type val: int
 
-                    Parameters :
-                        - val : (int) new write dim y
-
-                    Return     : None
-
-                    New in PyTango 8.0.0)doc",
+                .. versionadded:: 8.0.0
+             )doc",
              py::arg("val"));
 
     py::native_enum<Tango::DeviceAttribute::except_flags>(DeviceAttribute, "except_flags", "enum.IntEnum")

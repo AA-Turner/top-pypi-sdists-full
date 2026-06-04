@@ -14,8 +14,7 @@
 namespace PyDeviceAttribute {
 
 template <int tangoTypeConst>
-static inline void scalar_value_from_python_into_cpp(Tango::DeviceAttribute &dev_attr,
-                                                     const py::object &py_value) {
+static inline void scalar_value_from_python_into_cpp(Tango::DeviceAttribute &dev_attr, const py::object &py_value) {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
     TangoScalarType value;
@@ -52,8 +51,8 @@ inline void scalar_value_from_python_into_cpp<Tango::DEV_ENCODED>(Tango::DeviceA
      *
      * If it is done, the following code could be simplified to:
      *
-     * unsigned char *encoded_data = reinterpret_cast<unsigned char *>(from_python_str_to_cpp_char(encoded_data_str, &size, true));
-     * dev_attr.insert(encoded_format, encoded_data, static_cast<unsigned int>(size));
+     * unsigned char *encoded_data = reinterpret_cast<unsigned char *>(from_python_str_to_cpp_char(encoded_data_str,
+     * &size, true)); dev_attr.insert(encoded_format, encoded_data, static_cast<unsigned int>(size));
      *
      */
 
@@ -63,8 +62,8 @@ inline void scalar_value_from_python_into_cpp<Tango::DEV_ENCODED>(Tango::DeviceA
 
     if(PyUnicode_Check(encoded_data_obj)) {
         Py_ssize_t size;
-        encoded_data = reinterpret_cast<unsigned char *>(const_cast<char *>(
-            PyUnicode_AsUTF8AndSize(encoded_data_obj, &size)));
+        encoded_data =
+            reinterpret_cast<unsigned char *>(const_cast<char *>(PyUnicode_AsUTF8AndSize(encoded_data_obj, &size)));
         dev_attr.insert(encoded_format, encoded_data, static_cast<unsigned int>(size));
     } else if(PyBytes_Check(encoded_data_obj) || PyByteArray_Check(encoded_data_obj)) {
         Py_buffer view;
@@ -84,8 +83,7 @@ inline void scalar_value_from_python_into_cpp<Tango::DEV_ENCODED>(Tango::DeviceA
 
 namespace PyWAttribute {
 template <int tangoTypeConst>
-inline void scalar_value_from_python_into_cpp(Tango::WAttribute &att,
-                                              py::object &value) {
+inline void scalar_value_from_python_into_cpp(Tango::WAttribute &att, py::object &value) {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
     TangoScalarType cpp_value;

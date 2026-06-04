@@ -53,7 +53,7 @@ long_description = readme_path.read_text() if readme_path.exists() else __doc__
 
 setup(
     name="aigie",
-    version="0.2.42",
+    version="0.2.43",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",

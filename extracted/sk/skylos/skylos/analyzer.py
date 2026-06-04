@@ -119,6 +119,39 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("Skylos")
+PYTHON_SIGNATURE_SUFFIXES = (".py", ".pyi", ".pyw")
+
+
+def _python_signature_files(files):
+    py_files = []
+    for file_path in files:
+        if str(file_path).endswith(PYTHON_SIGNATURE_SUFFIXES):
+            py_files.append(file_path)
+    return py_files
+
+
+def _extend_unsuppressed_danger_findings(
+    findings,
+    *,
+    project_ignore,
+    per_file_ignore_lines,
+    all_dangers,
+    all_suppressed,
+):
+    for finding in findings:
+        if finding.get("rule_id") in project_ignore:
+            continue
+
+        file_key = str(finding.get("file", ""))
+        f_ignore = per_file_ignore_lines.get(file_key, set())
+        if finding.get("line") in f_ignore:
+            suppressed = dict(finding)
+            suppressed["category"] = "danger"
+            suppressed["reason"] = "inline ignore comment"
+            all_suppressed.append(suppressed)
+            continue
+
+        all_dangers.append(finding)
 
 _SECRET_CONFIG_SUFFIXES = {
     ".yaml",
@@ -391,6 +424,20 @@ def _resolve_analysis_root(path_like: Path) -> Path:
         pass
 
     return current
+
+
+def _no_source_danger_targets(
+    first_path: Path,
+    discovered_root: Path,
+) -> tuple[Path, Path]:
+    if first_path.is_file():
+        scan_target = first_path
+        manifest_root = first_path.parent
+    else:
+        scan_target = discovered_root
+        manifest_root = discovered_root
+
+    return scan_target, manifest_root
 
 
 def _grep_verify_rescue_priority(candidate: dict) -> tuple:
@@ -2037,6 +2084,10 @@ class Skylos:
 
         if not files:
             logger.warning(f"No Python files found in {path}")
+            no_source_scan_target, no_source_manifest_root = _no_source_danger_targets(
+                _first,
+                Path(root),
+            )
             result = {
                 "unused_functions": [],
                 "unused_imports": [],
@@ -2055,29 +2106,46 @@ class Skylos:
                 "workspaces": workspace_inventory.to_dict(project_root),
             }
             if enable_danger:
+                danger_findings = []
                 try:
                     from skylos.rules.config import scan_config_files
 
-                    scan_target = _first if _first.is_file() else project_root
                     config_findings = scan_config_files(
-                        scan_target,
+                        no_source_scan_target,
                         changed_files=changed_files,
                         ignore=project_ignore,
                     )
                     if config_findings:
-                        from skylos.rules.compliance import (
-                            enrich_findings_with_compliance,
-                        )
-
-                        result["danger"] = enrich_findings_with_compliance(
-                            config_findings
-                        )
-                        result["analysis_summary"]["danger_count"] = len(
-                            config_findings
-                        )
+                        danger_findings.extend(config_findings)
                 except Exception:
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error("Config scan failed", exc_info=True)
+
+                try:
+                    from skylos.rules.danger.danger_hallucination.manifest_dependency_hallucination import (
+                        scan_manifest_dependency_hallucinations,
+                    )
+
+                    manifest_findings = scan_manifest_dependency_hallucinations(
+                        no_source_manifest_root,
+                    )
+                    for finding in manifest_findings:
+                        if finding.get("rule_id") in project_ignore:
+                            continue
+                        danger_findings.append(finding)
+                except Exception:
+                    if os.getenv("SKYLOS_DEBUG"):
+                        logger.error("Manifest dependency scan failed", exc_info=True)
+
+                if danger_findings:
+                    from skylos.rules.compliance import (
+                        enrich_findings_with_compliance,
+                    )
+
+                    result["danger"] = enrich_findings_with_compliance(
+                        danger_findings
+                    )
+                    result["analysis_summary"]["danger_count"] = len(danger_findings)
             return json.dumps(result)
 
         logger.info(f"Analyzing {len(files)} files...")
@@ -2645,7 +2713,11 @@ class Skylos:
             try:
                 from skylos.rules.config import scan_config_files
 
-                scan_target = _first if _first.is_file() else project_root
+                if _first.is_file():
+                    scan_target = _first
+                else:
+                    scan_target = project_root
+
                 config_findings = scan_config_files(
                     scan_target,
                     changed_files=changed_files,
@@ -2692,6 +2764,47 @@ class Skylos:
                             unsuppressed_dep_findings.append(finding)
                         dep_findings = unsuppressed_dep_findings
                         all_dangers.extend(dep_findings)
+            except Exception:
+                if os.getenv("SKYLOS_DEBUG"):
+                    logger.error(traceback.format_exc())
+
+            try:
+                from skylos.rules.danger.danger_hallucination.api_signature_hallucination import (
+                    scan_python_api_signature_hallucinations,
+                )
+
+                py_files = _python_signature_files(files)
+                if py_files:
+                    api_findings = scan_python_api_signature_hallucinations(
+                        project_root,
+                        py_files,
+                    )
+                    _extend_unsuppressed_danger_findings(
+                        api_findings,
+                        project_ignore=project_ignore,
+                        per_file_ignore_lines=per_file_ignore_lines,
+                        all_dangers=all_dangers,
+                        all_suppressed=all_suppressed,
+                    )
+            except Exception:
+                if os.getenv("SKYLOS_DEBUG"):
+                    logger.error(traceback.format_exc())
+
+            try:
+                from skylos.rules.danger.danger_hallucination.manifest_dependency_hallucination import (
+                    scan_manifest_dependency_hallucinations,
+                )
+
+                manifest_findings = scan_manifest_dependency_hallucinations(
+                    project_root,
+                )
+                _extend_unsuppressed_danger_findings(
+                    manifest_findings,
+                    project_ignore=project_ignore,
+                    per_file_ignore_lines=per_file_ignore_lines,
+                    all_dangers=all_dangers,
+                    all_suppressed=all_suppressed,
+                )
             except Exception:
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error(traceback.format_exc())

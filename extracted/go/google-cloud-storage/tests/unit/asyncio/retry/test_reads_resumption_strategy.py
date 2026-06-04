@@ -15,16 +15,17 @@
 import asyncio
 import io
 import unittest
-from google_crc32c import Checksum
-from google.cloud.storage.exceptions import DataCorruption
+
+import google_crc32c
 from google.api_core import exceptions
 
 from google.cloud import _storage_v2 as storage_v2
+from google.cloud._storage_v2.types.storage import BidiReadObjectRedirectedError
 from google.cloud.storage.asyncio.retry.reads_resumption_strategy import (
     _DownloadState,
     _ReadResumptionStrategy,
 )
-from google.cloud._storage_v2.types.storage import BidiReadObjectRedirectedError
+from google.cloud.storage.exceptions import DataCorruption
 
 _READ_ID = 1
 LOGGER_NAME = "google.cloud.storage.asyncio.retry.reads_resumption_strategy"
@@ -76,8 +77,7 @@ class TestReadResumptionStrategy(unittest.TestCase):
         checksummed_data = None
         if content is not None:
             if crc is None:
-                c = Checksum(content)
-                crc = int.from_bytes(c.digest(), "big")
+                crc = google_crc32c.value(content)
             checksummed_data = storage_v2.ChecksummedData(content=content, crc32c=crc)
 
         read_range = None

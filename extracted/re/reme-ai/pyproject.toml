@@ -49,9 +49,6 @@ dependencies = [
     "openai>=2.8.1",
     "pandas>=2.3.3",
     "pydantic>=2.12.4",
-    "pyobvector>=0.1.20",
-    # pyobvector imports Expression from sqlglot; removed from sqlglot 30+ top-level API
-    "sqlglot>=25,<30",
     "qdrant-client>=1.16.0",
     "tavily-python>=0.7.13",
     "tiktoken>=0.12.0",
@@ -63,6 +60,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+obvec = [
+    "pyobvector>=0.1.20",
+    "sqlalchemy>=2.0",
+    # pyobvector imports Expression from sqlglot; removed from sqlglot 30+ top-level API
+    "sqlglot>=25,<30",
+]
+
+seekdb = [
+    # pyseekdb 1.2+ requires Python >=3.11 (no wheels on 3.10)
+    "pyseekdb>=1.2.0; python_version >= '3.11'",
+]
+
+zvec = [
+    "zvec",
+]
+
 ray = [
     "ray",
 ]
@@ -75,6 +88,8 @@ dev = [
     "furo",
     "sphinxcontrib-mermaid",
     "pre-commit",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
 ]
 
 full = [
@@ -86,8 +101,12 @@ litellm = [
 ]
 
 light = [
-    "agentscope==1.0.18",
+    "agentscope==1.0.20",
     "flowllm[reme]>=0.2.0.10",
+]
+
+core = [
+    "agentscope==1.0.20",
 ]
 
 [tool.setuptools.packages.find]

@@ -7,9 +7,7 @@
 #include "object_casters.h"
 
 template <>
-void assign_attr_prop(py::object &py_obj,
-                      const std::string &attr_name,
-                      Tango::AttrProp<Tango::DevString> &attr_prop) {
+void assign_attr_prop(py::object &py_obj, const std::string &attr_name, Tango::AttrProp<Tango::DevString> &attr_prop) {
     py::object attr_value = py_obj.attr(attr_name.c_str());
 
     try {

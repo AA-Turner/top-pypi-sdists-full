@@ -31,6 +31,7 @@ def detect_infrastructure_gaps(root: Path, language: str) -> list[Infrastructure
     except ImportError:
         gaps.append(InfrastructureGap(
             category="knowledge", tool="jieba",
+            config_file="",
             detected=False,
             suggestion="知识库中文搜索依赖 jieba，建议安装: pip install jieba",
         ))

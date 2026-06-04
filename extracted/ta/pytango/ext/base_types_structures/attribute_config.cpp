@@ -11,8 +11,7 @@
 template <typename AttributeConfigType>
 py::class_<AttributeConfigType> bind_AttributeConfig(py::module &m, const std::string &class_name) {
     py::class_<AttributeConfigType> attribute_config(m, class_name.c_str());
-    attribute_config
-        .def(py::init<>())
+    attribute_config.def(py::init<>())
         .def_readwrite("name", &AttributeConfigType::name)
         .def_readwrite("writable", &AttributeConfigType::writable)
         .def_readwrite("data_format", &AttributeConfigType::data_format)
@@ -69,26 +68,22 @@ void export_attribute_configs(py::module &m) {
 
     auto AttributeConfig = bind_AttributeConfig<Tango::AttributeConfig>(m, "AttributeConfig");
 
-    AttributeConfig
-        .def_readwrite("min_alarm", &Tango::AttributeConfig::min_alarm)
+    AttributeConfig.def_readwrite("min_alarm", &Tango::AttributeConfig::min_alarm)
         .def_readwrite("max_alarm", &Tango::AttributeConfig::max_alarm);
 
     auto AttributeConfig_2 = bind_AttributeConfig<Tango::AttributeConfig_2>(m, "AttributeConfig_2");
-    AttributeConfig_2
-        .def_readwrite("min_alarm", &Tango::AttributeConfig_2::min_alarm)
+    AttributeConfig_2.def_readwrite("min_alarm", &Tango::AttributeConfig_2::min_alarm)
         .def_readwrite("max_alarm", &Tango::AttributeConfig_2::max_alarm)
         .def_readwrite("level", &Tango::AttributeConfig_2::level);
 
     auto AttributeConfig_3 = bind_AttributeConfig<Tango::AttributeConfig_3>(m, "AttributeConfig_3");
-    AttributeConfig_3
-        .def_readwrite("level", &Tango::AttributeConfig_3::level)
+    AttributeConfig_3.def_readwrite("level", &Tango::AttributeConfig_3::level)
         .def_readwrite("att_alarm", &Tango::AttributeConfig_3::att_alarm)
         .def_readwrite("event_prop", &Tango::AttributeConfig_3::event_prop)
         .def_readwrite("sys_extensions", &Tango::AttributeConfig_3::sys_extensions);
 
     auto AttributeConfig_5 = bind_AttributeConfig<Tango::AttributeConfig_5>(m, "AttributeConfig_5");
-    AttributeConfig_5
-        .def_readwrite("memorized", &Tango::AttributeConfig_5::memorized)
+    AttributeConfig_5.def_readwrite("memorized", &Tango::AttributeConfig_5::memorized)
         .def_readwrite("mem_init", &Tango::AttributeConfig_5::mem_init)
         .def_readwrite("level", &Tango::AttributeConfig_5::level)
         .def_readwrite("root_attr_name", &Tango::AttributeConfig_5::root_attr_name)

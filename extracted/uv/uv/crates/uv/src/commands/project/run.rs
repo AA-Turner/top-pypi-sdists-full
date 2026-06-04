@@ -216,7 +216,6 @@ pub(crate) async fn run(
                 &cache,
                 DryRun::Disabled,
                 printer,
-                preview,
             )
             .await?
             .into_environment()?;
@@ -387,7 +386,6 @@ pub(crate) async fn run(
                     &cache,
                     DryRun::Disabled,
                     printer,
-                    preview,
                 )
                 .await?
                 .into_environment()?;
@@ -473,7 +471,6 @@ pub(crate) async fn run(
                     active.map_or(Some(false), Some),
                     &cache,
                     printer,
-                    preview,
                 )
                 .await?
                 .into_interpreter();
@@ -665,7 +662,6 @@ pub(crate) async fn run(
                     install_mirrors.python_install_mirror.as_deref(),
                     install_mirrors.pypy_install_mirror.as_deref(),
                     install_mirrors.python_downloads_json_url.as_deref(),
-                    preview,
                 )
                 .await?
                 .into_interpreter();
@@ -711,7 +707,6 @@ pub(crate) async fn run(
                     &cache,
                     DryRun::Disabled,
                     printer,
-                    preview,
                 )
                 .await?
                 .into_environment()?
@@ -907,7 +902,6 @@ pub(crate) async fn run(
                     install_mirrors.python_install_mirror.as_deref(),
                     install_mirrors.pypy_install_mirror.as_deref(),
                     install_mirrors.python_downloads_json_url.as_deref(),
-                    preview,
                 )
                 .await?;
 
@@ -1835,7 +1829,7 @@ impl RunCommand {
     }
 
     /// Return the directory containing the script, if any.
-    pub(crate) fn script_dir(&self) -> Option<&Path> {
+    fn script_dir(&self) -> Option<&Path> {
         let parent = match self {
             Self::PythonScript(target, _)
             | Self::PythonGuiScript(target, _)
@@ -2161,8 +2155,8 @@ fn copy_entrypoint(
 #[derive(Debug, thiserror::Error)]
 #[error("`uv run` was recursively invoked {depth} times which exceeds the limit of {max}")]
 pub(crate) struct RecursionLimitError {
-    pub(crate) depth: u32,
-    pub(crate) max: u32,
+    depth: u32,
+    max: u32,
 }
 
 impl uv_errors::Hint for RecursionLimitError {

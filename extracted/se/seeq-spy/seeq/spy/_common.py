@@ -135,19 +135,22 @@ def raise_or_catalog(status, df=None, index=None, column=None, e=None, exception
 
 
 def format_exception(e=None):
-    exception_type = None
-    tb = None
     if e is None:
         exception_type, e, tb = sys.exc_info()
-
-    if isinstance(e, ApiException):
-        return get_api_exception_message(e)
-
     else:
-        if tb is not None:
-            return f'Unhandled exception encountered:\n' + '\n'.join(traceback.format_exception(exception_type, e, tb))
-        else:
-            return '[%s] %s' % (type(e).__name__, str(e))
+        exception_type = type(e)
+        tb = e.__traceback__
+
+    if exception_type is None:
+        return '[unknown] format_exception() called with no active exception'
+
+    tb_str = '\n'.join(traceback.format_exception(exception_type, e, tb))
+
+    message = str(e)
+    if isinstance(e, ApiException):
+        message = get_api_exception_message(e)
+
+    return f'[{exception_type.__name__}] {message}\n{tb_str}'
 
 
 GUID_REGEX = r'[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}'

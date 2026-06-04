@@ -24,9 +24,8 @@ use crate::spanish::Spanish;
 use crate::util::SpanKwargs;
 use crate::{JiffEra, JiffEraYear, JiffRoundMode, JiffUnit, JiffWeekday, RyTimestamp};
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 #[pyclass(name = "Date", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyDate(pub(crate) Date);
@@ -47,19 +46,19 @@ impl RyDate {
     }
 
     #[classattr]
-    #[expect(non_snake_case)]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn MIN() -> Self {
         Self(Date::MIN)
     }
 
     #[classattr]
-    #[expect(non_snake_case)]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn MAX() -> Self {
         Self(Date::MAX)
     }
 
     #[classattr]
-    #[expect(non_snake_case)]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn ZERO() -> Self {
         Self(Date::ZERO)
     }
@@ -565,7 +564,7 @@ impl RyDate {
             .map_err(map_py_value_err)
     }
 
-    fn iso_week_date(&self) -> RyISOWeekDate {
+    pub(crate) fn iso_week_date(&self) -> RyISOWeekDate {
         self.into()
     }
 
@@ -623,9 +622,9 @@ impl RyDate {
     }
 
     #[staticmethod]
-    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
-        use ryo3_core::PyParse;
-        Self::py_parse(s)
+    #[pyo3(signature = (value, /))]
+    fn parse(value: ryo3_core::PyParseArg<Self>) -> Self {
+        value.into_inner()
     }
 
     fn isoformat(&self) -> PyAsciiString {

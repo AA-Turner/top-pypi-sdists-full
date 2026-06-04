@@ -9,25 +9,24 @@
 
 // Helper function to serialize DeviceAttributeConfig
 py::tuple get_state_DeviceAttributeConfig(const Tango::DeviceAttributeConfig &self) {
-    return py::make_tuple(
-        self.name,
-        self.writable,
-        self.data_format,
-        self.data_type,
-        self.max_dim_x,
-        self.max_dim_y,
-        self.description,
-        self.label,
-        self.unit,
-        self.standard_unit,
-        self.display_unit,
-        self.format,
-        self.min_value,
-        self.max_value,
-        self.min_alarm,
-        self.max_alarm,
-        self.writable_attr_name,
-        pickle_stdstringvector(self.extensions));
+    return py::make_tuple(self.name,
+                          self.writable,
+                          self.data_format,
+                          self.data_type,
+                          self.max_dim_x,
+                          self.max_dim_y,
+                          self.description,
+                          self.label,
+                          self.unit,
+                          self.standard_unit,
+                          self.display_unit,
+                          self.format,
+                          self.min_value,
+                          self.max_value,
+                          self.min_alarm,
+                          self.max_alarm,
+                          self.writable_attr_name,
+                          pickle_stdstringvector(self.extensions));
 }
 
 // Helper function to serialize AttributeInfo
@@ -93,30 +92,28 @@ void export_attribute_config_and_info(py::module &m) {
     A base structure containing available information for an attribute
     with the following members:
 
-        - name : (str) attribute name
-        - writable : (AttrWriteType) write type (R, W, RW, R with W)
-        - data_format : (AttrDataFormat) data format (SCALAR, SPECTRUM, IMAGE)
-        - data_type : (int) attribute type (float, string,..)
-        - max_dim_x : (int) first dimension of attribute (spectrum or image attributes)
-        - max_dim_y : (int) second dimension of attribute(image attribute)
-        - description : (int) attribute description
-        - label : (str) attribute label (Voltage, time, ...)
-        - unit : (str) attribute unit (V, ms, ...)
-        - standard_unit : (str) standard unit
-        - display_unit : (str) display unit
-        - format : (str) how to display the attribute value (ex: for floats could be '%6.2f')
-        - min_value : (str) minimum allowed value
-        - max_value : (str) maximum allowed value
-        - min_alarm : (str) low alarm level
-        - max_alarm : (str) high alarm level
-        - writable_attr_name : (str) name of the writable attribute
-        - extensions : (StdStringVector) extensions (currently not used)
-)doc")
+    - name : (str) attribute name
+    - writable : (AttrWriteType) write type (R, W, RW, R with W)
+    - data_format : (AttrDataFormat) data format (SCALAR, SPECTRUM, IMAGE)
+    - data_type : (int) attribute type (float, string,..)
+    - max_dim_x : (int) first dimension of attribute (spectrum or image attributes)
+    - max_dim_y : (int) second dimension of attribute(image attribute)
+    - description : (int) attribute description
+    - label : (str) attribute label (Voltage, time, ...)
+    - unit : (str) attribute unit (V, ms, ...)
+    - standard_unit : (str) standard unit
+    - display_unit : (str) display unit
+    - format : (str) how to display the attribute value (ex: for floats could be '%6.2f')
+    - min_value : (str) minimum allowed value
+    - max_value : (str) maximum allowed value
+    - min_alarm : (str) low alarm level
+    - max_alarm : (str) high alarm level
+    - writable_attr_name : (str) name of the writable attribute
+    - extensions : (list[str]) extensions (currently not used)
+        )doc")
         .def(py::init<>())
         .def(py::init<const Tango::DeviceAttributeConfig &>())
-        .def(py::pickle(
-            &get_state_DeviceAttributeConfig,
-            &set_state_DeviceAttributeConfig))
+        .def(py::pickle(&get_state_DeviceAttributeConfig, &set_state_DeviceAttributeConfig))
         .def_readwrite("name", &Tango::DeviceAttributeConfig::name)
         .def_readwrite("writable", &Tango::DeviceAttributeConfig::writable)
         .def_readwrite("data_format", &Tango::DeviceAttributeConfig::data_format)
@@ -142,35 +139,37 @@ void export_attribute_config_and_info(py::module &m) {
     A structure (inheriting from :class:`DeviceAttributeConfig`) containing
     available information for an attribute with the following members:
 
-        - disp_level : (DispLevel) display level (OPERATOR, EXPERT)
+    - disp_level : (DispLevel) display level (OPERATOR, EXPERT)
 
-        Inherited members are:
+    Inherited members are:
 
-            - name : (str) attribute name
-            - writable : (AttrWriteType) write type (R, W, RW, R with W)
-            - data_format : (AttrDataFormat) data format (SCALAR, SPECTRUM, IMAGE)
-            - data_type : (int) attribute type (float, string,..)
-            - max_dim_x : (int) first dimension of attribute (spectrum or image attributes)
-            - max_dim_y : (int) second dimension of attribute(image attribute)
-            - description : (int) attribute description
-            - label : (str) attribute label (Voltage, time, ...)
-            - unit : (str) attribute unit (V, ms, ...)
-            - standard_unit : (str) standard unit
-            - display_unit : (str) display unit
-            - format : (str) how to display the attribute value (ex: for floats could be '%6.2f')
-            - min_value : (str) minimum allowed value
-            - max_value : (str) maximum allowed value
-            - min_alarm : (str) low alarm level
-            - max_alarm : (str) high alarm level
-            - writable_attr_name : (str) name of the writable attribute
-            - extensions : (StdStringVector) extensions (currently not used)
-)doc")
+    - name : (str) attribute name
+    - writable : (AttrWriteType) write type (R, W, RW, R with W)
+    - data_format : (AttrDataFormat) data format (SCALAR, SPECTRUM, IMAGE)
+    - data_type : (int) attribute type (float, string,..)
+    - max_dim_x : (int) first dimension of attribute (spectrum or image attributes)
+    - max_dim_y : (int) second dimension of attribute(image attribute)
+    - description : (int) attribute description
+    - label : (str) attribute label (Voltage, time, ...)
+    - unit : (str) attribute unit (V, ms, ...)
+    - standard_unit : (str) standard unit
+    - display_unit : (str) display unit
+    - format : (str) how to display the attribute value (ex: for floats could be '%6.2f')
+    - min_value : (str) minimum allowed value
+    - max_value : (str) maximum allowed value
+    - min_alarm : (str) low alarm level
+    - max_alarm : (str) high alarm level
+    - writable_attr_name : (str) name of the writable attribute
+    - extensions : (list[str]) extensions (currently not used)
+        )doc")
         .def(py::init<>())
         .def(py::init<const Tango::AttributeInfo &>())
-        .def(py::pickle(
-            &get_state_AttributeInfo,
-            &set_state_AttributeInfo))
-        .def_readwrite("disp_level", &Tango::AttributeInfo::disp_level);
+        .def(py::pickle(&get_state_AttributeInfo, &set_state_AttributeInfo))
+        .def_readwrite("disp_level", &Tango::AttributeInfo::disp_level)
+        .def(
+            "__eq__",
+            [](Tango::AttributeInfo &self, Tango::AttributeInfo &other) { return self == other; },
+            py::is_operator());
 
     py::class_<Tango::AttributeInfoEx, Tango::AttributeInfo>(m,
                                                              "AttributeInfoEx",
@@ -178,32 +177,32 @@ void export_attribute_config_and_info(py::module &m) {
     A structure (inheriting from :class:`AttributeInfo`) containing
     available information for an attribute with the following members:
 
-        - alarms : object containing alarm information (see AttributeAlarmInfo).
-        - events : object containing event information (see AttributeEventInfo).
-        - sys_extensions : StdStringVector
+    - alarms : object containing alarm information (see AttributeAlarmInfo).
+    - events : object containing event information (see AttributeEventInfo).
+    - sys_extensions : list[str]
 
-        Inherited members are:
+    Inherited members are:
 
-            - name : (str) attribute name
-            - writable : (AttrWriteType) write type (R, W, RW, R with W)
-            - data_format : (AttrDataFormat) data format (SCALAR, SPECTRUM, IMAGE)
-            - data_type : (int) attribute type (float, string,..)
-            - max_dim_x : (int) first dimension of attribute (spectrum or image attributes)
-            - max_dim_y : (int) second dimension of attribute(image attribute)
-            - description : (int) attribute description
-            - label : (str) attribute label (Voltage, time, ...)
-            - unit : (str) attribute unit (V, ms, ...)
-            - standard_unit : (str) standard unit
-            - display_unit : (str) display unit
-            - format : (str) how to display the attribute value (ex: for floats could be '%6.2f')
-            - min_value : (str) minimum allowed value
-            - max_value : (str) maximum allowed value
-            - min_alarm : (str) low alarm level
-            - max_alarm : (str) high alarm level
-            - writable_attr_name : (str) name of the writable attribute
-            - extensions : (StdStringVector) extensions (currently not used)
-            - disp_level : (DispLevel) display level (OPERATOR, EXPERT)
-)doc")
+        - name : (str) attribute name
+        - writable : (AttrWriteType) write type (R, W, RW, R with W)
+        - data_format : (AttrDataFormat) data format (SCALAR, SPECTRUM, IMAGE)
+        - data_type : (int) attribute type (float, string,..)
+        - max_dim_x : (int) first dimension of attribute (spectrum or image attributes)
+        - max_dim_y : (int) second dimension of attribute(image attribute)
+        - description : (int) attribute description
+        - label : (str) attribute label (Voltage, time, ...)
+        - unit : (str) attribute unit (V, ms, ...)
+        - standard_unit : (str) standard unit
+        - display_unit : (str) display unit
+        - format : (str) how to display the attribute value (ex: for floats could be '%6.2f')
+        - min_value : (str) minimum allowed value
+        - max_value : (str) maximum allowed value
+        - min_alarm : (str) low alarm level
+        - max_alarm : (str) high alarm level
+        - writable_attr_name : (str) name of the writable attribute
+        - extensions : (list[str]) extensions (currently not used)
+        - disp_level : (DispLevel) display level (OPERATOR, EXPERT)
+        )doc")
         .def(py::init<>())
         .def(py::init<const Tango::AttributeInfoEx &>())
         .def(py::pickle(
@@ -247,5 +246,9 @@ void export_attribute_config_and_info(py::module &m) {
         .def_readwrite("enum_labels", &Tango::AttributeInfoEx::enum_labels)
         .def_readwrite("alarms", &Tango::AttributeInfoEx::alarms)
         .def_readwrite("events", &Tango::AttributeInfoEx::events)
-        .def_readwrite("sys_extensions", &Tango::AttributeInfoEx::sys_extensions);
+        .def_readwrite("sys_extensions", &Tango::AttributeInfoEx::sys_extensions)
+        .def(
+            "__eq__",
+            [](Tango::AttributeInfoEx &self, Tango::AttributeInfoEx &other) { return self == other; },
+            py::is_operator());
 }

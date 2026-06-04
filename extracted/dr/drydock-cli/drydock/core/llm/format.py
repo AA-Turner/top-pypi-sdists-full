@@ -361,6 +361,12 @@ class APIToolFormatHandler:
             # server) and `read_mcp_resource` after running out of obvious
             # exploration tools. Suppress to break the empty_after_tool stall.
             "lsp", "lsp_definition", "lsp_references",
+            # Observed 2026-06-03 gauntlet sessions: model hallucinates rename/refactor
+            # tools, then falls back to empty bash({}) calls when they fail — triggering
+            # bash loop detector. Suppress with explicit search_replace redirect so the
+            # model uses the correct tool rather than looping on empty bash.
+            "mechanical_rename", "rename_symbol", "rename_identifier",
+            "refactor_rename", "rename_in_file", "symbol_rename",
         }
         # Subset of _IGNORE_TOOLS that are retrieval-flavored hallucinations.
         # When `retrieve` is registered, redirect the model there instead of
@@ -369,6 +375,12 @@ class APIToolFormatHandler:
         _RETRIEVAL_HALLUCINATIONS = {
             "ralph_repo_index", "repo_index", "index_repo",
             "ralph_file_summary", "file_summary", "repo_summary",
+        }
+        # Rename/refactor hallucinations — redirect to search_replace with
+        # replace_all=True, which is the correct drydock primitive for renaming.
+        _RENAME_HALLUCINATIONS = {
+            "mechanical_rename", "rename_symbol", "rename_identifier",
+            "refactor_rename", "rename_in_file", "symbol_rename",
         }
 
         suppressed_failures = []
@@ -379,7 +391,15 @@ class APIToolFormatHandler:
                 # history well-formed (prevents empty_after_tool loops) but
                 # route to suppressed_failures so the TUI doesn't show an error.
                 if parsed_call.tool_name in _IGNORE_TOOLS:
-                    if parsed_call.tool_name in _RETRIEVAL_HALLUCINATIONS:
+                    if parsed_call.tool_name in _RENAME_HALLUCINATIONS:
+                        redirect = (
+                            f"'{parsed_call.tool_name}' does not exist. "
+                            f"To rename a symbol across a file use: "
+                            f"`search_replace(file_path='...', old_string='OldName', "
+                            f"new_string='NewName', replace_all=True)`. "
+                            f"Call search_replace NOW with the exact old and new names."
+                        )
+                    elif parsed_call.tool_name in _RETRIEVAL_HALLUCINATIONS:
                         # These are file-listing/indexing hallucinations, NOT semantic
                         # search — redirecting to `retrieve` confuses the model (it doesn't
                         # know what query to write for a directory listing, stalls empty).

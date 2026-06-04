@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import logging
 
-from angr.ailment.expression import VirtualVariable, Call
-from angr.ailment.statement import Return, Label, SideEffectStatement
+from angr.ailment.expression import Call, VirtualVariable
+from angr.ailment.statement import Label, Return, SideEffectStatement
+from angr.analyses.decompiler.optimization_passes.optimization_pass import OptimizationPass, OptimizationPassStage
 from angr.rust.mixins import CFAMixin, CFGTransformationMixin, SRDAMixin
-from angr.analyses.decompiler.optimization_passes.optimization_pass import OptimizationPassStage, OptimizationPass
 from angr.rust.utils.ail import find_call, get_terminal_call
 from angr.rust.utils.demangler import demangle
 
@@ -59,11 +60,11 @@ class CleanupCodeRemover(OptimizationPass, CFGTransformationMixin, CFAMixin, SRD
             struct_ty = None
             if name.startswith("core::ptr::drop_in_place<") and name.endswith(">"):
                 type_str = name[len("core::ptr::drop_in_place<") : -1].replace(",", ", ")
-                struct_ty = self.project.kb.known_structs[type_str]
+                struct_ty = self.project.kb.known_structs.get(type_str)
             elif name.startswith("core::ops::drop::Drop::drop<") and name.endswith(">"):
                 type_str = name[len("core::ops::drop::Drop::drop<") : -1].replace(",", ", ")
-                struct_ty = self.project.kb.known_structs[type_str]
-            if struct_ty and call.args and isinstance(call.args[0], VirtualVariable):
+                struct_ty = self.project.kb.known_structs.get(type_str)
+            if struct_ty is not None and call.args and isinstance(call.args[0], VirtualVariable):
                 self.project.kb.type_hints.add_type_hint(call.args[0], struct_ty, self._func.addr)
 
     def _remove_cleanup_calls(self):

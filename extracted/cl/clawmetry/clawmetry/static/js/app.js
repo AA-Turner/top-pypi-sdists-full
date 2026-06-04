@@ -1156,6 +1156,7 @@ function switchTab(name) {
   if (name === 'tracing') loadTracing();
   if (name === 'turn-anatomy') loadTurnAnatomy();
   if (name === 'tool-catalog') { if (typeof loadToolCatalog === 'function') loadToolCatalog(); }
+  if (name === 'harness') { if (typeof loadHarness === 'function') loadHarness(); }
   if (name === 'context-economics') { if (typeof loadContextEconomics === 'function') loadContextEconomics(); }
   if (name === 'brain') loadBrainPage();
   if (name === 'selfevolve') loadSelfEvolvePage();
@@ -2900,9 +2901,17 @@ function _renderOverviewHero() {
   var busy = !!window._cmAgentBusy;
   var stateWord = busy ? 'working' : 'idle';
   var dot = busy ? '#22c55e' : '#3b82f6';
-  var cost = _txt('cost-today') || '$0.00';
-  var model = ov.model || _txt('model-primary') || 'your model';
-  var sessions = (typeof ov.sessionCount === 'number') ? ov.sessionCount : null;
+  // When a runtime is selected, the hero must mirror the (runtime-scoped) stat
+  // cards, not the node-wide overview. _cmRuntimeScope is set by loadMiniWidgets
+  // from the v1 API (FLYWHEEL §1c); null = node-wide. Note: prefer the scoped
+  // model card over ov.model here, else the hero kept showing the node's
+  // dominant model (e.g. "running claude-opus-4-8" while PicoClaw is selected).
+  var _scope = window._cmRuntimeScope;
+  var cost = _scope ? ('$' + _scope.cost.toFixed(2)) : (_txt('cost-today') || '$0.00');
+  var model = _scope ? (_txt('model-primary') || _scope.model || '—')
+                     : (ov.model || _txt('model-primary') || 'your model');
+  var sessions = _scope ? _scope.sessions
+                        : ((typeof ov.sessionCount === 'number') ? ov.sessionCount : null);
   var free = cost === '$0.00' || cost === '$0' ||
              /oauth/i.test((document.getElementById('cost-trend') || {}).textContent || '');
   var say = window._cmLastAgentSay;
@@ -2914,7 +2923,11 @@ function _renderOverviewHero() {
     : (busy ? 'It’s working on something right now.'
             : 'Send it a message and you’ll see what it does, right here.');
   var stats = [];
-  if (sessions != null) stats.push('💬 <strong style="color:var(--text-primary);">' + sessions + (sessions === 1 ? ' session' : ' sessions') + '</strong> today');
+  // When scoped to a runtime, `sessions` is that runtime's TOTAL footprint
+  // (matches the switcher), so don't append "today" — the runtime may have 0
+  // sessions today but N on record, and "N sessions today" would be wrong while
+  // "0 sessions today" reads as gone. For all-runtimes it stays the live "today".
+  if (sessions != null) stats.push('💬 <strong style="color:var(--text-primary);">' + sessions + (sessions === 1 ? ' session' : ' sessions') + '</strong>' + (_scope ? '' : ' today'));
   stats.push('💸 <strong style="color:var(--text-primary);">' + escHtml(cost) + '</strong>' + (free ? ' <span style="color:#22c55e;">free on your plan</span>' : ''));
   stats.push('🧠 running <strong style="color:var(--text-primary);">' + escHtml(model) + '</strong>');
   // Live throughput (⚡ tok/s) from the today-token delta between renders —
@@ -3108,23 +3121,88 @@ async function loadMiniWidgets(overview, usage) {
   // value already in hand so the card is never blank and never contradicts the
   // hero. (Card relabeled "Sessions today" in overview.html.)
   document.getElementById('hot-sessions-count').textContent = overview.sessionCount || 0;
-  
-  // 📈 Model Mix — scope the Overview MODEL card to the selected runtime (the
-  // "MODEL claude-opus-4-7 while Qwen Code is selected" confusion). The
-  // runtime's primary model comes from /api/runtime-summary (cloud serves the
-  // runtimeSummary snapshot slice); '—' when that runtime has no model turns.
-  // Done HERE (the single place #model-primary is set on Overview) so it isn't
-  // overwritten by the node-dominant model on the next refresh.
+
+  // 📈 Runtime scope — when a runtime is selected, the Overview stat cards
+  // (sessions / tokens / cost / model) must show ONLY that runtime's data
+  // (FLYWHEEL §1c). Without this the cards stayed node-wide while the switcher
+  // said e.g. "PicoClaw · 1 session" (node showed 68 sessions / 3.8M tokens).
+  //
+  // Source of truth: the public v1 API, which filters SERVER-SIDE by ?runtime=
+  // (cloud mode). period=day -> the "today" cards, period=month -> token-rate.
+  // Local mode has no v1 API, so it falls back to the /api/runtime-summary slice
+  // (per-runtime totals; the model already used this). `_cmRuntimeScope` is the
+  // override the hero reads; null = node-wide (unchanged path).
   var _ovModel = overview.model || 'unknown';
+  window._cmRuntimeScope = null;
   try {
     var _ovRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
     if (_ovRt && _ovRt !== 'all') {
       var _rsd = await fetchJsonWithTimeout('/api/runtime-summary', 4000);
       var _rs = _rsd && _rsd.runtimes && _rsd.runtimes[_ovRt];
       _ovModel = (_rs && _rs.primary_model) ? _rs.primary_model : '—';
+      // The SESSIONS card must match what the runtime switcher promises
+      // ("OpenClaw · 2 sessions"), NOT a today-window that's empty for a runtime
+      // whose sessions are older than today. Otherwise selecting an idle-today
+      // runtime reads as "sessions gone" (founder report 2026-06-03: OpenClaw has
+      // 2 sessions on record but the Overview showed 0). Use the switcher's
+      // per-runtime total; fall back to the period count if it's not populated.
+      var _rtTotal = (window._cmGlobalRtCounts && window._cmGlobalRtCounts[_ovRt]) || 0;
+      var _scope = null;
+      if (window.CLOUD_MODE) {
+        // Server-side filtered, period-accurate (the founder's chosen contract).
+        try {
+          var _b = '/api/v1/usage?node_id=' + encodeURIComponent(window.CLOUD_NODE_ID || '') + '&runtime=' + encodeURIComponent(_ovRt);
+          var _dR = await fetch(_b + '&period=day'), _wR = await fetch(_b + '&period=week'), _mR = await fetch(_b + '&period=month');
+          if (_dR.ok && _wR.ok && _mR.ok) {
+            var _d = ((await _dR.json()) || {}).data || {}, _w = ((await _wR.json()) || {}).data || {}, _m = ((await _mR.json()) || {}).data || {};
+            // Guard against an echo/stale mismatch (only trust a response that
+            // confirms it filtered to the runtime we asked for).
+            if (String(_d.runtime || '') === _ovRt) {
+              _scope = { runtime: _ovRt, sessions: _rtTotal || (_m.sessions_count | 0) || (_d.sessions_count | 0),
+                         sessionsToday: _d.sessions_count | 0,
+                         tokensToday: _d.total_tokens | 0, tokensMonth: _m.total_tokens | 0,
+                         cost: +_m.total_cost || 0, costWeek: +_w.total_cost || 0,
+                         costMonth: +_m.total_cost || 0, model: _ovModel };
+            }
+          }
+        } catch (e2) { /* fall through to slice */ }
+      }
+      if (!_scope && _rs) {
+        // Local-mode fallback: the runtime-summary slice has per-runtime totals
+        // (not period-split, but scoped to the runtime — better than node-wide).
+        _scope = { runtime: _ovRt, sessions: _rtTotal || (_rs.sessions | 0),
+                   sessionsToday: _rs.sessions | 0,
+                   tokensToday: _rs.tokens | 0, tokensMonth: _rs.tokens | 0,
+                   cost: +_rs.cost_usd || 0, costWeek: +_rs.cost_usd || 0,
+                   costMonth: +_rs.cost_usd || 0, model: _ovModel };
+      }
+      if (_scope) {
+        window._cmRuntimeScope = _scope;
+        var _fmtT = function (n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : String(n); };
+        var _set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+        _set('hot-sessions-count', _scope.sessions);
+        _set('tokens-today', _fmtT(_scope.tokensToday));
+        _set('token-rate', _fmtT(_scope.tokensMonth));
+        _set('cost-today', '$' + _scope.cost.toFixed(2));
+        // SPENDING wk/mo sub-figures scope too (were node-wide projections).
+        if (_scope.costWeek != null) _set('cost-week', fmtCost(_scope.costWeek));
+        if (_scope.costMonth != null) _set('cost-month', fmtCost(_scope.costMonth));
+        window._cmTodayTokensRaw = _scope.tokensToday;
+      }
     }
-  } catch (e) { /* keep the node-dominant model */ }
+  } catch (e) { /* keep the node-dominant values */ }
   document.getElementById('model-primary').textContent = _ovModel;
+  // Relabel the SESSIONS tile: scoped shows the runtime's TOTAL (matches the
+  // switcher) so "today" would be wrong; node-wide stays the live "today".
+  try {
+    var _slbl = document.getElementById('hot-sessions-label');
+    if (_slbl) _slbl.textContent = window._cmRuntimeScope
+      ? t('overview.sessions', null, 'Sessions')
+      : t('overview.sessions_today', null, 'Sessions today');
+  } catch (e) {}
+  // Re-render the hero so its headline (sessions / cost / model) reflects the
+  // scope just applied (it may have first painted node-wide from loadAll).
+  try { if (typeof _renderOverviewHero === 'function') _renderOverviewHero(); } catch (e) {}
   var modelLabel = document.getElementById('main-activity-model');
   if (modelLabel && _ovModel && _ovModel !== '—') {
     var m = _ovModel;
@@ -5898,6 +5976,57 @@ async function loadContextInspector() {
     el = document.getElementById('ctx-compactions'); if (el) el.textContent = compactions;
     el = document.getElementById('ctx-model-name'); if (el) { el.textContent = model.split('/').pop(); el.style.fontSize = model.length > 20 ? '14px' : '20px'; }
 
+    // Active model + model mix, scoped to the selected runtime. The overview
+    // model (ov.model) is the node-wide active model — for a non-OpenClaw
+    // runtime that's wrong (e.g. it showed claude-opus-4-7 for Codex, which
+    // actually ran gpt-5.4). Pull the per-runtime attribution: the MOST-USED
+    // model becomes the "active" one, the rest are listed with % of turns
+    // (founder spec 2026-06-04). /api/model-attribution honours ?runtime=.
+    (function _ctxModelMix() {
+      var mixEl = document.getElementById('ctx-model-mix');
+      var nameEl = document.getElementById('ctx-model-name');
+      var _rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+      var _q = (_rt && _rt !== 'all') ? ('?runtime=' + encodeURIComponent(_rt)) : '';
+      fetch('/api/model-attribution' + _q).then(function (r) { return r.json(); }).then(function (ma) {
+        var models = (ma && ma.models) || [];
+        var total = (ma && ma.total_turns) || models.reduce(function (s, m) { return s + (m.turns || 0); }, 0);
+        if (!models.length || !total) {
+          if (mixEl) mixEl.style.display = 'none';
+          // A specific runtime with no model data must NOT leak the node-wide
+          // model (Codex showed claude-opus-4-7 for this reason). Show a dash.
+          if (_rt && _rt !== 'all' && nameEl) {
+            nameEl.textContent = '—';
+            nameEl.style.fontSize = '20px';
+            nameEl.title = 'No model usage recorded for ' + _rt + ' yet';
+          }
+          return;
+        }
+        // most-used first
+        models = models.slice().sort(function (a, b) { return (b.turns || 0) - (a.turns || 0); });
+        var top = (ma.primary_model && ma.primary_model !== '--') ? ma.primary_model : models[0].model;
+        if (nameEl) {
+          var shortTop = String(top).replace('anthropic/', '').replace('openai/', '').split('/').pop();
+          nameEl.textContent = shortTop;
+          nameEl.style.fontSize = shortTop.length > 20 ? '14px' : '20px';
+          nameEl.title = top + ' — most-used model for ' + (_rt === 'all' ? 'all runtimes' : _rt);
+        }
+        if (!mixEl) return;
+        // List the OTHER models with % of turns (skip the primary already shown above).
+        var others = models.filter(function (m) { return m.model !== top; });
+        if (!others.length) { mixEl.style.display = 'none'; return; }
+        var html = '';
+        others.slice(0, 4).forEach(function (m) {
+          var pct = total > 0 ? (m.turns / total * 100) : 0;
+          var nm = String(m.model || '').replace('anthropic/', '').replace('openai/', '').split('/').pop();
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);margin:2px 0;">'
+            + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(m.model || '') + '">' + escHtml(nm) + '</span>'
+            + '<span style="flex-shrink:0;font-weight:600;color:var(--text-secondary);">' + pct.toFixed(0) + '%</span></div>';
+        });
+        mixEl.innerHTML = html;
+        mixEl.style.display = 'block';
+      }).catch(function () { if (mixEl) mixEl.style.display = 'none'; });
+    })();
+
     // Context composition breakdown
     var skillHeaderTokens = (skills.summary || {}).total_header_tokens || 0;
     var memoryFiles = ov.memoryCount || 0;
@@ -7523,11 +7652,36 @@ function _cmRuntimeOf(o) {
   }
   return 'openclaw';
 }
+// The active runtime filter. A `?runtime=<id>` URL param takes precedence over
+// the localStorage value and is TAB-LOCAL: localStorage is shared across all
+// tabs of an origin, so without this a Fleet "open <runtime> in a new tab" would
+// have every tab fight over one shared key. Pinning via the URL lets you open
+// Claude Code in one tab and Codex in another, each independent.
+function _cmRuntimeFilterUrlPin() {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    if (p.has('runtime')) { var v = p.get('runtime'); if (v) return v; }
+  } catch (e) {}
+  return null;
+}
 function _cmRuntimeFilter() {
+  var pin = _cmRuntimeFilterUrlPin();
+  if (pin) return pin;
   try { return localStorage.getItem('cm-runtime-filter') || 'all'; } catch (e) { return 'all'; }
 }
 function _cmSetRuntimeFilter(v, reload) {
-  try { localStorage.setItem('cm-runtime-filter', v); } catch (e) {}
+  // If this tab is URL-pinned to a runtime, keep the selection tab-local by
+  // updating the URL param (not the shared localStorage key) so sibling tabs
+  // stay on their own runtime.
+  if (_cmRuntimeFilterUrlPin() !== null) {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set('runtime', v);
+      window.history.replaceState(null, '', u.toString());
+    } catch (e) {}
+  } else {
+    try { localStorage.setItem('cm-runtime-filter', v); } catch (e) {}
+  }
   if (typeof reload === 'function') reload();
 }
 function _cmRuntimeLabel(rt) { return _CM_RT_LABEL[rt] || rt; }
@@ -7535,8 +7689,11 @@ function _cmRuntimeLabel(rt) { return _CM_RT_LABEL[rt] || rt; }
 // the switcher can't scope them client-side yet, so picking a specific runtime
 // shows an honest "all runtimes" note rather than pretending the numbers are
 // runtime-specific. (Per-runtime aggregation is a follow-up.)
+// Tool catalog + Context economics now filter per-runtime (snapshot byRuntime
+// slice + cloud interceptor), so they're no longer aggregate-only tabs.
+// context (LLM Context) still pending per-runtime slicing.
 var _CM_RT_AGGREGATE = {
-  'tool-catalog': 1, 'context-economics': 1, context: 1
+  context: 1
 };
 // Tabs that are NODE-WIDE concepts, not per-runtime: crons run on the gateway,
 // memory/skills are workspace-level, security is machine posture, self-evolve is
@@ -7546,6 +7703,75 @@ var _CM_RT_NODEWIDE = {
   alerts: 1, policy: 1, nemoclaw: 1, notifications: 1, dives: 1,
   'version-impact': 1, clusters: 1, logs: 1, actions: 1
 };
+// Per-runtime sidebar tab visibility, DERIVED from each adapter's DECLARED
+// Capability enum — the authoritative contract, not an LLM "analysis" (founder
+// 2026-06-03: a workflow agent hallucinated NemoClaw as a "NeMo toolkit" when
+// it is sandboxed OpenClaw; deriving from declared capabilities makes the config
+// hallucination-proof and self-maintaining). Source of truth:
+//   - pro adapters: clawmetry_pro/adapters/<rt>.py `capabilities()` return.
+//   - openclaw: clawmetry/adapters/openclaw.py. nemoclaw runs the OpenClaw
+//     adapter (sandboxed: `clawmetry exec ... kubectl exec nemoclaw-sandbox`),
+//     so it shares OpenClaw's capabilities.
+// Verify/regenerate: grep `Capability.` in each adapter. Guarded by
+// tests/test_runtime_tab_capability_parity.py (OSS) against openclaw.
+var _CM_RT_CAPS = {
+  openclaw:    ['SESSIONS','EVENTS','COST','SUBAGENTS','CRONS','SKILLS','MEMORY','BRAIN','LOGS','GATEWAY_RPC','CHANNELS'],
+  nemoclaw:    ['SESSIONS','EVENTS','COST','SUBAGENTS','CRONS','SKILLS','MEMORY','BRAIN','LOGS','GATEWAY_RPC','CHANNELS'], // sandboxed OpenClaw
+  claude_code: ['SESSIONS','EVENTS','COST'],
+  codex:       ['SESSIONS','EVENTS','COST'],
+  aider:       ['SESSIONS','EVENTS','COST'],
+  goose:       ['SESSIONS','EVENTS','COST'],
+  opencode:    ['SESSIONS','EVENTS','COST'],
+  qwen_code:   ['SESSIONS','EVENTS','COST'],
+  hermes:      ['SESSIONS','EVENTS','COST','SUBAGENTS'],
+  cursor:      ['SESSIONS','EVENTS'],   // no COST
+  picoclaw:    ['SESSIONS','EVENTS'],   // no COST
+  nanoclaw:    ['SESSIONS','EVENTS']    // no COST
+};
+// Capability -> the sidebar tabs it enables. A tab shows iff the runtime
+// declares (at least) one capability that enables it.
+var _CM_CAP_TABS = {
+  SESSIONS:    ['overview','dives'],
+  EVENTS:      ['brain','models','context','tracing','turn-anatomy'],
+  COST:        ['cost','context-economics'],
+  SUBAGENTS:   ['subagents'],
+  CRONS:       ['crons'],
+  SKILLS:      ['skills'],
+  MEMORY:      ['memory'],
+  GATEWAY_RPC: ['approvals','policy','selfevolve'],
+  CHANNELS:    ['flow']
+};
+// Node/account-level tabs — not capability-gated, shown for every runtime.
+var _CM_NODE_TABS = ['alerts','notifications','security'];
+// Every togglable sidebar tab (so switching runtimes RE-SHOWS what a prior one
+// hid). overview is never togglable.
+var _CM_RT_ALL_TABS = ['flow','brain','models','context','tracing','turn-anatomy',
+  'context-economics','approvals','alerts','cost','dives','crons','memory',
+  'notifications','security','policy','skills','selfevolve','subagents','nemoclaw'];
+function _cmShownTabsForRuntime(rt) {
+  var show = {};
+  _CM_NODE_TABS.forEach(function (t) { show[t] = 1; });
+  (_CM_RT_CAPS[rt] || []).forEach(function (cap) {
+    (_CM_CAP_TABS[cap] || []).forEach(function (t) { show[t] = 1; });
+  });
+  if (rt === 'nemoclaw') show['nemoclaw'] = 1;
+  return show;
+}
+function _cmApplyRuntimeTabVisibility() {
+  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  // 'all' or an unknown/unmapped runtime => show everything (never silently drop).
+  var showAll = !rt || rt === 'all' || !_CM_RT_CAPS[rt];
+  var shown = showAll ? null : _cmShownTabsForRuntime(rt);
+  _CM_RT_ALL_TABS.forEach(function (tab) {
+    var show = showAll || !!shown[tab];
+    Array.prototype.forEach.call(document.querySelectorAll('.left-nav-item[data-tab="' + tab + '"], .nav-tab[data-tab="' + tab + '"]'), function (el) {
+      el.style.display = show ? '' : 'none';
+    });
+    if (!show && _cmCurrentTab === tab && typeof switchTab === 'function') {
+      try { switchTab('overview'); } catch (e) {}
+    }
+  });
+}
 // Insert/update/remove the runtime-scope note at the top of a tab's page.
 // Called from switchTab. Only shows when a specific (non-'all') runtime is
 // selected AND the tab can't honour it — so the user is never left wondering
@@ -7733,6 +7959,9 @@ function _cmPopulateGlobalRuntime(counts) {
   sel.innerHTML = html;
   sel.value = active;
   wrap.style.display = 'flex';
+  // Apply OpenClaw-only tab visibility on load (the node view opens with a
+  // pinned ?runtime=, so irrelevant tabs are hidden from first paint).
+  try { _cmApplyRuntimeTabVisibility(); } catch (e) {}
 }
 
 function _cmOnGlobalRuntimeChange(sel) {
@@ -7746,6 +7975,9 @@ function _cmOnGlobalRuntimeChange(sel) {
     return;
   }
   _cmSetRuntimeFilter(val);
+  // Hide OpenClaw-only tabs (Memory/Skills/Self-Evolve/Crons/Tool-Policy/NeMo)
+  // for non-OpenClaw runtimes — they'd only show OpenClaw's data.
+  try { _cmApplyRuntimeTabVisibility(); } catch (e) {}
   // Swap the Flow + Overview diagram to the selected runtime's topology.
   try { if (typeof _applyRuntimeFlowDiagram === 'function') _applyRuntimeFlowDiagram(val); } catch (e) {}
   // Reload the current tab so any runtime-aware view re-filters in place.
@@ -13751,6 +13983,197 @@ function renderToolCatalog() {
   tools.forEach(function(tool) {
     if (_tcExpanded[tool.name]) _tcLoadCalls(tool.name);
   });
+}
+
+// ── Harness tab: declarative per-runtime custom panels ────────────────────
+// A "harness template" (served by /api/harness/templates; OSS ships openclaw +
+// nemoclaw, clawmetry-pro registers its 10 closed ones) declares ordered
+// sections, each with a data `source` path and a `render` hint. This renderer is
+// generic — it never hard-codes a harness; it just interprets the template.
+var _cmHarnessTemplates = null;   // {runtime: template}, fetched once
+var _cmHarnessData = null;
+
+async function loadHarness() {
+  var el = document.getElementById('harness-container');
+  if (!el) return;
+  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  if (!rt || rt === 'all') rt = 'openclaw';
+  try {
+    if (!_cmHarnessTemplates) {
+      var t = await fetch('/api/harness/templates').then(function (r) { return r.json(); });
+      _cmHarnessTemplates = (t && t.templates) || {};
+    }
+    var tmpl = _cmHarnessTemplates[rt];
+    if (!tmpl) { el.innerHTML = _cmHarnessNoTemplate(rt); return; }
+    var data = await fetch('/api/harness/data?runtime=' + encodeURIComponent(rt))
+                 .then(function (r) { return r.json(); });
+    _cmHarnessData = data;
+    el.innerHTML = renderHarnessPanel(tmpl, data);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--muted,#888);">Failed to load harness view: '
+      + escapeHtml(String((e && e.message) || e)) + '</div>';
+  }
+}
+
+function _cmHarnessNoTemplate(rt) {
+  return '<div style="color:var(--muted,#888);line-height:1.5;">No harness panel for <b>'
+    + escapeHtml(rt) + '</b> yet.<br>Pro runtimes light up their panels when '
+    + 'clawmetry-pro is installed (Cloud Pro or a self-hosted license).</div>';
+}
+
+// Resolve a template `source` path against the data blob:
+//   "summary.cost_usd"        -> data.summary.cost_usd  (scalar)
+//   "sessions[]"              -> data.sessions          (array, for tables)
+//   "sessions[].extra.recipe" -> [s.extra.recipe ...]   (plucked, non-empty)
+//   "extra.skills"            -> data.extra.skills
+function _cmHarnessResolve(source, data) {
+  if (!source) return undefined;
+  var m = String(source).match(/^([a-zA-Z0-9_]+)\[\](?:\.(.+))?$/);
+  if (m) {
+    var arr = data && data[m[1]];
+    if (!Array.isArray(arr)) return [];
+    if (!m[2]) return arr;
+    return arr.map(function (it) { return _cmHarnessGet(it, m[2]); })
+              .filter(function (v) { return v !== undefined && v !== null && v !== ''; });
+  }
+  return _cmHarnessGet(data, source);
+}
+
+function _cmHarnessGet(obj, path) {
+  var parts = String(path).split('.'), cur = obj;
+  for (var i = 0; i < parts.length; i++) {
+    if (cur == null) return undefined;
+    cur = cur[parts[i]];
+  }
+  return cur;
+}
+
+function renderHarnessPanel(tmpl, data) {
+  var pro = tmpl.tier === 'pro'
+    ? '<span style="background:#3a2f00;color:#ffd24a;border:1px solid #6b5600;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700;">PRO</span>'
+    : '';
+  var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
+    + '<span style="font-size:22px;">' + escapeHtml(tmpl.icon || '🧩') + '</span>'
+    + '<span style="font-size:17px;font-weight:700;">' + escapeHtml(tmpl.title || tmpl.runtime) + '</span>'
+    + pro + '</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:14px;">';
+  (tmpl.sections || []).forEach(function (sec) { html += renderHarnessSection(sec, data); });
+  html += '</div>';
+  return html;
+}
+
+function renderHarnessSection(sec, data) {
+  var val = _cmHarnessResolve(sec.source, data);
+  var body;
+  switch (sec.render) {
+    case 'count':      body = _hrCount(sec, val); break;
+    case 'kv':         body = _hrKv(sec, val); break;
+    case 'table':      body = _hrTable(sec, val); break;
+    case 'badge-list': body = _hrBadges(sec, val); break;
+    case 'timeline':   body = _hrTimeline(sec, val); break;
+    case 'bar':        body = _hrBar(sec, val); break;
+    default:           body = _hrJson(sec, val); break;   // json + unknown render
+  }
+  var empty = (val === undefined || val === null || val === ''
+               || (Array.isArray(val) && val.length === 0));
+  if (empty && sec.render !== 'count') {
+    body = '<div style="color:var(--muted,#888);font-size:13px;">'
+      + escapeHtml(sec.empty || 'No data') + '</div>';
+  }
+  var wide = (sec.render === 'table' || sec.render === 'timeline' || sec.render === 'json');
+  return '<div class="card" style="padding:12px 14px;flex:' + (wide ? '1 1 100%' : '1 1 200px')
+    + ';min-width:180px;">'
+    + '<div style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#888);margin-bottom:8px;">'
+    + escapeHtml(sec.title || sec.id) + '</div>' + body + '</div>';
+}
+
+function _hrFmtVal(sec, v) {
+  if (sec.format === 'money') {
+    var n = Number(v) || 0;
+    return '$' + (n > 0 && n < 0.01 ? n.toFixed(4) : n.toFixed(2));
+  }
+  return escapeHtml(String(v == null ? '0' : v));
+}
+
+function _hrCount(sec, v) {
+  return '<div style="font-size:26px;font-weight:700;">' + _hrFmtVal(sec, v == null ? 0 : v)
+    + (sec.unit ? ' <span style="font-size:13px;font-weight:400;color:var(--muted,#888);">'
+                  + escapeHtml(sec.unit) + '</span>' : '')
+    + '</div>';
+}
+
+function _hrKv(sec, v) {
+  if (v == null) return '';
+  if (typeof v !== 'object') return '<div>' + escapeHtml(String(v)) + '</div>';
+  return Object.keys(v).map(function (k) {
+    return '<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid var(--border,#222);">'
+      + '<span style="color:var(--muted,#888);">' + escapeHtml(k) + '</span>'
+      + '<span>' + escapeHtml(String(v[k])) + '</span></div>';
+  }).join('');
+}
+
+function _hrTable(sec, rows) {
+  if (!Array.isArray(rows) || !rows.length) return '';
+  var cols = sec.columns || Object.keys(rows[0] || {});
+  var head = cols.map(function (c) {
+    return '<th style="text-align:left;padding:6px 10px;color:var(--muted,#888);font-weight:600;font-size:12px;">'
+      + escapeHtml(c) + '</th>';
+  }).join('');
+  var body = rows.map(function (r) {
+    return '<tr>' + cols.map(function (c) {
+      var cell = (r && typeof r === 'object') ? r[c] : '';
+      if (c === 'cost_usd') { var n = Number(cell) || 0; cell = '$' + (n > 0 && n < 0.01 ? n.toFixed(4) : n.toFixed(2)); }
+      return '<td style="padding:6px 10px;border-top:1px solid var(--border,#222);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">'
+        + escapeHtml(String(cell == null ? '' : cell)) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;">'
+    + '<thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+}
+
+function _hrBadges(sec, v) {
+  var items = Array.isArray(v) ? v : (v == null ? [] : [v]);
+  var counts = {};
+  items.forEach(function (it) { var k = String(it); counts[k] = (counts[k] || 0) + 1; });
+  var keys = Object.keys(counts);
+  if (!keys.length) return '';
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + keys.map(function (k) {
+    var c = counts[k];
+    return '<span style="background:var(--chip,#1c1c1c);border:1px solid var(--border,#333);border-radius:12px;padding:3px 10px;font-size:12px;">'
+      + escapeHtml(k) + (c > 1 ? ' <b>×' + c + '</b>' : '') + '</span>';
+  }).join('') + '</div>';
+}
+
+function _hrTimeline(sec, rows) {
+  if (!Array.isArray(rows) || !rows.length) return '';
+  return rows.slice(0, 50).map(function (r) {
+    var ts = (r && (r.ts || r.time || r.ended_at)) || '';
+    var label = (r && (r.label || r.title || r.name)) || (typeof r === 'string' ? r : JSON.stringify(r));
+    return '<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border,#222);font-size:13px;">'
+      + '<span style="color:var(--muted,#888);white-space:nowrap;">' + escapeHtml(String(ts)) + '</span>'
+      + '<span>' + escapeHtml(String(label)) + '</span></div>';
+  }).join('');
+}
+
+function _hrBar(sec, rows) {
+  var pairs = [];
+  if (Array.isArray(rows)) pairs = rows.map(function (r) { return [r.label || r.name || '', Number(r.value) || 0]; });
+  else if (rows && typeof rows === 'object') pairs = Object.keys(rows).map(function (k) { return [k, Number(rows[k]) || 0]; });
+  if (!pairs.length) return '';
+  var max = Math.max.apply(null, pairs.map(function (p) { return p[1]; })) || 1;
+  return pairs.map(function (p) {
+    var pct = Math.round(p[1] / max * 100);
+    return '<div style="margin:4px 0;font-size:12px;"><div style="display:flex;justify-content:space-between;">'
+      + '<span>' + escapeHtml(String(p[0])) + '</span><span>' + escapeHtml(String(p[1])) + '</span></div>'
+      + '<div style="height:6px;background:var(--border,#222);border-radius:3px;overflow:hidden;">'
+      + '<div style="height:100%;width:' + pct + '%;background:var(--accent,#5b8def);"></div></div></div>';
+  }).join('');
+}
+
+function _hrJson(sec, v) {
+  if (v === undefined || v === null) return '';
+  return '<pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;margin:0;max-height:300px;overflow:auto;">'
+    + escapeHtml(JSON.stringify(v, null, 2)) + '</pre>';
 }
 
 function _tcToggle(name) {

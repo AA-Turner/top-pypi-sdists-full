@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "plumbum.machines.local",
+    "plumbum.path.base",
+    "plumbum.path.local",
+    "plumbum.path.remote",
+}
+
 import os
 
 from plumbum.machines.local import local
 from plumbum.path.base import Path
 from plumbum.path.local import LocalPath
+from plumbum.path.remote import RemotePath
 
 
-def delete(*paths):
+def delete(*paths: str | Path) -> None:
     """Deletes the given paths. The arguments can be either strings,
     :class:`local paths <plumbum.path.local.LocalPath>`,
     :class:`remote paths <plumbum.path.remote.RemotePath>`, or iterables of such.
@@ -24,13 +32,13 @@ def delete(*paths):
             raise TypeError(f"Cannot delete {p!r}")
 
 
-def _move(src, dst):
+def _move(src: Path | str, dst: Path | str) -> Path:
     ret = copy(src, dst)
     delete(src)
     return ret
 
 
-def move(src, dst):
+def move(src: Path | str, dst: Path | str) -> Path:
     """Moves the source path onto the destination path; ``src`` and ``dst`` can be either
     strings, :class:`LocalPaths <plumbum.path.local.LocalPath>` or
     :class:`RemotePath <plumbum.path.remote.RemotePath>`; any combination of the three will
@@ -58,13 +66,18 @@ def move(src, dst):
         return src.move(dst) if isinstance(dst, LocalPath) else _move(src, dst)
     if isinstance(dst, LocalPath):
         return _move(src, dst)
-    if src.remote == dst.remote:
+
+    if (
+        isinstance(src, RemotePath)
+        and isinstance(dst, RemotePath)
+        and src.remote == dst.remote
+    ):
         return src.move(dst)
 
     return _move(src, dst)
 
 
-def copy(src, dst):
+def copy(src: str | Path, dst: str | Path) -> Path:
     """
     Copy (recursively) the source path onto the destination path; ``src`` and ``dst`` can be
     either strings, :class:`LocalPaths <plumbum.path.local.LocalPath>` or
@@ -93,13 +106,16 @@ def copy(src, dst):
     if isinstance(src, LocalPath):
         if isinstance(dst, LocalPath):
             return src.copy(dst)
+        assert isinstance(dst, RemotePath)
         dst.remote.upload(src, dst)
         return dst
 
+    assert isinstance(src, RemotePath)
     if isinstance(dst, LocalPath):
         src.remote.download(src, dst)
         return dst
 
+    assert isinstance(dst, RemotePath)
     if src.remote == dst.remote:
         return src.copy(dst)
 
@@ -109,10 +125,22 @@ def copy(src, dst):
     return dst
 
 
-def gui_open(filename):
+def gui_open(filename: str | Path) -> None:
     """This selects the proper gui open function. This can
     also be achieved with webbrowser, but that is not supported."""
     if hasattr(os, "startfile"):
         os.startfile(filename)
     else:
         local.get("xdg-open", "open")(filename)
+
+
+__all__ = [
+    "copy",
+    "delete",
+    "gui_open",
+    "move",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

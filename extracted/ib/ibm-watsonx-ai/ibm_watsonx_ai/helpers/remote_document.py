@@ -22,6 +22,9 @@ class RemoteDocument:
     :param document_id: ID of downloaded document, file name is preferred value. Must correspond to `document_ids` column
         in benchmarking data, if context based sampling is applied.
     :type document_id: str, optional
+
+    :param benchmark_id: Benchmark ID that this document matches, if any. None indicates the document is not in the benchmark dataset.
+    :type benchmark_id: str, optional
     """
 
     def __init__(
@@ -29,9 +32,11 @@ class RemoteDocument:
         *,
         connection: DataConnection,
         document_id: str | None = None,
+        benchmark_id: str | None = None,
     ):
         self.connection = connection
         self.document_id = document_id if document_id else str(id(connection))
+        self._benchmark_id = benchmark_id
 
         self.content: bytes
 

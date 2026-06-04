@@ -14,9 +14,10 @@ fn build_topk_v1_protos() {
         "../protos/topk/control/v1/schema.proto",
         "../protos/topk/control/v1/dataset_service.proto",
         "../protos/topk/control/v1/dataset.proto",
-        "../protos/topk/data/v1/write_service.proto",
         "../protos/topk/data/v1/document.proto",
+        "../protos/topk/data/v1/write_service.proto",
         "../protos/topk/data/v1/query_service.proto",
+        "../protos/topk/data/v1/partition_service.proto",
         "../protos/topk/data/v1/query.proto",
         "../protos/topk/data/v1/value.proto",
         "../protos/topk/data/v1/expr/function.proto",
@@ -118,11 +119,14 @@ fn build_topk_v1_protos() {
     }
 
     // #[serde(default)]
-    builder = builder.field_attribute(
+    for path in [
         "topk.control.v1.MultiVectorIndex.skip_smve",
-        "#[serde(default)]",
-    );
+        "topk.control.v1.MultiVectorIndex.encoding_version",
+    ] {
+        builder = builder.field_attribute(path, "#[serde(default)]");
+    }
 
+    // #[derive(Eq)]
     for ty in [
         "topk.control.v1.FieldTypeStruct",
         "topk.control.v1.FieldType",

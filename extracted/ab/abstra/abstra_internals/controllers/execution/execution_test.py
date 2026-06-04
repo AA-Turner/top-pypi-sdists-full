@@ -1,4 +1,6 @@
+import io
 import json
+from contextlib import redirect_stderr
 from multiprocessing import Pipe
 from pathlib import Path
 from uuid import uuid4
@@ -6,6 +8,7 @@ from uuid import uuid4
 from abstra_internals.controllers.execution.execution import ExecutionController
 from abstra_internals.controllers.execution.execution_client_hook import HookClient
 from abstra_internals.entities.execution_context import HookContext, Request, Response
+from abstra_internals.modules import import_as_new
 from abstra_internals.repositories.project.project import HookStage
 from tests.fixtures import BaseTest
 
@@ -101,6 +104,154 @@ class ExecutionControllerTest(BaseTest):
         self.assertEqual(started_msg["type"], "execution:started")
         self.assertIn("executionId", started_msg)
         self.assertIsInstance(started_msg["executionId"], str)
+
+    def _controller(self) -> ExecutionController:
+        return ExecutionController(
+            repositories=self.repositories,
+            stage=self.stage,
+            context=self.context,
+            client=self.hook_client,
+        )
+
+    def _print_filtered(self, exception: Exception, entrypoint: Path) -> str:
+        buffer = io.StringIO()
+        with redirect_stderr(buffer):
+            self._controller().print_filtered_exception(exception, entrypoint)
+        return buffer.getvalue()
+
+    def test_syntax_error_traceback_crops_internal_frames(self):
+        """A SyntaxError in the entrypoint fails at compile time, so the user
+        frame never reaches the traceback. The internal frames must still be
+        cropped, leaving just the SyntaxError and its location."""
+        entrypoint = Path("syntax_error_stage.py")
+        entrypoint.write_text(
+            "from abc import ABC\n\npersonal_details = [\n    1,\n]\n]\n",
+            encoding="utf-8",
+        )
+
+        try:
+            import_as_new(entrypoint.as_posix())
+            self.fail("Expected a SyntaxError to be raised")
+        except SyntaxError as e:
+            output = self._print_filtered(e, entrypoint)
+
+        self.assertIn("SyntaxError", output)
+        self.assertIn(entrypoint.name, output)
+        # No internal abstra frames nor importlib machinery should leak.
+        self.assertNotIn("abstra_internals", output)
+        self.assertNotIn("import_as_new", output)
+        self.assertNotIn("exec_module", output)
+        self.assertNotIn("importlib", output)
+
+    def test_runtime_error_traceback_keeps_user_frame(self):
+        """A runtime error in the entrypoint must keep the user frame while
+        still cropping the internal frames that precede it."""
+        entrypoint = Path("runtime_error_stage.py")
+        entrypoint.write_text(
+            "def boom():\n    raise ValueError('kaboom')\n\nboom()\n",
+            encoding="utf-8",
+        )
+
+        try:
+            import_as_new(entrypoint.as_posix())
+            self.fail("Expected a ValueError to be raised")
+        except ValueError as e:
+            output = self._print_filtered(e, entrypoint)
+
+        self.assertIn("ValueError", output)
+        self.assertIn("kaboom", output)
+        self.assertIn(entrypoint.name, output)
+        self.assertIn("boom", output)
+        # The module-level call site must be kept too (full user chain).
+        self.assertIn("in <module>", output)
+        # Internal frames before the user entrypoint must be cropped.
+        self.assertNotIn("import_as_new", output)
+        self.assertNotIn("exec_module", output)
+
+    def test_top_level_name_error_keeps_user_frame(self):
+        """A NameError raised directly in the module body (no nested function)
+        must keep the entrypoint frame and crop the internal frames."""
+        entrypoint = Path("name_error_stage.py")
+        entrypoint.write_text("print(undefined_variable)\n", encoding="utf-8")
+
+        try:
+            import_as_new(entrypoint.as_posix())
+            self.fail("Expected a NameError to be raised")
+        except NameError as e:
+            output = self._print_filtered(e, entrypoint)
+
+        self.assertIn("NameError", output)
+        self.assertIn("undefined_variable", output)
+        self.assertIn(entrypoint.name, output)
+        self.assertNotIn("import_as_new", output)
+        self.assertNotIn("exec_module", output)
+        self.assertNotIn("importlib", output)
+
+    def test_zero_division_error_keeps_user_frame(self):
+        """A ZeroDivisionError raised deep in nested user calls must keep every
+        user frame while still cropping the leading internal frames."""
+        entrypoint = Path("zero_division_stage.py")
+        entrypoint.write_text(
+            "def inner():\n"
+            "    return 1 / 0\n"
+            "\n"
+            "def outer():\n"
+            "    return inner()\n"
+            "\n"
+            "outer()\n",
+            encoding="utf-8",
+        )
+
+        try:
+            import_as_new(entrypoint.as_posix())
+            self.fail("Expected a ZeroDivisionError to be raised")
+        except ZeroDivisionError as e:
+            output = self._print_filtered(e, entrypoint)
+
+        self.assertIn("ZeroDivisionError", output)
+        self.assertIn("inner", output)
+        self.assertIn("outer", output)
+        self.assertIn(entrypoint.name, output)
+        self.assertNotIn("import_as_new", output)
+        self.assertNotIn("exec_module", output)
+
+    def test_import_error_keeps_user_frame(self):
+        """A ModuleNotFoundError raised while importing a nonexistent module is
+        a runtime error in the entrypoint body, so its frame must be kept."""
+        entrypoint = Path("import_error_stage.py")
+        entrypoint.write_text(
+            "import this_module_does_not_exist_xyz\n", encoding="utf-8"
+        )
+
+        try:
+            import_as_new(entrypoint.as_posix())
+            self.fail("Expected a ModuleNotFoundError to be raised")
+        except ModuleNotFoundError as e:
+            output = self._print_filtered(e, entrypoint)
+
+        self.assertIn("ModuleNotFoundError", output)
+        self.assertIn("this_module_does_not_exist_xyz", output)
+        self.assertIn(entrypoint.name, output)
+        self.assertNotIn("import_as_new", output)
+
+    def test_indentation_error_crops_internal_frames(self):
+        """IndentationError is a SyntaxError subclass raised at compile time, so
+        like SyntaxError it must drop the fully-internal traceback."""
+        entrypoint = Path("indentation_error_stage.py")
+        entrypoint.write_text("def f():\n    x = 1\n      y = 2\n", encoding="utf-8")
+
+        try:
+            import_as_new(entrypoint.as_posix())
+            self.fail("Expected an IndentationError to be raised")
+        except IndentationError as e:
+            output = self._print_filtered(e, entrypoint)
+
+        self.assertIn("IndentationError", output)
+        self.assertIn(entrypoint.name, output)
+        self.assertNotIn("abstra_internals", output)
+        self.assertNotIn("import_as_new", output)
+        self.assertNotIn("exec_module", output)
+        self.assertNotIn("importlib", output)
 
     def test_execution_ended_message_is_json_serializable(self):
         """Test that ExecutionEndedMessage is properly serialized to JSON"""

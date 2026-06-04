@@ -17,9 +17,12 @@ from pyspark.sql.connect.session import SparkSession as _SparkSession
 from sagemaker_studio.project import ClientConfig, Project
 from sagemaker_studio.utils._internal import InternalUtils
 from sagemaker_studio.utils.loggerutils import sync_with_metrics
-from sagemaker_studio.utils.spark.internal_spark_utils import generate_spark_configs
 from sagemaker_studio.utils.spark.session.athena.interceptors import CustomChannelBuilder
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
+from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    build_spark_configs,
+    extract_connection_spark_configs,
+)
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
 _parent_logger = logging.getLogger("SparkConnect")
@@ -102,6 +105,7 @@ class AthenaSparkSessionManager(SparkSessionManager):
         logger.info(
             f"Resolved workgroup_name={self.workgroup_name} for connection type={getattr(connection, 'type', 'unknown')}"
         )
+        self.connection_spark_configs = extract_connection_spark_configs(connection)
         logger.debug("Successfully created Athena client")
 
     def create(self):
@@ -120,9 +124,17 @@ class AthenaSparkSessionManager(SparkSessionManager):
             os.environ["SPARK_CONNECT_MODE_ENABLED"] = "1"
             self._lazy_init()
 
+            # Prepare session parameters (outside metrics)
+            user_id, account_id = self._get_user_id_account_id()
+            spark_properties = build_spark_configs(
+                account_id=account_id,
+                connection_configs=self.connection_spark_configs,
+                user_configs=self.spark_conf,
+            )
+
             # Get Athena session and Spark Connect URL
             self.athena_session_id, spark_endpoint_url = self._start_athena_session(
-                self.workgroup_name
+                self.workgroup_name, user_id, spark_properties
             )
 
             # Import and create custom channel builder
@@ -175,17 +187,13 @@ class AthenaSparkSessionManager(SparkSessionManager):
         return self.athena_session_id
 
     @sync_with_metrics("_start_athena_session")
-    def _start_athena_session(self, athena_wg_name):
+    def _start_athena_session(self, athena_wg_name, user_id, spark_properties):
         """Get Athena Spark Connect URL for the given workgroup."""
         client_token = str(uuid.uuid4())
 
         try:
             # 1. Start Athena session
             logger.debug(f"Creating Athena Spark session for workgroup: {athena_wg_name}")
-            user_id, account_id = self._get_user_id_account_id()
-            spark_properties = generate_spark_configs(account_id)
-            if self.spark_conf:
-                spark_properties.update(self.spark_conf)
             start_session_response = self.athena_client.start_session(
                 WorkGroup=athena_wg_name,
                 EngineConfiguration={

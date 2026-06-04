@@ -3,15 +3,13 @@
 import time
 
 from tango import (
-    EventType,
-    AttrWriteType,
     AttrConfEventData,
-    DevFailed,
+    AttrWriteType,
     DevError,
+    DevFailed,
+    EventType,
 )
-
 from tango.server import Device, attribute, command
-
 from tango.test_utils import DeviceTestContext
 from tango.utils import EventCallback
 
@@ -19,7 +17,6 @@ A_BIT = 0.5
 
 
 class EchoDevice(Device):
-
     scalar_int_value = 1
 
     @attribute(access=AttrWriteType.READ_WRITE)

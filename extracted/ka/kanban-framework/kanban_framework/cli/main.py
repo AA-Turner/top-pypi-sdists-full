@@ -93,6 +93,31 @@ def _ensure_utf8_stdout() -> None:
 _ensure_utf8_stdout()
 
 
+def _setup_logging() -> None:
+    """Configure kanban logger to write to .kanban/log/kanban.log."""
+    try:
+        from kanban_framework.infra.filesystem import Filesystem
+        root = Filesystem.find_project_root()
+        log_dir = root / ".kanban" / "log"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "kanban.log"
+
+        import logging
+        logger = logging.getLogger("kanban")
+        logger.setLevel(logging.DEBUG)
+
+        # Avoid duplicate handlers on repeated calls
+        if not logger.handlers:
+            fh = logging.FileHandler(str(log_file), encoding="utf-8")
+            fh.setLevel(logging.DEBUG)
+            fmt = logging.Formatter("%(asctime)s %(levelname)-5s %(name)s %(message)s",
+                                    datefmt="%Y-%m-%d %H:%M:%S")
+            fh.setFormatter(fmt)
+            logger.addHandler(fh)
+    except Exception:
+        pass
+
+
 def main() -> None:
     global _USE_JSON, _start_time
     import warnings
@@ -104,6 +129,8 @@ def main() -> None:
     if "--json" in args or "-o" in args:
         _USE_JSON = True
         args = [a for a in args if a not in ("--json", "-o")]
+
+    _setup_logging()
 
     if not args or args[0] in ("--help", "-h", "help"):
         if _USE_JSON:
@@ -122,16 +149,22 @@ def main() -> None:
         _output({"success": False, "error": f"unknown command: {cmd}", "code": "UNKNOWN_COMMAND"})
         sys.exit(1)
 
+    import logging
+    _log = logging.getLogger("kanban")
+    _log.info("command: %s %s", cmd, " ".join(args[1:]))
+
     mod_name, fn_name = entry
     mod = importlib.import_module(mod_name)
     fn = getattr(mod, fn_name)
     try:
         result = fn(args[1:])
+        _log.info("command %s completed: success=%s", cmd, not result.get("error"))
         if _USE_JSON:
             _output({"success": True, "data": result})
         else:
             _render(cmd, result)
     except Exception as e:
+        _log.exception("command %s failed: %s", cmd, e)
         _output({"success": False, "error": str(e), "code": type(e).__name__})
 
 

@@ -57,7 +57,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::StreamExt;
 use serde_json::Value;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
@@ -66,7 +66,8 @@ use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
 use uuid::Uuid;
 
 use blazen_core::distributed::{
-    AdmissionMode, AdmissionSnapshot, RunEvent as CoreRunEvent, WorkerCapability, WorkerSessionSink,
+    AdmissionMode, AdmissionSnapshot, RunEvent as CoreRunEvent, WorkerCapability,
+    WorkerSessionSink, WorkerTaint,
 };
 
 use crate::auth;
@@ -99,6 +100,18 @@ pub struct WorkerConfig {
     /// Free-form `key=value` tags used by submission-time tag predicates.
     /// `BTreeMap` for deterministic encoding.
     pub tags: BTreeMap<String, String>,
+    /// Worker-side scheduling labels surfaced in [`WorkerHello::labels`].
+    /// Filtered against job-side [`crate::protocol::Assignment::selector`]
+    /// inside admission. Empty by default.
+    pub labels: BTreeMap<String, String>,
+    /// Worker-side taints surfaced in [`WorkerHello::taints`]. Jobs without
+    /// a matching toleration are not scheduled here. Empty by default.
+    pub taints: Vec<WorkerTaint>,
+    /// Capability-descriptor manifest surfaced in
+    /// [`WorkerHello::descriptors`]. One entry per node this worker is
+    /// willing to host. Empty by default — workers that don't publish a
+    /// descriptor catalogue keep the legacy behaviour.
+    pub descriptors: Vec<protocol::NodeDescriptorWire>,
     /// Admission mode declared at handshake.
     pub admission: AdmissionMode,
     /// Cadence of [`WorkerHeartbeat`] frames.
@@ -111,6 +124,19 @@ pub struct WorkerConfig {
     pub tls: Option<ClientTlsConfig>,
     /// Reconnect / retry policy for the bidi stream.
     pub retry: RetryPolicy,
+    /// Explicit bearer token sent as `authorization: Bearer <token>` on
+    /// the handshake. When `None`, falls back to `BLAZEN_PEER_TOKEN` from
+    /// the environment.
+    pub bearer_token: Option<String>,
+    /// Optional probe-handle that sources real `vram_free_mb` for the
+    /// heartbeat's [`AdmissionSnapshot`]. When `None`, the synthesized
+    /// snapshot reports `vram_free_mb = None` (today's behavior).
+    ///
+    /// The host-only `blazen-resource-probe` crate is not part of the
+    /// wasm32/wasi dependency graph (it shells out to GPU tooling), so the
+    /// field is absent on those targets.
+    #[cfg(not(any(target_os = "wasi", target_arch = "wasm32")))]
+    pub probe_handle: Option<blazen_resource_probe::ProbeHandle>,
 }
 
 impl WorkerConfig {
@@ -123,12 +149,30 @@ impl WorkerConfig {
             node_id: node_id.into(),
             capabilities: Vec::new(),
             tags: BTreeMap::new(),
+            labels: BTreeMap::new(),
+            taints: Vec::new(),
+            descriptors: Vec::new(),
             admission: AdmissionMode::Fixed { max_in_flight: 1 },
             heartbeat_interval: Duration::from_secs(5),
             envelope_versions: vec![ENVELOPE_VERSION],
             tls: None,
             retry: RetryPolicy::default(),
+            bearer_token: None,
+            #[cfg(not(any(target_os = "wasi", target_arch = "wasm32")))]
+            probe_handle: None,
         }
+    }
+
+    /// Attach a [`blazen_resource_probe::ProbeHandle`]. When set, the
+    /// heartbeat ticker sources `vram_free_mb` from the probe's latest
+    /// snapshot instead of leaving it `None`.
+    ///
+    /// Host-only: `blazen-resource-probe` is not in the wasm32/wasi graph.
+    #[cfg(not(any(target_os = "wasi", target_arch = "wasm32")))]
+    #[must_use]
+    pub fn with_probe_handle(mut self, handle: blazen_resource_probe::ProbeHandle) -> Self {
+        self.probe_handle = Some(handle);
+        self
     }
 
     /// Append a capability the worker advertises.
@@ -142,6 +186,37 @@ impl WorkerConfig {
     #[must_use]
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
+        self
+    }
+
+    /// Set an explicit bearer token for the handshake. Takes precedence
+    /// over `BLAZEN_PEER_TOKEN`.
+    #[must_use]
+    pub fn with_bearer_token(mut self, token: impl Into<String>) -> Self {
+        self.bearer_token = Some(token.into());
+        self
+    }
+
+    /// Insert a scheduling label surfaced in [`WorkerHello::labels`].
+    #[must_use]
+    pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.labels.insert(key.into(), value.into());
+        self
+    }
+
+    /// Append a worker-side taint surfaced in [`WorkerHello::taints`].
+    #[must_use]
+    pub fn with_taint(mut self, taint: WorkerTaint) -> Self {
+        self.taints.push(taint);
+        self
+    }
+
+    /// Append a capability descriptor surfaced in
+    /// [`WorkerHello::descriptors`]. The descriptor is consumed verbatim
+    /// — the control plane uses its `id` field as the catalogue key.
+    #[must_use]
+    pub fn with_descriptor(mut self, descriptor: protocol::NodeDescriptorWire) -> Self {
+        self.descriptors.push(descriptor);
         self
     }
 
@@ -311,6 +386,11 @@ pub struct AssignmentContext {
     sink: Arc<WorkerOutbox>,
     run_id: Uuid,
     cancel: CancellationToken,
+    /// Per-worker map of outstanding input requests, keyed by
+    /// `request_id`. The inbound pump fulfils the matching oneshot when a
+    /// [`ServerToWorker::InputResponse`](crate::protocol::ServerToWorker::InputResponse)
+    /// frame arrives. Shared (cloned `Arc`) with [`WorkerState`].
+    pending: Arc<DashMap<String, oneshot::Sender<Value>>>,
 }
 
 impl AssignmentContext {
@@ -334,6 +414,73 @@ impl AssignmentContext {
             .emit_event(self.run_id, event)
             .await
             .map_err(|e| ControlPlaneError::Transport(e.to_string()))
+    }
+
+    /// Raise an `input.request` and block until the orchestrator answers
+    /// via `respond_to_input` (or the assignment is cancelled / the
+    /// optional `timeout_ms` elapses).
+    ///
+    /// Emits an `"input.request"` [`AssignmentEvent`](crate::protocol::AssignmentEvent)
+    /// carrying `{request_id, prompt, metadata}`, then awaits the matching
+    /// [`ServerToWorker::InputResponse`](crate::protocol::ServerToWorker::InputResponse)
+    /// frame. The returned [`Value`] is the JSON the orchestrator passed
+    /// back.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ControlPlaneError::Transport`] if the event cannot be
+    /// emitted, the assignment is cancelled while waiting, the worker
+    /// disconnects, or `timeout_ms` elapses with no answer.
+    pub async fn request_input(
+        &self,
+        prompt: &str,
+        metadata: Value,
+        timeout_ms: Option<u64>,
+    ) -> Result<Value, ControlPlaneError> {
+        let request_id = Uuid::new_v4().to_string();
+        let (tx, rx) = oneshot::channel();
+        self.pending.insert(request_id.clone(), tx);
+
+        // If emitting fails, drop the pending entry before returning.
+        if let Err(e) = self
+            .emit_event(
+                "input.request",
+                serde_json::json!({
+                    "request_id": request_id,
+                    "prompt": prompt,
+                    "metadata": metadata,
+                }),
+            )
+            .await
+        {
+            self.pending.remove(&request_id);
+            return Err(e);
+        }
+
+        let recv = async {
+            tokio::select! {
+                () = self.cancel.cancelled() => {
+                    Err(ControlPlaneError::Transport("cancelled awaiting input".into()))
+                }
+                v = rx => {
+                    v.map_err(|_| ControlPlaneError::Transport("input channel dropped".into()))
+                }
+            }
+        };
+        let result = match timeout_ms {
+            Some(ms) => tokio::time::timeout(Duration::from_millis(ms), recv)
+                .await
+                .unwrap_or_else(|_| {
+                    Err(ControlPlaneError::Transport(
+                        "timed out awaiting input".into(),
+                    ))
+                }),
+            None => recv.await,
+        };
+        if result.is_err() {
+            self.pending.remove(&request_id);
+        }
+        result
     }
 
     /// Cancellation token tied to this run. The handler can `.await`
@@ -450,6 +597,11 @@ struct WorkerState {
     /// Per-run cancellation tokens. Inserted on Assignment dispatch,
     /// fired by Cancel or Drain immediate, removed on completion.
     running: DashMap<Uuid, CancellationToken>,
+    /// Outstanding `request_input` calls keyed by `request_id`. Inserted
+    /// by [`AssignmentContext::request_input`], fulfilled by the inbound
+    /// pump on a [`ServerToWorker::InputResponse`](crate::protocol::ServerToWorker::InputResponse).
+    /// `Arc` so each [`AssignmentContext`] shares the same map.
+    pending_inputs: Arc<DashMap<String, oneshot::Sender<Value>>>,
     /// Shutdown signal for the whole worker — drops the inbound pump,
     /// heartbeat ticker, and outbound channel.
     shutdown: CancellationToken,
@@ -460,6 +612,7 @@ impl WorkerState {
         Self {
             in_flight: AtomicU32::new(0),
             running: DashMap::new(),
+            pending_inputs: Arc::new(DashMap::new()),
             shutdown: CancellationToken::new(),
         }
     }
@@ -686,13 +839,23 @@ impl Worker {
             tags: self.config.tags.clone(),
             admission: (&self.config.admission).into(),
             supported_envelope_versions: self.config.envelope_versions.clone(),
+            labels: self.config.labels.clone(),
+            taints: self
+                .config
+                .taints
+                .iter()
+                .cloned()
+                .map(protocol::WorkerTaintWire::from)
+                .collect(),
+            descriptors: self.config.descriptors.clone(),
         });
         outbound_tx.send(hello).await.map_err(|_| {
             ControlPlaneError::Transport("outbound channel closed before Hello".into())
         })?;
 
         let mut req = Request::new(req_stream);
-        if let Some(bearer) = auth::bearer_metadata_value() {
+        if let Some(bearer) = auth::bearer_metadata_value_with(self.config.bearer_token.as_deref())
+        {
             let value = bearer
                 .parse::<tonic::metadata::MetadataValue<_>>()
                 .map_err(|e| {
@@ -753,6 +916,8 @@ impl Worker {
     ) -> JoinHandle<()> {
         let state = Arc::clone(&self.state);
         let admission = self.config.admission.clone();
+        #[cfg(not(any(target_os = "wasi", target_arch = "wasm32")))]
+        let probe = self.config.probe_handle.clone();
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -765,6 +930,9 @@ impl Worker {
                     _ = ticker.tick() => {}
                 }
                 let in_flight = state.in_flight.load(Ordering::Relaxed);
+                #[cfg(not(any(target_os = "wasi", target_arch = "wasm32")))]
+                let snapshot = synthesize_admission_snapshot(&admission, in_flight, probe.as_ref());
+                #[cfg(any(target_os = "wasi", target_arch = "wasm32"))]
                 let snapshot = synthesize_admission_snapshot(&admission, in_flight);
                 if let Err(e) = outbox.heartbeat(in_flight, Some(snapshot)).await {
                     tracing::debug!(error = %e, "heartbeat send failed; session ending");
@@ -888,6 +1056,18 @@ impl Worker {
                 }
                 handler.on_drain(d.immediate).await;
             }
+            ServerToWorker::InputResponse(r) => {
+                if let Some((_, tx)) = self.state.pending_inputs.remove(&r.request_id) {
+                    let value = serde_json::from_slice(&r.response_json).unwrap_or(Value::Null);
+                    let _ = tx.send(value);
+                } else {
+                    tracing::debug!(
+                        request_id = %r.request_id,
+                        run_id = %r.run_id,
+                        "received InputResponse with no pending request (late/duplicate?)",
+                    );
+                }
+            }
         }
     }
 
@@ -914,6 +1094,7 @@ impl Worker {
                 sink: outbox_for_ctx,
                 run_id,
                 cancel: token.clone(),
+                pending: Arc::clone(&state.pending_inputs),
             };
             let handler_fut = handler.handle(assignment, ctx);
 
@@ -1021,21 +1202,54 @@ fn duration_ms_lossy(d: Duration) -> u64 {
 }
 
 /// Synthesise a best-effort [`AdmissionSnapshot`] for the heartbeat
-/// from the admission mode + current in-flight count. A future revision
-/// can hook real OS / GPU stats in here without changing the wire
-/// format or this function's signature.
+/// from the admission mode, current in-flight count, and (optionally) a
+/// probe snapshot. When `probe` is `Some`, `vram_free_mb` is sourced from
+/// the latest probe; otherwise it is left `None` to preserve the
+/// pre-probe behavior.
+#[cfg(not(any(target_os = "wasi", target_arch = "wasm32")))]
+fn synthesize_admission_snapshot(
+    admission: &AdmissionMode,
+    in_flight: u32,
+    probe: Option<&blazen_resource_probe::ProbeHandle>,
+) -> AdmissionSnapshot {
+    let vram_free_mb = probe.and_then(|p| {
+        let snap = p.latest();
+        if snap.free_vram_is_complete() {
+            Some(snap.total_free_vram_mb())
+        } else {
+            // Snapshot is incomplete — better to report None than a
+            // known-undercounted value.
+            None
+        }
+    });
+
+    build_admission_snapshot(admission, in_flight, vram_free_mb)
+}
+
+/// wasm/wasi variant: the host-only resource probe is not in the dependency
+/// graph, so `vram_free_mb` is always `None` (the pre-probe behavior).
+#[cfg(any(target_os = "wasi", target_arch = "wasm32"))]
 fn synthesize_admission_snapshot(admission: &AdmissionMode, in_flight: u32) -> AdmissionSnapshot {
+    build_admission_snapshot(admission, in_flight, None)
+}
+
+/// Shared snapshot assembly, independent of where `vram_free_mb` was sourced.
+fn build_admission_snapshot(
+    admission: &AdmissionMode,
+    in_flight: u32,
+    vram_free_mb: Option<u64>,
+) -> AdmissionSnapshot {
     match admission {
         AdmissionMode::Fixed { max_in_flight } => AdmissionSnapshot {
             capacity_score: fixed_capacity_score(*max_in_flight, in_flight),
             model_residency: std::collections::BTreeSet::new(),
-            vram_free_mb: None,
+            vram_free_mb,
             in_flight_vram_mb: 0,
         },
         AdmissionMode::VramBudget { .. } | AdmissionMode::Reactive => AdmissionSnapshot {
             capacity_score: 1.0,
             model_residency: std::collections::BTreeSet::new(),
-            vram_free_mb: None,
+            vram_free_mb,
             in_flight_vram_mb: 0,
         },
     }
@@ -1102,20 +1316,55 @@ mod tests {
 
     #[test]
     fn synthesize_admission_snapshot_fixed_reports_capacity() {
-        let snap = synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 4 }, 1);
+        let snap =
+            synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 4 }, 1, None);
         assert!((snap.capacity_score - 0.75).abs() < 0.001);
     }
 
     #[test]
     fn synthesize_admission_snapshot_fixed_reports_zero_at_capacity() {
-        let snap = synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 4 }, 4);
+        let snap =
+            synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 4 }, 4, None);
         assert!(snap.capacity_score < f32::EPSILON);
     }
 
     #[test]
     fn synthesize_admission_snapshot_zero_cap_is_saturated() {
-        let snap = synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 0 }, 0);
+        let snap =
+            synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 0 }, 0, None);
         assert!(snap.capacity_score < f32::EPSILON);
+    }
+
+    #[test]
+    fn synthesize_admission_snapshot_without_probe_leaves_vram_none() {
+        let snap =
+            synthesize_admission_snapshot(&AdmissionMode::Fixed { max_in_flight: 4 }, 1, None);
+        assert!(snap.vram_free_mb.is_none());
+    }
+
+    #[tokio::test]
+    async fn synthesize_admission_snapshot_with_probe_sources_vram_when_complete() {
+        // Use the probe's real probe_once() (the test host's CPU/RAM are
+        // always probed; GPUs may or may not be present depending on
+        // build target). What we assert is the contract: if the snapshot
+        // is `free_vram_is_complete`, the result reflects the sum; if
+        // not, the result is None (rather than a partial under-count).
+        let handle =
+            blazen_resource_probe::Probe::spawn(blazen_resource_probe::ProbeConfig::default())
+                .await;
+        let snap = synthesize_admission_snapshot(
+            &AdmissionMode::VramBudget {
+                max_vram_mb: 24_000,
+            },
+            0,
+            Some(&handle),
+        );
+        let probed = handle.latest();
+        if probed.free_vram_is_complete() {
+            assert_eq!(snap.vram_free_mb, Some(probed.total_free_vram_mb()));
+        } else {
+            assert!(snap.vram_free_mb.is_none());
+        }
     }
 
     #[test]

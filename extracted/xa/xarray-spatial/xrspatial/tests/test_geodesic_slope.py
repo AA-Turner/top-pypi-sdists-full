@@ -1,4 +1,6 @@
 """Tests for geodesic slope computation."""
+import re
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -29,6 +31,40 @@ def _make_geo_raster(elev, lat_start, lat_end, lon_start, lon_end,
         elev.astype(np.float64),
         dims=['lat', 'lon'],
         coords={'lat': lat, 'lon': lon},
+    )
+
+    if 'cupy' in backend:
+        import cupy
+        raster.data = cupy.asarray(raster.data)
+
+    if 'dask' in backend and da is not None:
+        raster.data = da.from_array(raster.data, chunks=chunks)
+
+    return raster
+
+
+def _make_curvilinear_raster(elev, lat_start, lat_end, lon_start, lon_end,
+                             backend='numpy', chunks=(3, 3)):
+    """Build a curvilinear DataArray: dims ('y', 'x') with numeric y/x index
+    coords AND real 2-D lat/lon coords over the same geographic grid.
+
+    This is the layout that exposed the coordinate-resolution bug: the numeric
+    y/x pixel-index coords must not be used as lat/lon when real lat/lon coords
+    are present.
+    """
+    H, W = elev.shape
+    lat1d = np.linspace(lat_start, lat_end, H)
+    lon1d = np.linspace(lon_start, lon_end, W)
+    lon2d, lat2d = np.meshgrid(lon1d, lat1d)
+    raster = xr.DataArray(
+        elev.astype(np.float64),
+        dims=['y', 'x'],
+        coords={
+            'y': np.arange(H, dtype=np.float64),
+            'x': np.arange(W, dtype=np.float64),
+            'lat': (('y', 'x'), lat2d),
+            'lon': (('y', 'x'), lon2d),
+        },
     )
 
     if 'cupy' in backend:
@@ -104,6 +140,87 @@ class TestGeodesicSlopeTilted:
         interior = result.values[1:-1, 1:-1]
         assert np.all(np.isfinite(interior))
         assert np.all(interior > 0)
+
+
+class TestGeodesicSlopeCurvilinear:
+    """Curvilinear layout: dims ('y', 'x') with numeric y/x index coords plus
+    real 2-D lat/lon coords. The geodesic path must use the lat/lon coords, not
+    the pixel indices, so the result must match the equivalent 1-D lat/lon grid.
+
+    Pixel indices (0..N) fall inside the accepted geographic ranges, so the
+    range validation does not catch the mistake — only the slope value does.
+    """
+
+    def test_curvilinear_matches_1d_latlon(self):
+        elev = _east_tilted_surface(H=8, W=10, grade=100.0)
+        r_curv = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0)
+        r_ref = _make_geo_raster(elev, 40.0, 41.0, 10.0, 11.0)
+        s_curv = slope(r_curv, method='geodesic')
+        s_ref = slope(r_ref, method='geodesic')
+        np.testing.assert_allclose(
+            s_curv.values, s_ref.values, rtol=1e-5, equal_nan=True
+        )
+
+    def test_curvilinear_ignores_pixel_index_coords(self):
+        """Slope must reflect the real geographic grid, not the 0..N indices.
+
+        Using the pixel indices as lat/lon collapses the east tilt to a tiny
+        value (~0.007 vs ~0.067), so a correct interior slope is the signal.
+        """
+        elev = _east_tilted_surface(H=8, W=10, grade=100.0)
+        r_curv = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0)
+        interior = slope(r_curv, method='geodesic').values[1:-1, 1:-1]
+        assert np.all(np.isfinite(interior))
+        assert np.all(interior > 0.05)
+
+
+@dask_array_available
+class TestGeodesicSlopeCurvilinearDask:
+
+    def test_curvilinear_numpy_equals_dask(self):
+        elev = _east_tilted_surface(H=8, W=10, grade=100.0)
+        r_np = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0,
+                                        backend='numpy')
+        r_da = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0,
+                                        backend='dask+numpy', chunks=(4, 5))
+        s_np = slope(r_np, method='geodesic')
+        s_da = slope(r_da, method='geodesic')
+        np.testing.assert_allclose(
+            s_np.values, s_da.values, rtol=1e-5, equal_nan=True
+        )
+
+
+@cuda_and_cupy_available
+class TestGeodesicSlopeCurvilinearCupy:
+
+    def test_curvilinear_numpy_equals_cupy(self):
+        elev = _east_tilted_surface(H=8, W=10, grade=100.0)
+        r_np = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0,
+                                        backend='numpy')
+        r_cu = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0,
+                                        backend='cupy')
+        s_np = slope(r_np, method='geodesic')
+        s_cu = slope(r_cu, method='geodesic')
+        np.testing.assert_allclose(
+            s_np.values, s_cu.data.get(), rtol=1e-5, equal_nan=True
+        )
+
+
+@dask_array_available
+@cuda_and_cupy_available
+class TestGeodesicSlopeCurvilinearDaskCupy:
+
+    def test_curvilinear_numpy_equals_dask_cupy(self):
+        elev = _east_tilted_surface(H=8, W=10, grade=100.0)
+        r_np = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0,
+                                        backend='numpy')
+        r_dc = _make_curvilinear_raster(elev, 40.0, 41.0, 10.0, 11.0,
+                                        backend='dask+cupy', chunks=(4, 5))
+        s_np = slope(r_np, method='geodesic')
+        s_dc = slope(r_dc, method='geodesic')
+        np.testing.assert_allclose(
+            s_np.values, s_dc.data.compute().get(), rtol=1e-5, equal_nan=True
+        )
 
 
 class TestGeodesicSlopeLatitudeInvariance:
@@ -209,8 +326,16 @@ class TestGeodesicSlopeValidation:
     def test_invalid_z_unit_raises(self):
         elev = _flat_surface()
         raster = _make_geo_raster(elev, 40.0, 41.0, 10.0, 11.0)
-        with pytest.raises(ValueError, match="z_unit"):
+        with pytest.raises(ValueError, match="z_unit") as excinfo:
             slope(raster, method='geodesic', z_unit='cubit')
+
+        # The message must list the accepted unit-name strings (the keys a
+        # user is allowed to pass), not the numeric conversion factors.
+        msg = str(excinfo.value)
+        assert "'meter'" in msg
+        assert "'foot'" in msg
+        # No bare numeric conversion factor should leak into the message.
+        assert not re.search(r"\d+\.\d+", msg)
 
     def test_missing_coords_raises(self):
         data = np.ones((5, 5))
@@ -273,6 +398,47 @@ class TestGeodesicSlopeMemoryGuard:
         assert result.shape == (8, 8)
 
 
+@dask_array_available
+class TestGeodesicSlopeMemoryGuardDask:
+    """The dask geodesic backend streams the raster chunk by chunk, so the
+    memory guard must size against the largest chunk, not the full raster.
+    A raster that would be rejected eagerly should be allowed once it is
+    chunked small enough to fit."""
+
+    def test_chunked_raster_allowed_when_eager_would_reject(self, monkeypatch):
+        # 1 MB available. The 200x200 raster needs ~2.2 MB eagerly (56 B/cell)
+        # and trips the eager guard, but 20x20 chunks need only ~25 KB each.
+        monkeypatch.setattr(
+            'xrspatial.geodesic._available_memory_bytes', lambda: 1024 * 1024
+        )
+        elev = _flat_surface(H=200, W=200)
+        # eager numpy of the same size is rejected (sanity check the budget).
+        r_np = _make_geo_raster(elev, 40.0, 41.0, 10.0, 11.0)
+        with pytest.raises(MemoryError, match="slope"):
+            slope(r_np, method='geodesic')
+        # same raster, chunked small — guard must let it through.
+        r_da = _make_geo_raster(
+            elev, 40.0, 41.0, 10.0, 11.0,
+            backend='dask+numpy', chunks=(20, 20),
+        )
+        result = slope(r_da, method='geodesic')
+        assert result.compute().shape == (200, 200)
+
+    def test_single_huge_chunk_still_rejected(self, monkeypatch):
+        # A dask array whose only chunk spans the whole raster has no memory
+        # advantage over eager, so the guard must still reject it.
+        monkeypatch.setattr(
+            'xrspatial.geodesic._available_memory_bytes', lambda: 1024 * 1024
+        )
+        elev = _flat_surface(H=200, W=200)
+        r_da = _make_geo_raster(
+            elev, 40.0, 41.0, 10.0, 11.0,
+            backend='dask+numpy', chunks=(200, 200),
+        )
+        with pytest.raises(MemoryError, match="slope"):
+            slope(r_da, method='geodesic')
+
+
 # ---------------------------------------------------------------------------
 # Tests — cross-backend consistency
 # ---------------------------------------------------------------------------
@@ -296,7 +462,6 @@ class TestGeodesicSlopeDask:
 class TestGeodesicSlopeCupy:
 
     def test_numpy_equals_cupy(self):
-        import cupy
         elev = _east_tilted_surface(H=8, W=10, grade=100.0)
         r_np = _make_geo_raster(elev, 40.0, 41.0, 10.0, 11.0, backend='numpy')
         r_cu = _make_geo_raster(elev, 40.0, 41.0, 10.0, 11.0, backend='cupy')
@@ -320,4 +485,39 @@ class TestGeodesicSlopeDaskCupy:
         s_dc = slope(r_dc, method='geodesic')
         np.testing.assert_allclose(
             s_np.values, s_dc.data.compute().get(), rtol=1e-5, equal_nan=True
+        )
+
+    def test_latlon_not_materialized_on_gpu_at_graph_build(self):
+        """The dask+cupy geodesic path must keep lat/lon chunked.
+
+        Building the graph (no compute) for a large raster must not densify
+        the full (H, W) lat/lon grids onto the GPU. Converting the broadcast
+        views with ``cupy.asarray`` up front would allocate ~2*H*W*8 bytes of
+        GPU memory at graph-construction time and OOM on large rasters.
+        """
+        import cupy
+
+        H = W = 2048
+        elev = cupy.zeros((H, W), dtype=cupy.float64)
+        lat = np.linspace(40.0, 41.0, H)
+        lon = np.linspace(10.0, 11.0, W)
+        raster = xr.DataArray(
+            da.from_array(elev, chunks=(256, 256)),
+            dims=['lat', 'lon'],
+            coords={'lat': lat, 'lon': lon},
+        )
+
+        pool = cupy.get_default_memory_pool()
+        pool.free_all_blocks()
+        before = pool.used_bytes()
+        out = slope(raster, method='geodesic')   # graph construction only
+        out.data.__dask_graph__()
+        delta = pool.used_bytes() - before
+
+        # A single full lat or lon grid is H*W*8 bytes. If either were
+        # densified eagerly the delta would be at least that large.
+        one_full_grid = H * W * 8
+        assert delta < one_full_grid, (
+            f"graph construction allocated {delta} GPU bytes; expected well "
+            f"under one full lat/lon grid ({one_full_grid} bytes)"
         )

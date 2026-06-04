@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import logging
 import os
+import socket
 import sys
 import time
+from subprocess import PIPE, Popen
 
 import pytest
-import socket
-from subprocess import Popen, PIPE
 
-from tango import DevState, DbData, DbDatum
-from tango.utils import ensure_binary
+from tango import DbData, DbDatum, DevState
 from tango.test_utils import wait_for_proxy
+from tango.utils import ensure_binary
 
 # Helpers
 
@@ -21,17 +21,11 @@ MAX_STARTUP_TIME_SEC = 30.0
 def start_database(port, inst):
     python = sys.executable
     tests_directory = os.path.dirname(__file__)
-    cmd = (
-        f"{python} -u -m tango.databaseds.database"
-        f" --host=127.0.0.1 --port={port}"
-        f" --logging_level=2 {inst}"
-    )
+    cmd = f"{python} -u -m tango.databaseds.database --host=127.0.0.1 --port={port} --logging_level=2 {inst}"
     env = os.environ.copy()
     env["PYTANGO_DATABASE_NAME"] = ":memory:"  # Don't write to disk
     logging.debug("Starting databaseds subprocess...")
-    proc = Popen(
-        cmd.split(), cwd=tests_directory, stdout=PIPE, bufsize=1, text=True, env=env
-    )
+    proc = Popen(cmd.split(), cwd=tests_directory, stdout=PIPE, bufsize=1, text=True, env=env)
     logging.debug("Waiting for databaseds to startup...")
     try:
         wait_for_tango_server_startup(proc)

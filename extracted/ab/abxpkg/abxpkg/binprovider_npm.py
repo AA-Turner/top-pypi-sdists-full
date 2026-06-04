@@ -5,6 +5,8 @@ __package__ = "abxpkg"
 import os
 import sys
 import json
+import urllib.parse
+import urllib.request
 
 from pathlib import Path
 from typing import Self
@@ -162,7 +164,7 @@ class NpmProvider(BinProvider):
     ) -> InstallArgs:
         if str(bin_name) == "puppeteer":
             return ("puppeteer", "@puppeteer/browsers")
-        if str(bin_name) == "puppeteer-browsers":
+        if str(bin_name) in {"browsers", "puppeteer-browsers"}:
             return ("@puppeteer/browsers",)
         return TypeAdapter(InstallArgs).validate_python(
             super().default_install_args_handler(bin_name, **context)
@@ -197,8 +199,16 @@ class NpmProvider(BinProvider):
         """Resolve npm's effective bin PATH from the current local/global npm prefixes."""
         PATH = self.PATH
 
+        installer_dir = (
+            self._INSTALLER_BINARY.loaded_abspath.parent
+            if self._INSTALLER_BINARY and self._INSTALLER_BINARY.loaded_abspath
+            else None
+        )
         if self.bin_dir:
-            return self._merge_PATH(self.bin_dir)
+            entries = [self.bin_dir]
+            if installer_dir is not None:
+                entries.append(installer_dir)
+            return self._merge_PATH(*entries)
 
         try:
             installer_binary = self.INSTALLER_BINARY(no_cache=no_cache)
@@ -392,30 +402,24 @@ class NpmProvider(BinProvider):
         timeout: int | None = None,
         **context,
     ) -> list:
-        """Search the npm registry via ``npm search ... --json``."""
+        """Search the npm registry and return installable npm package matches."""
         from .binary import Binary
 
-        # Use ``self.INSTALLER_BINARY`` so npm's auto-install logic
-        # kicks in if env's npm is missing/broken.
-        installer = self.INSTALLER_BINARY(no_cache=bool(context.get("no_cache", False)))
-        assert installer and installer.loaded_abspath
-        proc = self.exec(
-            bin_name=installer.loaded_abspath,
-            cmd=["search", str(bin_name), "--json", "--searchlimit=25"],
-            quiet=True,
-            timeout=timeout,
-        )
-        try:
-            entries = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return []
         results: list = []
-        for entry in entries:
-            pkg_name = entry.get("name", "")
-            if not pkg_name or str(bin_name).lower() not in pkg_name.lower():
-                continue
-            version_str = entry.get("version", "")
-            description = entry.get("description", "") or pkg_name
+        seen: set[str] = set()
+
+        def append_result(pkg: dict) -> None:
+            pkg_name = pkg.get("name", "")
+            if (
+                not pkg_name
+                or not (pkg_name[0].isalpha() or pkg_name[0] == "@")
+                or pkg_name in seen
+                or str(bin_name).lower() not in pkg_name.lower()
+            ):
+                return
+            version_str = pkg.get("version", "")
+            description = pkg.get("description", "") or pkg_name
+            seen.add(pkg_name)
             results.append(
                 Binary(
                     name=pkg_name,
@@ -424,6 +428,38 @@ class NpmProvider(BinProvider):
                     overrides={self.name: {"install_args": [pkg_name]}},
                 ),
             )
+
+        registry_url = (
+            "https://registry.npmjs.org/-/v1/search?text="
+            + urllib.parse.quote(str(bin_name))
+            + "&size=25"
+        )
+        try:
+            with urllib.request.urlopen(
+                registry_url,
+                timeout=timeout or self.version_timeout,
+            ) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+
+        for entry in data.get("objects", []):
+            append_result(entry.get("package", {}))
+
+        if str(bin_name) not in seen:
+            exact_url = (
+                "https://registry.npmjs.org/"
+                + urllib.parse.quote(str(bin_name), safe="")
+                + "/latest"
+            )
+            try:
+                with urllib.request.urlopen(
+                    exact_url,
+                    timeout=timeout or self.version_timeout,
+                ) as resp:
+                    append_result(json.loads(resp.read().decode("utf-8")))
+            except (OSError, json.JSONDecodeError):
+                pass
         return results
 
     @remap_kwargs({"packages": "install_args"})

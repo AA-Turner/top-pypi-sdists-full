@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.31                                                                                #
-# Generated on 2026-06-01T01:50:49.591102                                                            #
+# MF version: 2.19.32                                                                                #
+# Generated on 2026-06-03T21:26:43.585410                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.runner.deployer_impl
     import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow.runner.deployer_impl
     import typing
 
 from ...runner.deployer_impl import DeployerImpl as DeployerImpl

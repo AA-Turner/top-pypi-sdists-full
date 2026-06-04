@@ -32,6 +32,7 @@ test-311 = ["py311", "compile", "test-core", "example", "test-example", "test-un
 test-312 = ["py312", "compile", "test-core", "example", "test-example", "test-unit-task"]
 test-313 = ["py313", "compile", "test-core", "example", "test-example", "test-unit-task"]
 test-314 = ["py314", "compile", "test-core", "example", "test-example", "test-unit-task"]
+test-type = ["py311", "test-core", "type"]
 test-ui = ["py312", "compile", "test-core", "test-ui"]
 build = ["py312", "build", "compile"]
 compile = ["py312", "compile"]
@@ -94,6 +95,19 @@ cmd = 'pytest ./tests/ui --ui --browser chromium -n logical --dist loadgroup --r
 depends-on = ["_install", "_install-ui"]
 
 # =============================================
+# ================== TYPE =====================
+# =============================================
+
+[feature.type.dependencies]
+mypy = "*"
+pandas-stubs = "*"
+types-requests = "*"
+typing-extensions = "*"
+
+[feature.type.tasks]
+test-type = 'mypy src/panel_material_ui'
+
+# =============================================
 # =================== DOCS ====================
 # =============================================
 [feature.doc.activation.env]
@@ -104,6 +118,7 @@ SPHINX_APIDOC_OPTIONS = "members,show-inheritance"
 
 [feature.doc.dependencies]
 nbsite = ">=0.9.0a1"
+nbconvert = ">=7"
 numpydoc = "*"
 matplotlib = "*"  # not optional in nbsite
 hvplot = "*"
@@ -115,6 +130,7 @@ plotly = "*"
 # _docs-convert-gallery = 'python scripts/gallery/convert_gallery.py'
 _docs-generate = 'nbsite build --what=html --output=builtdocs --org holoviz --project-name panel-material-ui --disable-parallel'
 _docs-generate-parallel = 'nbsite build --what=html --output=builtdocs --org holoviz --project-name panel-material-ui'
+_docs-markdown = 'python scripts/build_llms_txt.py'
 # _docs-copy-panel-dist = 'cp -r ./panel/dist ./builtdocs/panel_dist'
 # _docs-pyodide = 'panel convert examples/gallery/*.ipynb doc/how_to/*/examples/*.md --to pyodide-worker --out ./builtdocs/pyodide/ --pwa --index --requirements doc/pyodide_dependencies.json --exclude examples/gallery/vtk*.ipynb'
 docs-server = 'python -m http.server 5500 --directory ./builtdocs'
@@ -124,6 +140,7 @@ depends-on = [
     # '_docs-refmanual',
     # '_docs-convert-gallery',
     '_docs-generate',
+    '_docs-markdown',
     # '_docs-copy-panel-dist',
     # '_docs-pyodide',
 ]
@@ -133,6 +150,7 @@ depends-on = [
     # '_docs-refmanual',
     # '_docs-convert-gallery',
     '_docs-generate-parallel',
+    '_docs-markdown',
     # '_docs-copy-panel-dist',
     # '_docs-pyodide',
 ]

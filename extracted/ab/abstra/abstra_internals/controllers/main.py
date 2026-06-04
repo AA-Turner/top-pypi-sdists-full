@@ -284,6 +284,13 @@ class MainController:
         project = self.repositories.project.load()
         return project.get_stage(id)
 
+    @staticmethod
+    def _safe_mtime(file_path: Path) -> float:
+        try:
+            return file_path.stat().st_mtime
+        except OSError:
+            return 0.0
+
     def _read_file_lines_with_pagination(
         self,
         file_path: Path,
@@ -308,6 +315,13 @@ class MainController:
         Returns:
             dict | None: Dictionary containing file content and metadata, or None if file cannot be read.
         """
+        try:
+            relative_file = (
+                file_path.resolve().relative_to(Settings.root_path.resolve()).as_posix()
+            )
+        except ValueError:
+            return {"error": "file must be a path inside the project"}
+
         if not file_path.is_file():
             return None
 
@@ -340,6 +354,8 @@ class MainController:
                 "total_lines": total_lines,
                 "has_more": False,
                 "truncated": False,
+                "mtime": self._safe_mtime(file_path),
+                "file": relative_file,
             }
 
         # Apply max_lines limit
@@ -377,6 +393,8 @@ class MainController:
             "total_lines": total_lines,
             "has_more": actual_end < total_lines,
             "truncated": truncated,
+            "mtime": self._safe_mtime(file_path),
+            "file": relative_file,
         }
 
     def read_stage_file_with_pagination(

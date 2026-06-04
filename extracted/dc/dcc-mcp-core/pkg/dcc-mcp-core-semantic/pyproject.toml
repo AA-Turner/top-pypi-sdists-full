@@ -18,7 +18,7 @@ build-backend = "maturin"
 
 [project]
 name = "dcc-mcp-core-semantic"
-version = "0.17.51"  # x-release-please-version
+version = "0.17.54"  # x-release-please-version
 description = "Native Rust semantic embeddings (fastembed-rs) for dcc-mcp-core"
 readme = "README.md"
 license = { text = "MIT" }
@@ -55,9 +55,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/loonghao/dcc-mcp-core"
-Repository = "https://github.com/loonghao/dcc-mcp-core"
-Issues = "https://github.com/loonghao/dcc-mcp-core/issues"
+Homepage = "https://github.com/dcc-mcp/dcc-mcp-core"
+Repository = "https://github.com/dcc-mcp/dcc-mcp-core"
+Issues = "https://github.com/dcc-mcp/dcc-mcp-core/issues"
 
 # ── maturin ──────────────────────────────────────────────────────────
 [tool.maturin]

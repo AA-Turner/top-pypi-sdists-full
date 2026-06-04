@@ -16,29 +16,34 @@ import base64
 import http.client
 import io
 import json
-from unittest.mock import patch
-import mock
-import pytest
 import re
-import requests
 import unittest
 import urllib
+from unittest.mock import patch
 
+import mock
+import pytest
+import requests
 from google.api_core import exceptions
 from google.auth.credentials import AnonymousCredentials
 from google.oauth2.service_account import Credentials
 
 from google.cloud.storage import _helpers
-from google.cloud.storage._helpers import _NOW
-from google.cloud.storage._helpers import _UTC
-from google.cloud.storage._helpers import STORAGE_EMULATOR_ENV_VAR
-from google.cloud.storage._helpers import _API_ENDPOINT_OVERRIDE_ENV_VAR
-from google.cloud.storage._helpers import _get_default_headers
-from google.cloud.storage._helpers import _DEFAULT_UNIVERSE_DOMAIN
+from google.cloud.storage._helpers import (
+    _API_ENDPOINT_OVERRIDE_ENV_VAR,
+    _DEFAULT_UNIVERSE_DOMAIN,
+    _NOW,
+    _UTC,
+    STORAGE_EMULATOR_ENV_VAR,
+    _get_default_headers,
+)
 from google.cloud.storage._http import Connection
-from google.cloud.storage.retry import DEFAULT_RETRY
-from google.cloud.storage.retry import DEFAULT_RETRY_IF_GENERATION_SPECIFIED
+from google.cloud.storage.retry import (
+    DEFAULT_RETRY,
+    DEFAULT_RETRY_IF_GENERATION_SPECIFIED,
+)
 from tests.unit.test__helpers import GCCL_INVOCATION_TEST_CONST
+
 from . import _read_local_json
 
 _SERVICE_ACCOUNT_JSON = _read_local_json("url_signer_v4_test_account.json")
@@ -81,8 +86,9 @@ def _create_signing_credentials():
 
 
 def _make_connection(*responses):
-    import google.cloud.storage._http
     from google.cloud.exceptions import NotFound
+
+    import google.cloud.storage._http
 
     mock_conn = mock.create_autospec(google.cloud.storage._http.Connection)
     mock_conn.user_agent = "testing 1.2.3"
@@ -206,8 +212,8 @@ class TestClient(unittest.TestCase):
         self.assertEqual(client._credentials.token, api_key)
 
     def test_ctor_w_api_key_and_client_options(self):
-        from google.auth.api_key import Credentials
         from google.api_core.client_options import ClientOptions
+        from google.auth.api_key import Credentials
 
         PROJECT = "PROJECT"
         api_key = "my_api_key"
@@ -294,7 +300,8 @@ class TestClient(unittest.TestCase):
         PROJECT = "PROJECT"
         credentials = _make_credentials(project=PROJECT)
 
-        client = self._make_one(credentials=credentials)
+        with mock.patch.dict("os.environ", {}, clear=True):
+            client = self._make_one(credentials=credentials)
 
         self.assertEqual(client.project, PROJECT)
         self.assertIsInstance(client._connection, Connection)
@@ -348,7 +355,12 @@ class TestClient(unittest.TestCase):
 
     def test_ctor_w_custom_endpoint_use_auth(self):
         custom_endpoint = "storage-example.p.googleapis.com"
-        client = self._make_one(client_options={"api_endpoint": custom_endpoint})
+        credentials = _make_credentials()
+        client = self._make_one(
+            project="project",
+            credentials=credentials,
+            client_options={"api_endpoint": custom_endpoint},
+        )
         self.assertEqual(client._connection.API_BASE_URL, custom_endpoint)
         self.assertIsNotNone(client.project)
         self.assertIsInstance(client._connection, Connection)
@@ -357,10 +369,11 @@ class TestClient(unittest.TestCase):
 
     def test_ctor_w_custom_endpoint_bypass_auth(self):
         custom_endpoint = "storage-example.p.googleapis.com"
-        client = self._make_one(
-            client_options={"api_endpoint": custom_endpoint},
-            use_auth_w_custom_endpoint=False,
-        )
+        with mock.patch.dict("os.environ", {}, clear=True):
+            client = self._make_one(
+                client_options={"api_endpoint": custom_endpoint},
+                use_auth_w_custom_endpoint=False,
+            )
         self.assertEqual(client._connection.API_BASE_URL, custom_endpoint)
         self.assertEqual(client.project, None)
         self.assertIsInstance(client._connection, Connection)
@@ -370,9 +383,11 @@ class TestClient(unittest.TestCase):
         PROJECT = "PROJECT"
         custom_endpoint = "storage-example.p.googleapis.com"
         credentials = _make_credentials(project=PROJECT)
-        client = self._make_one(
-            credentials=credentials, client_options={"api_endpoint": custom_endpoint}
-        )
+        with mock.patch.dict("os.environ", {}, clear=True):
+            client = self._make_one(
+                credentials=credentials,
+                client_options={"api_endpoint": custom_endpoint},
+            )
         self.assertEqual(client._connection.API_BASE_URL, custom_endpoint)
         self.assertEqual(client.project, PROJECT)
         self.assertIsInstance(client._connection, Connection)
@@ -434,8 +449,9 @@ class TestClient(unittest.TestCase):
         host = "http://localhost:8080"
         environ = {_API_ENDPOINT_OVERRIDE_ENV_VAR: host}
         project = "my-test-project"
+        credentials = _make_credentials()
         with mock.patch("os.environ", environ):
-            client = self._make_one(project=project)
+            client = self._make_one(project=project, credentials=credentials)
 
         self.assertEqual(client.project, project)
         self.assertEqual(client._connection.API_BASE_URL, host)
@@ -675,8 +691,8 @@ class TestClient(unittest.TestCase):
 
     def test__list_resource_w_defaults(self):
         import functools
-        from google.api_core.page_iterator import HTTPIterator
-        from google.api_core.page_iterator import _do_nothing_page_start
+
+        from google.api_core.page_iterator import HTTPIterator, _do_nothing_page_start
 
         project = "PROJECT"
         path = "/path/to/list/resource"
@@ -708,6 +724,7 @@ class TestClient(unittest.TestCase):
 
     def test__list_resource_w_explicit(self):
         import functools
+
         from google.api_core.page_iterator import HTTPIterator
 
         project = "PROJECT"
@@ -1056,6 +1073,7 @@ class TestClient(unittest.TestCase):
 
     def test_get_bucket_miss_w_string_w_defaults(self):
         from google.cloud.exceptions import NotFound
+
         from google.cloud.storage.bucket import Bucket
 
         project = "PROJECT"
@@ -1083,6 +1101,29 @@ class TestClient(unittest.TestCase):
         target = client._get_resource.call_args[1]["_target_object"]
         self.assertIsInstance(target, Bucket)
         self.assertEqual(target.name, bucket_name)
+
+    def test_get_bucket_forbidden_sync_cache_fallback(self):
+        from google.api_core.exceptions import Forbidden
+
+        project = "PROJECT"
+        credentials = _make_credentials()
+        client = self._make_one(project=project, credentials=credentials)
+        client._get_resource = mock.Mock()
+        client._get_resource.side_effect = Forbidden("forbidden")
+        bucket_name = "forbidden-bucket"
+
+        # Ensure cache is clear
+        client._bucket_metadata_cache.clear()
+
+        with self.assertRaises(Forbidden):
+            client.get_bucket(bucket_name)
+
+        # Assert cache was synchronously populated with fallback
+        cached = client._bucket_metadata_cache.get(bucket_name)
+        self.assertIsNotNone(cached)
+        dest_id, loc = cached
+        self.assertEqual(dest_id, f"projects/_/buckets/{bucket_name}")
+        self.assertEqual(loc, "global")
 
     def test_get_bucket_hit_w_string_w_timeout(self):
         from google.cloud.storage.bucket import Bucket
@@ -1182,6 +1223,7 @@ class TestClient(unittest.TestCase):
 
     def test_get_bucket_miss_w_object_w_retry(self):
         from google.cloud.exceptions import NotFound
+
         from google.cloud.storage.bucket import Bucket
 
         project = "PROJECT"
@@ -1269,6 +1311,7 @@ class TestClient(unittest.TestCase):
 
     def test_lookup_bucket_miss_w_defaults(self):
         from google.cloud.exceptions import NotFound
+
         from google.cloud.storage.bucket import Bucket
 
         project = "PROJECT"
@@ -1296,6 +1339,28 @@ class TestClient(unittest.TestCase):
         target = client._get_resource.call_args[1]["_target_object"]
         self.assertIsInstance(target, Bucket)
         self.assertEqual(target.name, bucket_name)
+
+    def test_lookup_bucket_forbidden_sync_cache_fallback(self):
+        from google.api_core.exceptions import Forbidden
+
+        project = "PROJECT"
+        credentials = _make_credentials()
+        client = self._make_one(project=project, credentials=credentials)
+        client._get_resource = mock.Mock(side_effect=Forbidden("forbidden"))
+        bucket_name = "forbidden-bucket"
+
+        # Ensure cache is clear
+        client._bucket_metadata_cache.clear()
+
+        with self.assertRaises(Forbidden):
+            client.lookup_bucket(bucket_name)
+
+        # Assert cache was synchronously populated with fallback
+        cached = client._bucket_metadata_cache.get(bucket_name)
+        self.assertIsNotNone(cached)
+        dest_id, loc = cached
+        self.assertEqual(dest_id, f"projects/_/buckets/{bucket_name}")
+        self.assertEqual(loc, "global")
 
     def test_lookup_bucket_hit_w_timeout(self):
         from google.cloud.storage.bucket import Bucket
@@ -1475,7 +1540,12 @@ class TestClient(unittest.TestCase):
 
     def test_create_bucket_w_custom_endpoint(self):
         custom_endpoint = "storage-example.p.googleapis.com"
-        client = self._make_one(client_options={"api_endpoint": custom_endpoint})
+        credentials = _make_credentials()
+        client = self._make_one(
+            project="project",
+            credentials=credentials,
+            client_options={"api_endpoint": custom_endpoint},
+        )
         bucket_name = "bucket-name"
         api_response = {"name": bucket_name}
         client._post_resource = mock.Mock()
@@ -1533,14 +1603,18 @@ class TestClient(unittest.TestCase):
 
         client_info = ClientInfo()
 
-        client = self._make_one(project=None, client_info=client_info)
+        credentials = _make_credentials()
+        client = self._make_one(
+            project=None, credentials=credentials, client_info=client_info
+        )
         self.assertGreater(len(client._connection.user_agent), 0)
 
         client.update_user_agent("my-test-agent/1.0")
         self.assertIn("my-test-agent/1.0", client._connection.user_agent)
 
     def test_update_user_agent_when_none_clientinfo_provided(self):
-        client = self._make_one(project=None)
+        credentials = _make_credentials()
+        client = self._make_one(project=None, credentials=credentials)
         client.update_user_agent("my-test-agent/1.0")
 
         self.assertIn("my-test-agent/1.0", client._connection.user_agent)
@@ -1549,7 +1623,10 @@ class TestClient(unittest.TestCase):
         from google.cloud._http import ClientInfo
 
         client_info = ClientInfo(user_agent="existing-agent/2.0")
-        client = self._make_one(project=None, client_info=client_info)
+        credentials = _make_credentials()
+        client = self._make_one(
+            project=None, credentials=credentials, client_info=client_info
+        )
         client.update_user_agent("my-test-agent/1.0")
 
         self.assertIn(
@@ -1856,8 +1933,8 @@ class TestClient(unittest.TestCase):
         return blob
 
     def test_download_blob_to_file_with_failure(self):
-        from google.cloud.storage.exceptions import InvalidResponse
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
+        from google.cloud.storage.exceptions import InvalidResponse
 
         project = "PROJECT"
         raw_response = requests.Response()
@@ -2097,9 +2174,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_blobs_w_defaults_w_bucket_obj(self):
-        from google.cloud.storage.bucket import Bucket
-        from google.cloud.storage.bucket import _blobs_page_start
-        from google.cloud.storage.bucket import _item_to_blob
+        from google.cloud.storage.bucket import Bucket, _blobs_page_start, _item_to_blob
 
         project = "PROJECT"
         bucket_name = "bucket-name"
@@ -2134,8 +2209,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_blobs_w_explicit_w_user_project(self):
-        from google.cloud.storage.bucket import _blobs_page_start
-        from google.cloud.storage.bucket import _item_to_blob
+        from google.cloud.storage.bucket import _blobs_page_start, _item_to_blob
 
         project = "PROJECT"
         user_project = "user-project-123"
@@ -2222,9 +2296,54 @@ class TestClient(unittest.TestCase):
             retry=retry,
         )
 
+    def test_list_blobs_w_filter(self):
+        from google.cloud.storage.bucket import _blobs_page_start, _item_to_blob
+
+        project = "PROJECT"
+        bucket_name = "name"
+        filter_ = 'contexts."foo"="bar"'
+        credentials = _make_credentials()
+        client = self._make_one(project=project, credentials=credentials)
+        client._list_resource = mock.Mock(spec=[])
+        client._bucket_arg_to_bucket = mock.Mock(spec=[])
+        bucket = client._bucket_arg_to_bucket.return_value = mock.Mock(
+            spec=["path", "user_project"],
+        )
+        bucket.path = f"/b/{bucket_name}"
+        bucket.user_project = None
+
+        iterator = client.list_blobs(bucket_or_name=bucket_name, filter_=filter_)
+
+        self.assertIs(iterator, client._list_resource.return_value)
+        self.assertIs(iterator.bucket, bucket)
+        self.assertEqual(iterator.prefixes, set())
+
+        expected_path = f"/b/{bucket_name}/o"
+        expected_item_to_value = _item_to_blob
+        expected_page_token = None
+        expected_max_results = None
+        expected_extra_params = {
+            "projection": "noAcl",
+            "filter": filter_,
+        }
+        expected_page_start = _blobs_page_start
+        expected_page_size = None
+        client._list_resource.assert_called_once_with(
+            expected_path,
+            expected_item_to_value,
+            page_token=expected_page_token,
+            max_results=expected_max_results,
+            extra_params=expected_extra_params,
+            page_start=expected_page_start,
+            page_size=expected_page_size,
+            timeout=self._get_default_timeout(),
+            retry=DEFAULT_RETRY,
+        )
+
     def test_list_buckets_wo_project(self):
         from google.cloud.exceptions import BadRequest
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         credentials = _make_credentials()
         client = self._make_one(project=None, credentials=credentials)
@@ -2257,7 +2376,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_buckets_wo_project_w_emulator(self):
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         # mock STORAGE_EMULATOR_ENV_VAR is set
         host = "http://localhost:8080"
@@ -2293,7 +2412,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_buckets_w_environ_project_w_emulator(self):
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         # mock STORAGE_EMULATOR_ENV_VAR is set
         host = "http://localhost:8080"
@@ -2333,10 +2452,15 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_buckets_w_custom_endpoint(self):
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         custom_endpoint = "storage-example.p.googleapis.com"
-        client = self._make_one(client_options={"api_endpoint": custom_endpoint})
+        credentials = _make_credentials()
+        client = self._make_one(
+            project="project",
+            credentials=credentials,
+            client_options={"api_endpoint": custom_endpoint},
+        )
         client._list_resource = mock.Mock(spec=[])
 
         iterator = client.list_buckets()
@@ -2365,7 +2489,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_buckets_w_defaults(self):
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         project = "PROJECT"
         credentials = _make_credentials()
@@ -2398,7 +2522,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_buckets_w_soft_deleted(self):
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         project = "PROJECT"
         credentials = _make_credentials()
@@ -2432,7 +2556,7 @@ class TestClient(unittest.TestCase):
         )
 
     def test_list_buckets_w_explicit(self):
-        from google.cloud.storage.client import _item_to_bucket, _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         project = "foo-bar"
         other_project = "OTHER_PROJECT"
@@ -3094,14 +3218,14 @@ class TestClient(unittest.TestCase):
         self.assertEqual(fields["policy"], EXPECTED_POLICY)
 
     def test_list_buckets_w_partial_success(self):
-        from google.cloud.storage.client import _item_to_bucket
-        from google.cloud.storage.client import _buckets_page_start
+        from google.cloud.storage.client import _buckets_page_start, _item_to_bucket
 
         PROJECT = "project"
         bucket_name = "bucket-name"
         unreachable_bucket = "projects/_/buckets/unreachable-bucket"
 
-        client = self._make_one(project=PROJECT)
+        credentials = _make_credentials()
+        client = self._make_one(project=PROJECT, credentials=credentials)
 
         mock_bucket = mock.Mock()
         mock_bucket.name = bucket_name
@@ -3201,6 +3325,7 @@ class Test__item_to_hmac_key_metadata(unittest.TestCase):
 @pytest.mark.parametrize("test_data", _POST_POLICY_TESTS)
 def test_conformance_post_policy(test_data):
     import datetime
+
     from google.cloud.storage.client import Client
 
     in_data = test_data["policyInput"]

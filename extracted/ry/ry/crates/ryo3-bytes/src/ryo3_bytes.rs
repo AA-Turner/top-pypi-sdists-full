@@ -14,7 +14,9 @@ use pyo3::types::{PyDict, PySlice, PyString, PyTuple};
 use pyo3::{IntoPyObjectExt, ffi};
 
 use crate::ReadableBuffer;
-use crate::python_bytes_methods::{PyHexSep, PythonBytesMethods, PythonBytesStrip};
+use crate::python_bytes_methods::{
+    BufferOrByte, PyFindResult, PyHexSep, PyIndexResult, PythonBytesMethods, PythonBytesStrip,
+};
 use crate::replace::{ReplaceBytes, replace_bytes};
 
 /// A wrapper around a [`bytes::Bytes`][].
@@ -209,11 +211,7 @@ impl PyBytes {
         self.0.as_ref() == other.as_ref()
     }
 
-    fn __getitem__<'py>(
-        &self,
-        py: Python<'py>,
-        key: BytesGetItemKey<'py>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    fn __getitem__(&self, key: BytesGetItemKey<'_>) -> PyResult<BytesGetItemResult> {
         match key {
             BytesGetItemKey::Int(mut index) => {
                 if index < 0 {
@@ -224,12 +222,12 @@ impl PyBytes {
                 }
                 self.0
                     .get(index as usize)
-                    .ok_or_else(|| PyIndexError::new_err("Index out of range"))?
-                    .into_bound_py_any(py)
+                    .map(|b| BytesGetItemResult::Byte(*b))
+                    .ok_or_else(|| PyIndexError::new_err("Index out of range"))
             }
             BytesGetItemKey::Slice(slice) => {
                 let s = self.slice(&slice)?;
-                s.into_bound_py_any(py)
+                Ok(BytesGetItemResult::Slice(s))
             }
         }
     }
@@ -299,7 +297,10 @@ impl PyBytes {
         }
     }
 
-    #[pyo3(signature = (old, new, count = -1, /))]
+    #[pyo3(
+        signature = (old, new, count = -1, /),
+        text_signature = "(self, old, new, count=-1, /)"
+    )]
     fn replace(
         slf: PyRef<'_, Self>,
         old: ReadableBuffer,
@@ -552,7 +553,10 @@ impl PyBytes {
         self.py_expandtabs(tabsize)
     }
 
-    #[pyo3(signature = (chars = PythonBytesStrip::AsciiWhitespace, /), text_signature = "(chars=None, /)")]
+    #[pyo3(
+        signature = (chars = PythonBytesStrip::AsciiWhitespace, /),
+        text_signature = "(self, chars=None, /)")
+    ]
     fn strip(slf: PyRef<'_, Self>, chars: PythonBytesStrip) -> PyResult<Py<Self>> {
         let bytes = &slf.0;
         let range = chars.strip_range(slf.as_slice());
@@ -563,7 +567,10 @@ impl PyBytes {
         }
     }
 
-    #[pyo3(signature = (chars = PythonBytesStrip::AsciiWhitespace, /), text_signature = "(chars=None, /)")]
+    #[pyo3(
+        signature = (chars = PythonBytesStrip::AsciiWhitespace, /),
+        text_signature = "(self, chars=None, /)"
+    )]
     fn lstrip(slf: PyRef<'_, Self>, chars: PythonBytesStrip) -> PyResult<Py<Self>> {
         let bytes = &slf.0;
         let ix = chars.lstrip_range(slf.as_slice());
@@ -574,7 +581,10 @@ impl PyBytes {
         }
     }
 
-    #[pyo3(signature = (chars = PythonBytesStrip::AsciiWhitespace, /), text_signature = "(chars=None, /)")]
+    #[pyo3(
+        signature = (chars = PythonBytesStrip::AsciiWhitespace, /),
+        text_signature = "(self, chars=None, /)"
+    )]
     fn rstrip(slf: PyRef<'_, Self>, chars: PythonBytesStrip) -> PyResult<Py<Self>> {
         let bytes = &slf.0;
         let ix = chars.rstrip_range(slf.as_slice());
@@ -584,6 +594,27 @@ impl PyBytes {
             Py::new(slf.py(), Self::new(bytes.slice(0..ix)))
         }
     }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn find(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyFindResult {
+        self.py_find(sub, start, end)
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn rfind(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyFindResult {
+        self.py_rfind(sub, start, end)
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn index(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyIndexResult {
+        self.py_index(sub, start, end)
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn rindex(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyIndexResult {
+        self.py_rindex(sub, start, end)
+    }
+
     // </python-bytes-methods>
 }
 
@@ -594,7 +625,12 @@ impl<'py> FromPyObject<'_, 'py> for PyBytes {
         if ob.is_exact_instance_of::<pyo3::types::PyBytes>() {
             let pbb = ob.extract::<PyBackedBytes>()?;
             Ok(Bytes::from_owner(pbb).into())
-        } else if let Ok(pb) = ob.cast_exact::<Self>() {
+        } else if ob.is_exact_instance_of::<Self>() {
+            #[expect(unsafe_code)]
+            let pb = unsafe {
+                // SAFETY: wenodis (see line above)
+                ob.cast_unchecked::<Self>()
+            };
             Ok(Self(pb.get().0.clone())) // supa fast clone the inner bytes::Bytes
         } else {
             let buffer = ob.extract::<PyBytesWrapper>()?;
@@ -700,8 +736,27 @@ enum BytesGetItemKey<'py> {
     Slice(Bound<'py, PySlice>),
 }
 
-/// optimized bytes-iterator...
+enum BytesGetItemResult {
+    /// A single byte as an integer
+    Byte(u8),
+    /// A slice of bytes as a new `PyBytes`
+    Slice(PyBytes),
+}
 
+impl<'py> IntoPyObject<'py> for BytesGetItemResult {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        match self {
+            Self::Byte(b) => b.into_bound_py_any(py),
+            Self::Slice(s) => s.into_bound_py_any(py),
+        }
+    }
+}
+
+/// optimized bytes-iterator...
 #[pyclass(name = "BytesIterator", immutable_type)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub(crate) struct PyBytesIterator(::bytes::buf::IntoIter<Bytes>);

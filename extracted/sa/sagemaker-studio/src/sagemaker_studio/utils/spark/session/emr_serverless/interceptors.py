@@ -31,6 +31,7 @@ class SparkConnectGRPCInterceptor(BaseSparkConnectGRPCInterceptor):
             session_id=emr_serverless_session_id,
             initial_auth_token=initial_auth_token,
             initial_token_expiry=initial_token_expiry,
+            logger_name="SparkConnect.EMRServerless",
         )
         self.application_id = application_id
         self.emr_serverless_client = emr_serverless_client

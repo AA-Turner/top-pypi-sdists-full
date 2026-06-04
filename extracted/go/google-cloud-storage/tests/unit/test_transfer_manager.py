@@ -12,21 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import pickle
+import tempfile
+
+import mock
 import pytest
-
-from google.cloud.storage import Blob
-from google.cloud.storage import Client
-from google.cloud.storage import transfer_manager
-from google.cloud.storage.retry import DEFAULT_RETRY
-
 from google.api_core import exceptions
 
+from google.cloud.storage import Blob, Client, transfer_manager
 from google.cloud.storage.exceptions import DataCorruption
-
-import os
-import tempfile
-import mock
-import pickle
+from google.cloud.storage.retry import DEFAULT_RETRY
 
 BLOB_TOKEN_STRING = "blob token"
 FAKE_CONTENT_TYPE = "text/fake"
@@ -114,9 +110,10 @@ def test_upload_many_passes_concurrency_options():
     ]
     MAX_WORKERS = 7
     DEADLINE = 10
-    with mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch, mock.patch(
-        "concurrent.futures.wait"
-    ) as wait_patch:
+    with (
+        mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch,
+        mock.patch("concurrent.futures.wait") as wait_patch,
+    ):
         transfer_manager.upload_many(
             FILE_BLOB_PAIRS,
             deadline=DEADLINE,
@@ -134,9 +131,10 @@ def test_threads_deprecation_with_upload():
     ]
     MAX_WORKERS = 7
     DEADLINE = 10
-    with mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch, mock.patch(
-        "concurrent.futures.wait"
-    ) as wait_patch:
+    with (
+        mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch,
+        mock.patch("concurrent.futures.wait") as wait_patch,
+    ):
         with pytest.warns():
             transfer_manager.upload_many(
                 FILE_BLOB_PAIRS, deadline=DEADLINE, threads=MAX_WORKERS
@@ -325,9 +323,10 @@ def test_download_many_passes_concurrency_options():
     ]
     MAX_WORKERS = 7
     DEADLINE = 10
-    with mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch, mock.patch(
-        "concurrent.futures.wait"
-    ) as wait_patch:
+    with (
+        mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch,
+        mock.patch("concurrent.futures.wait") as wait_patch,
+    ):
         transfer_manager.download_many(
             BLOB_FILE_PAIRS,
             deadline=DEADLINE,
@@ -513,9 +512,8 @@ def test_upload_many_from_filenames_additional_properties():
         assert getattr(blob, attrib) == value
 
 
-
 def test__resolve_path_raises_invalid_path_error_on_windows():
-    from google.cloud.storage.transfer_manager import _resolve_path, InvalidPathError
+    from google.cloud.storage.transfer_manager import InvalidPathError, _resolve_path
 
     with mock.patch("os.name", "nt"):
         with pytest.raises(InvalidPathError) as exc_info:
@@ -558,8 +556,17 @@ def test_download_many_to_path_raises_invalid_path_error():
                 skip_if_exists=True,
             )
 
-    assert len(w) == 1
-    assert "will **NOT** be downloaded" in str(w[0].message)
+    invalid_path_warnings = [
+        warning
+        for warning in w
+        if str(warning.message).startswith("The blob ")
+        and "will **NOT** be downloaded" in str(warning.message)
+    ]
+
+    assert len(invalid_path_warnings) == 1, (
+        f"Expected 1 invalid path warning, found {len(invalid_path_warnings)}. All warnings: {[str(warning.message) for warning in w]}"
+    )
+
     assert len(results) == 1
     assert isinstance(results[0], UserWarning)
 
@@ -610,6 +617,7 @@ def test_download_many_to_path():
     assert results == [FAKE_RESULT] * len(BLOBNAMES)
     for blobname in BLOBNAMES:
         bucket.blob.assert_any_call(BLOB_NAME_PREFIX + blobname)
+
 
 def test_download_many_to_path_with_skip_if_exists():
     bucket = mock.Mock()
@@ -665,10 +673,12 @@ def test_download_many_to_path_with_skip_if_exists():
 
     assert len(results) == 3
     assert isinstance(results[0], UserWarning)
-    assert str(results[0]) == "The blob file_a.txt is skipped because destination file already exists"
+    assert (
+        str(results[0])
+        == "The blob file_a.txt is skipped because destination file already exists"
+    )
     assert results[1] == FAKE_RESULT
     assert results[2] == FAKE_RESULT
-
 
 
 @pytest.mark.parametrize(
@@ -693,6 +703,7 @@ def test_download_many_to_path_skips_download(blobname):
     WORKER_TYPE = transfer_manager.THREAD
 
     import warnings
+
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         with mock.patch(
@@ -714,11 +725,15 @@ def test_download_many_to_path_skips_download(blobname):
             )
 
     path_traversal_warnings = [
-        warning for warning in w
+        warning
+        for warning in w
         if str(warning.message).startswith("The blob ")
-        and "will **NOT** be downloaded. The resolved destination_directory" in str(warning.message)
+        and "will **NOT** be downloaded. The resolved destination_directory"
+        in str(warning.message)
     ]
-    assert len(path_traversal_warnings) == 1, "---".join([str(warning.message) for warning in w])
+    assert len(path_traversal_warnings) == 1, "---".join(
+        [str(warning.message) for warning in w]
+    )
 
     mock_download_many.assert_called_once_with(
         [],
@@ -759,9 +774,8 @@ def test_download_many_to_path_downloads_within_dest_dir(blobname):
     WORKER_TYPE = transfer_manager.THREAD
 
     from google.cloud.storage.transfer_manager import _resolve_path
-    EXPECTED_BLOB_FILE_PAIRS = [
-        (mock.ANY, str(_resolve_path(PATH_ROOT, blobname)))
-    ]
+
+    EXPECTED_BLOB_FILE_PAIRS = [(mock.ANY, str(_resolve_path(PATH_ROOT, blobname)))]
 
     with mock.patch(
         "google.cloud.storage.transfer_manager.download_many",
@@ -963,10 +977,10 @@ def test_download_chunks_concurrently_passes_concurrency_options():
     MULTIPLE = 4
     blob_mock.size = CHUNK_SIZE * MULTIPLE
 
-    with mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch, mock.patch(
-        "concurrent.futures.wait"
-    ) as wait_patch, mock.patch(
-        "google.cloud.storage.transfer_manager.open", mock.mock_open()
+    with (
+        mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch,
+        mock.patch("concurrent.futures.wait") as wait_patch,
+        mock.patch("google.cloud.storage.transfer_manager.open", mock.mock_open()),
     ):
         transfer_manager.download_chunks_concurrently(
             blob_mock,
@@ -1000,11 +1014,15 @@ def test_upload_chunks_concurrently():
     ETAG = "efgh"
     part_mock.etag = ETAG
 
-    with mock.patch("os.path.getsize", return_value=SIZE), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUContainer",
-        return_value=container_mock,
-    ), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUPart", return_value=part_mock
+    with (
+        mock.patch("os.path.getsize", return_value=SIZE),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUContainer",
+            return_value=container_mock,
+        ),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUPart", return_value=part_mock
+        ),
     ):
         transfer_manager.upload_chunks_concurrently(
             FILENAME,
@@ -1043,10 +1061,15 @@ def test_upload_chunks_concurrently_quotes_urls():
     part_mock.etag = ETAG
     container_cls_mock = mock.Mock(return_value=container_mock)
 
-    with mock.patch("os.path.getsize", return_value=SIZE), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUContainer", new=container_cls_mock
-    ), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUPart", return_value=part_mock
+    with (
+        mock.patch("os.path.getsize", return_value=SIZE),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUContainer",
+            new=container_cls_mock,
+        ),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUPart", return_value=part_mock
+        ),
     ):
         transfer_manager.upload_chunks_concurrently(
             FILENAME,
@@ -1087,12 +1110,15 @@ def test_upload_chunks_concurrently_passes_concurrency_options():
     MAX_WORKERS = 7
     DEADLINE = 10
 
-    with mock.patch("os.path.getsize", return_value=SIZE), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUContainer",
-        return_value=container_mock,
-    ), mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch, mock.patch(
-        "concurrent.futures.wait"
-    ) as wait_patch:
+    with (
+        mock.patch("os.path.getsize", return_value=SIZE),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUContainer",
+            return_value=container_mock,
+        ),
+        mock.patch("concurrent.futures.ThreadPoolExecutor") as pool_patch,
+        mock.patch("concurrent.futures.wait") as wait_patch,
+    ):
         try:
             transfer_manager.upload_chunks_concurrently(
                 FILENAME,
@@ -1115,8 +1141,10 @@ def test_upload_chunks_concurrently_passes_concurrency_options():
 
 def test_upload_chunks_concurrently_with_metadata_and_encryption():
     import datetime
-    from google.cloud.storage._helpers import _UTC
+
     from google.cloud._helpers import _RFC3339_MICROS
+
+    from google.cloud.storage._helpers import _UTC
 
     now = datetime.datetime.now(_UTC)
     now_str = now.strftime(_RFC3339_MICROS)
@@ -1166,13 +1194,19 @@ def test_upload_chunks_concurrently_with_metadata_and_encryption():
 
     invocation_id = "b9f8cbb0-6456-420c-819d-3f4ee3c0c455"
 
-    with mock.patch("os.path.getsize", return_value=SIZE), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUContainer", new=container_cls_mock
-    ), mock.patch(
-        "google.cloud.storage.transfer_manager.XMLMPUPart", return_value=part_mock
-    ), mock.patch(
-        "google.cloud.storage._helpers._get_invocation_id",
-        return_value="gccl-invocation-id/" + invocation_id,
+    with (
+        mock.patch("os.path.getsize", return_value=SIZE),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUContainer",
+            new=container_cls_mock,
+        ),
+        mock.patch(
+            "google.cloud.storage.transfer_manager.XMLMPUPart", return_value=part_mock
+        ),
+        mock.patch(
+            "google.cloud.storage._helpers._get_invocation_id",
+            return_value="gccl-invocation-id/" + invocation_id,
+        ),
     ):
         transfer_manager.upload_chunks_concurrently(
             FILENAME,
@@ -1276,10 +1310,13 @@ def test_download_chunks_concurrently_with_processes():
     )
     FILENAME = "file_a.txt"
 
-    with mock.patch(
-        "google.cloud.storage.transfer_manager._download_and_write_chunk_in_place",
-        new=_validate_blob_token_in_subprocess_for_chunk,
-    ), mock.patch("google.cloud.storage.transfer_manager.open", mock.mock_open()):
+    with (
+        mock.patch(
+            "google.cloud.storage.transfer_manager._download_and_write_chunk_in_place",
+            new=_validate_blob_token_in_subprocess_for_chunk,
+        ),
+        mock.patch("google.cloud.storage.transfer_manager.open", mock.mock_open()),
+    ):
         result = transfer_manager.download_chunks_concurrently(
             blob,
             FILENAME,
@@ -1294,9 +1331,12 @@ def test_download_chunks_concurrently_with_processes():
 def test__LazyClient():
     fake_cache = {}
     MOCK_ID = 9999
-    with mock.patch(
-        "google.cloud.storage.transfer_manager._cached_clients", new=fake_cache
-    ), mock.patch("google.cloud.storage.transfer_manager.Client"):
+    with (
+        mock.patch(
+            "google.cloud.storage.transfer_manager._cached_clients", new=fake_cache
+        ),
+        mock.patch("google.cloud.storage.transfer_manager.Client"),
+    ):
         lazyclient = transfer_manager._LazyClient(MOCK_ID)
         lazyclient_cached = transfer_manager._LazyClient(MOCK_ID)
         assert lazyclient is lazyclient_cached
@@ -1366,9 +1406,12 @@ def test__reduce_client():
     }
     client._extra_headers = custom_headers
 
-    with mock.patch(
-        "google.cloud.storage.transfer_manager._cached_clients", new=fake_cache
-    ), mock.patch("google.cloud.storage.transfer_manager.Client"):
+    with (
+        mock.patch(
+            "google.cloud.storage.transfer_manager._cached_clients", new=fake_cache
+        ),
+        mock.patch("google.cloud.storage.transfer_manager.Client"),
+    ):
         replicated_client, kwargs = transfer_manager._reduce_client(client)
         assert replicated_client is not None
         assert custom_headers in kwargs

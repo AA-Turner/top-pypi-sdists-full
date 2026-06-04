@@ -4,41 +4,43 @@
 """Provide a context to run a device without a database."""
 
 # Imports
-import os
-import time
-import struct
-import socket
-import tempfile
-import traceback
 import collections
-import psutil
-from functools import partial
+import multiprocessing
+import os
+import queue
+import socket
+import struct
+import tempfile
 
 # Concurrency imports
 import threading
-import multiprocessing
-import queue
+import time
+import traceback
+from argparse import ArgumentParser, ArgumentTypeError
 
 # CLI imports
 from ast import literal_eval
+from functools import partial
 from importlib import import_module
-from argparse import ArgumentParser, ArgumentTypeError
+
+import psutil
+
+from tango import Database, DevFailed, DeviceProxy, EnsureOmniThread, Util
+from tango.green import switch_existing_global_executors_to_thread
 
 # Local imports
 from tango.server import run
 from tango.utils import (
     _clear_test_context_tango_host_fqtrl,
-    is_non_str_seq,
     _set_test_context_tango_host_fqtrl,
+    is_non_str_seq,
 )
-from tango.green import switch_existing_global_executors_to_thread
-from tango import Database, DevFailed, DeviceProxy, EnsureOmniThread, Util
 
 __all__ = (
-    "MultiDeviceTestContext",
     "DeviceTestContext",
-    "run_device_test_context",
+    "MultiDeviceTestContext",
     "get_server_port_via_pid",
+    "run_device_test_context",
 )
 
 # Helpers
@@ -48,8 +50,7 @@ _DEFAULT_PROCESS_TIMEOUT = 7.0
 
 IOR = collections.namedtuple(
     "IOR",
-    "first dtype_length dtype nb_profile tag "
-    "length major minor wtf host_length host port body",
+    "first dtype_length dtype nb_profile tag length major minor wtf host_length host port body",
 )
 
 NO_DB_FRAGMENT = "dbase=no"
@@ -128,20 +129,16 @@ def get_server_port_via_pid(pid, host, retries=400, delay=0.03):
         count += 1
 
     if port is None:
-        raise RuntimeError(
-            f"Failed to get GIOP TCP port within {count * delay:.1f} sec"
-        ) from last_err
+        raise RuntimeError(f"Failed to get GIOP TCP port within {count * delay:.1f} sec") from last_err
 
     return port
 
 
 def _get_listening_tcp_ports(pid):
     p = psutil.Process(pid)
-    if hasattr(p, "net_connections"):
-        conns = p.net_connections(kind="tcp")
-    else:
-        conns = p.connections(kind="tcp")  # deprecated in psutil v6.0.0
-    return list(set([c.laddr.port for c in conns if c.status == "LISTEN"]))
+    # p.connections() is deprecated in psutil v6.0.0
+    conns = p.net_connections(kind="tcp") if hasattr(p, "net_connections") else p.connections(kind="tcp")
+    return list({c.laddr.port for c in conns if c.status == "LISTEN"})
 
 
 def _get_giop_port(host, ports):
@@ -149,10 +146,7 @@ def _get_giop_port(host, ports):
     for port, protocol in protocols.items():
         if protocol == "GIOP":
             return port
-    raise RuntimeError(
-        f"None of ports {ports} appear to have GIOP protocol. "
-        f"Guessed protocols: {protocols}."
-    )
+    raise RuntimeError(f"None of ports {ports} appear to have GIOP protocol. Guessed protocols: {protocols}.")
 
 
 def _try_get_protocols_on_ports(host, ports):
@@ -165,9 +159,7 @@ def _try_get_protocols_on_ports(host, ports):
     CORBA GIOP client sockets don't receive an unsolicited message, so we send
     a requested to disconnect, and expect an empty message back.
     """
-    zmq_response = (
-        b"\xff\x00\x00\x00\x00\x00\x00\x00\x01\x7f"  # signature + version check
-    )
+    zmq_response = b"\xff\x00\x00\x00\x00\x00\x00\x00\x01\x7f"  # signature + version check
     giop_send = b"GIOP\x01\x02\x01\x05\x00\x00\x00\x00"  # request disconnect
     giop_response = b""  # graceful disconnect
     max_bytes_expected = len(zmq_response)
@@ -213,10 +205,7 @@ def device(path):
     try:
         module = import_module(module_name)
     except Exception:
-        raise ArgumentTypeError(
-            f"Error importing {module_name}.{device_name}:\n"
-            f"{traceback.format_exc()}"
-        )
+        raise ArgumentTypeError(f"Error importing {module_name}.{device_name}:\n{traceback.format_exc()}") from None
     return getattr(module, device_name)
 
 
@@ -315,20 +304,21 @@ class MultiDeviceTestContext:
       a sequence of dicts with information about
       devices to be exported. Each dict consists of the following keys:
 
-        * "class" which value is either of:
+      * "class" which value is either of:
 
-          * a :class:`~tango.server.Device` or the name of some such class
-          * a sequence of two elements, the first element being a
-            :class:`~tango.DeviceClass` or the name of some such class,
-            the second element being a :class:`~tango.DeviceImpl` or the
-            name of some such class
+        * a
+          :class:`~tango.server.Device` or the name of some such class
+        * a sequence of two elements, the first element being a
+          :class:`~tango.DeviceClass` or the name of some such class,
+          the second element being a :class:`~tango.DeviceImpl` or the
+          name of some such class
 
-        * "devices" which value is a sequence of dicts with the following keys:
+      * "devices" which value is a sequence of dicts with the following keys:
 
-          * "name" (str)
-          * "properties" (dict)
-          * "memorized" (dict)
-          * "root_atts" (dict)"
+        * "name" (str)
+        * "properties" (dict)
+        * "memorized" (dict)
+        * "root_atts" (dict)"
 
     :type devices_info:
       sequence<dict>
@@ -474,15 +464,10 @@ class MultiDeviceTestContext:
             tangoclass = device.__name__
             if tangoclass in tangoclass_list:
                 self.delete_db()
-                raise ValueError(
-                    "multiple entries in devices_info pointing "
-                    "to the same Tango class"
-                )
+                raise ValueError("multiple entries in devices_info pointing to the same Tango class")
             tangoclass_list.append(tangoclass)
             # File
-            self.append_db_file(
-                server_name, instance_name, tangoclass, device_info["devices"]
-            )
+            self.append_db_file(server_name, instance_name, tangoclass, device_info["devices"])
             if device_cls:
                 class_list.append((device_cls, device, tangoclass))
             else:
@@ -491,9 +476,7 @@ class MultiDeviceTestContext:
         # Target and arguments
         if class_list and device_list:
             self.delete_db()
-            raise ValueError(
-                "mixing HLAPI and classical API in devices_info is not supported"
-            )
+            raise ValueError("mixing HLAPI and classical API in devices_info is not supported")
         if class_list:
             runserver = partial(run, class_list, cmd_args, green_mode=green_mode)
         elif len(device_list) == 1 and hasattr(device_list[0], "run_server"):
@@ -549,9 +532,7 @@ class MultiDeviceTestContext:
         try:
             self.port = self._discovered_port_queue.get(timeout=self.timeout)
         except queue.Empty:
-            raise RuntimeError(
-                "GIOP TCP port of TextContext device server not available during startup"
-            )
+            raise RuntimeError("GIOP TCP port of TextContext device server not available during startup") from None
 
         # set the TANGO_HOST override for the process that created the test context
         self._override_test_context_tango_host()
@@ -560,9 +541,7 @@ class MultiDeviceTestContext:
 
     def _override_test_context_tango_host(self):
         if self.enable_test_context_tango_host_override:
-            _set_test_context_tango_host_fqtrl(
-                f"tango://{self.host}:{self.port}#{NO_DB_FRAGMENT}"
-            )
+            _set_test_context_tango_host_fqtrl(f"tango://{self.host}:{self.port}#{NO_DB_FRAGMENT}")
 
     def post_init(self):
         # now we can connect to the device - success!
@@ -593,8 +572,7 @@ class MultiDeviceTestContext:
 
             root_atts = info.get("root_atts", {})
             properties_to_save = {
-                attribute_name: {"__root_att": root_att}
-                for (attribute_name, root_att) in root_atts.items()
+                attribute_name: {"__root_att": root_att} for (attribute_name, root_att) in root_atts.items()
             }
 
             memorized = info.get("memorized", {})
@@ -608,14 +586,14 @@ class MultiDeviceTestContext:
         try:
             validated_db = Database(self.db)
         except DevFailed:
-            with open(self.db, "r") as f:
+            with open(self.db) as f:
                 content = f.read()
             raise RuntimeError(
                 f"Invalid FileDatabase file was created.\n"
                 f"Check device properties (empty list or str?): "
                 f"{device_prop_info}.\n"
                 f"Problematic file has content:\n{content}"
-            )
+            ) from None
         return validated_db
 
     def delete_db(self):
@@ -664,19 +642,17 @@ class MultiDeviceTestContext:
         except RuntimeError:
             if self.thread.is_alive():
                 raise RuntimeError(
-                    "The server appears to be stuck at initialization. "
-                    "Check stdout/stderr for more information."
-                )
+                    "The server appears to be stuck at initialization. Check stdout/stderr for more information."
+                ) from None
             elif hasattr(self.thread, "exitcode"):
                 raise RuntimeError(
                     f"The server process stopped with exitcode {self.thread.exitcode}. "
                     f"Check stdout/stderr for more information."
-                )
+                ) from None
             else:
                 raise RuntimeError(
-                    "The server stopped without reporting. "
-                    "Check stdout/stderr for more information."
-                )
+                    "The server stopped without reporting. Check stdout/stderr for more information."
+                ) from None
 
         if self._startup_exception:
             raise self._startup_exception
@@ -691,13 +667,9 @@ class MultiDeviceTestContext:
 
     def _wait_until_startup_status_is_known(self):
         try:
-            self._startup_exception = self._startup_exception_queue.get(
-                timeout=self.timeout
-            )
+            self._startup_exception = self._startup_exception_queue.get(timeout=self.timeout)
         except queue.Empty:
-            raise RuntimeError(
-                f"Timed-out waiting for device server startup ({self.timeout:1.3f} sec)"
-            )
+            raise RuntimeError(f"Timed-out waiting for device server startup ({self.timeout:1.3f} sec)") from None
 
     def stop(self):
         """Kill the server.
@@ -733,9 +705,7 @@ class MultiDeviceTestContext:
                 f"Still alive: {self.thread.is_alive()}."
             )
         else:
-            raise RuntimeError(
-                "Device server failed to exit cleanly (stuck in shutdown?)"
-            )
+            raise RuntimeError("Device server failed to exit cleanly (stuck in shutdown?)")
 
     def join(self, timeout=None):
         self.thread.join(timeout)
@@ -753,7 +723,7 @@ class MultiDeviceTestContext:
             # We can't use 0 seconds because omniORB forces it to 5 seconds.
             # See: src/lib/omniORB/orbcore/giopServer.cc giopServer::deactivate()
             # See also: https://sourceforge.net/p/tango-cs/bugs/819/
-            os.environ["ORBscanGranularity"] = "1"
+            os.environ["ORBscanGranularity"] = "1"  # noqa: SIM112 (omniORB env var is mixed case)
 
     def _restore_environment_variables(self):
         modified_environ = dict(os.environ)
@@ -835,8 +805,8 @@ class DeviceTestContext(MultiDeviceTestContext):
     :type device_cls:
       :class:`~tango.DeviceClass`
 
-     The rest of the parameters are described in
-     :class:`~tango.test_context.MultiDeviceTestContext`.
+    The rest of the parameters are described in
+    :class:`~tango.test_context.MultiDeviceTestContext`.
 
     .. versionadded:: 9.2.1
 
@@ -879,10 +849,7 @@ class DeviceTestContext(MultiDeviceTestContext):
             memorized = {}
         if root_atts is None:
             root_atts = {}
-        if device_cls:
-            cls = (device_cls, device)
-        else:
-            cls = device
+        cls = (device_cls, device) if device_cls else device
         devices_info = (
             {
                 "class": cls,
@@ -949,17 +916,13 @@ def parse_command_line_args(args=None):
     msg = "The device to run as a python path."
     parser.add_argument("device", metavar="DEVICE", type=device, help=msg)
     msg = "The hostname to use."
-    parser.add_argument(
-        "--host", metavar="HOST", type=str, help=msg, default=get_host_ip()
-    )
+    parser.add_argument("--host", metavar="HOST", type=str, help=msg, default=get_host_ip())
     msg = "The port to use."
     parser.add_argument("--port", metavar="PORT", type=int, help=msg, default=8888)
     msg = "The debug level."
     parser.add_argument("--debug", metavar="DEBUG", type=int, help=msg, default=3)
     msg = "The properties to set as python dict."
-    parser.add_argument(
-        "--prop", metavar="PROP", type=literal_dict, help=msg, default="{}"
-    )
+    parser.add_argument("--prop", metavar="PROP", type=literal_dict, help=msg, default="{}")
     msg = "Whether to disable short-name lookup for devices launched by test context"
     parser.add_argument(
         "--disable-short-name-lookup",
@@ -988,9 +951,7 @@ def run_device_test_context(args=None):
         debug,
         disable_short_name_lookup,
     ) = parse_command_line_args(args)
-    context = DeviceTestContext(
-        device_, properties=properties, host=host, port=port, debug=debug
-    )
+    context = DeviceTestContext(device_, properties=properties, host=host, port=port, debug=debug)
     context.enable_test_context_tango_host_override = not disable_short_name_lookup
     context.start()
     msg = f"{device_.__name__} started on port {context.port} with properties {properties}"

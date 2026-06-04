@@ -15,10 +15,7 @@
 // cppTango "feature": commands expect, that we allocate memory with "allocbuf", while attributes - new[].
 // So.....
 
-enum MemoryAllocation {
-    ALLOC,
-    NEW
-};
+enum MemoryAllocation { ALLOC, NEW };
 
 #define MEMORY_ALLOCATOR(TangoScalarType, TangoArrayType, len, allocation)  \
     TangoScalarType *tg_data;                                               \
@@ -71,6 +68,7 @@ inline void buffer_deleter__<Tango::DEVVAR_STRINGARRAY>(Tango::DevString *tg_dat
     }
 }
 
+// clang-format off
 template <int tangoArrayTypeConst>
     inline typename TANGO_const2scalartype(tangoArrayTypeConst) * python_to_cpp_buffer_generic(py::object &py_val,
                                                                                                MemoryAllocation allocation,
@@ -78,17 +76,15 @@ template <int tangoArrayTypeConst>
                                                                                                bool isImage,
                                                                                                py::size_t &res_dim_x,
                                                                                                py::size_t &res_dim_y) {
+    // clang-format on
     using TangoScalarType = typename TANGO_const2scalartype(tangoArrayTypeConst);
     using TangoArrayType = typename TANGO_const2type(tangoArrayTypeConst);
 
-    std::string err_msg = isImage
-                              ? "Expecting a sequence of sequences (IMAGE attribute)."
-                              : "Expecting a sequence (SPECTRUM attribute).";
+    std::string err_msg =
+        isImage ? "Expecting a sequence of sequences (IMAGE attribute)." : "Expecting a sequence (SPECTRUM attribute).";
 
     if(py::isinstance<py::str>(py_val) || !py::isinstance<py::sequence>(py_val)) {
-        Tango::Except::throw_exception("PyDs_WrongParameters",
-                                       err_msg,
-                                       fname + "()");
+        Tango::Except::throw_exception("PyDs_WrongParameters", err_msg, fname + "()");
     }
 
     py::list py_list = py::cast<py::list>(py_val);
@@ -97,9 +93,7 @@ template <int tangoArrayTypeConst>
     if(len > 0 && isImage) {
         py::object py_row0 = py_list[0];
         if(!py::isinstance<py::sequence>(py_row0)) {
-            Tango::Except::throw_exception("PyDs_WrongParameters",
-                                           err_msg,
-                                           fname + "()");
+            Tango::Except::throw_exception("PyDs_WrongParameters", err_msg, fname + "()");
         }
 
         res_dim_y = len;
@@ -154,6 +148,8 @@ template <int tangoArrayTypeConst>
     using TangoArrayType = typename TANGO_const2type(tangoArrayTypeConst);
     using TangoScalarType = typename TANGO_const2scalartype(tangoArrayTypeConst);
 
+    // clang-format off
+
     if(!py::isinstance<py::array>(py_val)) {
         return python_to_cpp_buffer_generic<tangoArrayTypeConst>(py_val,
                                                                  allocation,
@@ -162,6 +158,7 @@ template <int tangoArrayTypeConst>
                                                                  res_dim_x,
                                                                  res_dim_y);
     }
+    // clang-format on
 
     py::array arr = py_val.cast<py::array>();
     long nd = arr.ndim();
@@ -176,8 +173,7 @@ template <int tangoArrayTypeConst>
     int flags = arr.flags();
 
     // Check if the array is exactly what we need: contiguous, aligned, and correct data type
-    const bool exact_array = ((flags & NPY_ARRAY_C_CONTIGUOUS) != 0) &&
-                             ((flags & NPY_ARRAY_ALIGNED) != 0) &&
+    const bool exact_array = ((flags & NPY_ARRAY_C_CONTIGUOUS) != 0) && ((flags & NPY_ARRAY_ALIGNED) != 0) &&
                              arr.dtype().is(pybind11::dtype::of<TangoScalarType>());
 
     // Handle empty arrays first - set dimensions to 0 regardless of actual dimensions
@@ -190,18 +186,16 @@ template <int tangoArrayTypeConst>
             // Empty 1D array passed as image - treat as empty 2D
             is_empty = true;
         } else if(nd != 2) {
-            Tango::Except::throw_exception("PyDs_WrongNumpyArrayDimensions",
-                                           "Expecting a sequence of sequences (IMAGE attribute).",
-                                           fname + "()");
+            Tango::Except::throw_exception(
+                "PyDs_WrongNumpyArrayDimensions", "Expecting a sequence of sequences (IMAGE attribute).", fname + "()");
         }
     } else {
         if(nd == 1 && dims[0] == 0) {
             // Empty 1D array
             is_empty = true;
         } else if(nd != 1) {
-            Tango::Except::throw_exception("PyDs_WrongNumpyArrayDimensions",
-                                           "Expecting a sequence (SPECTRUM attribute).",
-                                           fname + "()");
+            Tango::Except::throw_exception(
+                "PyDs_WrongNumpyArrayDimensions", "Expecting a sequence (SPECTRUM attribute).", fname + "()");
         }
     }
 
@@ -250,12 +244,14 @@ template <>
                                                     bool isImage,
                                                     py::size_t &res_dim_x,
                                                     py::size_t &res_dim_y) {
+    // clang-format off
     return python_to_cpp_buffer_generic<Tango::DEVVAR_STRINGARRAY>(py_val,
                                                                    allocation,
                                                                    fname,
                                                                    isImage,
                                                                    res_dim_x,
                                                                    res_dim_y);
+    // clang-format on
 }
 
 template <int tangoArrayTypeConst>
@@ -265,6 +261,7 @@ template <int tangoArrayTypeConst>
 
     py::size_t res_dim_x, res_dim_y;
 
+    // clang-format off
     TangoScalarType *array = python_to_cpp_buffer<tangoArrayTypeConst>(py_value,
                                                                        MemoryAllocation ::ALLOC,
                                                                        "array_python_data_to_cpp",
@@ -323,4 +320,5 @@ template <>
     result->svalue = *a_str;
 
     return result.release();
+    // clang-format on
 }

@@ -14,6 +14,7 @@ class PromptTokensDetailsTypedDict(TypedDict):
 
     messages: NotRequired[List[MessageTokensTypedDict]]
     cached_tokens: NotRequired[int]
+    audio_tokens: NotRequired[int]
 
 
 class PromptTokensDetails(BaseModel):
@@ -23,9 +24,11 @@ class PromptTokensDetails(BaseModel):
 
     cached_tokens: Optional[int] = 0
 
+    audio_tokens: Optional[int] = 0
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["messages", "cached_tokens"])
+        optional_fields = set(["messages", "cached_tokens", "audio_tokens"])
         serialized = handler(self)
         m = {}
 

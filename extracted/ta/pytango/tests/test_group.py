@@ -163,16 +163,12 @@ def test_read_write_attribute(context):
     for ret in group.write_attribute("attr", 5):
         assert ret.has_failed()
         assert (
-            ret.get_err_stack()[0].desc
-            == "It is currently not allowed to write attribute attr. The device state is ON"
+            ret.get_err_stack()[0].desc == "It is currently not allowed to write attribute attr. The device state is ON"
         )
 
     for ret in group.read_attribute("attr"):
         assert ret.has_failed()
-        assert (
-            ret.get_err_stack()[0].desc
-            == "It is currently not allowed to read attribute attr"
-        )
+        assert ret.get_err_stack()[0].desc == "It is currently not allowed to read attribute attr"
 
 
 def test_command(context):
@@ -221,7 +217,4 @@ def test_command(context):
 
     for ret in group.command_inout("indent", 2):
         assert ret.has_failed()
-        assert (
-            ret.get_err_stack()[0].desc
-            == "Command indent not allowed when the device is in ON state"
-        )
+        assert ret.get_err_stack()[0].desc == "Command indent not allowed when the device is in ON state"

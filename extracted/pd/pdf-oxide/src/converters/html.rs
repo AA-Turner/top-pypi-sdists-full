@@ -647,6 +647,8 @@ mod tests {
             rotation_degrees: 0.0,
             advance_width: bbox.width,
             rendered_advance: bbox.width,
+            ascent: 0.95 * font_size,
+            descent: -0.35 * font_size,
             matrix: None,
         }
     }
@@ -795,6 +797,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -816,6 +819,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 

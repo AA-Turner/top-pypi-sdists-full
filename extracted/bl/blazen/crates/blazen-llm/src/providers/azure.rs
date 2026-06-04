@@ -199,7 +199,7 @@ impl AzureOpenAiProvider {
 
     /// Build the JSON request body (same format as `OpenAI`, but without the
     /// `model` field since the deployment determines the model).
-    #[allow(clippy::unused_self)]
+    #[allow(clippy::unused_self, clippy::too_many_lines)]
     fn build_body(&self, request: &ModelRequest, stream: bool) -> serde_json::Value {
         let mut messages: Vec<serde_json::Value> = Vec::with_capacity(request.messages.len());
         for m in &request.messages {
@@ -311,6 +311,13 @@ impl AzureOpenAiProvider {
                 })
                 .collect();
             body["tools"] = serde_json::json!(tools);
+        }
+
+        // Tool choice (provider-agnostic canonical -> OpenAI wire form).
+        if let Some(ref tc) = request.tool_choice
+            && let Some(wire) = super::tool_choice_to_openai(tc)
+        {
+            body["tool_choice"] = wire;
         }
 
         body

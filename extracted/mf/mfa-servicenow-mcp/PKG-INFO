@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mfa-servicenow-mcp
-Version: 1.14.22
+Version: 1.15.4
 Summary: A Model Context Protocol (MCP) server implementation for ServiceNow
 Author: jshsakura
 License:                                  Apache License
@@ -170,27 +170,30 @@ MFA-first ServiceNow MCP server. Authenticates via real browser (Playwright) so 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-blue?logo=github)](https://jshsakura.github.io/mfa-servicenow-mcp/)
 
+> [!WARNING]
+> **Built for personal use — use at your own risk.** This project was created primarily for the author's own workflows. Risk is actively minimized (read-only defaults, write guards, dry-run previews, and `confirm='approve'` gates on every write), but it operates against **live ServiceNow instances**. You are solely responsible for what it does on your instances. Provided **"as is", without warranty of any kind** (Apache-2.0, see [LICENSE](LICENSE)). Review what a tool will do before approving it.
+
 ---
 
 ## Table of Contents
 
-- [Features](#features)
-- [Setup](#setup)
-- [Prerequisites](#prerequisites)
-- [MCP Client Configuration](#mcp-client-configuration)
-- [Authentication](#authentication)
-- [Tool Packages](#tool-packages)
-- [CLI Reference](#cli-reference)
-- [Keeping Up to Date](#keeping-up-to-date)
-- [Safety Policy](#safety-policy)
-- [Performance Optimizations](#performance-optimizations)
-- [Local Source Audit](#local-source-audit)
-- [Skills](#skills)
-- [Docker](#docker)
-- [Developer Setup](#developer-setup)
-- [Documentation](#documentation)
-- [Related Projects](#related-projects-and-acknowledgements)
-- [License](#license)
+- [Features](https://github.com/jshsakura/mfa-servicenow-mcp#features)
+- [Setup](https://github.com/jshsakura/mfa-servicenow-mcp#setup)
+- [Prerequisites](https://github.com/jshsakura/mfa-servicenow-mcp#prerequisites)
+- [MCP Client Configuration](https://github.com/jshsakura/mfa-servicenow-mcp#mcp-client-configuration)
+- [Authentication](https://github.com/jshsakura/mfa-servicenow-mcp#authentication)
+- [Tool Packages](https://github.com/jshsakura/mfa-servicenow-mcp#tool-packages)
+- [CLI Reference](https://github.com/jshsakura/mfa-servicenow-mcp#cli-reference)
+- [Keeping Up to Date](https://github.com/jshsakura/mfa-servicenow-mcp#keeping-up-to-date)
+- [Safety Policy](https://github.com/jshsakura/mfa-servicenow-mcp#safety-policy)
+- [Performance Optimizations](https://github.com/jshsakura/mfa-servicenow-mcp#performance-optimizations)
+- [Local Source Audit](https://github.com/jshsakura/mfa-servicenow-mcp#local-source-audit)
+- [Skills](https://github.com/jshsakura/mfa-servicenow-mcp#skills)
+- [Docker](https://github.com/jshsakura/mfa-servicenow-mcp#docker)
+- [Developer Setup](https://github.com/jshsakura/mfa-servicenow-mcp#developer-setup)
+- [Documentation](https://github.com/jshsakura/mfa-servicenow-mcp#documentation)
+- [Related Projects](https://github.com/jshsakura/mfa-servicenow-mcp#related-projects-and-acknowledgements)
+- [License](https://github.com/jshsakura/mfa-servicenow-mcp#license)
 
 ---
 
@@ -270,13 +273,13 @@ SERVICENOW_AUTH_TYPE = "browser"
 }
 ```
 
-Other clients (Cursor, VS Code, Gemini, Zed, …) and full env options (auth types, tool packages) are in [MCP Client Configuration](#mcp-client-configuration).
+Other clients (Cursor, VS Code, Gemini, Zed, …) and full env options (auth types, tool packages) are in [MCP Client Configuration](https://github.com/jshsakura/mfa-servicenow-mcp#mcp-client-configuration).
 
 Then restart the client. The first browser tool call opens a window for Okta/Entra ID/SAML/MFA login. Sessions persist — no re-login every time.
 
 > Prefer an AI to do it? Paste into Claude Code / Cursor / Codex / etc.:
 > `Install and configure mfa-servicenow-mcp following https://raw.githubusercontent.com/jshsakura/mfa-servicenow-mcp/main/docs/llm-setup.md`
-> Corporate network blocking uvx/PyPI? Use the [release zip/exe](#install-offline--corporate).
+> Corporate network blocking uvx/PyPI? Use the [release zip/exe](https://github.com/jshsakura/mfa-servicenow-mcp#install-offline--corporate).
 
 ---
 
@@ -284,20 +287,21 @@ Then restart the client. The first browser tool call opens a window for Okta/Ent
 
 - **Browser authentication** for MFA/SSO environments (Okta, Entra ID, SAML, MFA)
 - **4 auth modes**: Browser, Basic, OAuth, API Key
-- **70 registered tools** with **6 active package profiles** plus disabled `none` — from minimal read-only to broad bundled CRUD
+- **66 registered tools** with **6 active package profiles** plus disabled `none` — from minimal read-only to broad bundled CRUD
 - **16 workflow skills** with safety gates, sub-agent delegation, and verified pipelines
 - **Streamable HTTP transport** — keep stdio as the default, or expose `/mcp` for HTTP-capable clients and bridges
 - **Local source audit** with HTML report, cross-reference graph, dead code detection, and auto-generated domain knowledge
 - **Authoritative relationship graphs on disk** — `_graph.json` (widget→Angular Provider, from the live M2M) and `_page_graph.json` (page→widget, from `sp_instance`) let the LLM answer dependency questions offline instead of re-querying the instance
 - **Incremental sync** (`incremental=True`) — re-download only records changed since last sync (`sys_updated_on` watermark), like `git pull`; `reconcile_deletions=True` flags records deleted on the instance
 - **Cross-scope dep auto-resolve** in `download_app_sources` — pulls global-scope Script Includes, Widgets, Angular Providers, and UI Macros that the app references, so the local bundle is self-contained for analysis
+- **Attachment download** (`download_attachment`) — fetch a record's attachment file(s) (xlsx, PDF, Word, …) to local disk by attachment sys_id or by parent `table`+`record`; resolves a record's attachments automatically and writes bytes to disk so the LLM reads them from `saved_path`
 - **Dry-run preview** on every write tool (`dry_run=True`) — returns field-level diff, dependency counts, and precision notes before any side effect. Uses read-only APIs, works under all auth modes.
 - Safe write confirmation with `confirm='approve'`
 - Payload safety limits, per-field truncation, and total response budget (200K chars)
 - Transient network error retry with backoff
 - Tool packages for core, standard, service desk, portal developers, and platform developers — `full` available for advanced users (see [warning](https://github.com/jshsakura/mfa-servicenow-mcp/blob/main/docs/TOOL_PACKAGES.md))
 - Developer productivity tools: activity tracking, uncommitted changes, dependency mapping, daily summary
-- Full coverage of core ServiceNow artifact tables (see [Supported Tables](#supported-servicenow-tables))
+- Full coverage of core ServiceNow artifact tables (see [Supported Tables](https://github.com/jshsakura/mfa-servicenow-mcp#supported-servicenow-tables))
 - CI/CD with auto-tagging, PyPI publishing, and Docker multi-platform builds
 
 ### Supported ServiceNow Tables
@@ -332,7 +336,7 @@ Then restart the client. The first browser tool call opens a window for Okta/Ent
 
 ## Install (offline / corporate)
 
-For most users the [Setup](#setup) above (uvx) is all you need. Use the release zip **only** when `uvx` or PyPI is blocked by corporate security.
+For most users the [Setup](https://github.com/jshsakura/mfa-servicenow-mcp#setup) above (uvx) is all you need. Use the release zip **only** when `uvx` or PyPI is blocked by corporate security.
 
 ### Release zip/exe (local install)
 
@@ -376,7 +380,7 @@ If the version prints, you're done with the binary half — every remaining step
 
 #### 4. Wire it up in your MCP client (copy-paste)
 
-Reuse the same client config as the `uvx` path in [Setup](#setup) — only `command` changes to the absolute path of your executable, the `env` block stays identical. Claude Code example:
+Reuse the same client config as the `uvx` path in [Setup](https://github.com/jshsakura/mfa-servicenow-mcp#setup) — only `command` changes to the absolute path of your executable, the `env` block stays identical. Claude Code example:
 
 ```json
 {
@@ -417,7 +421,7 @@ The result is the same `ms-playwright/chromium-*/…` layout the bundled zip pro
 
 ## MCP Client Configuration
 
-> Recommended: use [Setup](#setup) above. Use the copy-paste configs below when you need to inspect, repair, or hand-manage a client config file.
+> Recommended: use [Setup](https://github.com/jshsakura/mfa-servicenow-mcp#setup) above. Use the copy-paste configs below when you need to inspect, repair, or hand-manage a client config file.
 
 Each project can connect to a different ServiceNow instance. Set the config in your **project directory** so each project has its own instance URL and credentials.
 
@@ -439,6 +443,28 @@ Copy-paste configs for each client: **[Client Setup Guide](https://github.com/js
 
 > `SERVICENOW_USERNAME` / `SERVICENOW_PASSWORD` are optional — they prefill the MFA login form. On Windows, set these as system environment variables.
 
+#### Multiple instances (dev / test / prod) in one client
+
+The examples above are single-instance — that stays the default. To switch between several instances from one client, list them in `SERVICENOW_INSTANCE_CONFIG` (alias → settings) and pick the active one with `SERVICENOW_ACTIVE_INSTANCE`. Each alias can carry its **own credentials** (`username` / `password` / `auth_type` / `api_key`); `${ENV}` references keep secrets out of the JSON. The single-instance `SERVICENOW_INSTANCE_URL` form still works as a fallback.
+
+```json
+{
+  "mcpServers": {
+    "servicenow": {
+      "command": "uvx",
+      "args": ["mfa-servicenow-mcp@latest"],
+      "env": {
+        "MCP_TOOL_PACKAGE": "standard",
+        "SERVICENOW_ACTIVE_INSTANCE": "dev",
+        "SERVICENOW_INSTANCE_CONFIG": "{ \"dev\": { \"url\": \"https://acme-dev.service-now.com\", \"auth_type\": \"browser\", \"username\": \"dev_user\", \"password\": \"${SERVICENOW_DEV_PASSWORD}\", \"allow_writes\": true }, \"test\": { \"url\": \"https://acme-test.service-now.com\", \"auth_type\": \"browser\", \"username\": \"test_user\", \"password\": \"${SERVICENOW_TEST_PASSWORD}\" } }"
+      }
+    }
+  }
+}
+```
+
+`SERVICENOW_ACTIVE_INSTANCE` is the instance writes hit; read tools can still peek at the others with `instance="test"`. Full rules (write gating, comparison, `${ENV}`): [Read-Only Data Comparison Mode](https://github.com/jshsakura/mfa-servicenow-mcp/blob/main/README.md#read-only-data-comparison-mode).
+
 ---
 
 ## Authentication
@@ -447,7 +473,7 @@ Choose the auth mode based on your ServiceNow environment.
 
 ### Browser Auth (MFA/SSO) — Default
 
-The [Setup](#setup) command uses browser auth by default. Optional flags:
+The [Setup](https://github.com/jshsakura/mfa-servicenow-mcp#setup) command uses browser auth by default. Optional flags:
 
 | Flag | Env Variable | Default | Description |
 |------|-------------|---------|-------------|
@@ -570,15 +596,15 @@ export SERVICENOW_USERNAME=svc_account
 export SERVICENOW_PASSWORD='...'
 export SERVICENOW_ACTIVE_INSTANCE=dev
 export SERVICENOW_INSTANCE_CONFIG='{
-  "dev":  { "url": "https://dev.service-now.com",  "allow_writes": true },
-  "test": { "url": "https://test.service-now.com", "allow_writes": false }
+  "dev":  { "url": "https://acme-dev.service-now.com",  "allow_writes": true },
+  "test": { "url": "https://acme-test.service-now.com", "allow_writes": false }
 }'
 ```
 
 To give an instance its own login instead, add the fields to that alias (a `${ENV}` reference is resolved, so you can keep secrets out of the JSON):
 
 ```json
-"prod": { "url": "https://prod.service-now.com", "username": "prod_user", "password": "${SERVICENOW_PROD_PASSWORD}" }
+"prod": { "url": "https://acme.service-now.com", "username": "prod_user", "password": "${SERVICENOW_PROD_PASSWORD}" }
 ```
 
 Use `compare_instances` for dev/test drift checks. Use separate project/client configs for actual work against a different instance.
@@ -834,17 +860,13 @@ The download is the source of truth for offline analysis, so it is built to be d
 
 ### Individual Download Tools
 
-Each source type has a dedicated download tool — use the orchestrator for everything, or pick what you need:
+Use the orchestrator for a full dump, or `download_sources` for a targeted single-family refresh:
 
 | Tool | Sources |
 |------|---------|
+| `download_app_sources` | Full app dump (all families + portal + schema + cross-scope deps) |
 | `download_portal_sources` | Widgets, Angular Providers, linked Script Includes |
-| `download_script_includes` | Script Includes (scope-wide) |
-| `download_server_scripts` | Business Rules, Client Scripts, Catalog Client Scripts |
-| `download_ui_components` | UI Actions, UI Scripts, UI Pages, UI Macros |
-| `download_api_sources` | Scripted REST APIs, Processors |
-| `download_security_sources` | ACLs (script-only by default) |
-| `download_admin_scripts` | Fix Scripts, Scheduled Jobs, Script Actions, Email Notifications |
+| `download_sources` (`families=`) | Targeted refresh — `script_includes`, `server_scripts` (BR/Client/Catalog Client), `ui` (Actions/Scripts/Pages/Macros), `api` (Scripted REST/Processors), `security` (ACLs, script-only by default), `admin` (Fix Scripts/Scheduled Jobs/Script Actions/Notifications/Transforms) |
 | `download_table_schema` | sys_dictionary field definitions |
 
 All downloads write full source to disk with zero truncation. Only a summary is returned to the LLM context.

@@ -2,20 +2,21 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 """Load tango-specific pytest fixtures."""
 
-import multiprocessing
-import sys
-import os
 import json
+import multiprocessing
+import os
 import shutil
+import sys
 from functools import partial
 from subprocess import Popen
 
 import pytest
 
 from tango import DeviceProxy, GreenMode, Util
+from tango._tango import _dump_cpp_coverage
 from tango.asyncio import DeviceProxy as asyncio_DeviceProxy
-from tango.gevent import DeviceProxy as gevent_DeviceProxy
 from tango.futures import DeviceProxy as futures_DeviceProxy
+from tango.gevent import DeviceProxy as gevent_DeviceProxy
 from tango.test_utils import (
     ClassicAPISimpleDeviceClass,
     ClassicAPISimpleDeviceImpl,
@@ -35,22 +36,20 @@ from tango.test_utils import (
     wait_for_nodb_proxy_via_pid,
 )
 
-from tango._tango import _dump_cpp_coverage
-
 __all__ = (
-    "state",
-    "general_typed_values",
-    "command_typed_values",
-    "attribute_typed_values",
-    "command_numpy_typed_values",
+    "attr_data_format",
     "attribute_numpy_typed_values",
+    "attribute_typed_values",
     "attribute_wrong_numpy_typed",
+    "base_type",
+    "command_numpy_typed_values",
+    "command_typed_values",
     "dev_encoded_values",
+    "extract_as",
+    "general_typed_values",
     "server_green_mode",
     "server_serial_model",
-    "attr_data_format",
-    "extract_as",
-    "base_type",
+    "state",
 )
 
 device_proxy_map = {
@@ -77,18 +76,14 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "extra_src_test: mark test as only for source builds"
-    )
+    config.addinivalue_line("markers", "extra_src_test: mark test as only for source builds")
 
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--run_extra_src_tests"):
         # --run_extra_src_tests given in cli: do not skip those tests
         return
-    skip_extra_src_test = pytest.mark.skip(
-        reason="need --run_extra_src_tests option to run"
-    )
+    skip_extra_src_test = pytest.mark.skip(reason="need --run_extra_src_tests option to run")
     for item in items:
         if "extra_src_test" in item.keywords:
             item.add_marker(skip_extra_src_test)
@@ -207,9 +202,7 @@ def tango_test_with_green_modes(request):
     device = "sys/tg_test/17"
     host = "127.0.0.1"
     proc = start_server(host, server, inst, device)
-    proxy = wait_for_nodb_proxy_via_pid(
-        proc.pid, host, device, device_proxy_map[green_mode]
-    )
+    proxy = wait_for_nodb_proxy_via_pid(proc.pid, host, device, device_proxy_map[green_mode])
 
     yield proxy
 
@@ -225,9 +218,7 @@ def tango_test():
     device = "sys/tg_test/17"
     host = "127.0.0.1"
     proc = start_server(host, server, inst, device)
-    proxy = wait_for_nodb_proxy_via_pid(
-        proc.pid, host, device, device_proxy_map[green_mode]
-    )
+    proxy = wait_for_nodb_proxy_via_pid(proc.pid, host, device, device_proxy_map[green_mode])
 
     yield proxy
 
@@ -242,14 +233,9 @@ def tango_test_process_device_trl_with_function_scope():
     device = "sys/tg_test/18"
     host = "127.0.0.1"
     proc = start_server(host, server, inst, device)
-    proxy = wait_for_nodb_proxy_via_pid(
-        proc.pid, host, device, device_proxy_map[green_mode]
-    )
+    proxy = wait_for_nodb_proxy_via_pid(proc.pid, host, device, device_proxy_map[green_mode])
 
-    device_trl = (
-        f"tango://{proxy.get_dev_host()}:{proxy.get_dev_port()}/"
-        f"{proxy.dev_name()}#dbase=no"
-    )
+    device_trl = f"tango://{proxy.get_dev_host()}:{proxy.get_dev_port()}/{proxy.dev_name()}#dbase=no"
     yield proc, device_trl
 
     proc.terminate()

@@ -4,7 +4,7 @@ import os
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from seeq.base import util
 from seeq.spy import _common
@@ -25,7 +25,7 @@ def save(
         errors: Optional[str] = None,
         quiet: Optional[bool] = None,
         status: Optional[Status] = None
-):
+) -> Union[str, Dict[Workbook, str]]:
     """
 
     Saves a list of workbooks to a folder on disk from Workbook objects in
@@ -79,6 +79,12 @@ def save(
         progresses. It gets filled in with the same information you would see
         in Jupyter in the blue/green/red table below your code while the
         command is executed.
+
+    Returns
+    -------
+    str, dict
+        If folder_or_zipfile is a ZIP file, the final ZIP file path is returned.
+        Otherwise a map of workbook objects to saved folders is returned.
     """
     if not folder_or_zipfile:
         folder_or_zipfile = os.getcwd()
@@ -106,7 +112,10 @@ def save(
             raise SPyRuntimeError(
                 f'"{folder_or_zipfile}" already exists. Use overwrite=True to overwrite.')
 
+    folder_or_zipfile = util.handle_long_filenames(folder_or_zipfile)
+
     save_folder = None
+    workbook_folders = dict()
     try:
         save_folder = tempfile.mkdtemp() if zip_it else folder_or_zipfile
 
@@ -124,12 +133,12 @@ def save(
             status.update('Saving to "%s"' % workbook_folder, Status.RUNNING)
             workbook.save(workbook_folder, include_rendered_content=include_rendered_content,
                           pretty_print_html=pretty_print_html, overwrite=overwrite)
+            workbook_folders[workbook] = workbook_folder
 
         if zip_it:
             status.update('Zipping "%s"' % folder_or_zipfile, Status.RUNNING)
             util.safe_makedirs(os.path.dirname(folder_or_zipfile), exist_ok=True)
-            with zipfile.ZipFile(util.handle_long_filenames(folder_or_zipfile),
-                                 "w", zipfile.ZIP_DEFLATED) as z:
+            with zipfile.ZipFile(folder_or_zipfile, "w", zipfile.ZIP_DEFLATED) as z:
                 for root, dirs, files in util.safe_walk(save_folder):
                     for file in files:
                         filename = os.path.join(root, file)
@@ -144,3 +153,5 @@ def save(
             util.safe_rmtree(save_folder)
 
     status.update('Success', Status.SUCCESS)
+
+    return str(folder_or_zipfile) if zip_it else workbook_folders

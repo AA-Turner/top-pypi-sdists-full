@@ -19,8 +19,8 @@ namespace signaling {
 
     public:
         SignalingSctpConnection(
-            webrtc::Thread* networkThread,
-            webrtc::Thread* signalingThread,
+            wrtc::SafeThread& networkThread,
+            wrtc::SafeThread& signalingThread,
             const webrtc::Environment& env,
             const EncryptionKey &key,
             const DataEmitter& onEmitData,
@@ -45,6 +45,7 @@ namespace signaling {
         void OnChannelClosed(int channel_id) override{}
         void OnBufferedAmountLow(int channel_id) override{}
         void OnTransportConnected() override{}
+        void OnMaxMessageSize(int max_message_size) override{}
 
     protected:
         [[nodiscard]] bool supportsCompression() const override;

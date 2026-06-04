@@ -77,6 +77,8 @@ win:build-wheel:
     - delvewheel repair -v $(Get-ChildItem -Path dist -Filter $WheelGlob | Select -Expand FullName)
     - Remove-Item dist\$WheelGlob
     - Move-Item wheelhouse\$WheelGlob dist\
+    # Dump dependency versions (for doc/versions/news.md release table)
+    - python cmake\print_dep_versions.py
   rules:
     - if: $CI_COMMIT_BRANCH =~ /.*windows.*/
     - !reference [.rules-wheel, rules]
@@ -104,11 +106,7 @@ win:build-wheel:
     - $WheelGlob = "pytango*cp$PythonTag-cp$PythonTag*$WheelArch*"
     - python -m pip install --force-reinstall "$(Get-ChildItem -Path dist -Filter $WheelGlob | Select -Expand FullName)[tests]"
   script:
-    - set "TANGO_TELEMETRY_ENABLE=on"
-    - pytest --collect-only -q -k "telemetry"
-    - .\tests\run_tests_win.bat
-    - set TANGO_TELEMETRY_ENABLE=
-    - pytest --collect-only -q -k "not test_databaseds and not gevent and not test_event"  # test most with telemetry disabled (default)
+    - pytest --collect-only -q -k "not test_databaseds and not gevent and not test_event"
     - .\tests\run_tests_win.bat
     - .\tests\check_failed_tests.bat
   after_script:
@@ -119,7 +117,6 @@ win:build-wheel:
         $env:PATH = "C:\Python${PythonPath};C:\Python${PythonPath}\Scripts;" + $env:PATH
         python -m pip uninstall -y pytango
       }
-    - set TANGO_TELEMETRY_ENABLE=
   rules:
     - if: $CI_COMMIT_BRANCH =~ /.*windows.*/
     - !reference [.rules-wheel, rules]

@@ -1,37 +1,39 @@
 from __future__ import annotations
-from typing import Any, Literal, overload
+
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-
-import networkx
+from typing import Any, Literal, overload
 
 import archinfo
-from angr.ailment import Expression, Block, Address
+import networkx
+
+from angr.ailment import Address, Block, Expression
+from angr.ailment.block_walker import AILBlockViewer
 from angr.ailment.expression import (
-    Convert,
-    Extract,
-    Insert,
-    VirtualVariable,
+    ITE,
+    Call,
     Const,
-    Phi,
-    Tmp,
+    Convert,
+    DirtyExpression,
+    Extract,
+    FunctionLikeMacro,
+    Insert,
     Load,
+    Phi,
     Register,
     StackBaseOffset,
-    DirtyExpression,
-    ITE,
+    Tmp,
     UnaryOp,
     VEXCCallExpression,
+    VirtualVariable,
 )
-from angr.ailment.expression import Call, FunctionLikeMacro
-from angr.ailment.statement import Statement, Assignment, Store, CAS, SideEffectStatement
-from angr.ailment.block_walker import AILBlockViewer
-
-from angr.knowledge_plugins.key_definitions import atoms
+from angr.ailment.statement import CAS, Assignment, SideEffectStatement, Statement, Store
 from angr.code_location import AILCodeLocation
-from .vvar_uses_collector import VVarUsesCollector
+from angr.knowledge_plugins.key_definitions import atoms
+
 from .tmp_uses_collector import TmpUsesCollector
 from .vvar_extra_defs_collector import FindExtraDefs
+from .vvar_uses_collector import VVarUsesCollector
 
 DEPHI_VVAR_REG_OFFSET = 4096
 
@@ -424,9 +426,18 @@ def has_load_expr_in_between_stmts(
     )
 
 
-def is_vvar_propagatable(vvar: VirtualVariable, def_stmt: Statement | None, stack_arg_offsets: set[int] | None) -> bool:
+def is_vvar_propagatable(vvar: VirtualVariable, def_stmt: Statement, stack_arg_offsets: set[int] | None) -> bool:
     if isinstance(def_stmt, Assignment) and isinstance(def_stmt.src, Insert):
         # do not create huge insert chains
+        return False
+    if (
+        isinstance(def_stmt, Assignment)
+        and isinstance(def_stmt.dst, VirtualVariable)
+        and def_stmt.dst.varid != vvar.varid
+    ):
+        # the definition statement is not directly assigning to the vvar; this is probably because the vvar happens to
+        # be defined together in def_stmt.src, e.g., `vvar_781 = Reference(vvar_780)` where vvar_780 is first seen at
+        # this statement. we cannot propagate vvar_780.
         return False
     if vvar.was_tmp or vvar.was_reg or vvar.was_parameter:
         return True

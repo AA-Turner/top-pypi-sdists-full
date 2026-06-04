@@ -242,14 +242,10 @@ def push(
     workbook_list: List[WorkbookFolderRef] = list()
     job_workbooks_folder = _pull.get_workbooks_folder(job_folder)
     for workbook_folder, _ in _pull.walk_workbook_folders(job_workbooks_folder):
-        completely_pushed_filename = os.path.join(job_workbooks_folder, workbook_folder, 'Completely Pushed')
-        if not resume and util.safe_exists(completely_pushed_filename):
-            util.safe_remove(completely_pushed_filename)
-        workbook_list.append(
-            WorkbookFolderRef(
-                os.path.join(job_workbooks_folder, workbook_folder), job_folder
-            )
-        )
+        full_workbook_folder = os.path.join(job_workbooks_folder, workbook_folder)
+        if not resume and _PUSH_COMPLETE.is_complete(full_workbook_folder):
+            _PUSH_COMPLETE.clear(full_workbook_folder)
+        workbook_list.append(WorkbookFolderRef(full_workbook_folder, job_folder))
 
     job_datasource_map_folder = datasource_map_folder
 
@@ -288,6 +284,9 @@ def push(
     return results_df
 
 
+_PUSH_COMPLETE = _pull.CompletionFlagHelper('Completely Pushed')
+
+
 def get_item_map_filename(job_folder):
     return os.path.join(job_folder, 'item_map.pickle')
 
@@ -317,11 +316,7 @@ def redo(job_folder: str, hard: bool, status: Status):
     workbook_ids: pd.Series = status.df['ID']
     for index, workbook_id in workbook_ids.items():
         if workbook_id in workbook_folders:
-            completely_pushed_filename = os.path.join(
-                job_workbooks_folder, workbook_folders[workbook_id], 'Completely Pushed')
-            if util.safe_exists(completely_pushed_filename):
-                util.safe_remove(completely_pushed_filename)
-
+            _PUSH_COMPLETE.clear(os.path.join(job_workbooks_folder, workbook_folders[workbook_id]))
             item_map_file = get_item_map_filename(job_folder)
             if hard and util.safe_exists(item_map_file):
                 util.safe_remove(item_map_file)
@@ -349,12 +344,9 @@ class WorkbookFolderRef(Workbook):
         with util.safe_open(os.path.join(self.workbook_folder, 'Workbook.json'), 'r', encoding='utf-8') as f:
             self._definition = json.load(f)
 
-    def _already_pushed_filename(self):
-        return os.path.join(self.workbook_folder, 'Completely Pushed')
-
     @property
     def already_pushed(self):
-        return util.safe_exists(self._already_pushed_filename())
+        return _PUSH_COMPLETE.is_complete(self.workbook_folder)
 
     @property
     def real(self):
@@ -373,9 +365,8 @@ class WorkbookFolderRef(Workbook):
 
     def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, use_full_path,
                                 parent_folder_id, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
-        if self.already_pushed:
-            with util.safe_open(self._already_pushed_filename(), 'r') as f:
-                d = json.load(f)
+        if _PUSH_COMPLETE.is_complete(self.workbook_folder):
+            d = _PUSH_COMPLETE.get_data(self.workbook_folder)
 
             # Older versions of SPy didn't store off Search Folder ID so we use get() to maintain compatibility with
             # existing job folders.
@@ -401,10 +392,11 @@ class WorkbookFolderRef(Workbook):
             context.status.put('URL', link_url)
             return
 
-        self._real_workbook.push(context=context, folder_id=folder_id, item_map=item_map, label=label,
-                                 include_inventory=include_inventory)
-
-        self._push_errors = self._real_workbook.push_errors
+        try:
+            self._real_workbook.push(context=context, folder_id=folder_id, item_map=item_map, label=label,
+                                     include_inventory=include_inventory)
+        finally:
+            self._push_errors = self._real_workbook.push_errors
 
         if context.dry_run:
             return
@@ -412,8 +404,7 @@ class WorkbookFolderRef(Workbook):
         save_item_map(self.job_folder, item_map)
         Workbook.save_push_errors(self.workbook_folder, self._push_errors)
         if context.status.errors == 'catalog' or len(self._real_workbook.push_errors) == 0:
-            with util.safe_open(self._already_pushed_filename(), 'w') as f:
-                json.dump({
-                    'Search Folder ID': self._search_folder_id,
-                    'Parent Folder ID': self._parent_folder_id
-                }, f)
+            _PUSH_COMPLETE.mark(self.workbook_folder, {
+                'Search Folder ID': self._search_folder_id,
+                'Parent Folder ID': self._parent_folder_id
+            })

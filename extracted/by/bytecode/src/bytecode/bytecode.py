@@ -1,5 +1,5 @@
-# alias to keep the 'bytecode' variable free
-import sys
+from __future__ import annotations
+
 import types
 from abc import abstractmethod
 from typing import (
@@ -16,6 +16,7 @@ from typing import (
     overload,
 )
 
+# alias to keep the 'bytecode' variable free
 import bytecode as _bytecode
 from bytecode.flags import CompilerFlags, infer_flags
 from bytecode.instr import (
@@ -28,7 +29,6 @@ from bytecode.instr import (
     TryBegin,
     TryEnd,
 )
-from bytecode.utils import PY311
 
 
 class BaseBytecode:
@@ -50,7 +50,7 @@ class BaseBytecode:
         self.freevars: List[str] = []
         self._flags: CompilerFlags = CompilerFlags(0)
 
-    def _copy_attr_from(self, bytecode: "BaseBytecode") -> None:
+    def _copy_attr_from(self, bytecode: BaseBytecode) -> None:
         self.argcount = bytecode.argcount
         self.posonlyargcount = bytecode.posonlyargcount
         self.kwonlyargcount = bytecode.kwonlyargcount
@@ -164,14 +164,32 @@ class _BaseBytecodeList(BaseBytecode, list, Generic[U]):
         for i in reversed(lineno_pos):
             del self[i]
 
-    def __iter__(self) -> Iterator[U]:
-        instructions = super().__iter__()
-        for instr in instructions:
-            self._check_instr(instr)
-            yield instr
-
     def _check_instr(self, instr):
         raise NotImplementedError()
+
+    def append(self, instr: U) -> None:  # type: ignore[override]
+        self._check_instr(instr)
+        super().append(instr)
+
+    def insert(self, index: SupportsIndex, instr: U) -> None:  # type: ignore[override]
+        self._check_instr(instr)
+        super().insert(index, instr)
+
+    def extend(self, instrs) -> None:  # type: ignore[override]
+        instrs = list(instrs)
+        for instr in instrs:
+            self._check_instr(instr)
+        super().extend(instrs)
+
+    def __setitem__(self, index, value):
+        if isinstance(index, slice):
+            values = list(value)
+            for v in values:
+                self._check_instr(v)
+            super().__setitem__(index, values)
+        else:
+            self._check_instr(value)
+            super().__setitem__(index, value)
 
 
 V = TypeVar("V")
@@ -242,15 +260,11 @@ class Bytecode(
     ) -> None:
         BaseBytecode.__init__(self)
         self.argnames: List[str] = []
-        for instr in instructions:
-            self._check_instr(instr)
         self.extend(instructions)
 
     def __iter__(self) -> Iterator[Union[Instr, Label, TryBegin, TryEnd, SetLineno]]:
-        instructions = super().__iter__()
         seen_try_begin = False
-        for instr in instructions:
-            self._check_instr(instr)
+        for instr in super().__iter__():
             if isinstance(instr, TryBegin):
                 if seen_try_begin:
                     raise RuntimeError("TryBegin pseudo instructions cannot be nested.")
@@ -277,7 +291,7 @@ class Bytecode(
         code: types.CodeType,
         prune_caches: bool = True,
         conserve_exception_block_stackdepth: bool = False,
-    ) -> "Bytecode":
+    ) -> Bytecode:
         concrete = _bytecode.ConcreteBytecode.from_code(code)
         return concrete.to_bytecode(
             prune_caches=prune_caches,
@@ -298,7 +312,7 @@ class Bytecode(
     ) -> types.CodeType:
         # Prevent reconverting the concrete bytecode to bytecode and cfg to do the
         # calculation if we need to do it.
-        if stacksize is None or (PY311 and compute_exception_stack_depths):
+        if stacksize is None or compute_exception_stack_depths:
             cfg = _bytecode.ControlFlowGraph.from_bytecode(self)
             stacksize = cfg.compute_stacksize(
                 check_pre_and_post=check_pre_and_post,
@@ -319,7 +333,7 @@ class Bytecode(
         self,
         compute_jumps_passes: Optional[int] = None,
         compute_exception_stack_depths: bool = True,
-    ) -> "_bytecode.ConcreteBytecode":
+    ) -> _bytecode.ConcreteBytecode:
         converter = _bytecode._ConvertBytecodeToConcrete(self)
         return converter.to_concrete_bytecode(
             compute_jumps_passes=compute_jumps_passes,

@@ -59,7 +59,7 @@ extern "C" {
 __declspec(dllexport)
 #endif
 
-    Tango::DeviceClass *_create_IfchangeServer_class(const char *name) {
+Tango::DeviceClass *_create_IfchangeServer_class(const char *name) {
     return IfchangeServer_ns::IfchangeServerClass::init(name);
 }
 }

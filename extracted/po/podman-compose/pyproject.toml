@@ -59,7 +59,7 @@ line-length = 100
 target-version = "py38"
 
 [tool.ruff.lint]
-select = ["W", "E", "F", "I"]
+select = ["W", "E", "F", "I", "U"]
 ignore = [
 ]
 
@@ -125,5 +125,6 @@ exclude = "build"
 [[tool.mypy.overrides]]
 module = [
     "parameterized.*",
+    "apscheduler.*",
 ]
 ignore_missing_imports = true

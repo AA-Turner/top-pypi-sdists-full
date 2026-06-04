@@ -12,7 +12,6 @@ __docformat__ = "restructuredtext"
 import numpy as np
 
 from tango._tango import EncodedAttribute, ExtractAs, _ImageFormat
-
 from tango.utils import is_pure_str, is_seq
 
 _allowed_extract = (ExtractAs.Numpy, ExtractAs.String, ExtractAs.Tuple, ExtractAs.List)
@@ -37,14 +36,16 @@ def __EncodedAttribute_encode_jpeg_gray8(self, gray8, width=0, height=0, quality
     .. note::
         When :class:`numpy.ndarray` is given:
 
-            - gray8 **MUST** be CONTIGUOUS, ALIGNED
-            - if gray8.ndims != 2, width and height **MUST** be given and
-              gray8.nbytes **MUST** match width*height
-            - if gray8.ndims == 2, gray8.itemsize **MUST** be 1 (typically,
-              gray8.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
-              `numpy.dtype.int8` or `numpy.dtype.uint8`)
+        - gray8 **MUST** be CONTIGUOUS, ALIGNED
+        - if gray8.ndims != 2, width and height **MUST** be given and
+          gray8.nbytes **MUST** match width*height
+        - if gray8.ndims == 2, gray8.itemsize **MUST** be 1 (typically,
+          gray8.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
+          `numpy.dtype.int8` or `numpy.dtype.uint8`)
 
-    Example::
+    Example
+
+    .. code-block:: python
 
         def read_myattr(self):
             enc = tango.EncodedAttribute()
@@ -79,14 +80,16 @@ def __EncodedAttribute_encode_gray8(self, gray8, width=0, height=0):
     .. note::
         When :class:`numpy.ndarray` is given:
 
-            - gray8 **MUST** be CONTIGUOUS, ALIGNED
-            - if gray8.ndims != 2, width and height **MUST** be given and
-              gray8.nbytes **MUST** match width*height
-            - if gray8.ndims == 2, gray8.itemsize **MUST** be 1 (typically,
-              gray8.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
-              `numpy.dtype.int8` or `numpy.dtype.uint8`)
+        - gray8 **MUST** be CONTIGUOUS, ALIGNED
+        - if gray8.ndims != 2, width and height **MUST** be given and
+          gray8.nbytes **MUST** match width*height
+        - if gray8.ndims == 2, gray8.itemsize **MUST** be 1 (typically,
+          gray8.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
+          `numpy.dtype.int8` or `numpy.dtype.uint8`)
 
-    Example::
+    Example
+
+    .. code-block:: python
 
         def read_myattr(self):
             enc = tango.EncodedAttribute()
@@ -95,48 +98,31 @@ def __EncodedAttribute_encode_gray8(self, gray8, width=0, height=0):
             enc.encode_gray8(data)
             return enc
     """
-    self._generic_encode_gray8(
-        gray8, width=width, height=height, format=_ImageFormat.RawImage
-    )
+    self._generic_encode_gray8(gray8, width=width, height=height, format=_ImageFormat.RawImage)
 
 
-def __EncodedAttribute_generic_encode_gray8(
-    self, gray8, width=0, height=0, quality=0, format=_ImageFormat.RawImage
-):
+def __EncodedAttribute_generic_encode_gray8(self, gray8, width=0, height=0, quality=0, format=_ImageFormat.RawImage):
     """Internal usage only"""
     if not is_seq(gray8):
-        raise TypeError(
-            "Expected sequence (str, numpy.ndarray, list, tuple "
-            "or bytearray) as first argument"
-        )
+        raise TypeError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) as first argument")
 
     is_str = is_pure_str(gray8)
-    if is_str:
-        if not width or not height:
-            raise ValueError(
-                "When giving a string as data, you must also supply width and height"
-            )
+    if is_str and (not width or not height):
+        raise ValueError("When giving a string as data, you must also supply width and height")
 
     if isinstance(gray8, np.ndarray):
         if gray8.ndim != 2:
             if not width or not height:
-                raise ValueError(
-                    "When giving a non 2D numpy array, width and "
-                    "height must be supplied"
-                )
+                raise ValueError("When giving a non 2D numpy array, width and height must be supplied")
             if gray8.nbytes != width * height:
                 raise ValueError("numpy array size mismatch")
         else:
             if gray8.itemsize != 1:
                 raise TypeError("Expected numpy array with itemsize == 1")
         if not gray8.flags.c_contiguous:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
         if not gray8.flags.aligned:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
 
     if not is_str and (not width or not height):
         height = len(gray8)
@@ -145,10 +131,7 @@ def __EncodedAttribute_generic_encode_gray8(
 
         row0 = gray8[0]
         if not is_seq(row0):
-            raise IndexError(
-                "Expected sequence (str, numpy.ndarray, list, tuple or "
-                "bytearray) inside a sequence"
-            )
+            raise IndexError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) inside a sequence")
         width = len(row0)
 
     if format == _ImageFormat.RawImage:
@@ -174,14 +157,16 @@ def __EncodedAttribute_encode_gray16(self, gray16, width=0, height=0):
     .. note::
         When :class:`numpy.ndarray` is given:
 
-            - gray16 **MUST** be CONTIGUOUS, ALIGNED
-            - if gray16.ndims != 2, width and height **MUST** be given and
-              gray16.nbytes/2 **MUST** match width*height
-            - if gray16.ndims == 2, gray16.itemsize **MUST** be 2 (typically,
-              gray16.dtype is one of `numpy.dtype.int16`, `numpy.dtype.uint16`,
-              `numpy.dtype.short` or `numpy.dtype.ushort`)
+        - gray16 **MUST** be CONTIGUOUS, ALIGNED
+        - if gray16.ndims != 2, width and height **MUST** be given and
+          gray16.nbytes/2 **MUST** match width*height
+        - if gray16.ndims == 2, gray16.itemsize **MUST** be 2 (typically,
+          gray16.dtype is one of `numpy.dtype.int16`, `numpy.dtype.uint16`,
+          `numpy.dtype.short` or `numpy.dtype.ushort`)
 
-    Example::
+    Example
+
+    .. code-block:: python
 
         def read_myattr(self):
             enc = tango.EncodedAttribute()
@@ -191,38 +176,25 @@ def __EncodedAttribute_encode_gray16(self, gray16, width=0, height=0):
             return enc
     """
     if not is_seq(gray16):
-        raise TypeError(
-            "Expected sequence (str, numpy.ndarray, list, tuple "
-            "or bytearray) as first argument"
-        )
+        raise TypeError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) as first argument")
 
     is_str = is_pure_str(gray16)
-    if is_str:
-        if not width or not height:
-            raise ValueError(
-                "When giving a string as data, you must also supply width and height"
-            )
+    if is_str and (not width or not height):
+        raise ValueError("When giving a string as data, you must also supply width and height")
 
     if isinstance(gray16, np.ndarray):
         if gray16.ndim != 2:
             if not width or not height:
-                raise ValueError(
-                    "When giving a non 2D numpy array, width and "
-                    "height must be supplied"
-                )
+                raise ValueError("When giving a non 2D numpy array, width and height must be supplied")
             if gray16.nbytes / 2 != width * height:
                 raise ValueError("numpy array size mismatch")
         else:
             if gray16.itemsize != 2:
                 raise TypeError("Expected numpy array with itemsize == 2")
         if not gray16.flags.c_contiguous:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
         if not gray16.flags.aligned:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
 
     if not is_str and (not width or not height):
         height = len(gray16)
@@ -231,10 +203,7 @@ def __EncodedAttribute_encode_gray16(self, gray16, width=0, height=0):
 
         row0 = gray16[0]
         if not is_seq(row0):
-            raise IndexError(
-                "Expected sequence (str, numpy.ndarray, list, tuple or "
-                "bytearray) inside a sequence"
-            )
+            raise IndexError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) inside a sequence")
         width = len(row0)
         if is_pure_str(row0) or type(row0) is bytearray:
             width /= 2
@@ -261,15 +230,17 @@ def __EncodedAttribute_encode_jpeg_rgb24(self, rgb24, width=0, height=0, quality
     .. note::
         When :class:`numpy.ndarray` is given:
 
-            - rgb24 **MUST** be CONTIGUOUS, ALIGNED
-            - if rgb24.ndims != 3, width and height **MUST** be given and
-              rgb24.nbytes/3 **MUST** match width*height
-            - if rgb24.ndims == 3, rgb24.itemsize **MUST** be 1 (typically,
-              rgb24.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
-              `numpy.dtype.int8` or `numpy.dtype.uint8`) and shape **MUST** be
-              (height, width, 3)
+        - rgb24 **MUST** be CONTIGUOUS, ALIGNED
+        - if rgb24.ndims != 3, width and height **MUST** be given and
+          rgb24.nbytes/3 **MUST** match width*height
+        - if rgb24.ndims == 3, rgb24.itemsize **MUST** be 1 (typically,
+          rgb24.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
+          `numpy.dtype.int8` or `numpy.dtype.uint8`) and shape **MUST** be
+          (height, width, 3)
 
-    Example::
+    Example
+
+    .. code-block:: python
 
         def read_myattr(self):
             enc = tango.EncodedAttribute()
@@ -304,15 +275,17 @@ def __EncodedAttribute_encode_rgb24(self, rgb24, width=0, height=0):
     .. note::
         When :class:`numpy.ndarray` is given:
 
-            - rgb24 **MUST** be CONTIGUOUS, ALIGNED
-            - if rgb24.ndims != 3, width and height **MUST** be given and
-              rgb24.nbytes/3 **MUST** match width*height
-            - if rgb24.ndims == 3, rgb24.itemsize **MUST** be 1 (typically,
-              rgb24.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
-              `numpy.dtype.int8` or `numpy.dtype.uint8`) and shape **MUST** be
-              (height, width, 3)
+        - rgb24 **MUST** be CONTIGUOUS, ALIGNED
+        - if rgb24.ndims != 3, width and height **MUST** be given and
+          rgb24.nbytes/3 **MUST** match width*height
+        - if rgb24.ndims == 3, rgb24.itemsize **MUST** be 1 (typically,
+          rgb24.dtype is one of `numpy.dtype.byte`, `numpy.dtype.ubyte`,
+          `numpy.dtype.int8` or `numpy.dtype.uint8`) and shape **MUST** be
+          (height, width, 3)
 
-    Example::
+    Example
+
+    .. code-block:: python
 
         def read_myattr(self):
             enc = tango.EncodedAttribute()
@@ -321,48 +294,31 @@ def __EncodedAttribute_encode_rgb24(self, rgb24, width=0, height=0):
             enc.encode_rgb24(data)
             return enc
     """
-    self._generic_encode_rgb24(
-        rgb24, width=width, height=height, format=_ImageFormat.RawImage
-    )
+    self._generic_encode_rgb24(rgb24, width=width, height=height, format=_ImageFormat.RawImage)
 
 
-def __EncodedAttribute_generic_encode_rgb24(
-    self, rgb24, width=0, height=0, quality=0, format=_ImageFormat.RawImage
-):
+def __EncodedAttribute_generic_encode_rgb24(self, rgb24, width=0, height=0, quality=0, format=_ImageFormat.RawImage):
     """Internal usage only"""
     if not is_seq(rgb24):
-        raise TypeError(
-            "Expected sequence (str, numpy.ndarray, list, tuple "
-            "or bytearray) as first argument"
-        )
+        raise TypeError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) as first argument")
 
     is_str = is_pure_str(rgb24)
-    if is_str:
-        if not width or not height:
-            raise ValueError(
-                "When giving a string as data, you must also supply width and height"
-            )
+    if is_str and (not width or not height):
+        raise ValueError("When giving a string as data, you must also supply width and height")
 
     if isinstance(rgb24, np.ndarray):
         if rgb24.ndim != 3:
             if not width or not height:
-                raise ValueError(
-                    "When giving a non 2D numpy array, width and "
-                    "height must be supplied"
-                )
+                raise ValueError("When giving a non 2D numpy array, width and height must be supplied")
             if rgb24.nbytes / 3 != width * height:
                 raise ValueError("numpy array size mismatch")
         else:
             if rgb24.itemsize != 1:
                 raise TypeError("Expected numpy array with itemsize == 1")
         if not rgb24.flags.c_contiguous:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
         if not rgb24.flags.aligned:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
 
     if not is_str and (not width or not height):
         height = len(rgb24)
@@ -371,10 +327,7 @@ def __EncodedAttribute_generic_encode_rgb24(
 
         row0 = rgb24[0]
         if not is_seq(row0):
-            raise IndexError(
-                "Expected sequence (str, numpy.ndarray, list, tuple or "
-                "bytearray) inside a sequence"
-            )
+            raise IndexError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) inside a sequence")
         width = len(row0)
         if is_pure_str(row0) or type(row0) is bytearray:
             width /= 3
@@ -401,18 +354,20 @@ def __EncodedAttribute_encode_jpeg_rgb32(self, rgb32, width=0, height=0, quality
     .. note::
         When :class:`numpy.ndarray` is given:
 
-            - rgb32 **MUST** be CONTIGUOUS, ALIGNED
-            - if rgb32.ndims != 2, width and height **MUST** be given and
-              rgb32.nbytes/4 **MUST** match width*height
-            - if rgb32.ndims == 2, rgb32.itemsize **MUST** be 4 (typically,
-              rgb32.dtype is one of `numpy.dtype.int32`, `numpy.dtype.uint32`)
+        - rgb32 **MUST** be CONTIGUOUS, ALIGNED
+        - if rgb32.ndims != 2, width and height **MUST** be given and
+          rgb32.nbytes/4 **MUST** match width*height
+        - if rgb32.ndims == 2, rgb32.itemsize **MUST** be 4 (typically,
+          rgb32.dtype is one of `numpy.dtype.int32`, `numpy.dtype.uint32`)
 
     .. note::
 
         Encoding with transparency information required cppTango built with `TANGO_USE_JPEG` options
         see installation instructions of cppTango
 
-    Example::
+    Example
+
+    .. code-block:: python
 
         def read_myattr(self):
             enc = tango.EncodedAttribute()
@@ -422,38 +377,25 @@ def __EncodedAttribute_encode_jpeg_rgb32(self, rgb32, width=0, height=0, quality
             return enc
     """
     if not is_seq(rgb32):
-        raise TypeError(
-            "Expected sequence (str, numpy.ndarray, list, tuple "
-            "or bytearray) as first argument"
-        )
+        raise TypeError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) as first argument")
 
     is_str = is_pure_str(rgb32)
-    if is_str:
-        if not width or not height:
-            raise ValueError(
-                "When giving a string as data, you must also supply width and height"
-            )
+    if is_str and (not width or not height):
+        raise ValueError("When giving a string as data, you must also supply width and height")
 
     if isinstance(rgb32, np.ndarray):
         if rgb32.ndim != 2:
             if not width or not height:
-                raise ValueError(
-                    "When giving a non 2D numpy array, width and "
-                    "height must be supplied"
-                )
+                raise ValueError("When giving a non 2D numpy array, width and height must be supplied")
             if rgb32.nbytes / 4 != width * height:
                 raise ValueError("numpy array size mismatch")
         else:
             if rgb32.itemsize != 4:
                 raise TypeError("Expected numpy array with itemsize == 4")
         if not rgb32.flags.c_contiguous:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
         if not rgb32.flags.aligned:
-            raise TypeError(
-                "Currently, only contiguous, aligned numpy arrays are supported"
-            )
+            raise TypeError("Currently, only contiguous, aligned numpy arrays are supported")
 
     if not is_str and (not width or not height):
         height = len(rgb32)
@@ -462,10 +404,7 @@ def __EncodedAttribute_encode_jpeg_rgb32(self, rgb32, width=0, height=0, quality
 
         row0 = rgb32[0]
         if not is_seq(row0):
-            raise IndexError(
-                "Expected sequence (str, numpy.ndarray, list, tuple or "
-                "bytearray) inside a sequence"
-            )
+            raise IndexError("Expected sequence (str, numpy.ndarray, list, tuple or bytearray) inside a sequence")
         width = len(row0)
         if is_pure_str(row0) or type(row0) is bytearray:
             width /= 4
@@ -503,8 +442,7 @@ def __EncodedAttribute_decode_gray8(self, da, extract_as=ExtractAs.Numpy):
     """
     if hasattr(da, "value"):
         raise TypeError(
-            "DeviceAttribute argument must have been obtained from "
-            "a call which doesn't extract the contents"
+            "DeviceAttribute argument must have been obtained from a call which doesn't extract the contents"
         )
     if extract_as not in _allowed_extract:
         raise TypeError("extract_as must be one of Numpy, String, Tuple, List")
@@ -541,8 +479,7 @@ def __EncodedAttribute_decode_gray16(self, da, extract_as=ExtractAs.Numpy):
     """
     if hasattr(da, "value"):
         raise TypeError(
-            "DeviceAttribute argument must have been obtained from "
-            "a call which doesn't extract the contents"
+            "DeviceAttribute argument must have been obtained from a call which doesn't extract the contents"
         )
     if extract_as not in _allowed_extract:
         raise TypeError("extract_as must be one of Numpy, String, Tuple, List")
@@ -579,8 +516,7 @@ def __EncodedAttribute_decode_rgb32(self, da, extract_as=ExtractAs.Numpy):
     """
     if hasattr(da, "value"):
         raise TypeError(
-            "DeviceAttribute argument must have been obtained from "
-            "a call which doesn't extract the contents"
+            "DeviceAttribute argument must have been obtained from a call which doesn't extract the contents"
         )
     if extract_as not in _allowed_extract:
         raise TypeError("extract_as must be one of Numpy, String, Tuple, List")

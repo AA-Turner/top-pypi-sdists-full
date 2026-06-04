@@ -3062,12 +3062,14 @@ components:
         expireCount:
           type: integer
           minimum: 1
-          description: Stop recycling after this many copies have been created
+          nullable: true
+          description: Stop recycling after this many copies have been created. Send null on update to clear this limit.
           example: 5
         expireDate:
           type: string
           format: date-time
-          description: Stop recycling after this date, regardless of count
+          nullable: true
+          description: Stop recycling after this date, regardless of count. Send null on update to clear this limit.
         contentVariations:
           type: array
           items:
@@ -5325,6 +5327,11 @@ components:
             ipAddress: { type: string, description: Client IP address. Sent plaintext. }
             userAgent: { type: string, description: Client user-agent string. Sent plaintext. }
             country: { type: string, description: "ISO 3166-1 alpha-2 country code, e.g. 'us'." }
+            city: { type: string, description: "Meta advanced matching (ct). Plaintext city; normalized + SHA-256 hashed server-side. Meta only." }
+            state: { type: string, description: "Meta advanced matching (st). 2-letter ANSI for US; hashed server-side. Meta only." }
+            zip: { type: string, description: "Meta advanced matching (zp). US uses first 5 digits; hashed server-side. Meta only." }
+            dob: { type: string, description: "Meta advanced matching (db). YYYYMMDD; hashed server-side. Meta only." }
+            gender: { type: string, description: "Meta advanced matching (ge). 'f' or 'm'; hashed server-side. Meta only." }
             clickIds:
               type: object
               description: Platform click identifiers captured from the originating ad click.
@@ -9063,6 +9070,7 @@ paths:
                   description: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms.
                   items:
                     type: object
+                    required: [platform, accountId]
                     properties:
                       platform: { type: string, example: twitter }
                       accountId: { type: string }
@@ -9557,8 +9565,8 @@ paths:
       tags: [Posts]
       summary: Update post
       description: |
-        Update an existing post. Only draft, scheduled, failed, and partial posts can be edited.
-        Published, publishing, and cancelled posts cannot be modified.
+        Update an existing post. Draft, scheduled, failed, partial, and cancelled posts can be edited.
+        Published posts can only have their recycling config updated.
       parameters:
         - name: postId
           in: path
@@ -9571,8 +9579,55 @@ paths:
             schema:
               type: object
               properties:
+                title: { type: string }
                 content: { type: string }
+                mediaItems:
+                  type: array
+                  items: { $ref: '#/components/schemas/MediaItem' }
+                platforms:
+                  type: array
+                  description: Target platforms and accounts for this post. Each item must include platform and accountId.
+                  items:
+                    type: object
+                    required: [platform, accountId]
+                    properties:
+                      platform: { type: string, example: twitter }
+                      accountId: { type: string }
+                      customContent:
+                        type: string
+                        description: Platform-specific text override.
+                      customMedia:
+                        type: array
+                        items: { $ref: '#/components/schemas/MediaItem' }
+                      scheduledFor:
+                        type: string
+                        format: date-time
+                        description: Optional per-platform scheduled time override.
+                      platformSpecificData:
+                        type: object
+                        additionalProperties: true
                 scheduledFor: { type: string, format: date-time }
+                publishNow: { type: boolean, default: false }
+                isDraft: { type: boolean }
+                timezone: { type: string }
+                visibility: { type: string, enum: [public, private, unlisted] }
+                tags:
+                  type: array
+                  items: { type: string }
+                hashtags:
+                  type: array
+                  items: { type: string }
+                mentions:
+                  type: array
+                  items: { type: string }
+                crosspostingEnabled: { type: boolean }
+                metadata: { type: object, additionalProperties: true }
+                queuedFromProfile:
+                  type: string
+                  description: Profile ID to schedule via queue.
+                queueId:
+                  type: string
+                  description: Specific queue ID to use when scheduling via queue.
                 tiktokSettings:
                   $ref: '#/components/schemas/TikTokPlatformData'
                   description: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
@@ -25313,6 +25368,94 @@ paths:
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /v1/ads/{adId}/tracking-tags:
+    get:
+      operationId: getAdTrackingTags
+      tags: [Ads]
+      summary: Read an ad's click-URL tracking tags
+      description: |
+        Unified read of the platform's native click-URL tracking params.
+        - Meta (facebook/instagram): the creative's `url_tags` (and template_url_spec).
+        - Google (googleads): the campaign's `trackingUrlTemplate` + `finalUrlSuffix`.
+          Subject to the Google Ads API access-tier daily quota; bulk audits need Standard access.
+        - LinkedIn (linkedinads): the campaign's Dynamic UTM `dynamicValueParameters` + `customValueParameters`.
+        Returns 405 for platforms without a click-URL tracking surface (TikTok, X, Pinterest).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adId, in: path, required: true, schema: { type: string }, description: "Ad id (hex _id, platformAdId, or effective story/media id)." }
+      responses:
+        '200':
+          description: "Tracking tags for the ad's platform (shape varies by platform)."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string }
+                  level: { type: string, enum: [creative, campaign] }
+                  urlTags: { type: string, nullable: true, description: "Meta: &-joined click-URL params." }
+                  templateUrlSpec: { type: object, nullable: true, description: "Meta: third-party click-tracking template (Dynamic Ads)." }
+                  trackingUrlTemplate: { type: string, nullable: true, description: "Google." }
+                  finalUrlSuffix: { type: string, nullable: true, description: "Google." }
+                  dynamicValueParameters: { type: object, nullable: true, description: "LinkedIn." }
+                  customValueParameters: { type: object, nullable: true, description: "LinkedIn." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Ad not found" }
+        '405': { description: "Platform has no click-URL tracking surface" }
+    patch:
+      operationId: updateAdTrackingTags
+      tags: [Ads]
+      summary: Set/update an ad's click-URL tracking tags
+      description: |
+        Unified update. Send only the fields for the ad's platform:
+        - Meta: `urlTags` (array of {key,value}) + `creative` (headline, body, callToAction, linkUrl, imageUrl).
+          Meta creatives are immutable, so this REBUILDS the creative and repoints the ad — the full
+          creative is required. Placement-customized / asset-feed / dark creatives may not be
+          rebuildable this way and return 422.
+        - Google: `trackingUrlTemplate` and/or `finalUrlSuffix` (full template strings; account quota applies).
+        - LinkedIn: `dynamicValueParameters` and/or `customValueParameters` (campaign-level Dynamic UTM).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urlTags:
+                  type: array
+                  description: "Meta only. Click-URL params appended to a freshly-rebuilt creative."
+                  items:
+                    type: object
+                    required: [key, value]
+                    properties:
+                      key: { type: string }
+                      value: { type: string }
+                creative:
+                  type: object
+                  description: "Meta only. Required to rebuild the immutable creative when setting urlTags."
+                  required: [headline, body, callToAction, linkUrl, imageUrl]
+                  properties:
+                    headline: { type: string }
+                    body: { type: string }
+                    callToAction: { type: string }
+                    linkUrl: { type: string, format: uri }
+                    imageUrl: { type: string, format: uri }
+                    videoUrl: { type: string, format: uri }
+                trackingUrlTemplate: { type: string, description: "Google only. Full tracking template (must contain {lpurl})." }
+                finalUrlSuffix: { type: string, description: "Google only. Parse-only key=value params." }
+                dynamicValueParameters: { type: object, additionalProperties: { type: string }, description: "LinkedIn only. key -> dynamic value enum (CAMPAIGN_ID, CAMPAIGN_NAME, CREATIVE_ID, ...)." }
+                customValueParameters: { type: object, additionalProperties: { type: string }, description: "LinkedIn only. key -> static value." }
+      responses:
+        '200': { description: "Updated" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Ad not found" }
+        '405': { description: "Platform has no click-URL tracking surface" }
+        '422': { description: "Meta creative cannot be rebuilt (e.g. placement-customized/asset-feed/dark creative)" }
   /v1/ads/{adId}/comments:
     get:
       operationId: getAdComments
@@ -25934,41 +26077,58 @@ paths:
                 placementAssets:
                   type: object
                   description: |
-                    Meta only. Placement asset customization: pin a SPECIFIC image to each placement
-                    group on a SINGLE ad (e.g. a 9:16 image on Stories/Reels and a 4:5 on Feed). This
-                    is the same thing Meta Ads Manager produces with "different creative per placement",
-                    mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. It is
-                    deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (the two are
-                    mutually exclusive, and it cannot be combined with `creatives[]` or `adSetId`). The
-                    shared copy (headline, body, link, CTA) comes from the top-level single-creative
-                    fields (`headline`, `body`, `linkUrl`, `callToAction`) since only the image varies by
+                    Meta only. Placement asset customization: pin a SPECIFIC asset (image OR video) to
+                    each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed).
+                    The same thing Meta Ads Manager produces with "different creative per placement",
+                    mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic
+                    pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive, and it
+                    cannot be combined with `creatives[]` or `adSetId`). Shared copy (headline, body, link,
+                    CTA) comes from the top-level single-creative fields since only the asset varies by
                     placement. Each rule's `placements` accepts the same fields as the top-level
                     `placements` object; Meta enforces co-selection rules and returns an actionable error.
-                  required: [defaultImageUrl, rules]
+
+                    A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad
+                    format). Image mode: `defaultImageUrl` + `rules[].imageUrl`. Video mode:
+                    `defaultVideoUrl` + `rules[].videoUrl` (optional `thumbnailUrl`/`defaultThumbnailUrl`
+                    posters; Meta auto-generates when omitted). Exactly one catch-all default is required.
+                  required: [rules]
                   properties:
                     defaultImageUrl:
                       type: string
                       format: uri
-                      description: |
-                        Catch-all image for any placement not matched by a rule. REQUIRED — Meta mandates
-                        a default asset customization rule (empty placement spec, lowest priority) on every
-                        placement-customized creative.
+                      description: "Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule)."
+                    defaultVideoUrl:
+                      type: string
+                      format: uri
+                      description: "Video mode. Catch-all video for any placement no rule matches. Required in video mode."
+                    defaultThumbnailUrl:
+                      type: string
+                      format: uri
+                      description: "Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted."
                     rules:
                       type: array
                       minItems: 1
                       maxItems: 10
-                      description: "One entry per placement group you want to pin a specific image to."
+                      description: "One entry per placement group you want to pin a specific asset to."
                       items:
                         type: object
-                        required: [imageUrl, placements]
+                        required: [placements]
                         properties:
                           imageUrl:
                             type: string
                             format: uri
-                            description: "The image to deliver for this rule's placements."
+                            description: "Image mode. The image to deliver for this rule's placements."
+                          videoUrl:
+                            type: string
+                            format: uri
+                            description: "Video mode. The video to deliver for this rule's placements."
+                          thumbnailUrl:
+                            type: string
+                            format: uri
+                            description: "Video mode (optional). Poster image for this rule's video; auto-generated when omitted."
                           placements:
                             type: object
-                            description: "Placements this image is pinned to. At least one field must be set (an empty rule is invalid — that role is served by defaultImageUrl). Same enums as the top-level `placements` object."
+                            description: "Placements this asset is pinned to. At least one field must be set (an empty rule is invalid — that role is served by the default asset). Same enums as the top-level `placements` object."
                             properties:
                               publisherPlatforms:
                                 type: array
@@ -26531,9 +26691,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [accountId, spec]
+              required: [accountId, adAccountId, spec]
               properties:
-                accountId: { type: string, description: "Social account ID on the target ad platform." }
+                accountId: { type: string, description: "Zernio social account ID on the target ad platform (the estimate runs against its platform)." }
+                adAccountId: { type: string, description: "Required. The platform ad-account ID the reach call runs against (Meta act_..., LinkedIn numeric sponsoredAccount ID, Pinterest ad-account ID, X account ID) - every backing reach API is scoped to one ad account. Get it from GET /v1/ads/accounts." }
                 spec:
                   allOf: [{ $ref: '#/components/schemas/TargetingSpec' }]
                   description: "The targeting spec to estimate. Same shape used by POST /v1/ads/create."
@@ -26767,6 +26928,46 @@ paths:
         '422':
           description: Audience is not a customer_list type or has no platform ID yet
 
+  /v1/ads/conversions/quality:
+    get:
+      operationId: getConversionsQuality
+      tags: [Ads]
+      summary: Read Event Match Quality + coverage for a Meta pixel
+      description: |
+        Reads Meta Event Match Quality (EMQ) and pixel↔CAPI event coverage for a
+        pixel/dataset, live from Meta's Dataset Quality API. Web events only (a
+        Meta limitation). Meta-only; other platforms return 405. Requires the Ads add-on.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "SocialAccount _id (must be a metaads account)." }
+        - { name: destinationId, in: query, required: true, schema: { type: string }, description: "Meta pixel/dataset ID." }
+      responses:
+        '200':
+          description: Match-quality rows, one per event name.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, example: metaads }
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        eventName: { type: string }
+                        compositeScore: { type: number, description: "Composite EMQ score, 0-10." }
+                        matchKeys:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              identifier: { type: string }
+                              coveragePercentage: { type: number }
+                        eventCoveragePercentage: { type: number, description: "Pixel↔CAPI coverage rate for this event." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '405': { description: "Platform does not expose Event Match Quality (non-Meta)." }
   /v1/ads/conversions:
     post:
       operationId: sendConversions

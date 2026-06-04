@@ -1,31 +1,29 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import asyncio
+import concurrent.futures
 import os
 import time
 import warnings
 
+import gevent.event
 import numpy as np
 import pytest
-import tango
-import asyncio
-import gevent.event
-import concurrent.futures
 
-from tango import AttrWriteType, DevFailed, GreenMode, get_device_proxy, DeviceProxy
+import tango
+from tango import AttrWriteType, DevFailed, DeviceProxy, GreenMode, get_device_proxy
 from tango.asyncio_executor import AsyncioExecutor
 from tango.device_server import get_worker
 from tango.gevent_executor import GeventExecutor
 from tango.green import SynchronousExecutor
-from tango.server import Device
-from tango.server import command, attribute, device_property
+from tango.server import Device, attribute, command, device_property
 from tango.test_utils import (
+    ClassicAPISimpleDeviceClass,
+    ClassicAPISimpleDeviceImpl,
     DeviceTestContext,
     MultiDeviceTestContext,
     SimpleDevice,
-    ClassicAPISimpleDeviceImpl,
-    ClassicAPISimpleDeviceClass,
 )
-
 
 WINDOWS = "nt" in os.name
 
@@ -147,34 +145,35 @@ def test_single_device(server_green_mode):
 
 
 def test_single_device_old_api():
-    with DeviceTestContext(
-        ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass
-    ) as proxy:
+    with DeviceTestContext(ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass) as proxy:
         assert proxy.attr1 == 100
 
 
 def test_nested_single_device_in_same_process_failure():
     # Nesting not recommended - use MultiDeviceTestContext
-    with DeviceTestContext(Device1, process=False):
-        with pytest.raises(DevFailed):
-            with DeviceTestContext(Device2, process=False):
-                pass
+    with (
+        DeviceTestContext(Device1, process=False),
+        pytest.raises(DevFailed),
+        DeviceTestContext(Device2, process=False),
+    ):
+        pass
 
 
 def test_nested_single_device_in_different_processes_success_without_short_names():
     # Nesting not recommended - use MultiDeviceTestContext
-    with DeviceTestContext(Device1, process=True) as proxy1:
-        with DeviceTestContext(Device2, process=True) as proxy2:
-            assert proxy1.attr1 == 100
-            assert proxy2.attr2 == 200
+    with DeviceTestContext(Device1, process=True) as proxy1, DeviceTestContext(Device2, process=True) as proxy2:
+        assert proxy1.attr1 == 100
+        assert proxy2.attr2 == 200
 
 
 def test_nested_single_device_in_different_processes_failure_with_short_names():
     # Nesting not recommended - use MultiDeviceTestContext
-    with DeviceTestContext(Device1, device_name="test/nodb/1", process=True):
-        with DeviceTestContext(Device2, process=True):
-            with pytest.raises(DevFailed):
-                DeviceProxy("test/nodb/1")
+    with (
+        DeviceTestContext(Device1, device_name="test/nodb/1", process=True),
+        DeviceTestContext(Device2, process=True),
+        pytest.raises(DevFailed),
+    ):
+        DeviceProxy("test/nodb/1")
 
 
 @pytest.mark.parametrize(
@@ -312,9 +311,8 @@ def test_multi_with_mixed_device_green_modes(first_type, second_type, exception_
         with MultiDeviceTestContext(devices_info):
             pass
     else:
-        with pytest.raises(exception_type, match=r"mixed green mode"):
-            with MultiDeviceTestContext(devices_info):
-                pass
+        with pytest.raises(exception_type, match=r"mixed green mode"), MultiDeviceTestContext(devices_info):
+            pass
 
 
 def stringify_green_mode(value):
@@ -436,9 +434,7 @@ def stringify_green_mode(value):
     ],
     ids=stringify_green_mode,
 )
-def test_green_modes_in_device_kwarg_and_global(
-    device_type, green_mode, global_mode, exception_type, executor_type
-):
+def test_green_modes_in_device_kwarg_and_global(device_type, green_mode, global_mode, exception_type, executor_type):
     if WINDOWS and exception_type is not None:
         pytest.skip("Skip test that hangs on Windows")
 
@@ -450,13 +446,17 @@ def test_green_modes_in_device_kwarg_and_global(
             with DeviceTestContext(device_type, green_mode=green_mode):
                 pass
         elif exception_type is DeprecationWarning:
-            with pytest.warns((DeprecationWarning, RuntimeWarning)):
-                with DeviceTestContext(device_type, green_mode=green_mode):
-                    pass
+            with (
+                pytest.warns((DeprecationWarning, RuntimeWarning)),
+                DeviceTestContext(device_type, green_mode=green_mode),
+            ):
+                pass
         else:
-            with pytest.raises(exception_type, match=r"stuck at init"):
-                with DeviceTestContext(device_type, green_mode=green_mode, timeout=0.5):
-                    pass
+            with (
+                pytest.raises(exception_type, match=r"stuck at init"),
+                DeviceTestContext(device_type, green_mode=green_mode, timeout=0.5),
+            ):
+                pass
         assert type(get_worker()) is executor_type
 
     finally:
@@ -633,16 +633,15 @@ def test_multi_raises_on_invalid_file_database_properties():
     class TestDevice(Device):
         empty = device_property(dtype=(str,))
 
-    with pytest.raises(RuntimeError, match="FileDatabase"):
-        with DeviceTestContext(TestDevice, properties={"empty": []}):
-            pass
+    with pytest.raises(RuntimeError, match="FileDatabase"), DeviceTestContext(TestDevice, properties={"empty": []}):
+        pass
 
 
 @pytest.fixture(
     # Per test we have the input config tuple, and then the expected exception type
     params=[
         # empty config
-        [tuple(), IndexError],
+        [(), IndexError],
         # missing/invalid keys
         [({"not-class": Device1, "devices": [{"name": "test/device1/1"}]},), KeyError],
         [({"class": Device1, "not-devices": [{"name": "test/device1/1"}]},), KeyError],
@@ -682,9 +681,8 @@ def bad_multi_device_config(request):
 
 def test_multi_bad_config_fails(bad_multi_device_config):
     bad_config, expected_error = bad_multi_device_config
-    with pytest.raises(expected_error):
-        with MultiDeviceTestContext(bad_config):
-            pass
+    with pytest.raises(expected_error), MultiDeviceTestContext(bad_config):
+        pass
 
 
 @pytest.fixture()
@@ -762,9 +760,7 @@ def test_single_with_memorized_attribute_values(
 ):
     TestDevice = memorized_attribute_test_device_factory(is_attribute_memorized)
 
-    kwargs = (
-        {"memorized": {"attr": memorized_value}} if memorized_value is not None else {}
-    )
+    kwargs = {"memorized": {"attr": memorized_value}} if memorized_value is not None else {}
 
     with DeviceTestContext(TestDevice, **kwargs) as proxy:
         assert proxy.attr == expected_value
@@ -872,9 +868,7 @@ async def test_test_context_multi_async_device_proxy(process):
 
         assert proxy_main.get_green_mode() == GreenMode.Asyncio
 
-        proxy_future_child = get_device_proxy(
-            fq_name_child, green_mode=GreenMode.Asyncio
-        )
+        proxy_future_child = get_device_proxy(fq_name_child, green_mode=GreenMode.Asyncio)
         assert isinstance(proxy_future_child, asyncio.Future)
 
         proxy_child = await proxy_future_child
@@ -904,9 +898,7 @@ class FutureAndGeventDevice(Device):
         return self._value
 
 
-@pytest.mark.parametrize(
-    "test_green_mode", [GreenMode.Futures, GreenMode.Gevent], ids=str
-)
+@pytest.mark.parametrize("test_green_mode", [GreenMode.Futures, GreenMode.Gevent], ids=str)
 @pytest.mark.parametrize("process", [True, False])
 def test_test_context_future_and_gevent_device_proxy(test_green_mode, process):
     FutureAndGeventDevice.green_mode = test_green_mode
@@ -950,9 +942,7 @@ class FwdServer(Device):
 
 @pytest.mark.parametrize("process", [True, False])
 def test_forwarded_attributes(process):
-    pytest.xfail(
-        "Does not work yet - see https://gitlab.com/tango-controls/cppTango/-/issues/796"
-    )
+    pytest.xfail("Does not work yet - see https://gitlab.com/tango-controls/cppTango/-/issues/796")
     devices_info = (
         {"class": Device1, "devices": [{"name": "test/device1/1"}]},
         {
@@ -978,7 +968,6 @@ def test_forwarded_attributes(process):
 
 
 class DeviceStuckOnExit(Device):
-
     def delete_device(self):
         while True:
             time.sleep(1)

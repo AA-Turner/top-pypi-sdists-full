@@ -2,6 +2,7 @@
 #  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+import copy
 import json
 from typing import Any, AsyncIterator, Iterator, Literal, overload
 
@@ -14,6 +15,10 @@ from ibm_watsonx_ai.gateway.providers import Providers
 from ibm_watsonx_ai.gateway.rate_limits import RateLimits
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
+
+# Type aliases for gateway inputs and outputs
+PromptInput = str | list[str] | list[int]
+BatchedPromptInput = list[str | list[str] | list[int]]
 
 
 def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> Iterator:
@@ -261,7 +266,7 @@ class Gateway(WMLResource):
             def create(
                 self,
                 model: str,
-                prompt: str | list[str] | list[int],
+                prompt: PromptInput,
                 *,
                 stream: Literal[False] = False,
                 **kwargs: Any,
@@ -271,7 +276,7 @@ class Gateway(WMLResource):
             def create(
                 self,
                 model: str,
-                prompt: str | list[str] | list[int],
+                prompt: PromptInput,
                 *,
                 stream: Literal[True],
                 **kwargs: Any,
@@ -280,7 +285,7 @@ class Gateway(WMLResource):
             def create(
                 self,
                 model: str,
-                prompt: str | list[str] | list[int],
+                prompt: PromptInput,
                 *,
                 stream: bool = False,
                 **kwargs: Any,
@@ -324,7 +329,7 @@ class Gateway(WMLResource):
             async def acreate(
                 self,
                 model: str,
-                prompt: str | list[str] | list[int],
+                prompt: PromptInput,
                 *,
                 stream: Literal[False] = False,
                 **kwargs: Any,
@@ -334,7 +339,7 @@ class Gateway(WMLResource):
             async def acreate(
                 self,
                 model: str,
-                prompt: str | list[str] | list[int],
+                prompt: PromptInput,
                 *,
                 stream: Literal[True],
                 **kwargs: Any,
@@ -343,7 +348,7 @@ class Gateway(WMLResource):
             async def acreate(
                 self,
                 model: str,
-                prompt: str | list[str] | list[int],
+                prompt: PromptInput,
                 *,
                 stream: bool = False,
                 **kwargs: Any,
@@ -389,12 +394,79 @@ class Gateway(WMLResource):
 
         # Embeddings
         class _Embeddings(WMLResource):
+            # Maximum number of inputs allowed per request by Model Gateway
+            _MAX_BATCH_SIZE = 1000
+
             def __init__(self, api_client: APIClient):
                 WMLResource.__init__(self, __name__, api_client)
 
-            def create(
-                self, model: str, input: str | list[str] | list[int], **kwargs: Any
-            ) -> dict:
+            def _batch_inputs(self, inputs: PromptInput) -> BatchedPromptInput:
+                """Split input into batches of maximum size.
+
+                :param inputs: inputs to be batched
+                :type inputs: str or list[str] or list[int]
+
+                :returns: list of batched inputs
+                :rtype: list
+                """
+                # If input is a string, return it as-is (single batch)
+                if isinstance(inputs, str):
+                    return [inputs]
+
+                # Validate empty list inputs
+                if isinstance(inputs, list) and len(inputs) == 0:
+                    return [inputs]
+
+                # If input is a list and within limit, return as single batch
+                if len(inputs) <= self._MAX_BATCH_SIZE:
+                    return [inputs]
+
+                # Split into batches of _MAX_BATCH_SIZE
+                batches: BatchedPromptInput = []
+                for i in range(0, len(inputs), self._MAX_BATCH_SIZE):
+                    batches.append(inputs[i : i + self._MAX_BATCH_SIZE])
+                return batches
+
+            @staticmethod
+            def _merge_responses(responses: list[dict]) -> dict:
+                """Merge multiple batch responses into a single response.
+
+                :param responses: list of response dictionaries
+                :type responses: list[dict]
+
+                :returns: merged response
+                :rtype: dict
+
+                :raises WMLClientError: if responses list is empty
+                """
+                if not responses:
+                    raise WMLClientError("Cannot merge empty responses list")
+
+                if len(responses) == 1:
+                    return responses[0]
+
+                # Merge all embeddings data
+                merged_data = []
+                for response in responses:
+                    if "data" in response:
+                        merged_data.extend(response["data"])
+
+                # Use the first response as template and update data
+                merged_response = copy.deepcopy(responses[0])
+                merged_response["data"] = merged_data
+
+                # Update usage statistics if present
+                if any("usage" in r for r in responses):
+                    total_tokens = sum(
+                        r.get("usage", {}).get("total_tokens", 0) for r in responses
+                    )
+                    if "usage" not in merged_response:
+                        merged_response["usage"] = {}
+                    merged_response["usage"]["total_tokens"] = total_tokens
+
+                return merged_response
+
+            def create(self, model: str, input: PromptInput, **kwargs: Any) -> dict:
                 """Generate embeddings for given model and input.
 
                 :param model: name of model for given provider or alias
@@ -405,19 +477,41 @@ class Gateway(WMLResource):
 
                 :returns: embeddings for given model and input
                 :rtype: dict
+
+                :raises WMLClientError: if any batch fails, includes information about successful batches
                 """
-                request_json = {"input": input, "model": model, **kwargs}
+                batches = self._batch_inputs(input)
+                responses = []
 
-                response = self._client.httpx_client.post(
-                    self._client._href_definitions.get_gateway_embeddings_href(),
-                    headers=self._client._get_headers(include_container_id=True),
-                    json=request_json,
-                )
+                for batch_index, batch in enumerate(batches):
+                    try:
+                        request_json = {"input": batch, "model": model, **kwargs}
 
-                return self._handle_response(200, "embedding creation", response)
+                        response = self._client.httpx_client.post(
+                            self._client._href_definitions.get_gateway_embeddings_href(),
+                            headers=self._client._get_headers(
+                                include_container_id=True
+                            ),
+                            json=request_json,
+                        )
+
+                        batch_response = self._handle_response(
+                            200, "embedding creation", response
+                        )
+                        responses.append(batch_response)
+                    except Exception as e:
+                        total_batches = len(batches)
+                        successful_batches = len(responses)
+                        raise WMLClientError(
+                            f"Batch {batch_index + 1} of {total_batches} failed during embedding creation. "
+                            f"Successfully processed {successful_batches} batch(es) before failure. "
+                            f"Original error: {str(e)}"
+                        ) from e
+
+                return self._merge_responses(responses)
 
             async def acreate(
-                self, model: str, input: str | list[str] | list[int], **kwargs: Any
+                self, model: str, input: PromptInput, **kwargs: Any
             ) -> dict:
                 """Generate embeddings for given model and input asynchronously.
 
@@ -429,15 +523,37 @@ class Gateway(WMLResource):
 
                 :returns: embeddings for given model and input
                 :rtype: dict
+
+                :raises WMLClientError: if any batch fails, includes information about successful batches
                 """
-                request_json = {"input": input, "model": model, **kwargs}
+                batches = self._batch_inputs(input)
+                responses = []
 
-                response = await self._client.async_httpx_client.post(
-                    self._client._href_definitions.get_gateway_embeddings_href(),
-                    headers=await self._client._aget_headers(include_container_id=True),
-                    json=request_json,
-                )
+                for batch_index, batch in enumerate(batches):
+                    try:
+                        request_json = {"input": batch, "model": model, **kwargs}
 
-                return self._handle_response(200, "embedding creation", response)
+                        response = await self._client.async_httpx_client.post(
+                            self._client._href_definitions.get_gateway_embeddings_href(),
+                            headers=await self._client._aget_headers(
+                                include_container_id=True
+                            ),
+                            json=request_json,
+                        )
+
+                        batch_response = self._handle_response(
+                            200, "embedding creation", response
+                        )
+                        responses.append(batch_response)
+                    except Exception as e:
+                        total_batches = len(batches)
+                        successful_batches = len(responses)
+                        raise WMLClientError(
+                            f"Batch {batch_index + 1} of {total_batches} failed during embedding creation. "
+                            f"Successfully processed {successful_batches} batch(es) before failure. "
+                            f"Original error: {str(e)}"
+                        ) from e
+
+                return self._merge_responses(responses)
 
         self.embeddings = _Embeddings(self._client)

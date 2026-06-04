@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bytecode
-Version: 0.17.0
+Version: 0.18.1
 Summary: Python module to generate and modify bytecode
 Author-email: Victor Stinner <victor.stinner@gmail.com>
 Maintainer-email: "Matthieu C. Dartiailh" <m.dartiailh@gmail.com>
@@ -36,14 +36,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Requires-Dist: typing_extensions; python_version < "3.10"

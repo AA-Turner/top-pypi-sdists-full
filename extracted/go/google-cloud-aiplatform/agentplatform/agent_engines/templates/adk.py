@@ -87,6 +87,15 @@ if TYPE_CHECKING:
         BaseMemoryService = Any
 
     try:
+        from google.adk.auth.credential_service.base_credential_service import (
+            BaseCredentialService,
+        )
+
+        BaseCredentialService = BaseCredentialService
+    except (ImportError, AttributeError):
+        BaseCredentialService = Any
+
+    try:
         from opentelemetry.sdk import trace
 
         TracerProvider = trace.TracerProvider
@@ -682,6 +691,9 @@ class AdkApp:
         session_service_builder: Optional[Callable[..., "BaseSessionService"]] = None,
         artifact_service_builder: Optional[Callable[..., "BaseArtifactService"]] = None,
         memory_service_builder: Optional[Callable[..., "BaseMemoryService"]] = None,
+        credential_service_builder: Optional[
+            Callable[..., "BaseCredentialService"]
+        ] = None,
         instrumentor_builder: Optional[Callable[..., Any]] = None,
     ):
         """An ADK Application.
@@ -715,6 +727,9 @@ class AdkApp:
                 Defaults to a callable that returns InMemoryMemoryService
                 when running locally and VertexAiMemoryBankService when running
                 on Agent Engine.
+            credential_service_builder (Callable[..., BaseCredentialService]):
+                Optional. A callable that returns an ADK credential service.
+                Defaults to a callable that returns InMemoryCredentialService.
             instrumentor_builder (Callable[..., Any]):
                 Optional. Callable that returns a new instrumentor. This can be
                 used for customizing the instrumentation logic of the Agent.
@@ -759,6 +774,7 @@ class AdkApp:
             "session_service_builder": session_service_builder,
             "artifact_service_builder": artifact_service_builder,
             "memory_service_builder": memory_service_builder,
+            "credential_service_builder": credential_service_builder,
             "instrumentor_builder": instrumentor_builder,
             "express_mode_api_key": (
                 initializer.global_config.api_key or os.environ.get("GOOGLE_API_KEY")
@@ -912,6 +928,9 @@ class AdkApp:
             session_service_builder=self._tmpl_attrs.get("session_service_builder"),
             artifact_service_builder=self._tmpl_attrs.get("artifact_service_builder"),
             memory_service_builder=self._tmpl_attrs.get("memory_service_builder"),
+            credential_service_builder=self._tmpl_attrs.get(
+                "credential_service_builder"
+            ),
             instrumentor_builder=self._tmpl_attrs.get("instrumentor_builder"),
         )
 
@@ -924,6 +943,9 @@ class AdkApp:
             InMemoryArtifactService,
         )
         from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
+        from google.adk.auth.credential_service.in_memory_credential_service import (
+            InMemoryCredentialService,
+        )
 
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
         project = self._tmpl_attrs.get("project")
@@ -1078,6 +1100,12 @@ class AdkApp:
         else:
             self._tmpl_attrs["memory_service"] = InMemoryMemoryService()
 
+        credential_service_builder = self._tmpl_attrs.get("credential_service_builder")
+        if credential_service_builder:
+            self._tmpl_attrs["credential_service"] = credential_service_builder()
+        else:
+            self._tmpl_attrs["credential_service"] = InMemoryCredentialService()
+
         self._tmpl_attrs["runner"] = Runner(
             app=self._tmpl_attrs.get("app"),
             agent=(
@@ -1094,6 +1122,7 @@ class AdkApp:
             session_service=self._tmpl_attrs.get("session_service"),
             artifact_service=self._tmpl_attrs.get("artifact_service"),
             memory_service=self._tmpl_attrs.get("memory_service"),
+            credential_service=self._tmpl_attrs.get("credential_service"),
         )
         self._tmpl_attrs["in_memory_session_service"] = InMemorySessionService()
         self._tmpl_attrs["in_memory_artifact_service"] = InMemoryArtifactService()
@@ -1183,11 +1212,16 @@ class AdkApp:
                 from google.adk.events.event import Event
 
                 session_service = self._tmpl_attrs.get("session_service")
+                session_obj = await session_service.get_session(
+                    app_name=self._app_name(),
+                    user_id=user_id,
+                    session_id=session_id,
+                )
                 for event in session_events:
                     if not isinstance(event, Event):
                         event = Event.model_validate(event)
                     await session_service.append_event(
-                        session=session,
+                        session=session_obj,
                         event=event,
                     )
 
@@ -1332,6 +1366,7 @@ class AdkApp:
             self.set_up()
 
         # Try to get the session, if it doesn't exist, create a new one.
+        state_delta = None
         if request.session_id:
             session_service = self._tmpl_attrs.get("session_service")
             artifact_service = self._tmpl_attrs.get("artifact_service")
@@ -1349,6 +1384,11 @@ class AdkApp:
                         artifact_service=artifact_service,
                         request=request,
                     )
+                    if request.authorizations:
+                        state_delta = {}
+                        for auth_id, auth in request.authorizations.items():
+                            auth = _Authorization(**auth)
+                            state_delta[auth_id] = auth.access_token
             except ClientError:
                 pass
             if not session:
@@ -1380,6 +1420,7 @@ class AdkApp:
                 user_id=request.user_id,
                 session_id=session.id,
                 new_message=message_for_agent,
+                state_delta=state_delta,
             ):
                 converted_event = await self._convert_response_events(
                     user_id=request.user_id,

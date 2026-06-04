@@ -350,9 +350,7 @@ class DataBase(PyTango.Device_4Impl):
         :type: PyTango.DevVarStringArray
         :return:
         :rtype: PyTango.DevVoid"""
-        self.debug_stream(
-            "In " + self.get_name() + ".DbDeleteDeviceAttributeProperty()"
-        )
+        self.debug_stream("In " + self.get_name() + ".DbDeleteDeviceAttributeProperty()")
         # ----- PROTECTED REGION ID(DataBase.DbDeleteDeviceAttributeProperty) ENABLED START -----#
 
         # ----- PROTECTED REGION END -----#	//	DataBase.DbDeleteDeviceAttributeProperty
@@ -601,9 +599,7 @@ class DataBase(PyTango.Device_4Impl):
         Str[4] = Property value 1
         Str[n] = Property value n
         :rtype: PyTango.DevVarStringArray"""
-        self.debug_stream(
-            "In " + self.get_name() + ".DbGetClassAttributePropertyHist()"
-        )
+        self.debug_stream("In " + self.get_name() + ".DbGetClassAttributePropertyHist()")
         argout = [""]
         # ----- PROTECTED REGION ID(DataBase.DbGetClassAttributePropertyHist) ENABLED START -----#
 
@@ -853,9 +849,7 @@ class DataBase(PyTango.Device_4Impl):
         Str[4] = Property value 1
         Str[n] = Property value n
         :rtype: PyTango.DevVarStringArray"""
-        self.debug_stream(
-            "In " + self.get_name() + ".DbGetDeviceAttributePropertyHist()"
-        )
+        self.debug_stream("In " + self.get_name() + ".DbGetDeviceAttributePropertyHist()")
         argout = [""]
         # ----- PROTECTED REGION ID(DataBase.DbGetDeviceAttributePropertyHist) ENABLED START -----#
 
@@ -1687,9 +1681,7 @@ class DataBase(PyTango.Device_4Impl):
         :type: PyTango.DevVarStringArray
         :return:
         :rtype: PyTango.DevVoid"""
-        self.debug_stream(
-            "In " + self.get_name() + ".DbDeleteAllDeviceAttributeProperty()"
-        )
+        self.debug_stream("In " + self.get_name() + ".DbDeleteAllDeviceAttributeProperty()")
         # ----- PROTECTED REGION ID(DataBase.DbDeleteAllDeviceAttributeProperty) ENABLED START -----#
 
         # ----- PROTECTED REGION END -----#	//	DataBase.DbDeleteAllDeviceAttributeProperty

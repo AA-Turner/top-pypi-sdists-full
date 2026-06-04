@@ -13,9 +13,11 @@
 
 namespace PyDeviceProxy {
 
+// clang-format off
 static inline void pylist_to_devattrs(Tango::DeviceProxy &self,
                                       py::object &py_list,
                                       std::vector<Tango::DeviceAttribute> &dev_attrs) {
+    // clang-format on
     unsigned long u_size = len(py_list);
 
     std::vector<py::object> py_values;
@@ -69,9 +71,28 @@ static inline void pylist_to_devattrs(Tango::DeviceProxy &self,
     }
 }
 
+static inline void pyobject_to_devattr(Tango::DeviceProxy &self,
+                                       py::object attr_name_or_info,
+                                       py::object py_value,
+                                       Tango::DeviceAttribute &dev_attr) {
+    try {
+        // Try to cast the first item to Tango::AttributeInfoEx.
+        // If it succeeds, we have the info directly.
+        Tango::AttributeInfoEx attr_info = attr_name_or_info.cast<Tango::AttributeInfoEx>();
+        PyDeviceAttribute::reset(dev_attr, attr_info, py_value);
+    } catch(const py::cast_error &) {
+        // If casting fails, assume it's an attribute name (std::string).
+        // Store the name and the original index `n` for later processing.
+        std::string attr_name = attr_name_or_info.cast<std::string>();
+        PyDeviceAttribute::reset(dev_attr, attr_name, self, py_value);
+    }
+}
+
+// clang-format off
 static py::object read_attribute(Tango::DeviceProxy &self,
                                  const std::string &attr_name,
                                  PyTango::ExtractAs extract_as) {
+    // clang-format on
     // Even if there's an exception in convert_to_python, the
     // DeviceAttribute will be deleted there, so we don't need to worry.
     Tango::DeviceAttribute *dev_attr = nullptr;
@@ -82,9 +103,11 @@ static py::object read_attribute(Tango::DeviceProxy &self,
     return PyDeviceAttribute::convert_to_python(dev_attr, self, extract_as);
 }
 
+// clang-format off
 static inline py::object read_attributes(Tango::DeviceProxy &self,
                                          py::object py_attr_names,
                                          PyTango::ExtractAs extract_as) {
+    // clang-format on
     StdStringVector attr_names = py_attr_names.cast<StdStringVector>();
 
     PyDeviceAttribute::AutoDevAttrVector dev_attr_vec;
@@ -96,28 +119,21 @@ static inline py::object read_attributes(Tango::DeviceProxy &self,
     return PyDeviceAttribute::convert_to_python(dev_attr_vec, self, extract_as);
 }
 
+// clang-format off
 static inline void write_attribute(Tango::DeviceProxy &self,
-                                   const Tango::AttributeInfo &attr_info,
+                                   py::object attr_name_or_info,
                                    py::object py_value) {
-    Tango::DeviceAttribute da;
-    PyDeviceAttribute::reset(da, attr_info, py_value);
-
-    py::gil_scoped_release no_gil;
-    self.write_attribute(da);
-}
-
-static inline void write_attribute(Tango::DeviceProxy &self,
-                                   const std::string &attr_name,
-                                   py::object py_value) {
+    // clang-format on
     Tango::DeviceAttribute dev_attr;
-    PyDeviceAttribute::reset(dev_attr, attr_name, self, py_value);
-
+    pyobject_to_devattr(self, attr_name_or_info, py_value, dev_attr);
     py::gil_scoped_release no_gil;
     self.write_attribute(dev_attr);
 }
 
+// clang-format off
 static inline void write_attributes(Tango::DeviceProxy &self,
                                     py::object py_list) {
+    // clang-format on
     std::vector<Tango::DeviceAttribute> dev_attrs;
     pylist_to_devattrs(self, py_list, dev_attrs);
 
@@ -126,14 +142,12 @@ static inline void write_attributes(Tango::DeviceProxy &self,
 }
 
 static inline py::object write_read_attribute(Tango::DeviceProxy &self,
-                                              const std::string &attr_name,
+                                              py::object attr_name_or_info,
                                               py::object py_value,
                                               PyTango::ExtractAs extract_as) {
     Tango::DeviceAttribute w_dev_attr;
+    pyobject_to_devattr(self, attr_name_or_info, py_value, w_dev_attr);
     std::unique_ptr<Tango::DeviceAttribute> r_dev_attr;
-
-    // Prepare dev_attr structure
-    PyDeviceAttribute::reset(w_dev_attr, attr_name, self, py_value);
 
     // Do the actual write_read_attribute thing...
     {
@@ -168,28 +182,10 @@ static py::object write_read_attributes(Tango::DeviceProxy &self,
     return PyDeviceAttribute::convert_to_python(dev_attr_vec, self, extract_as);
 }
 
-static py::object command_history(Tango::DeviceProxy &self,
-                                  const std::string &cmd_name,
-                                  int depth) {
-    std::vector<Tango::DeviceDataHistory> *device_data_hist = nullptr;
-    py::list ret;
-    {
-        py::gil_scoped_release no_gil;
-        device_data_hist = self.command_history(const_cast<std::string &>(cmd_name), depth);
-    }
-    auto it = device_data_hist->begin();
-    for(; it != device_data_hist->end(); ++it) {
-        Tango::DeviceDataHistory &hist = *it;
-        ret.append(hist);
-    }
-    delete device_data_hist;
-    return ret;
-}
-
-static inline py::object attribute_history(Tango::DeviceProxy &self,
-                                           const std::string &attr_name,
-                                           int depth,
-                                           PyTango::ExtractAs extract_as) {
+static inline py::typing::List<Tango::DeviceAttributeHistory> attribute_history(Tango::DeviceProxy &self,
+                                                                                const std::string &attr_name,
+                                                                                int depth,
+                                                                                PyTango::ExtractAs extract_as) {
     std::unique_ptr<std::vector<Tango::DeviceAttributeHistory>> att_hist;
     {
         py::gil_scoped_release no_gil;
@@ -216,9 +212,11 @@ static inline void read_attributes_asynch(Tango::DeviceProxy &self,
     }
 }
 
+// clang-format off
 static inline py::object read_attributes_reply(Tango::DeviceProxy &self,
                                                long id,
                                                PyTango::ExtractAs extract_as) {
+    // clang-format on
     PyDeviceAttribute::AutoDevAttrVector dev_attr_vec;
     {
         py::gil_scoped_release no_gil;
@@ -227,10 +225,12 @@ static inline py::object read_attributes_reply(Tango::DeviceProxy &self,
     return PyDeviceAttribute::convert_to_python(dev_attr_vec, self, extract_as);
 }
 
+// clang-format off
 static inline py::object read_attributes_reply(Tango::DeviceProxy &self,
                                                long id,
                                                long timeout,
                                                PyTango::ExtractAs extract_as) {
+    // clang-format on
     PyDeviceAttribute::AutoDevAttrVector dev_attr_vec;
     {
         py::gil_scoped_release no_gil;
@@ -239,8 +239,40 @@ static inline py::object read_attributes_reply(Tango::DeviceProxy &self,
     return PyDeviceAttribute::convert_to_python(dev_attr_vec, self, extract_as);
 }
 
+// clang-format off
+static inline long write_attribute_asynch(Tango::DeviceProxy &self,
+                                          py::object attr_name_or_info,
+                                          py::object py_value) {
+    // clang-format on
+    Tango::DeviceAttribute dev_attr;
+    pyobject_to_devattr(self, attr_name_or_info, py_value, dev_attr);
+
+    py::gil_scoped_release no_gil;
+    return self.write_attribute_asynch(dev_attr);
+}
+
+static inline void write_attribute_asynch(Tango::DeviceProxy &self,
+                                          py::object attr_name_or_info,
+                                          py::object py_value,
+                                          py::object py_cb) {
+    Tango::DeviceAttribute dev_attr;
+    pyobject_to_devattr(self, attr_name_or_info, py_value, dev_attr);
+
+    PyCallBackAutoDie *cb = py_cb.cast<PyCallBackAutoDie *>();
+
+    py::gil_scoped_release no_gil;
+    try {
+        self.write_attribute_asynch(dev_attr, *cb);
+    } catch(...) {
+        cb->delete_me();
+        throw;
+    }
+}
+
+// clang-format off
 static inline long write_attributes_asynch(Tango::DeviceProxy &self,
                                            py::object py_list) {
+    // clang-format on
     std::vector<Tango::DeviceAttribute> dev_attrs;
     pylist_to_devattrs(self, py_list, dev_attrs);
 
@@ -248,9 +280,11 @@ static inline long write_attributes_asynch(Tango::DeviceProxy &self,
     return self.write_attributes_asynch(dev_attrs);
 }
 
+// clang-format off
 static inline void write_attributes_asynch(Tango::DeviceProxy &self,
                                            py::object py_list,
                                            py::object py_cb) {
+    // clang-format on
     std::vector<Tango::DeviceAttribute> dev_attrs;
     pylist_to_devattrs(self, py_list, dev_attrs);
 
@@ -265,19 +299,6 @@ static inline void write_attributes_asynch(Tango::DeviceProxy &self,
     }
 }
 
-static inline void write_attributes_reply(Tango::DeviceProxy &self,
-                                          long id,
-                                          long timestamp) {
-    py::gil_scoped_release no_gil;
-    self.write_attributes_reply(id, timestamp);
-}
-
-static inline void write_attributes_reply(Tango::DeviceProxy &self,
-                                          long id) {
-    py::gil_scoped_release no_gil;
-    self.write_attributes_reply(id);
-}
-
 // Overload for the "old" case with stateless flag
 static int subscribe_event_global_with_stateless_flag(py::object py_self,
                                                       Tango::EventType event,
@@ -289,9 +310,7 @@ static int subscribe_event_global_with_stateless_flag(py::object py_self,
     try {
         cb = py_cb.cast<PyEventCallBack *>();
     } catch(const py::cast_error &) {
-        Tango::Except::throw_exception("PyDs_CastError",
-                                       "Cannot cast callback to PyEventCallBack",
-                                       "subscribe_event");
+        Tango::Except::throw_exception("PyDs_CastError", "Cannot cast callback to PyEventCallBack", "subscribe_event");
     }
 
     {
@@ -311,9 +330,7 @@ static int subscribe_event_global_with_sub_mode(py::object py_self,
     try {
         cb = py_cb.cast<PyEventCallBack *>();
     } catch(const py::cast_error &) {
-        Tango::Except::throw_exception("PyDs_CastError",
-                                       "Cannot cast callback to PyEventCallBack",
-                                       "subscribe_event");
+        Tango::Except::throw_exception("PyDs_CastError", "Cannot cast callback to PyEventCallBack", "subscribe_event");
     }
 
     {
@@ -381,9 +398,8 @@ static int subscribe_event_attrib_with_sub_mode(py::object py_self,
 }
 
 template <typename ED, typename EDList>
-static py::object get_events__aux(py::object py_self,
-                                  int event_id,
-                                  PyTango::ExtractAs extract_as = PyTango::ExtractAsNumpy) {
+static py::object
+    get_events__aux(py::object py_self, int event_id, PyTango::ExtractAs extract_as = PyTango::ExtractAsNumpy) {
     Tango::DeviceProxy &self = py_self.cast<Tango::DeviceProxy &>();
 
     EDList event_list;
@@ -408,73 +424,35 @@ static py::object get_events__aux(py::object py_self,
     return r;
 }
 
-static void get_events__callback(py::object py_self,
-                                 int event_id,
-                                 PyEventCallBack *cb,
-                                 PyTango::ExtractAs extract_as) {
+static void get_events__callback(py::object py_self, int event_id, PyEventCallBack *cb, PyTango::ExtractAs extract_as) {
     Tango::DeviceProxy &self = py_self.cast<Tango::DeviceProxy &>();
     cb->set_extract_as(extract_as);
     self.get_events(event_id, cb);
 }
 
-static py::object get_events__attr_conf(py::object py_self,
-                                        int event_id) {
+static py::object get_events__attr_conf(py::object py_self, int event_id) {
     return get_events__aux<Tango::AttrConfEventData, Tango::AttrConfEventDataList>(py_self, event_id);
 }
 
-static py::object get_events__data(py::object py_self,
-                                   int event_id,
-                                   PyTango::ExtractAs extract_as) {
+static py::object get_events__data(py::object py_self, int event_id, PyTango::ExtractAs extract_as) {
     return get_events__aux<Tango::EventData, Tango::EventDataList>(py_self, event_id, extract_as);
 }
 
-static py::object get_events__data_ready(py::object py_self,
-                                         int event_id) {
+static py::object get_events__data_ready(py::object py_self, int event_id) {
     return get_events__aux<Tango::DataReadyEventData, Tango::DataReadyEventDataList>(py_self, event_id);
 }
 
-static py::object get_events__devintr_change_data(py::object py_self,
-                                                  int event_id,
-                                                  PyTango::ExtractAs extract_as) {
-    return get_events__aux<Tango::DevIntrChangeEventData, Tango::DevIntrChangeEventDataList>(py_self, event_id, extract_as);
-}
-
-std::shared_ptr<Tango::DeviceProxy> device_proxy_init() {
-    py::gil_scoped_release no_gil;
-    return std::shared_ptr<Tango::DeviceProxy>(
-        new Tango::DeviceProxy(),
-        DeleterWithoutGIL());
-}
-
-std::shared_ptr<Tango::DeviceProxy> device_proxy_init(const std::string &name) {
-    py::gil_scoped_release no_gil;
-    return std::shared_ptr<Tango::DeviceProxy>(
-        new Tango::DeviceProxy(name.c_str()),
-        DeleterWithoutGIL());
-}
-
-std::shared_ptr<Tango::DeviceProxy> device_proxy_init(const std::string &name, bool ch_acc) {
-    py::gil_scoped_release no_gil;
-    return std::shared_ptr<Tango::DeviceProxy>(
-        new Tango::DeviceProxy(name.c_str(), ch_acc),
-        DeleterWithoutGIL());
-}
-
-std::shared_ptr<Tango::DeviceProxy> device_proxy_init(const Tango::DeviceProxy &device) {
-    py::gil_scoped_release no_gil;
-    return std::shared_ptr<Tango::DeviceProxy>(
-        new Tango::DeviceProxy(device),
-        DeleterWithoutGIL());
+static py::object get_events__devintr_change_data(py::object py_self, int event_id, PyTango::ExtractAs extract_as) {
+    return get_events__aux<Tango::DevIntrChangeEventData, Tango::DevIntrChangeEventDataList>(
+        py_self, event_id, extract_as);
 }
 } // namespace PyDeviceProxy
 
 void export_device_proxy(py::module &m) {
-    py::class_<Tango::DeviceProxy,
-               std::shared_ptr<Tango::DeviceProxy>,
-               Tango::Connection>(m,
-                                  "DeviceProxy",
-                                  py::dynamic_attr(),
-                                  R"doc(
+    py::class_<Tango::DeviceProxy, std::shared_ptr<Tango::DeviceProxy>, Tango::Connection>(m,
+                                                                                           "DeviceProxy",
+                                                                                           py::dynamic_attr(),
+                                                                                           R"doc(
     DeviceProxy is the high level Tango object which provides the client with
     an easy-to-use interface to TANGO devices. DeviceProxy provides interfaces
     to all TANGO Device interfaces.The DeviceProxy manages timeouts, stateless
@@ -484,16 +462,13 @@ void export_device_proxy(py::module &m) {
     Example :
        dev = tango.DeviceProxy("sys/tg_test/1")
 
-    DeviceProxy(dev_name, green_mode=None, wait=True, timeout=True) -> DeviceProxy
-    DeviceProxy(self, dev_name, need_check_acc, green_mode=None, wait=True, timeout=True) -> DeviceProxy
-
     Creates a new :class:`~tango.DeviceProxy`.
 
     :param dev_name: the device name or alias
-    :type dev_name: str
-    :param need_check_acc: in first version of the function it defaults to True.
+    :type dev_name: :py:obj:`str`
+    :param need_check_acc: (optional, default is True)
                            Determines if at creation time of DeviceProxy it should check
-                           for channel access (rarely used)
+                           for channel access (rarely used).
     :type need_check_acc: bool
     :param green_mode: determines the mode of execution of the device (including.
                       the way it is created). Defaults to the current global
@@ -516,37 +491,41 @@ void export_device_proxy(py::module &m) {
             :class:`gevent.event.AsynchResult`
         elif green_mode is Asyncio:
             :class:`asyncio.Future`
-    :throws:
-        * :class:`~tango.DevFailed` if green_mode is Synchronous or wait is True
-          and there is an error creating the device.
-        * :class:`concurrent.futures.TimeoutError` if green_mode is Futures,
-          wait is False, timeout is not None and the time to create the device
-          has expired.
-        * :class:`gevent.timeout.Timeout` if green_mode is Gevent, wait is False,
-          timeout is not None and the time to create the device has expired.
-        * :class:`asyncio.TimeoutError`` if green_mode is Asyncio,
-          wait is False, timeout is not None and the time to create the device
-          has expired.
+    :throws: :obj:`~tango.DevFailed` if green_mode is Synchronous or wait is True
+                and there is an error creating the device.
+             :obj:`concurrent.futures.TimeoutError` if green_mode is Futures,
+                wait is False, timeout is not None and the time to create the device
+                has expired.
+             :obj:`gevent.timeout.Timeout` if green_mode is Gevent, wait is False,
+                timeout is not None and the time to create the device has expired.
+             :obj:`asyncio.TimeoutError` if green_mode is Asyncio,
+                wait is False, timeout is not None and the time to create the device
+                has expired.
 
     .. versionadded:: 8.1.0
-        *green_mode* parameter.
-        *wait* parameter.
+        *green_mode* parameter. \n
+        *wait* parameter. \n
         *timeout* parameter.
-)doc")
+    )doc")
         .def(py::init([]() {
-            return PyDeviceProxy::device_proxy_init();
+            py::gil_scoped_release no_gil{};
+            return std::shared_ptr<Tango::DeviceProxy>(new Tango::DeviceProxy(), DeleterWithoutGIL());
         }))
         .def(py::init([](const std::string &name) {
-                 return PyDeviceProxy::device_proxy_init(name);
+                 py::gil_scoped_release no_gil{};
+                 return std::shared_ptr<Tango::DeviceProxy>(new Tango::DeviceProxy(name.c_str()), DeleterWithoutGIL());
              }),
              py::arg("name"))
         .def(py::init([](const std::string &name, bool ch_acc) {
-                 return PyDeviceProxy::device_proxy_init(name, ch_acc);
+                 py::gil_scoped_release no_gil{};
+                 return std::shared_ptr<Tango::DeviceProxy>(
+                     new Tango::DeviceProxy(name.c_str(), ch_acc), DeleterWithoutGIL());
              }),
              py::arg("name"),
              py::arg("ch_acc"))
         .def(py::init([](const Tango::DeviceProxy &device) {
-                 return PyDeviceProxy::device_proxy_init(device);
+                 py::gil_scoped_release no_gil{};
+                 return std::shared_ptr<Tango::DeviceProxy>(new Tango::DeviceProxy(device), DeleterWithoutGIL());
              }),
              py::arg("device"))
 
@@ -573,36 +552,32 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::reference_internal,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                info(self) -> DeviceInfo
+                A method which returns information on the device
 
-                        A method which returns information on the device
-
-                    Parameters : None
-                    Return     : (DeviceInfo) object
-                    Example    :
-                            dev_info = dev.info()
-                            print(dev_info.dev_class)
-                            print(dev_info.server_id)
-                            print(dev_info.server_host)
-                            print(dev_info.server_version)
-                            print(dev_info.doc_url)
-                            print(dev_info.dev_type)
-                            print(dev_info.version_info))doc")
+                Example:
+                    dev_info = dev.info()
+                    print(dev_info.dev_class)
+                    print(dev_info.server_id)
+                    print(dev_info.server_host)
+                    print(dev_info.server_version)
+                    print(dev_info.doc_url)
+                    print(dev_info.dev_type)
+                    print(dev_info.version_info)
+             )doc")
 
         .def("get_device_db",
              &Tango::DeviceProxy::get_device_db,
              py::return_value_policy::reference,
              R"doc(
-                get_device_db(self) -> Database
+                Returns the internal database reference
 
-                        Returns the internal database reference
+                .. versionadded:: 7.0.0
+             )doc")
 
-                    Parameters : None
-                    Return     : (Database) object
-
-                    New in PyTango 7.0.0)doc")
-
-        .def("_status", &Tango::DeviceProxy::status, py::return_value_policy::reference_internal, py::call_guard<py::gil_scoped_release>())
+        .def("_status",
+             &Tango::DeviceProxy::status,
+             py::return_value_policy::reference_internal,
+             py::call_guard<py::gil_scoped_release>())
 
         .def("_state", &Tango::DeviceProxy::state, py::call_guard<py::gil_scoped_release>())
 
@@ -610,59 +585,46 @@ void export_device_proxy(py::module &m) {
              &Tango::DeviceProxy::adm_name,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                adm_name(self) -> str
+                Return the name of the corresponding administrator device. This is
+                useful if you need to send an administration command to the device
+                server, e.g restart it
 
-                        Return the name of the corresponding administrator device. This is
-                        useful if you need to send an administration command to the device
-                        server, e.g restart it
-
-                    New in PyTango 3.0.4)doc")
+                .. versionadded:: 3.0.4
+             )doc")
 
         .def("description",
              &Tango::DeviceProxy::description,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                description(self) -> str
-
-                        Get device description.
-
-                    Parameters : None
-                    Return     : (str) describing the device)doc")
+                :return: device description
+             )doc")
 
         .def("name",
              &Tango::DeviceProxy::name,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                name(self) -> str
-
-                    Return the device name from the device itself.
-
-                Return: (str) device name)doc")
+                Returns the device name from the device itself
+             )doc")
 
         .def("alias",
              &Tango::DeviceProxy::alias,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                alias(self) -> str
-
-                        Return the device alias if one is defined.
-                        Otherwise, throws exception.
-
-                    Return: (str) device alias)doc")
+                Return the device alias if one is defined.
+                Otherwise, throws exception.
+             )doc")
 
         .def("get_tango_lib_version",
              &Tango::DeviceProxy::get_tango_lib_version,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_tango_lib_version(self) -> int
+                Returns the Tango lib version number used by the remote device
+                Otherwise, throws exception.
 
-                        Returns the Tango lib version number used by the remote device
-                        Otherwise, throws exception.
+                :return: 3 or 4 digits number. Possible return value are: 100,200,500,520,700,800,810,...
 
-                    Return     : (int) The device Tango lib version as a 3 or 4 digits number.
-                                 Possible return value are: 100,200,500,520,700,800,810,...
-
-                    New in PyTango 8.1.0)doc")
+                .. versionadded:: 8.1.0
+             )doc")
 
         .def("_ping", &Tango::DeviceProxy::ping, py::call_guard<py::gil_scoped_release>())
 
@@ -671,17 +633,16 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                black_box(self, n) -> sequence<str>
+                Get the last commands executed on the device server
 
-                        Get the last commands executed on the device server
+                :param n: number of commands to get
+                :type n: int
 
-                    Parameters :
-                        - n : n number of commands to get
-                    Return     : (sequence<str>) sequence of strings containing the date, time,
-                                 command and from which client computer the command
-                                 was executed
-                    Example :
-                            print(black_box(4)))doc",
+                :return: sequence of strings containing the date, time,
+                         command and from which client computer the command
+                         was executed
+                :rtype: :py:obj:`list`\[:py:obj:`str`]
+             )doc",
              py::arg("n"))
 
         //
@@ -692,15 +653,12 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_command_list(self) -> sequence<str>
+                Return the names of all commands implemented for this device.
 
-                        Return the names of all commands implemented for this device.
+                :rtype: :py:obj:`list`\[:py:obj:`str`]
 
-                    Parameters : None
-                    Return     : sequence<str>
-
-                    Throws     : ConnectionFailed, CommunicationFailed,
-                                 DevFailed from device)doc")
+                :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed` from device
+             )doc")
 
         .def("_get_command_config",
              py::overload_cast<StdStringVector &>(&Tango::DeviceProxy::get_command_config),
@@ -717,25 +675,25 @@ void export_device_proxy(py::module &m) {
              &Tango::DeviceProxy::command_query,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                command_query(self, command) -> CommandInfo
+                Query the device for information about a single command.
 
-                        Query the device for information about a single command.
+                Example :
+                        com_info = dev.command_query("DevString")
+                        print(com_info.cmd_name)
+                        print(com_info.cmd_tag)
+                        print(com_info.in_type)
+                        print(com_info.out_type)
+                        print(com_info.in_type_desc)
+                        print(com_info.out_type_desc)
+                        print(com_info.disp_level)
 
-                    Parameters :
-                            - command : (str) command name
-                    Return     : (CommandInfo) object
-                    Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device
-                    Example :
-                            com_info = dev.command_query("DevString")
-                            print(com_info.cmd_name)
-                            print(com_info.cmd_tag)
-                            print(com_info.in_type)
-                            print(com_info.out_type)
-                            print(com_info.in_type_desc)
-                            print(com_info.out_type_desc)
-                            print(com_info.disp_level)
+                See CommandInfo documentation string for more detail
 
-                    See CommandInfo documentation string form more detail)doc",
+                :param command: command name
+                :type command: :py:obj:`str`
+
+                :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed` from device
+             )doc",
              py::arg("command"))
 
         .def("command_list_query",
@@ -743,32 +701,28 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                command_list_query(self) -> sequence<CommandInfo>
+                Query the device for information on all commands.
 
-                        Query the device for information on all commands.
-
-                    Parameters : None
-                    Return     : (CommandInfoList) Sequence of CommandInfo objects)doc")
+                :return: list of CommandInfo objects
+                :rtype: :py:obj:`list`\[:obj:`~tango.CommandInfo`]
+             )doc")
 
         .def("import_info",
              &Tango::DeviceProxy::import_info,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                import_info(self) -> DbDevImportInfo
+                Query the device for import info from the database.
 
-                        Query the device for import info from the database.
+                Example :
+                        dev_import = dev.import_info()
+                        print(dev_import.name)
+                        print(dev_import.exported)
+                        print(dev_ior.ior)
+                        print(dev_version.version)
 
-                    Parameters : None
-                    Return     : (DbDevImportInfo)
-                    Example :
-                            dev_import = dev.import_info()
-                            print(dev_import.name)
-                            print(dev_import.exported)
-                            print(dev_ior.ior)
-                            print(dev_version.version)
-
-                    All DbDevImportInfo fields are strings except for exported which
-                    is an integer")doc")
+                All DbDevImportInfo fields are strings except for exported which
+                is an integer
+             )doc")
 
         //
         // property methods
@@ -815,15 +769,12 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_attribute_list(self) -> sequence<str>
+                Return the names of all attributes implemented for this device.
 
-                        Return the names of all attributes implemented for this device.
+                :rtype: :py:obj:`list`\[:py:obj:`str`]
 
-                    Parameters : None
-                    Return     : sequence<str>
-
-                    Throws     : ConnectionFailed, CommunicationFailed,
-                                 DevFailed from device)doc")
+                :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed` from device
+             )doc")
 
         .def("_get_attribute_config",
              py::overload_cast<const StdStringVector &>(&Tango::DeviceProxy::get_attribute_config),
@@ -846,17 +797,14 @@ void export_device_proxy(py::module &m) {
              &Tango::DeviceProxy::attribute_query,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                attribute_query(self, attr_name) -> AttributeInfoEx
+                Query the device for information about a single attribute.
 
-                        Query the device for information about a single attribute.
+                :param attr_name: the attribute name
+                :type attr_name: :py:obj:`str`
 
-                    Parameters :
-                            - attr_name :(str) the attribute name
-                    Return     : (AttributeInfoEx) containing the attribute
-                                 configuration
-
-                    Throws     : ConnectionFailed, CommunicationFailed,
-                                 DevFailed from device)doc",
+                :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`,
+                         :obj:`~tango.DevFailed` from device
+             )doc",
              py::arg("attr_name"))
 
         .def("attribute_list_query",
@@ -864,34 +812,27 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                attribute_list_query(self) -> sequence<AttributeInfo>
+                Query the device for info on all attributes. This method returns
+                a sequence of tango.AttributeInfo.
 
-                        Query the device for info on all attributes. This method returns
-                        a sequence of tango.AttributeInfo.
+                :rtype: :py:obj:`list`\[:obj:`~tango.AttributeInfo`]
 
-                    Parameters : None
-                    Return     : (sequence<AttributeInfo>) containing the
-                                 attributes configuration
-
-                    Throws     : ConnectionFailed, CommunicationFailed,
-                                 DevFailed from device)doc")
+                :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`,
+                         :obj:`~tango.DevFailed` from device
+             )doc")
 
         .def("attribute_list_query_ex",
              &Tango::DeviceProxy::attribute_list_query_ex,
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                attribute_list_query_ex(self) -> sequence<AttributeInfoEx>
+                Query the device for info on all attributes. This method returns
+                a sequence of tango.AttributeInfoEx.
 
-                        Query the device for info on all attributes. This method returns
-                        a sequence of tango.AttributeInfoEx.
+                :rtype: :py:obj:`list`\[:obj:`~tango.AttributeInfoEx`]
 
-                    Parameters : None
-                    Return     : (sequence<AttributeInfoEx>) containing the
-                                 attributes configuration
-
-                    Throws     : ConnectionFailed, CommunicationFailed,
-                                 DevFailed from device)doc")
+                :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed` from device
+             )doc")
 
         .def("_set_attribute_config",
              py::overload_cast<const Tango::AttributeInfoList &>(&Tango::DeviceProxy::set_attribute_config),
@@ -914,20 +855,15 @@ void export_device_proxy(py::module &m) {
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
 
         .def("_write_attribute",
-             py::overload_cast<Tango::DeviceProxy &, const std::string &, py::object>(&PyDeviceProxy::write_attribute),
-             py::arg("attr_name"),
-             py::arg("value"))
-
-        .def("_write_attribute",
-             py::overload_cast<Tango::DeviceProxy &, const Tango::AttributeInfo &, py::object>(&PyDeviceProxy::write_attribute),
-             py::arg("attr_info"),
+             py::overload_cast<Tango::DeviceProxy &, py::object, py::object>(&PyDeviceProxy::write_attribute),
+             py::arg("attr_name_or_info"),
              py::arg("value"))
 
         .def("_write_attributes", &PyDeviceProxy::write_attributes, py::arg("name_val"))
 
         .def("_write_read_attribute",
              &PyDeviceProxy::write_read_attribute,
-             py::arg("attr_name"),
+             py::arg("attr_name_or_info"),
              py::arg("value"),
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
 
@@ -942,40 +878,46 @@ void export_device_proxy(py::module &m) {
         //
 
         .def("command_history",
-             &PyDeviceProxy::command_history,
+             py::overload_cast<const char *, int>(&Tango::DeviceProxy::command_history),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                command_history(self, cmd_name, depth) -> sequence<DeviceDataHistory>
+                Retrieve command history from the command polling buffer. See
+                chapter on Advanced Feature for all details regarding polling
 
-                        Retrieve command history from the command polling buffer. See
-                        chapter on Advanced Feature for all details regarding polling
+                :param cmd_name: command name
+                :type cmd_name: :py:obj:`str`
 
-                    Parameters :
-                       - cmd_name  : (str) Command name.
-                       - depth     : (int) The wanted history depth.
-                    Return     : This method returns a vector of DeviceDataHistory types.
+                :param depth: the wanted history depth
+                :type depth: int
 
-                    Throws     : NonSupportedFeature, ConnectionFailed,
-                                 CommunicationFailed, DevFailed from device)doc",
+                :rtype: :py:obj:`list`\[:obj:`~tango.DeviceDataHistory`]
+
+                :throws: :obj:`~tango.NonSupportedFeature`, :obj:`~tango.ConnectionFailed`,
+                         :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed` from device
+             )doc",
              py::arg("cmd_name"),
              py::arg("depth"))
 
         .def("attribute_history",
              &PyDeviceProxy::attribute_history,
              R"doc(
-                attribute_history(self, attr_name, depth, extract_as=ExtractAs.Numpy) -> sequence<DeviceAttributeHistory>
+                Retrieve attribute history from the attribute polling buffer. See
+                chapter on Advanced Feature for all details regarding polling
 
-                        Retrieve attribute history from the attribute polling buffer. See
-                        chapter on Advanced Feature for all details regarding polling
+                :param attr_name: attribute name
+                :type attr_name: :py:obj:`str`
 
-                    Parameters :
-                       - attr_name  : (str) Attribute name.
-                       - depth      : (int) The wanted history depth.
-                       - extract_as : (ExtractAs)
+                :param depth: the wanted history depth
+                :type depth: int
 
-                    Return     : This method returns a vector of DeviceAttributeHistory types.
+                :param extract_as: to which format extract data
+                :type extract_as: :obj:`~tango.ExtractAs`
 
-                    Throws     : NonSupportedFeature, ConnectionFailed,
-                                 CommunicationFailed, DevFailed from device)doc",
+                :rtype: :py:obj:`list`\[:obj:`~tango.DeviceAttributeHistory`]
+
+                :throws: :obj:`~tango.NonSupportedFeature`, :obj:`~tango.ConnectionFailed`,
+                         :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed` from device
+             )doc",
              py::arg("attr_name"),
              py::arg("depth"),
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
@@ -989,130 +931,112 @@ void export_device_proxy(py::module &m) {
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                polling_status(self) -> sequence<str>
+                Return the device polling status.
 
-                        Return the device polling status.
+                :return: One string for each polled command/attribute. Each string is multi-line string with:
 
-                    Parameters : None
-                    Return     : (sequence<str>) One string for each polled command/attribute.
-                                 Each string is multi-line string with:
+                         * attribute/command name
+                         * attribute/command polling period in milliseconds
+                         * attribute/command polling ring buffer
+                         * time needed for last attribute/command execution in milliseconds
+                         * time since data in the ring buffer has not been updated
+                         * delta time between the last records in the ring buffer
+                         * exception parameters in case of the last execution failed
 
-                                    - attribute/command name
-                                    - attribute/command polling period in milliseconds
-                                    - attribute/command polling ring buffer
-                                    - time needed for last attribute/command execution in milliseconds
-                                    - time since data in the ring buffer has not been updated
-                                    - delta time between the last records in the ring buffer
-                                    - exception parameters in case of the last execution failed)doc")
+                :rtype: :py:obj:`list`\[:py:obj:`str`])doc")
 
         .def("poll_command",
              py::overload_cast<const char *, int>(&Tango::DeviceProxy::poll_command),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                poll_command(self, cmd_name, period) -> None
+                Add a command to the list of polled commands.
 
-                        Add a command to the list of polled commands.
+                :param cmd_name: command name
+                :type cmd_name: :py:obj:`str`
 
-                    Parameters :
-                        - cmd_name : (str) command name
-                        - period   : (int) polling period in milliseconds
-                    Return     : None)doc",
+                :param period_ms: polling period in milliseconds
+                :type period_ms: int)doc",
              py::arg("cmd_name"),
-             py::arg("period"))
+             py::arg("period_ms"))
 
         .def("poll_attribute",
              py::overload_cast<const char *, int>(&Tango::DeviceProxy::poll_attribute),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                poll_attribute(self, attr_name, period) -> None
+                Add an attribute to the list of polled attributes.
 
-                        Add an attribute to the list of polled attributes.
+                :param attr_name: attribute name
+                :type attr_name: :py:obj:`str`
 
-                    Parameters :
-                        - attr_name : (str) attribute name
-                        - period    : (int) polling period in milliseconds
-                    Return     : None)doc",
+                :param period_ms: polling period in milliseconds
+                :type period_ms: int))doc",
              py::arg("attr_name"),
-             py::arg("period"))
+             py::arg("period_ms"))
 
         .def("get_command_poll_period",
              py::overload_cast<const char *>(&Tango::DeviceProxy::get_command_poll_period),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_command_poll_period(self, cmd_name) -> int
+                Return the command polling period in milliseconds
 
-                        Return the command polling period.
-
-                    Parameters :
-                        - cmd_name : (str) command name
-                    Return     : polling period in milliseconds)doc",
+                :param cmd_name: command name
+                :type cmd_name: :py:obj:`str`
+             )doc",
              py::arg("cmd_name"))
 
         .def("get_attribute_poll_period",
              py::overload_cast<const char *>(&Tango::DeviceProxy::get_attribute_poll_period),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_attribute_poll_period(self, attr_name) -> int
+                Return the attribute polling period in milliseconds
 
-                        Return the attribute polling period.
-
-                    Parameters :
-                        - attr_name : (str) attribute name
-                    Return     : polling period in milliseconds)doc",
+                :param attr_name: attribute name
+                :type attr_name: :py:obj:`str`
+             )doc",
              py::arg("attr_name"))
 
         .def("is_command_polled",
              py::overload_cast<const char *>(&Tango::DeviceProxy::is_command_polled),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                is_command_polled(self, cmd_name) -> bool
+                True if the command is polled.
 
-                    True if the command is polled.
-
-                    :param str cmd_name: command name
-
-                    :returns: boolean value
-                    :rtype: bool)doc",
+                :param cmd_name: command name
+                :type cmd_name: :py:obj:`str`
+             )doc",
              py::arg("cmd_name"))
 
         .def("is_attribute_polled",
              py::overload_cast<const char *>(&Tango::DeviceProxy::is_attribute_polled),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                is_attribute_polled(self, attr_name) -> bool
+                True if the attribute is polled.
 
-                    True if the attribute is polled.
-
-                    :param str attr_name: attribute name
-
-                    :returns: boolean value
-                    :rtype: bool)doc",
+                :param attr_name: attribute name
+                :type attr_name: :py:obj:`str`
+             )doc",
              py::arg("attr_name"))
 
         .def("stop_poll_command",
              py::overload_cast<const char *>(&Tango::DeviceProxy::stop_poll_command),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                stop_poll_command(self, cmd_name) -> None
+                Remove a command from the list of polled commands.
 
-                        Remove a command from the list of polled commands.
-
-                    Parameters :
-                        - cmd_name : (str) command name
-                    Return     : None)doc",
+                :param cmd_name: command name
+                :type cmd_name: :py:obj:`str`
+             )doc",
              py::arg("cmd_name"))
 
         .def("stop_poll_attribute",
              py::overload_cast<const char *>(&Tango::DeviceProxy::stop_poll_attribute),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                stop_poll_attribute(self, attr_name) -> None
+                Remove an attribute from the list of polled attributes.
 
-                        Remove an attribute from the list of polled attributes.
-
-                    Parameters :
-                        - attr_name : (str) attribute name
-                    Return     : None)doc",
+                :param attr_name: attribute name
+                :type attr_name: :py:obj:`str`
+             )doc",
              py::arg("attr_name"))
 
         //
@@ -1123,7 +1047,8 @@ void export_device_proxy(py::module &m) {
              py::call_guard<py::gil_scoped_release>())
 
         .def("__read_attributes_asynch",
-             py::overload_cast<Tango::DeviceProxy &, py::object, py::object, PyTango::ExtractAs>(&PyDeviceProxy::read_attributes_asynch),
+             py::overload_cast<Tango::DeviceProxy &, py::object, py::object, PyTango::ExtractAs>(
+                 &PyDeviceProxy::read_attributes_asynch),
              py::arg("attr_names"),
              py::arg("callback"),
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
@@ -1134,7 +1059,8 @@ void export_device_proxy(py::module &m) {
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
 
         .def("__read_attributes_reply",
-             py::overload_cast<Tango::DeviceProxy &, long, long, PyTango::ExtractAs>(&PyDeviceProxy::read_attributes_reply),
+             py::overload_cast<Tango::DeviceProxy &, long, long, PyTango::ExtractAs>(
+                 &PyDeviceProxy::read_attributes_reply),
              py::arg("id"),
              py::arg("timeout"),
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
@@ -1142,11 +1068,22 @@ void export_device_proxy(py::module &m) {
         .def("pending_asynch_call",
              &Tango::DeviceProxy::pending_asynch_call,
              R"doc(
-                pending_asynch_call(self) -> int
+                Return number of device asynchronous pending requests"
 
-                    Return number of device asynchronous pending requests"
+                .. versionadded:: 7.0.0
+             )doc")
 
-                New in PyTango 7.0.0)doc")
+        .def("__write_attribute_asynch",
+             py::overload_cast<Tango::DeviceProxy &, py::object, py::object>(&PyDeviceProxy::write_attribute_asynch),
+             py::arg("attr_name_or_info"),
+             py::arg("value"))
+
+        .def("__write_attribute_asynch",
+             py::overload_cast<Tango::DeviceProxy &, py::object, py::object, py::object>(
+                 &PyDeviceProxy::write_attribute_asynch),
+             py::arg("attr_name_or_info"),
+             py::arg("value"),
+             py::arg("callback"))
 
         .def("__write_attributes_asynch",
              py::overload_cast<Tango::DeviceProxy &, py::object>(&PyDeviceProxy::write_attributes_asynch),
@@ -1158,11 +1095,13 @@ void export_device_proxy(py::module &m) {
              py::arg("callback"))
 
         .def("__write_attributes_reply",
-             py::overload_cast<Tango::DeviceProxy &, long>(&PyDeviceProxy::write_attributes_reply),
+             py::overload_cast<long>(&Tango::DeviceProxy::write_attributes_reply),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("id"))
 
         .def("__write_attributes_reply",
-             py::overload_cast<Tango::DeviceProxy &, long, long>(&PyDeviceProxy::write_attributes_reply),
+             py::overload_cast<long, long>(&Tango::DeviceProxy::write_attributes_reply),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("id"),
              py::arg("timeout"))
 
@@ -1174,111 +1113,97 @@ void export_device_proxy(py::module &m) {
              py::overload_cast<const std::string &>(&Tango::DeviceProxy::add_logging_target),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                add_logging_target(self, target_type_target_name) -> None
+                Adds a new logging target to the device.
 
-                        Adds a new logging target to the device.
+                The target_type_target_name input parameter must follow the
+                format: target_type::target_name. Supported target types are:
+                console, file and device. For a device target, the target_name
+                part of the target_type_target_name parameter must contain the
+                name of a log consumer device (as defined in A.8). For a file
+                target, target_name is the full path to the file to log to. If
+                omitted, the device's name is used to build the file name
+                (which is something like domain_family_member.log). Finally, the
+                target_name part of the target_type_target_name input parameter
+                is ignored in case of a console target and can be omitted.
 
-                        The target_type_target_name input parameter must follow the
-                        format: target_type::target_name. Supported target types are:
-                        console, file and device. For a device target, the target_name
-                        part of the target_type_target_name parameter must contain the
-                        name of a log consumer device (as defined in A.8). For a file
-                        target, target_name is the full path to the file to log to. If
-                        omitted, the device's name is used to build the file name
-                        (which is something like domain_family_member.log). Finally, the
-                        target_name part of the target_type_target_name input parameter
-                        is ignored in case of a console target and can be omitted.
+                :param target_type_target_name: logging target
+                :type target_type_target_name: :py:obj:`str`
 
-                    Parameters :
-                        - target_type_target_name : (str) logging target
-                    Return     : None
+                :throws: :obj:`~tango.DevFailed` from device
 
-                    Throws     : DevFailed from device
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("target_type_target_name"))
 
         .def("remove_logging_target",
              py::overload_cast<const std::string &>(&Tango::DeviceProxy::remove_logging_target),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                remove_logging_target(self, target_type_target_name) -> None
+                Removes a logging target from the device's target list.
 
-                        Removes a logging target from the device's target list.
+                The target_type_target_name input parameter must follow the
+                format: target_type::target_name. Supported target types are:
+                console, file and device. For a device target, the target_name
+                part of the target_type_target_name parameter must contain the
+                name of a log consumer device (as defined in ). For a file
+                target, target_name is the full path to the file to remove.
+                If omitted, the default log file is removed. Finally, the
+                target_name part of the target_type_target_name input parameter
+                is ignored in case of a console target and can be omitted.
+                If target_name is set to '*', all targets of the specified
+                target_type are removed.
 
-                        The target_type_target_name input parameter must follow the
-                        format: target_type::target_name. Supported target types are:
-                        console, file and device. For a device target, the target_name
-                        part of the target_type_target_name parameter must contain the
-                        name of a log consumer device (as defined in ). For a file
-                        target, target_name is the full path to the file to remove.
-                        If omitted, the default log file is removed. Finally, the
-                        target_name part of the target_type_target_name input parameter
-                        is ignored in case of a console target and can be omitted.
-                        If target_name is set to '*', all targets of the specified
-                        target_type are removed.
+                :param target_type_target_name: logging target
+                :type target_type_target_name: :py:obj:`str`
 
-                    Parameters :
-                        - target_type_target_name : (str) logging target
-                    Return     : None
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("target_type_target_name"))
 
         .def("get_logging_target",
              &Tango::DeviceProxy::get_logging_target,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_logging_target(self) -> sequence<str>
+                Returns a sequence of string containing the current device's
+                logging targets. Each vector element has the following format:
+                target_type::target_name. An empty sequence is returned is the
+                device has no logging targets.
 
-                        Returns a sequence of string containing the current device's
-                        logging targets. Each vector element has the following format:
-                        target_type::target_name. An empty sequence is returned is the
-                        device has no logging targets.
-
-                    Parameters : None
-                    Return     : a sequence<str> with the logging targets
-
-                    New in PyTango 7.0.0)doc")
+                .. versionadded:: 7.0.0
+             )doc")
 
         .def("get_logging_level",
              &Tango::DeviceProxy::get_logging_level,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_logging_level(self) -> int
+                Returns the current device's logging level, where:
+                    - 0=OFF
+                    - 1=FATAL
+                    - 2=ERROR
+                    - 3=WARNING
+                    - 4=INFO
+                    - 5=DEBUG
 
-                        Returns the current device's logging level, where:
-                            - 0=OFF
-                            - 1=FATAL
-                            - 2=ERROR
-                            - 3=WARNING
-                            - 4=INFO
-                            - 5=DEBUG
-
-                    Parameters :None
-                    Return     : (int) representing the current logging level
-
-                    New in PyTango 7.0.0)doc")
+                .. versionadded:: 7.0.0
+             )doc")
 
         .def("set_logging_level",
              &Tango::DeviceProxy::set_logging_level,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                set_logging_level(self, level) -> None
+                Changes the device's logging level, where:
+                    - 0=OFF
+                    - 1=FATAL
+                    - 2=ERROR
+                    - 3=WARNING
+                    - 4=INFO
+                    - 5=DEBUG
 
-                        Changes the device's logging level, where:
-                            - 0=OFF
-                            - 1=FATAL
-                            - 2=ERROR
-                            - 3=WARNING
-                            - 4=INFO
-                            - 5=DEBUG
+                :param level: logging level
+                :type level: int
 
-                    Parameters :
-                        - level : (int) logging level
-                    Return     : None
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("level"))
 
         //
@@ -1327,18 +1252,14 @@ void export_device_proxy(py::module &m) {
              py::arg("callback"),
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
 
-        .def("__get_attr_conf_events",
-             PyDeviceProxy::get_events__attr_conf,
-             py::arg("event_id"))
+        .def("__get_attr_conf_events", PyDeviceProxy::get_events__attr_conf, py::arg("event_id"))
 
         .def("__get_data_events",
              PyDeviceProxy::get_events__data,
              py::arg("event_id"),
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"))
 
-        .def("__get_data_ready_events",
-             PyDeviceProxy::get_events__data_ready,
-             py::arg("event_id"))
+        .def("__get_data_ready_events", PyDeviceProxy::get_events__data_ready, py::arg("event_id"))
 
         .def("__get_devintr_change_events",
              PyDeviceProxy::get_events__devintr_change_data,
@@ -1349,61 +1270,54 @@ void export_device_proxy(py::module &m) {
         .def("event_queue_size",
              &Tango::DeviceProxy::event_queue_size,
              R"doc(
-                event_queue_size(self, event_id) -> int
+                Returns the number of stored events in the event reception
+                buffer. After every call to DeviceProxy.get_events(), the event
+                queue size is 0. During event subscription the client must have
+                chosen the 'pull model' for this event. event_id is the event
+                identifier returned by the DeviceProxy.subscribe_event() method.
 
-                        Returns the number of stored events in the event reception
-                        buffer. After every call to DeviceProxy.get_events(), the event
-                        queue size is 0. During event subscription the client must have
-                        chosen the 'pull model' for this event. event_id is the event
-                        identifier returned by the DeviceProxy.subscribe_event() method.
+                :param event_id: event identifier
+                :type event_id: int
 
-                    Parameters :
-                        - event_id : (int) event identifier
-                    Return     : an integer with the queue size
+                :throws: :obj:`~tango.EventSystemFailed`
 
-                    Throws     : EventSystemFailed
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("event_id"))
 
         .def("get_last_event_date",
              &Tango::DeviceProxy::get_last_event_date,
              R"doc(
-                get_last_event_date(self, event_id) -> TimeVal
+                Returns the arrival time of the last event stored in the event
+                reception buffer. After every call to DeviceProxy:get_events(),
+                the event reception buffer is empty. In this case an exception
+                will be returned. During event subscription the client must have
+                chosen the 'pull model' for this event. event_id is the event
+                identifier returned by the DeviceProxy.subscribe_event() method.
 
-                        Returns the arrival time of the last event stored in the event
-                        reception buffer. After every call to DeviceProxy:get_events(),
-                        the event reception buffer is empty. In this case an exception
-                        will be returned. During event subscription the client must have
-                        chosen the 'pull model' for this event. event_id is the event
-                        identifier returned by the DeviceProxy.subscribe_event() method.
+                :param event_id: event identifier
+                :type event_id: int
 
-                    Parameters :
-                        - event_id : (int) event identifier
-                    Return     : (tango.TimeVal) representing the arrival time
+                :throws: :obj:`~tango.EventSystemFailed`
 
-                    Throws     : EventSystemFailed
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("event_id"))
 
         .def("is_event_queue_empty",
              &Tango::DeviceProxy::is_event_queue_empty,
              R"doc(
-                is_event_queue_empty(self, event_id) -> bool
+                Returns true when the event reception buffer is empty. During
+                event subscription the client must have chosen the 'pull model'
+                for this event. event_id is the event identifier returned by the
+                DeviceProxy.subscribe_event() method.
 
-                        Returns true when the event reception buffer is empty. During
-                        event subscription the client must have chosen the 'pull model'
-                        for this event. event_id is the event identifier returned by the
-                        DeviceProxy.subscribe_event() method.
+                :param event_id: event identifier
+                :type event_id: int
 
-                        Parameters :
-                            - event_id : (int) event identifier
-                        Return     : (bool) True if queue is empty or False otherwise
+                :throws: :obj:`~tango.EventSystemFailed`
 
-                        Throws     : EventSystemFailed
-
-                        New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0)doc",
              py::arg("event_id"))
 
         //
@@ -1413,137 +1327,314 @@ void export_device_proxy(py::module &m) {
              &Tango::DeviceProxy::lock,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                lock(self, (int)lock_validity) -> None
+                Lock a device. The lock_validity is the time (in seconds) the
+                lock is kept valid after the previous lock call. A default value
+                of 10 seconds is provided and should be fine in most cases. In
+                case it is necessary to change the lock validity, it's not
+                possible to ask for a validity less than a minimum value set to
+                2 seconds. The library provided an automatic system to
+                periodically re lock the device until an unlock call. No code is
+                needed to start/stop this automatic re-locking system. The
+                locking system is re-entrant. It is then allowed to call this
+                method on a device already locked by the same process. The
+                locking system has the following features:
 
-                        Lock a device. The lock_validity is the time (in seconds) the
-                        lock is kept valid after the previous lock call. A default value
-                        of 10 seconds is provided and should be fine in most cases. In
-                        case it is necessary to change the lock validity, it's not
-                        possible to ask for a validity less than a minimum value set to
-                        2 seconds. The library provided an automatic system to
-                        periodically re lock the device until an unlock call. No code is
-                        needed to start/stop this automatic re-locking system. The
-                        locking system is re-entrant. It is then allowed to call this
-                        method on a device already locked by the same process. The
-                        locking system has the following features:
+                * It is impossible to lock the database device or any device
+                  server process admin device
+                * Destroying a locked DeviceProxy unlocks the device
+                * Restarting a locked device keeps the lock
+                * It is impossible to restart a device locked by someone else
+                * Restarting a server breaks the lock
 
-                          * It is impossible to lock the database device or any device
-                            server process admin device
-                          * Destroying a locked DeviceProxy unlocks the device
-                          * Restarting a locked device keeps the lock
-                          * It is impossible to restart a device locked by someone else
-                          * Restarting a server breaks the lock
+                A locked device is protected against the following calls when
+                executed by another client:
 
-                        A locked device is protected against the following calls when
-                        executed by another client:
+                * command_inout call except for device state and status
+                  requested via command and for the set of commands defined as
+                  allowed following the definition of allowed command in the
+                  Tango control access schema.
+                * write_attribute call
+                * write_read_attribute call
+                * set_attribute_config call
 
-                          * command_inout call except for device state and status
-                            requested via command and for the set of commands defined as
-                            allowed following the definition of allowed command in the
-                            Tango control access schema.
-                          * write_attribute call
-                          * write_read_attribute call
-                          * set_attribute_config call
+                :param lock_validity: lock validity time in seconds
+                :type lock_validity: int
 
-                    Parameters :
-                        - lock_validity : (int) lock validity time in seconds
-                                            (optional, default value is
-                                            tango.constants.DEFAULT_LOCK_VALIDITY)
-                    Return     : None
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("lock_validity") = Tango::DEFAULT_LOCK_VALIDITY)
 
         .def("unlock",
              &Tango::DeviceProxy::unlock,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                unlock(self, (bool)force) -> None
+                Unlock a device. If used, the method argument provides a back
+                door on the locking system. If this argument is set to true,
+                the device will be unlocked even if the caller is not the locker.
+                This feature is provided for administration purpose and should
+                be used very carefully. If this feature is used, the locker will
+                receive a DeviceUnlocked during the next call which is normally
+                protected by the locking Tango system.
 
-                        Unlock a device. If used, the method argument provides a back
-                        door on the locking system. If this argument is set to true,
-                        the device will be unlocked even if the caller is not the locker.
-                        This feature is provided for administration purpose and should
-                        be used very carefully. If this feature is used, the locker will
-                        receive a DeviceUnlocked during the next call which is normally
-                        protected by the locking Tango system.
+                :param force: force unlocking even if we are not the locker
+                :type force: bool
 
-                    Parameters :
-                        - force : (bool) force unlocking even if we are not the
-                                  locker (optional, default value is False)
-                    Return     : None
-
-                    New in PyTango 7.0.0)doc",
+                .. versionadded:: 7.0.0
+             )doc",
              py::arg("force") = false)
 
         .def("locking_status",
              &Tango::DeviceProxy::locking_status,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                locking_status(self) -> str
+                This method returns a plain string describing the device locking
+                status. This string can be:
 
-                        This method returns a plain string describing the device locking
-                        status. This string can be:
+                * "Device <device name> is not locked" in case the device is not locked
+                * "Device <device name> is locked by CPP or Python client with
+                  PID <pid> from host <host name>" in case the device is locked by a CPP client
+                * "Device <device name> is locked by JAVA client class
+                  <main class> from host <host name>" in case the device is
+                  locked by a JAVA client
 
-                          * 'Device <device name> is not locked' in case the device is
-                            not locked
-                          * 'Device <device name> is locked by CPP or Python client with
-                            PID <pid> from host <host name>' in case the device is
-                            locked by a CPP client
-                          * 'Device <device name> is locked by JAVA client class
-                            <main class> from host <host name>' in case the device is
-                            locked by a JAVA client
-
-                    Parameters : None
-                    Return     : a string representing the current locking status
-
-                    New in PyTango 7.0.0)doc")
+                .. versionadded:: 7.0.0
+             )doc")
 
         .def("is_locked",
              &Tango::DeviceProxy::is_locked,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                is_locked(self) -> bool
+                Returns True if the device is locked. Otherwise, returns False.
 
-                        Returns True if the device is locked. Otherwise, returns False.
-
-                    Parameters : None
-                    Return     : (bool) True if the device is locked. Otherwise, False
-
-                    New in PyTango 7.0.0)doc")
+                .. versionadded:: 7.0.0
+             )doc")
 
         .def("is_locked_by_me",
              &Tango::DeviceProxy::is_locked_by_me,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                is_locked_by_me(self) -> bool
+                Returns True if the device is locked by the caller. Otherwise,
+                returns False (device not locked or locked by someone else)
 
-                        Returns True if the device is locked by the caller. Otherwise,
-                        returns False (device not locked or locked by someone else)
-
-                    Parameters : None
-                    Return     : (bool) True if the device is locked by us.
-                                    Otherwise, False
-
-                    New in PyTango 7.0.0)doc")
+                .. versionadded:: 7.0.0
+             )doc")
 
         .def("get_locker",
              &Tango::DeviceProxy::get_locker,
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_locker(self, lockinfo) -> bool
+                If the device is locked, this method returns True an set some
+                locker process informations in the structure passed as argument.
+                If the device is not locked, the method returns False.
 
-                        If the device is locked, this method returns True an set some
-                        locker process informations in the structure passed as argument.
-                        If the device is not locked, the method returns False.
+                :param lockinfo: object that will be filled with lock information
+                :type lockinfo: :obj:`~tango.LockInfo`
 
-                    Parameters :
-                        - lockinfo [out] : (tango.LockInfo) object that will be filled
-                                            with lock information
-                    Return     : (bool) True if the device is locked by us.
-                                 Otherwise, False
+                .. versionadded:: 7.0.0
+             )doc",
+             py::arg("lockinfo"))
 
-                    New in PyTango 7.0.0)doc",
-             py::arg("lockinfo"));
+        //
+        // Telemetry related methods
+        //
+
+        .def("_set_telemetry_logging",
+             &Tango::DeviceProxy::set_telemetry_logging,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Set the enabled/disabled state of telemetry logging for the device
+
+                :param enabled: true to enable telemetry logging, false to disable
+                :type enabled: bool
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("enabled"))
+
+        .def("_get_telemetry_logging",
+             &Tango::DeviceProxy::get_telemetry_logging,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Get the enabled/disabled state of telemetry logging for the device
+
+                :return: The enabled/disabled state of telemetry logging
+                :rtype: bool
+             )doc")
+
+        .def("_set_telemetry_tracing",
+             &Tango::DeviceProxy::set_telemetry_tracing,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Set the enabled/disabled state of telemetry tracing for the device
+
+                :param enabled: true to enable telemetry tracing, false to disable
+                :type enabled: bool
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("enabled"))
+
+        .def("_get_telemetry_tracing",
+             &Tango::DeviceProxy::get_telemetry_tracing,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Get the enabled/disabled state of telemetry tracing for the device
+
+                :return: The enabled/disabled state of telemetry tracing
+                :rtype: bool
+             )doc")
+
+        .def("_set_telemetry_logging_endpoints",
+             &Tango::DeviceProxy::set_telemetry_logging_endpoints,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Set the telemetry logging exporter/endpoint pairs for the device
+
+                Replaces all existing endpoints with the provided endpoints.
+
+                :param endpoint_pairs: List of strings with format [exporter_type_1, endpoint_1, exporter_type_2, endpoint_2, ...]
+                :type endpoint_pairs: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("endpoint_pairs"))
+
+        .def("_get_telemetry_logging_endpoints",
+             &Tango::DeviceProxy::get_telemetry_logging_endpoints,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Get the telemetry logging exporter/endpoint pairs for the device
+
+                :return: List of strings with format [exporter_type_1, endpoint_1, exporter_type_2, endpoint_2, ...]
+                :rtype: :py:obj:`list`\[:py:obj:`str`]
+             )doc")
+
+        .def("_add_telemetry_logging_endpoint",
+             &Tango::DeviceProxy::add_telemetry_logging_endpoint,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Add telemetry logging exporter/endpoint pair for the device
+
+                :param endpoint_pair: List with format [exporter_type, endpoint]
+                :type endpoint_pair: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("endpoint_pair"))
+
+        .def("_remove_telemetry_logging_endpoint",
+             &Tango::DeviceProxy::remove_telemetry_logging_endpoint,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Remove telemetry logging exporter/endpoint pair for the device
+
+                :param endpoint_pair: List with format [exporter_type, endpoint]
+                :type endpoint_pair: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("endpoint_pair"))
+
+        .def("_set_telemetry_tracing_endpoints",
+             &Tango::DeviceProxy::set_telemetry_tracing_endpoints,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Set the telemetry tracing exporter/endpoint pairs for the device
+
+                Replaces all existing endpoints with the provided endpoints.
+
+                :param endpoint_pairs: List of strings with format [exporter_type_1, endpoint_1, exporter_type_2, endpoint_2, ...]
+                :type endpoint_pairs: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("endpoint_pairs"))
+
+        .def("_get_telemetry_tracing_endpoints",
+             &Tango::DeviceProxy::get_telemetry_tracing_endpoints,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Get the telemetry tracing exporter/endpoint pairs for the device
+
+                :return: List of strings with format [exporter_type_1, endpoint_1, exporter_type_2, endpoint_2, ...]
+                :rtype: :py:obj:`list`\[:py:obj:`str`]
+             )doc")
+
+        .def("_add_telemetry_tracing_endpoint",
+             &Tango::DeviceProxy::add_telemetry_tracing_endpoint,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Add telemetry tracing exporter/endpoint pair for the device
+
+                :param endpoint_pair: List with format [exporter_type, endpoint]
+                :type endpoint_pair: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("endpoint_pair"))
+
+        .def("_remove_telemetry_tracing_endpoint",
+             &Tango::DeviceProxy::remove_telemetry_tracing_endpoint,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Remove telemetry tracing exporter/endpoint pair for the device
+
+                :param endpoint_pair: List with format [exporter_type, endpoint]
+                :type endpoint_pair: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("endpoint_pair"))
+
+        .def("_start_telemetry",
+             &Tango::DeviceProxy::start_telemetry,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Start the telemetry service
+
+                By default logging and tracing are both enabled
+             )doc")
+
+        .def("_stop_telemetry",
+             &Tango::DeviceProxy::stop_telemetry,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Stop the telemetry service
+
+                Completely disconnects the device from the telemetry service.
+             )doc")
+
+        .def("_is_telemetry_enabled",
+             &Tango::DeviceProxy::is_telemetry_enabled,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                The telemetry service enabled/disabled state.
+
+                :return: true if telemetry is enabled, false if disabled
+                :rtype: bool
+             )doc")
+
+        .def("_set_telemetry_topics",
+             &Tango::DeviceProxy::set_telemetry_topics,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Set telemetry topics
+
+                :param topics: List of topics as strings (e.g., "database", "polling", etc)
+                :type topics: :py:obj:`list`\[:py:obj:`str`]
+
+                :throws: :obj:`~tango.DevFailed` from device
+             )doc",
+             py::arg("topics"))
+
+        .def("_get_telemetry_topics",
+             &Tango::DeviceProxy::get_telemetry_topics,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Get the telemetry topics set for the device
+
+                :return: List of topics as strings
+                :rtype: :py:obj:`list`\[:py:obj:`str`]
+             )doc");
     fix_dynamic_attr_dealloc<Tango::DeviceProxy>();
 }

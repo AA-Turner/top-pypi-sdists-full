@@ -15,7 +15,6 @@ def scan_workflows(kanban_dir: Path) -> dict[str, dict]:
     Built-in modes are always included as base entries.
     """
     result: dict[str, dict] = {
-        "full":        {"builtin": True},
         "lightweight": {"builtin": True},
         "quick":       {"builtin": True},
     }

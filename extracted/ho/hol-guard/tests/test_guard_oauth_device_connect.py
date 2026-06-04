@@ -84,11 +84,54 @@ def _fake_access_token(*, grant_id: str, machine_id: str, workspace_id: str) -> 
     return f"{header}.{claims}.signature"
 
 
+def test_request_device_authorization_sets_hol_guard_user_agent(monkeypatch) -> None:
+    captured: dict[str, str] = {}
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "device_code": "device-secret-value",
+                    "user_code": "ABCD-EFGH",
+                    "verification_uri": "https://hol.org/guard/oauth/device",
+                    "expires_in": 600,
+                    "interval": 5,
+                }
+            ).encode("utf-8")
+
+    def fake_urlopen(request: urllib.request.Request, timeout: int):
+        del timeout
+        captured["user_agent"] = request.get_header("User-agent") or ""
+        return _Response()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    connect_flow.request_device_authorization(
+        "https://hol.org/api/guard/oauth/device/authorize",
+        connect_flow.build_device_authorization_request_body(
+            machine_id="machine-123",
+            machine_label="Test Machine",
+            runtime_id=connect_flow.HEADLESS_RUNTIME_ID,
+            runtime_label=connect_flow.HEADLESS_RUNTIME_LABEL,
+            client_id="guard-local-daemon",
+        ),
+    )
+
+    assert captured["user_agent"].startswith("hol-guard/")
+
+
 def test_device_authorization_request_uses_oauth_scopes_without_token_material() -> None:
     assert hasattr(connect_flow, "build_device_authorization_request_body")
     encoded = connect_flow.build_device_authorization_request_body(
         machine_id="machine-123",
         machine_label="Michaels MacBook",
+        machine_location_label="America/New_York",
         runtime_id="hol-guard",
         runtime_label="HOL Guard CLI",
         client_id="guard-local-daemon",
@@ -101,6 +144,7 @@ def test_device_authorization_request_uses_oauth_scopes_without_token_material()
     ]
     assert parsed["requested_machine_id"] == ["machine-123"]
     assert parsed["requested_machine_label"] == ["Michaels MacBook"]
+    assert parsed["requested_machine_location_label"] == ["America/New_York"]
     assert parsed["requested_runtime_id"] == ["hol-guard"]
     assert parsed["requested_runtime_label"] == ["HOL Guard CLI"]
     assert "token" not in encoded
@@ -111,6 +155,7 @@ def test_ci_safe_device_authorization_request_uses_restricted_scopes() -> None:
     encoded = connect_flow.build_device_authorization_request_body(
         machine_id="machine-123",
         machine_label="CI Runner",
+        machine_location_label=None,
         runtime_id="hol-guard",
         runtime_label="HOL Guard CLI",
         client_id="guard-local-daemon",
@@ -121,6 +166,7 @@ def test_ci_safe_device_authorization_request_uses_restricted_scopes() -> None:
     assert parsed["scope"] == ["guard:runtime.sync guard:offline_access"]
     assert "guard:receipt.write" not in encoded
     assert "guard:runtime.session.write" not in encoded
+    assert "requested_machine_location_label" not in parsed
 
 
 def test_device_authorization_copy_payload_hides_device_code_secret() -> None:
@@ -140,7 +186,7 @@ def test_device_authorization_copy_payload_hides_device_code_secret() -> None:
     assert payload["status"] == "waiting_for_approval"
     assert payload["user_code"] == "ABCD-EFGH"
     assert payload["verification_uri"] == "https://hol.org/guard/oauth/device"
-    assert payload["next_action"]["target"] == "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH"
+    assert payload["next_action"]["target"] == "https://hol.org/guard/oauth/device"
     assert "device-secret-value" not in rendered
     assert "device_code" not in rendered
 
@@ -165,7 +211,7 @@ def test_headless_connect_requests_device_code_without_persisting_secrets(tmp_pa
 
     class _Response:
         def __enter__(self):
-            assert opened == ["https://hol.org/guard/oauth/device?user_code=ABCD-EFGH"]
+            assert opened == ["https://hol.org/guard/oauth/device"]
             return self
 
         def __exit__(self, exc_type, exc, tb):
@@ -241,7 +287,7 @@ def test_headless_connect_uses_staging_client_defaults(tmp_path: Path) -> None:
                         machine_id="machine-123",
                         workspace_id="workspace-123",
                     ),
-                    "refresh_token": "refresh-123",
+                    "refresh_token": "refresh-rotated",
                     "expires_in": 3600,
                     "scope": "guard:runtime.sync guard:offline_access",
                     "token_type": "Bearer",
@@ -293,7 +339,7 @@ def test_headless_connect_ci_safe_uses_explicit_label_and_restricted_scopes(tmp_
                         machine_id="machine-123",
                         workspace_id="workspace-123",
                     ),
-                    "refresh_token": "refresh-123",
+                    "refresh_token": "refresh-rotated",
                     "expires_in": 3600,
                     "scope": "guard:runtime.sync guard:offline_access",
                     "token_type": "Bearer",
@@ -314,6 +360,183 @@ def test_headless_connect_ci_safe_uses_explicit_label_and_restricted_scopes(tmp_
     assert payload["status"] == "connected"
     assert parsed["requested_machine_label"] == ["CI Runner"]
     assert parsed["scope"] == ["guard:runtime.sync guard:offline_access"]
+
+
+def test_disconnect_revokes_cloud_grant_with_runtime_access_token_and_clears_local_oauth_credentials(
+    tmp_path: Path,
+) -> None:
+    guard_home = tmp_path / "guard-home"
+    store = GuardStore(guard_home)
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token="refresh-123",
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-123",
+        machine_id="machine-123",
+        workspace_id="workspace-123",
+        runtime_id="hol-guard",
+        runtime_label="HOL Guard CLI",
+        now="2026-06-01T12:00:00+00:00",
+    )
+    access_token = _fake_access_token(
+        grant_id="grant-123",
+        machine_id="machine-123",
+        workspace_id="workspace-123",
+    )
+    requests: list[dict[str, object]] = []
+
+    class _Response:
+        def __init__(self, payload: dict[str, object] | None = None) -> None:
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            if self._payload is None:
+                return b""
+            return json.dumps(self._payload).encode("utf-8")
+
+    def fake_urlopen(request: urllib.request.Request, timeout: int):
+        del timeout
+        body = request.data.decode("utf-8") if request.data else ""
+        requests.append(
+            {
+                "authorization": request.get_header("Authorization"),
+                "body": body,
+                "headers": dict(request.header_items()),
+                "url": request.full_url,
+            }
+        )
+        if request.full_url == "https://hol.org/api/guard/oauth/token":
+            return _Response(
+                {
+                    "access_token": access_token,
+                    "refresh_token": "refresh-123",
+                    "expires_in": 3600,
+                    "scope": "guard:runtime.sync guard:offline_access",
+                    "token_type": "Bearer",
+                }
+            )
+        if request.full_url == "https://hol.org/api/guard/oauth/revoke/self":
+            return _Response()
+        raise AssertionError(f"Unexpected request URL: {request.full_url}")
+
+    payload = connect_flow.run_guard_disconnect_command(
+        store=store,
+        revoke_cloud_grant=True,
+        urlopen=fake_urlopen,
+        now="2026-06-01T12:05:00+00:00",
+    )
+
+    assert payload["status"] == "disconnected"
+    assert payload["cloud_grant_revoked"] is True
+    assert payload["reconnect_command"] == "hol-guard connect"
+    assert store.get_oauth_local_credentials() is None
+    assert [request["url"] for request in requests] == [
+        "https://hol.org/api/guard/oauth/token",
+        "https://hol.org/api/guard/oauth/revoke/self",
+    ]
+
+    token_body = urllib.parse.parse_qs(str(requests[0]["body"]))
+    revoke_body = urllib.parse.parse_qs(str(requests[1]["body"]))
+    assert token_body["grant_type"] == ["refresh_token"]
+    assert token_body["client_id"] == ["guard-local-daemon"]
+    assert token_body["refresh_token"] == ["refresh-123"]
+    assert revoke_body == {
+        "reason": ["user_disconnect"],
+        "revoke_machine_grant": ["true"],
+        "revoke_runtime_grant": ["true"],
+        "workspace_id": ["workspace-123"],
+    }
+    assert requests[1]["authorization"] == f"Bearer {access_token}"
+    assert isinstance(requests[1]["headers"], dict)
+    assert requests[1]["headers"].get("Dpop")
+    assert "refresh-123" not in str(requests[1]["body"])
+
+
+def test_disconnect_keeps_local_oauth_credentials_when_self_revoke_fails(tmp_path: Path) -> None:
+    guard_home = tmp_path / "guard-home"
+    store = GuardStore(guard_home)
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token="refresh-123",
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-123",
+        machine_id="machine-123",
+        workspace_id="workspace-123",
+        runtime_id="hol-guard",
+        runtime_label="HOL Guard CLI",
+        now="2026-06-01T12:00:00+00:00",
+    )
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "access_token": _fake_access_token(
+                        grant_id="grant-123",
+                        machine_id="machine-123",
+                        workspace_id="workspace-123",
+                    ),
+                    "refresh_token": "refresh-rotated",
+                    "expires_in": 3600,
+                    "scope": "guard:runtime.sync guard:offline_access",
+                    "token_type": "Bearer",
+                }
+            ).encode("utf-8")
+
+    def fake_urlopen(request: urllib.request.Request, timeout: int):
+        del timeout
+        if request.full_url == "https://hol.org/api/guard/oauth/token":
+            return _Response()
+        raise urllib.error.HTTPError(
+            request.full_url,
+            500,
+            "server_error",
+            hdrs={"Content-Type": "application/json"},
+            fp=io.BytesIO(
+                json.dumps(
+                    {
+                        "error": "server_error",
+                        "error_description": "temporary failure",
+                    }
+                ).encode("utf-8")
+            ),
+        )
+
+    try:
+        connect_flow.run_guard_disconnect_command(
+            store=store,
+            revoke_cloud_grant=True,
+            urlopen=fake_urlopen,
+            now="2026-06-01T12:05:00+00:00",
+        )
+    except RuntimeError as error:
+        assert str(error) == "Guard OAuth disconnect failed: temporary failure"
+    else:
+        raise AssertionError("disconnect should fail when self-revocation fails")
+
+    credentials = store.get_oauth_local_credentials()
+    assert credentials is not None
+    assert credentials["refresh_token"] == "refresh-rotated"
 
 
 def test_headless_connect_polls_until_success_and_persists_oauth_credentials(tmp_path: Path) -> None:
@@ -405,6 +628,57 @@ def test_headless_connect_polls_until_success_and_persists_oauth_credentials(tmp
     assert credentials["workspace_id"] == "workspace-123"
     assert credentials["refresh_token"] == "refresh-123"
     assert credentials["runtime_label"] == "HOL Guard CLI"
+
+
+def test_headless_connect_respects_client_wait_timeout(tmp_path: Path, monkeypatch) -> None:
+    guard_home = tmp_path / "guard-home"
+    store = GuardStore(guard_home)
+    sleeps: list[float] = []
+    clock = {"value": 0.0}
+
+    def fake_request(_url: str, _body: str) -> dict[str, object]:
+        return {
+            "device_code": "device-secret-value",
+            "user_code": "ABCD-EFGH",
+            "verification_uri": "https://hol.org/guard/oauth/device",
+            "verification_uri_complete": "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH",
+            "expires_in": 600,
+            "interval": 5,
+        }
+
+    def fake_urlopen(request: urllib.request.Request, timeout: int):
+        del timeout
+        raise urllib.error.HTTPError(
+            request.full_url,
+            400,
+            "authorization_pending",
+            hdrs={"Content-Type": "application/json"},
+            fp=io.BytesIO(json.dumps({"error": "authorization_pending"}).encode("utf-8")),
+        )
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock["value"] += seconds
+
+    monkeypatch.setattr(connect_flow.time, "monotonic", lambda: clock["value"])
+
+    try:
+        connect_flow.run_guard_device_connect_command(
+            store=store,
+            connect_url="https://hol.org/guard/connect",
+            request_device_authorization=fake_request,
+            token_urlopen=fake_urlopen,
+            sleep=fake_sleep,
+            now="2026-06-01T12:00:00+00:00",
+            wait_timeout_seconds=2,
+        )
+    except RuntimeError as error:
+        message = str(error)
+    else:
+        raise AssertionError("client wait timeout must stop device-code polling")
+
+    assert "timed out" in message
+    assert sleeps == [5]
 
 
 def test_headless_connect_slows_down_polling_when_server_requests_it(tmp_path: Path) -> None:
@@ -576,6 +850,7 @@ def test_connect_headless_emits_device_code_payload_without_pairing_secret(tmp_p
         *,
         store: GuardStore,
         connect_url: str,
+        wait_timeout_seconds: int = 180,
         announce_copy=None,
         ci_safe: bool = False,
         machine_label: str | None = None,
@@ -596,7 +871,7 @@ def test_connect_headless_emits_device_code_payload_without_pairing_secret(tmp_p
             "verification_uri": "https://hol.org/guard/oauth/device",
             "next_action": {
                 "command": "open",
-                "target": "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH",
+                "target": "https://hol.org/guard/oauth/device",
             },
         }
 
@@ -720,6 +995,7 @@ def test_connect_headless_open_browser_opens_device_approval_before_polling(
         *,
         store: GuardStore,
         connect_url: str,
+        wait_timeout_seconds: int = 180,
         announce_copy=None,
         open_browser=None,
         ci_safe: bool = False,
@@ -737,7 +1013,7 @@ def test_connect_headless_open_browser_opens_device_approval_before_polling(
                 }
             )
         opened.append("before-poll")
-        browser_opened = bool(open_browser("https://hol.org/guard/oauth/device?user_code=ABCD-EFGH"))
+        browser_opened = bool(open_browser("https://hol.org/guard/oauth/device"))
         opened.append("after-open")
         return {
             "status": "connected",
@@ -747,7 +1023,7 @@ def test_connect_headless_open_browser_opens_device_approval_before_polling(
             "verification_uri": "https://hol.org/guard/oauth/device",
             "next_action": {
                 "command": "open",
-                "target": "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH",
+                "target": "https://hol.org/guard/oauth/device",
             },
         }
 
@@ -760,41 +1036,155 @@ def test_connect_headless_open_browser_opens_device_approval_before_polling(
     assert exit_code == 0
     assert opened == [
         "before-poll",
-        "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH",
+        "https://hol.org/guard/oauth/device",
         "after-open",
     ]
     assert "device_code" in captured.out
     assert "browser_opened" in captured.out
 
 
-def test_connect_default_uses_browser_oauth_without_pairing_secret(tmp_path: Path, capsys, monkeypatch) -> None:
+def test_connect_default_uses_device_code_flow_with_browser_open(tmp_path: Path, capsys, monkeypatch) -> None:
     guard_home = tmp_path / "guard-home"
     args = _ConnectArgs()
     args.guard_home = str(guard_home)
     args.wait_timeout_seconds = 5
+    opened: list[str] = []
 
-    def fake_browser_flow(*, store: GuardStore, connect_url: str, wait_timeout_seconds: int) -> dict[str, object]:
+    def fail_browser_flow(*, store: GuardStore, connect_url: str, wait_timeout_seconds: int) -> dict[str, object]:
+        raise AssertionError("default connect should not use browser oauth")
+
+    def fake_device_flow(
+        *,
+        store: GuardStore,
+        connect_url: str,
+        wait_timeout_seconds: int = 180,
+        announce_copy=None,
+        open_browser=None,
+        ci_safe: bool = False,
+        machine_label: str | None = None,
+    ) -> dict[str, object]:
+        del store, ci_safe, machine_label
+        assert connect_url == "https://hol.org/guard/connect"
         assert wait_timeout_seconds == 5
+        assert open_browser is not None
+        if announce_copy is not None:
+            announce_copy(
+                {
+                    "user_code": "ABCD-EFGH",
+                    "verification_uri": "https://hol.org/guard/oauth/device",
+                    "verification_uri_complete": "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH",
+                }
+            )
+        browser_opened = bool(open_browser("https://hol.org/guard/oauth/device"))
         return {
             "status": "connected",
-            "connect_mode": "browser_oauth",
-            "authorize_url": "https://hol.org/api/guard/oauth/authorize?client_id=guard-local-daemon",
-            "redirect_uri": "http://127.0.0.1:61234/oauth/callback",
+            "connect_mode": "device_code",
+            "browser_opened": browser_opened,
+            "user_code": "ABCD-EFGH",
+            "verification_uri": "https://hol.org/guard/oauth/device",
+            "next_action": {
+                "command": "open",
+                "target": "https://hol.org/guard/oauth/device",
+            },
         }
 
-    monkeypatch.setattr(guard_commands, "_run_guard_browser_connect_flow", fake_browser_flow)
+    monkeypatch.setattr(guard_commands, "_run_guard_browser_connect_flow", fail_browser_flow)
+    monkeypatch.setattr(guard_commands, "_run_guard_device_connect_flow", fake_device_flow)
+    monkeypatch.setattr(guard_commands.webbrowser, "open", lambda target: opened.append(target) or True)
 
     exit_code = run_guard_command(args)
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert "browser_oauth" in captured.out
-    assert '"authorize_url": "*****"' in captured.out
-    assert "ABCD-EFGH" not in captured.out
-    assert "verification_uri" not in captured.out
+    assert opened == ["https://hol.org/guard/oauth/device"]
+    assert "device_code" in captured.out
+    assert "browser_opened" in captured.out
+    assert "ABCD-EFGH" in captured.out
+    assert "verification_uri" in captured.out
     assert "guardPairSecret" not in captured.out
     assert "guardPairRequest" not in captured.out
     assert not hasattr(guard_commands, "_run_guard_connect_flow")
+
+
+def test_connect_default_device_flow_respects_wait_timeout_seconds(tmp_path: Path, capsys, monkeypatch) -> None:
+    guard_home = tmp_path / "guard-home"
+    args = _ConnectArgs()
+    args.guard_home = str(guard_home)
+    args.wait_timeout_seconds = 7
+
+    def fake_device_flow(
+        *,
+        store: GuardStore,
+        connect_url: str,
+        wait_timeout_seconds: int = 180,
+        announce_copy=None,
+        open_browser=None,
+        ci_safe: bool = False,
+        machine_label: str | None = None,
+    ) -> dict[str, object]:
+        del store, announce_copy, open_browser, ci_safe, machine_label
+        assert connect_url == "https://hol.org/guard/connect"
+        assert wait_timeout_seconds == 7
+        return {
+            "status": "connected",
+            "connect_mode": "device_code",
+            "browser_opened": False,
+            "user_code": "ABCD-EFGH",
+            "verification_uri": "https://hol.org/guard/oauth/device",
+        }
+
+    monkeypatch.setattr(guard_commands, "_run_guard_device_connect_flow", fake_device_flow)
+    monkeypatch.setattr(guard_commands.webbrowser, "open", lambda _target: True)
+
+    exit_code = run_guard_command(args)
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "device_code" in captured.out
+
+
+def test_connect_default_non_json_announces_device_copy_on_stderr(tmp_path: Path, capsys, monkeypatch) -> None:
+    guard_home = tmp_path / "guard-home"
+    args = _ConnectArgs()
+    args.guard_home = str(guard_home)
+    args.json = False
+
+    def fake_device_flow(
+        *,
+        store: GuardStore,
+        connect_url: str,
+        wait_timeout_seconds: int = 180,
+        announce_copy=None,
+        open_browser=None,
+        ci_safe: bool = False,
+        machine_label: str | None = None,
+    ) -> dict[str, object]:
+        del store, connect_url, open_browser, ci_safe, machine_label
+        assert announce_copy is not None
+        announce_copy(
+            {
+                "user_code": "ABCD-EFGH",
+                "verification_uri": "https://hol.org/guard/oauth/device",
+                "verification_uri_complete": "https://hol.org/guard/oauth/device?user_code=ABCD-EFGH",
+            }
+        )
+        return {
+            "status": "connected",
+            "connect_mode": "device_code",
+            "browser_opened": False,
+            "user_code": "ABCD-EFGH",
+            "verification_uri": "https://hol.org/guard/oauth/device",
+        }
+
+    monkeypatch.setattr(guard_commands, "_run_guard_device_connect_flow", fake_device_flow)
+    monkeypatch.setattr(guard_commands.webbrowser, "open", lambda _target: True)
+
+    exit_code = run_guard_command(args)
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "HOL Guard headless approval" in captured.err
+    assert "HOL Guard headless approval" not in captured.out
 
 
 def test_loopback_callback_listener_uses_random_high_port_and_loopback_path() -> None:
@@ -809,6 +1199,34 @@ def test_loopback_callback_listener_uses_random_high_port_and_loopback_path() ->
         assert 49152 <= parsed.port <= 65535
     finally:
         listener.close()
+
+
+def test_loopback_callback_listener_retries_after_port_conflict(monkeypatch) -> None:
+    attempted_ports: list[int] = []
+    port_offsets = iter((0, 1))
+
+    def fake_init(self, server_address, _handler_class, bind_and_activate=True):
+        attempted_ports.append(server_address[1])
+        self.server_address = server_address
+        self.guard_callback = None
+        if len(attempted_ports) == 1:
+            raise OSError("port conflict")
+
+    monkeypatch.setattr(connect_flow, "_LOOPBACK_HOSTS", ("127.0.0.1",))
+    monkeypatch.setattr(connect_flow.secrets, "randbelow", lambda _limit: next(port_offsets))
+    monkeypatch.setattr(connect_flow.http.server.ThreadingHTTPServer, "__init__", fake_init)
+    monkeypatch.setattr(connect_flow.http.server.ThreadingHTTPServer, "serve_forever", lambda self: None)
+    monkeypatch.setattr(connect_flow.http.server.ThreadingHTTPServer, "shutdown", lambda self: None)
+    monkeypatch.setattr(connect_flow.http.server.ThreadingHTTPServer, "server_close", lambda self: None)
+
+    listener = connect_flow.start_guard_loopback_callback_listener(expected_state="state-123")
+    parsed = urllib.parse.urlparse(listener.redirect_uri)
+
+    assert parsed.hostname == "127.0.0.1"
+    assert parsed.port == connect_flow._LOOPBACK_PORT_MIN + 1
+    assert attempted_ports == [connect_flow._LOOPBACK_PORT_MIN, connect_flow._LOOPBACK_PORT_MIN + 1]
+
+    listener.close()
 
 
 def test_loopback_callback_listener_rejects_state_mismatch() -> None:
@@ -828,6 +1246,39 @@ def test_loopback_callback_listener_rejects_state_mismatch() -> None:
             assert "timed out" in str(error)
         else:
             raise AssertionError("mismatched callback must not be accepted")
+    finally:
+        listener.close()
+
+
+def test_loopback_callback_listener_rejects_raw_runtime_credentials_without_code() -> None:
+    listener = connect_flow.start_guard_loopback_callback_listener(expected_state="state-123")
+    try:
+        legacy_query_url = (
+            f"{listener.redirect_uri}?state=state-123"
+            "&token=guard_live_secret"
+            "&pairing_secret=pair-secret"
+            "&sync_token=sync-secret"
+        )
+        response_body = ""
+        try:
+            urllib.request.urlopen(legacy_query_url, timeout=5)
+        except urllib.error.HTTPError as error:
+            assert error.code == 400
+            response_body = error.read().decode("utf-8")
+        else:
+            raise AssertionError("raw runtime credentials must not satisfy OAuth callback")
+
+        assert "authorization code" in response_body
+        assert "guard_live_secret" not in response_body
+        assert "pair-secret" not in response_body
+        assert "sync-secret" not in response_body
+
+        try:
+            listener.wait_for_callback(timeout_seconds=0.05)
+        except TimeoutError as error:
+            assert "timed out" in str(error)
+        else:
+            raise AssertionError("legacy runtime credentials must not be accepted as callback state")
     finally:
         listener.close()
 
@@ -1066,6 +1517,7 @@ def test_connect_headless_reports_device_authorization_network_error(tmp_path: P
         *,
         store: GuardStore,
         connect_url: str,
+        wait_timeout_seconds: int = 180,
         announce_copy=None,
         ci_safe: bool = False,
         machine_label: str | None = None,
@@ -1093,6 +1545,7 @@ def test_connect_headless_reports_malformed_device_authorization_response(tmp_pa
         *,
         store: GuardStore,
         connect_url: str,
+        wait_timeout_seconds: int = 180,
         announce_copy=None,
         ci_safe: bool = False,
         machine_label: str | None = None,
@@ -1142,3 +1595,5 @@ def test_connect_browser_reports_loopback_timeout_without_traceback(
     assert "Guard authorization failed" in captured.err
     assert "timed out" in captured.err
     assert "Traceback" not in captured.err
+    assert store.get_sync_credentials() is None
+    assert store.get_oauth_local_credentials() is None

@@ -43,7 +43,7 @@ def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = N
         segmented = " ".join(w for w in _get_jieba().cut(expanded) if w.strip())
         query = """SELECT e.*, rank FROM entries_fts f
                    JOIN entries e ON e.rowid = f.rowid
-                   WHERE entries_fts MATCH ? ORDER BY rank LIMIT ?"""
+                   WHERE entries_fts MATCH ? AND e.status='active' ORDER BY rank LIMIT ?"""
         params = [segmented, limit]
         rows = fts_safe(conn, query, params)
         if not rows and " " in segmented:
@@ -56,7 +56,7 @@ def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = N
     else:
         query = """SELECT e.*, rank FROM entries_fts f
                    JOIN entries e ON e.rowid = f.rowid
-                   WHERE entries_fts MATCH ? ORDER BY rank LIMIT ?"""
+                   WHERE entries_fts MATCH ? AND e.status='active' ORDER BY rank LIMIT ?"""
         for q in (expanded, keyword):
             if q == keyword and expanded == keyword:
                 params = [keyword, limit]

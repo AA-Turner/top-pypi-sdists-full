@@ -85,7 +85,7 @@ __all__ = (
 
 AccountScopeType = Literal["LINKED", "PAYER"]
 AnalysisStatusType = Literal["FAILED", "PROCESSING", "SUCCEEDED"]
-AnalysisTypeType = Literal["CUSTOM_COMMITMENT", "MAX_SAVINGS"]
+AnalysisTypeType = Literal["CUSTOM_COMMITMENT", "MAX_SAVINGS", "TARGET_AVERAGE_COVERAGE"]
 AnomalyFeedbackTypeType = Literal["NO", "PLANNED_ACTIVITY", "YES"]
 AnomalySubscriptionFrequencyType = Literal["DAILY", "IMMEDIATE", "WEEKLY"]
 ApproximationDimensionType = Literal["RESOURCE", "SERVICE"]
@@ -562,6 +562,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -589,6 +590,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

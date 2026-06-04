@@ -216,15 +216,21 @@ def test_handshake_null_safety(monkeypatch):
         def __init__(self):
             self.sent = []
             self.closed = False
+            self.recv_count = 0
+        def settimeout(self, timeout):
+            pass
         def send(self, data):
             self.sent.append(data)
         def recv(self):
-            return json.dumps({
-                "type": "ready",
-                "display_email": "bridge@example.com",
-                "user_email": None,
-                "user_phone": None
-            })
+            self.recv_count += 1
+            if self.recv_count == 1:
+                return json.dumps({
+                    "type": "ready",
+                    "display_email": "bridge@example.com",
+                    "user_email": None,
+                    "user_phone": None
+                })
+            return ""
         def close(self):
             self.closed = True
             

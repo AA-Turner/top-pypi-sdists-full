@@ -8,9 +8,7 @@ class EventManager:
         self._deviceProxy = dp
         if dp is not None:
             print("Subscribed to Interface Change Events")
-            self._event_id = dp.subscribe_event(
-                tango.EventType.INTERFACE_CHANGE_EVENT, self
-            )
+            self._event_id = dp.subscribe_event(tango.EventType.INTERFACE_CHANGE_EVENT, self)
 
     def unsubscribe(self):
         self._deviceProxy.unsubscribe_event(self._event_id)

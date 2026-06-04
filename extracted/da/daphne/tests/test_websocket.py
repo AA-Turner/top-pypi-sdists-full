@@ -267,6 +267,75 @@ class TestWebsocket(DaphneTestCase):
                 "bytes": b"what is here? \xe2",
             }
 
+    def assert_oversized_frame_rejected(self, test_app):
+        """
+        Sends a 16-byte text frame and asserts the application sees only
+        connect + disconnect — i.e. autobahn dropped the connection (its
+        default failByDrop behaviour) before dispatching the payload.
+        """
+        test_app.add_send_messages([{"type": "websocket.accept"}])
+        sock, _ = self.websocket_handshake(test_app)
+        _, messages = test_app.get_received()
+        self.assert_valid_websocket_connect_message(messages[0])
+        self.websocket_send_frame(sock, "x" * 16)
+        deadline = time.time() + 2
+        final_messages = []
+        while time.time() < deadline:
+            _, final_messages = test_app.get_received()
+            if any(m["type"] == "websocket.disconnect" for m in final_messages):
+                break
+            time.sleep(0.05)
+        try:
+            sock.close()
+        except OSError:
+            pass
+        types = [m["type"] for m in final_messages]
+        self.assertEqual(
+            types,
+            ["websocket.connect", "websocket.disconnect"],
+            "Oversized frame should not have been delivered to the "
+            f"application, but got: {types}",
+        )
+
+    def test_websocket_max_message_size(self):
+        """
+        Tests that an incoming WebSocket message exceeding
+        ``websocket_max_message_size`` is rejected by autobahn before it
+        reaches the application.
+        """
+        # 16-byte frame > 8-byte message limit.
+        with DaphneTestingInstance(websocket_max_message_size=8) as test_app:
+            self.assert_oversized_frame_rejected(test_app)
+
+    def test_websocket_max_frame_size(self):
+        """
+        Tests that an incoming WebSocket frame exceeding
+        ``websocket_max_frame_size`` is rejected by autobahn before it
+        reaches the application, independently of the message size limit.
+        """
+        # Large message limit, so the frame size limit is what trips.
+        with DaphneTestingInstance(
+            websocket_max_frame_size=8,
+            websocket_max_message_size=1024 * 1024,
+        ) as test_app:
+            self.assert_oversized_frame_rejected(test_app)
+
+    def test_websocket_max_message_size_allows_under_limit(self):
+        """
+        Tests that messages under ``websocket_max_message_size`` are
+        delivered to the application unchanged.
+        """
+        with DaphneTestingInstance(websocket_max_message_size=64) as test_app:
+            test_app.add_send_messages([{"type": "websocket.accept"}])
+            sock, _ = self.websocket_handshake(test_app)
+            _, messages = test_app.get_received()
+            self.assert_valid_websocket_connect_message(messages[0])
+            test_app.add_send_messages(
+                [{"type": "websocket.send", "text": "ack"}]
+            )
+            self.websocket_send_frame(sock, "x" * 16)
+            assert self.websocket_receive_frame(sock) == "ack"
+
     def test_http_timeout(self):
         """
         Tests that the HTTP timeout doesn't kick in for WebSockets
@@ -303,6 +372,70 @@ class TestWebsocket(DaphneTestCase):
                     raise err
                 self.fail(
                     "Server connections were not cleaned up after an asyncio.CancelledError was raised"
+                )
+
+
+class TestHeaderValueInjection(DaphneTestCase):
+    """
+    Twisted's bytes HTTP parser does not treat \\x0b, \\x0c, \\x1c, \\x1d, \\x1e
+    or \\x85 as line separators, but autobahn's WebSocket handshake parser
+    decodes to str and calls splitlines(), which does. Without rejection at
+    the Daphne edge, an attacker can smuggle additional headers into the
+    WebSocket ASGI scope through a single header value. Reject these bytes
+    on both paths so values can never reach a downstream str-based parser.
+    """
+
+    INVALID_BYTES = (
+        b"\x0b",  # vertical tab
+        b"\x0c",  # form feed
+        b"\x1c",  # file separator
+        b"\x1d",  # group separator
+        b"\x1e",  # record separator
+        b"\x85",  # NEL
+    )
+
+    def _websocket_upgrade_request(self, value):
+        return (
+            b"GET /ws HTTP/1.1\r\n"
+            b"Host: example.com\r\n"
+            b"Upgrade: websocket\r\n"
+            b"Connection: Upgrade\r\n"
+            b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+            b"Sec-WebSocket-Version: 13\r\n"
+            b"X-Padding: " + value + b"\r\n"
+            b"\r\n"
+        )
+
+    def _http_request(self, value):
+        return (
+            b"GET / HTTP/1.1\r\n"
+            b"Host: example.com\r\n"
+            b"X-Padding: " + value + b"\r\n"
+            b"\r\n"
+        )
+
+    def test_websocket_upgrade_rejects_smuggled_headers(self):
+        for byte in self.INVALID_BYTES:
+            with self.subTest(byte=byte):
+                value = b"innocent" + byte + b"X-Secret-Auth: admin-token"
+                response = self.run_daphne_raw(
+                    self._websocket_upgrade_request(value)
+                )
+                self.assertTrue(
+                    response.startswith(b"HTTP/1.1 400"),
+                    f"expected 400 for byte {byte!r}, got {response[:80]!r}",
+                )
+                # Confirm the smuggled header didn't slip past validation.
+                self.assertNotIn(b"X-Secret-Auth", response)
+
+    def test_http_request_rejects_invalid_header_value_bytes(self):
+        for byte in self.INVALID_BYTES:
+            with self.subTest(byte=byte):
+                value = b"innocent" + byte + b"injected"
+                response = self.run_daphne_raw(self._http_request(value))
+                self.assertTrue(
+                    response.startswith(b"HTTP/1.1 400"),
+                    f"expected 400 for byte {byte!r}, got {response[:80]!r}",
                 )
 
 

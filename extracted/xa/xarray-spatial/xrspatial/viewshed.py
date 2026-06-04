@@ -1,3 +1,4 @@
+import warnings
 from collections import OrderedDict
 from math import atan, atan2, fabs
 from math import pi as PI
@@ -1175,6 +1176,15 @@ def _init_event_list(event_list, raster, vp_row, vp_col,
                 _set_visibility(visibility_grid, i, j, 180)
                 continue
 
+            # NODATA cells generate no events: a NaN cell on the vp row to
+            # the right is never inserted into the status structure (the
+            # pre-insert loop guards on not np.isnan(data[1][i])), so emitting
+            # its EXITING event would make _delete_from_tree raise "node not
+            # found".  Skipping leaves the cell at its INVISIBLE fill value,
+            # which downstream `!= INVISIBLE` checks do not count as visible.
+            if np.isnan(inrast[1][j]):
+                continue
+
             # if it got here it is not the vp, not NODATA, and
             # within max distance from vp generate its 3 events
             # and insert them
@@ -1220,7 +1230,11 @@ def _init_event_list(event_list, raster, vp_row, vp_col,
             event_list[count_event] = e
             count_event += 1
 
-    return
+    # Skipped NODATA cells leave unused trailing rows in the pre-allocated
+    # event_list.  Return the count so the caller can drop them; otherwise the
+    # leftover all-zero rows sort as CENTER events at cell (0, 0) and would
+    # spuriously mark that cell visible.
+    return count_event
 
 
 @ngjit
@@ -1581,11 +1595,17 @@ def _viewshed_cpu(
     num_events = 3 * (n_rows * n_cols - 1)
     event_list = np.zeros((num_events, 7), dtype=np.float64)
 
-    raster.data = raster.data.astype(np.float64, copy=False)
+    # Convert to float64 on a copy so the caller's input DataArray is never
+    # mutated (an int16 input must stay int16 after viewshed returns).
+    raster_data = raster.data.astype(np.float64)
 
-    _init_event_list(event_list=event_list, raster=raster.data,
-                     vp_row=viewpoint_row, vp_col=viewpoint_col,
-                     data=data, visibility_grid=visibility_grid)
+    count_event = _init_event_list(
+        event_list=event_list, raster=raster_data,
+        vp_row=viewpoint_row, vp_col=viewpoint_col,
+        data=data, visibility_grid=visibility_grid)
+
+    # Drop unused trailing rows left by skipped NODATA cells before sorting.
+    event_list = event_list[:count_event]
 
     # sort the events radially by ang
     event_list = event_list[np.lexsort((event_list[:, E_TYPE_ID],
@@ -1598,7 +1618,7 @@ def _viewshed_cpu(
     event_aes = event_list[:, 3:].copy()
 
     viewshed_img = _viewshed_cpu_sweep(
-        raster.data, viewpoint_row, viewpoint_col, viewpoint_elev,
+        raster_data, viewpoint_row, viewpoint_col, viewpoint_elev,
         viewpoint_target, ew_res, ns_res, event_rcts, event_aes, data,
         visibility_grid)
 
@@ -1637,10 +1657,12 @@ def viewshed(raster: xarray.DataArray,
         when it is being analyzed for visibility.
     max_distance : float, optional
         Maximum analysis distance from the observer in surface units.
-        Cells beyond this distance are marked INVISIBLE without being
-        evaluated. When set and the raster is dask-backed, only the
-        chunks within the distance window are loaded — this is the most
-        efficient way to run viewshed on very large dask rasters.
+        Must be a finite number >= 0; a negative or non-finite value
+        raises ``ValueError``. Cells beyond this distance are marked
+        INVISIBLE without being evaluated. When set and the raster is
+        dask-backed, only the chunks within the distance window are
+        loaded — this is the most efficient way to run viewshed on very
+        large dask rasters.
     name : str, default='viewshed'
         Name of the output DataArray. Set on every backend so the
         result name does not depend on which backend ran.
@@ -1668,15 +1690,26 @@ def viewshed(raster: xarray.DataArray,
       mesh of the terrain. The mesh discretisation can introduce small
       angular errors (typically < 0.03 degrees for visible cells).
     - **Dask**: When ``max_distance`` is set or the grid fits in memory,
-      the exact CPU algorithm is used on the relevant window. For very
-      large grids that exceed memory, a horizon-profile distance-sweep
-      algorithm is used instead. This algorithm discretises angles and
-      may produce minor visibility differences near the boundary of
-      occluded regions.
+      the exact CPU algorithm is used on the relevant window, so results
+      match the numpy backend. For very large grids that exceed memory
+      and have no ``max_distance``, an out-of-core horizon-profile
+      distance-sweep algorithm is used instead. This is a different,
+      approximate visibility model from the exact GRASS sweep, and the
+      two do **not** agree cell-for-cell. On rough terrain the visibility
+      mask can differ for a substantial fraction of cells (measured at up
+      to ~20% on small random rasters), with both false positives and
+      false negatives relative to the exact sweep. The error is geometric
+      and does not shrink with finer angle discretisation. When this path
+      runs, :func:`viewshed` emits a ``UserWarning`` so the approximation
+      is not silent. If you need results that match the exact sweep on a
+      large dask raster, set ``max_distance`` to restrict the analysis to
+      a window that fits in memory.
 
-    Both backends agree on which cells are visible vs invisible in the
-    vast majority of cases, but the reported vertical angles may differ
-    by a small amount near cell boundaries.
+    The CPU and GPU backends, and the dask exact-window path, agree on
+    which cells are visible vs invisible in the vast majority of cases;
+    reported vertical angles may differ by a small amount near cell
+    boundaries. The dask out-of-core distance sweep is the exception
+    described above.
 
     Examples
     --------
@@ -1716,8 +1749,16 @@ def viewshed(raster: xarray.DataArray,
     """
     _validate_raster(raster, func_name='viewshed', name='raster')
 
-    # --- max_distance: extract spatial window for any backend ---
+    # --- max_distance: validate, then extract spatial window for any backend ---
     if max_distance is not None:
+        try:
+            is_bad = not np.isfinite(max_distance) or max_distance < 0
+        except (TypeError, ValueError):
+            is_bad = True
+        if is_bad:
+            raise ValueError(
+                "max_distance must be a finite number >= 0, "
+                f"got {max_distance!r}")
         return _viewshed_windowed(raster, x, y, observer_elev, target_elev,
                                   max_distance, name)
 
@@ -1730,10 +1771,15 @@ def viewshed(raster: xarray.DataArray,
             from .gpu_rtx.viewshed import viewshed_gpu
             return viewshed_gpu(raster, x, y, observer_elev, target_elev, name)
         else:
-            # Convert to numpy and run on cpu
+            # Convert to numpy and run on cpu. Build a new DataArray instead
+            # of reassigning raster.data so the caller's CuPy input is left
+            # unchanged.
             import cupy as cp
-            raster.data = cp.asnumpy(raster.data)
-            return _viewshed_cpu(raster, x, y, observer_elev, target_elev,
+            raster_np = xarray.DataArray(cp.asnumpy(raster.data),
+                                         coords=raster.coords,
+                                         attrs=raster.attrs,
+                                         dims=raster.dims)
+            return _viewshed_cpu(raster_np, x, y, observer_elev, target_elev,
                                  name)
 
     elif has_dask_array():
@@ -2225,6 +2271,22 @@ def _viewshed_dask(raster, x, y, observer_elev, target_elev, name='viewshed'):
                                 dims=raster.dims, attrs=raster.attrs)
 
     # --- Tier C: out-of-core distance sweep (CPU only) ---
+    # This path uses a horizon-profile distance sweep, an approximate
+    # visibility model that does not match the exact GRASS sweep used by
+    # the numpy/Tier-B backends. On rough terrain the visibility mask can
+    # differ for a substantial fraction of cells. Warn so the divergence
+    # is not silent (see issue #2872).
+    warnings.warn(
+        "viewshed: grid exceeds memory and no max_distance is set, so the "
+        "dask out-of-core horizon-profile distance sweep is used. This is "
+        "an approximate visibility model and does NOT match the exact "
+        "numpy sweep cell-for-cell; the mask can differ for a substantial "
+        "fraction of cells on rough terrain. Set max_distance to restrict "
+        "the analysis to a window that fits in memory for exact results.",
+        UserWarning,
+        stacklevel=3,
+    )
+
     output_bytes = height * width * 8
     if output_bytes > 0.8 * avail:
         raise MemoryError(

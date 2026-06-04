@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "pulpcore"
-version = "3.112.0"
+version = "3.113.0"
 description = "Pulp Django Application and Related Modules"
 readme = "README.md"
 authors = [
@@ -27,7 +27,7 @@ requires-python = ">=3.11"
 dependencies = [
   "aiodns>=3.3.0,<3.7",  # Looks like only bugfixes in z-Stream.
   "aiofiles>=22.1,<=25.1.0",  # Uses sort of CalVer, luckily not released often https://github.com/Tinche/aiofiles/issues/144 .
-  "aiohttp>=3.10.10,<3.14",  # SemVer https://docs.aiohttp.org/en/stable/faq.html#what-is-the-api-stability-and-deprecation-policy .
+  "aiohttp>=3.10.10,<3.15",  # SemVer https://docs.aiohttp.org/en/stable/faq.html#what-is-the-api-stability-and-deprecation-policy .
   "asyncio-throttle>=1.0,<=1.0.2",  # Unsure about versioning, but not released often anyway.
   "backoff>=2.1.2,<2.3",  # Looks like only bugfixes in z-Stream.
   "click>=8.1.0,<8.5",  # Uses milestone.feature.fix https://palletsprojects.com/versions .
@@ -49,9 +49,9 @@ dependencies = [
   "json_stream>=2.3.2,<2.6",
   "jq>=1.6.0,<1.12.0",
   "PyOpenSSL<27.0",
-  "opentelemetry-api>=1.27.0,<1.42",
-  "opentelemetry-sdk>=1.27.0,<1.42",
-  "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.42",
+  "opentelemetry-api>=1.27.0,<1.43",
+  "opentelemetry-sdk>=1.27.0,<1.43",
+  "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.43",
   "protobuf>=4.21.1,<7.0",
   "pulp-glue>=0.30.0,<0.40",
   "pygtrie>=2.5,<=2.5.0",
@@ -64,7 +64,7 @@ dependencies = [
   "url-normalize>=1.4.3,<3.1",  # SemVer. https://github.com/niksite/url-normalize/blob/master/CHANGELOG.md#changelog
   "uuid6>=2023.5.2,<=2025.0.1",
   "whitenoise>=5.0,<6.13.0",
-  "yarl>=1.12.0,<1.24",  # Seems to follow SemVer https://yarl.aio-libs.org/en/latest/contributing/release_guide/#pre-release-activities .
+  "yarl>=1.12.0,<1.25",  # Seems to follow SemVer https://yarl.aio-libs.org/en/latest/contributing/release_guide/#pre-release-activities .
 ]
 
 [project.optional-dependencies]
@@ -207,7 +207,7 @@ ignore = [
 [tool.bumpversion]
 # This section is managed by the plugin template. Do not edit manually.
 
-current_version = "3.112.0"
+current_version = "3.113.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<alpha>0a)?(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

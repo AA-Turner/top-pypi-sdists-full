@@ -7,6 +7,7 @@ checks, knowledge extraction, token tracking), and phase-related queries
 
 from __future__ import annotations
 
+import logging
 import subprocess
 
 from kanban_framework.infra.filesystem import Filesystem
@@ -45,8 +46,13 @@ def handle_transition(args: list[str], fs: Filesystem, tm: TaskManager,
             try:
                 task = tm.show(args[1])
                 quick = getattr(task, 'mode', '') == 'quick'
+                task_mode = getattr(task, 'mode', '')
                 from kanban_framework.infra.scheduler import Scheduler
-                order = Scheduler.dispatch_order(lightweight=task.lightweight, quick=quick)
+                cfg = tm._cfg
+                order = Scheduler.dispatch_order(lightweight=task.lightweight, quick=quick,
+                                                 mode=task_mode or None,
+                                                 workflow=cfg.workflow if cfg else None,
+                                                 kanban_dir=fs.kanban_dir)
                 available = [p.value if hasattr(p, 'value') else str(p) for p in order]
                 return {
                     "error": "target phase required",
@@ -76,10 +82,13 @@ def handle_transition(args: list[str], fs: Filesystem, tm: TaskManager,
 def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
                           we: WorkflowEngine) -> dict:
     """Complete current phase: guard checks, knowledge extraction, step auto-mark, token tracking."""
+    _log = logging.getLogger("kanban")
     if len(args) < 2:
         return {"error": "task_id required"}
     fs, cfg, tm, _ = _resolve()
     task = tm.show(args[1])
+    _log.info("complete-phase: task=%s phase=%s mode=%s", task.id, task.phase_id,
+              getattr(task, 'mode', 'full'))
     validation = _validate_fsm_state(task, tm)
     if validation:
         return validation
@@ -113,6 +122,9 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
             _raise_guard_error(fs, task, score_check, "evaluation score")
 
     knowledge_result = extract_knowledge(task, fs)
+    if knowledge_result.get("knowledge_imported", 0) > 0:
+        _log.info("knowledge extracted: %d entries, status=pending",
+                  knowledge_result["knowledge_imported"])
 
     _track_phase_time(task.id, task.phase.value, "end")
     from kanban_framework.domain.state_machine import mark_step, _get_steps
@@ -123,6 +135,8 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
         mark_step(fs, task.id, step_def.id, "completed")
     updated = we.complete_phase(task)
     tm.update(task.id, phase=updated.phase.value, history=updated.history)
+    _log.info("complete-phase done: task=%s %s -> %s", task.id, task.phase_id,
+              updated.phase.value)
 
     _collect_token_usage(task, fs)
 

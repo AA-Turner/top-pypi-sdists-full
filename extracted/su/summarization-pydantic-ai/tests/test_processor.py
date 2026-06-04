@@ -571,3 +571,82 @@ class TestSummarizationCallPath:
                 if isinstance(content, str):
                     assert "secret connection string" not in content
                     assert "Error generating summary" not in content
+
+
+class TestAsyncTokenCounterCallPath:
+    """Async ``token_counter`` must work end-to-end through the compress path.
+
+    Regression tests for https://github.com/vstorm-co/summarization-pydantic-ai/issues/28
+    where the gating check awaited the counter but the compression/cutoff path
+    called it synchronously, crashing with a coroutine ``TypeError``.
+    """
+
+    @pytest.mark.anyio
+    async def test_call_async_counter_triggers_summarization(self):
+        """An async counter drives both the trigger check and summarization."""
+        calls = 0
+
+        async def async_counter(messages: list[ModelMessage]) -> int:
+            nonlocal calls
+            calls += 1
+            return 999_999
+
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("tokens", 100),
+            keep=("messages", 4),
+            token_counter=async_counter,
+        )
+        processor._summarization_agent = Agent(
+            FunctionModel(lambda m, i: _MR(parts=[TextPart(content="SUMMARY")]))
+        )
+
+        messages = _build_summarizable_messages()
+        result = await processor(messages)
+
+        assert calls >= 1
+        assert len(result) < len(messages)
+        assert isinstance(result[0], ModelRequest)
+
+    @pytest.mark.anyio
+    async def test_call_async_counter_token_keep(self):
+        """An async counter is awaited inside the token-based binary-search cutoff."""
+
+        async def async_counter(messages: list[ModelMessage]) -> int:
+            return len(messages) * 10
+
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("tokens", 10),
+            keep=("tokens", 30),
+            token_counter=async_counter,
+        )
+        processor._summarization_agent = Agent(
+            FunctionModel(lambda m, i: _MR(parts=[TextPart(content="SUMMARY")]))
+        )
+
+        messages = _build_summarizable_messages()
+        result = await processor(messages)
+
+        # Summary message plus a small preserved tail (~3 messages worth of tokens).
+        assert len(result) < len(messages)
+        assert isinstance(result[0], ModelRequest)
+
+    @pytest.mark.anyio
+    async def test_call_async_counter_below_trigger(self):
+        """An async counter under the trigger returns history unchanged."""
+
+        async def async_counter(messages: list[ModelMessage]) -> int:
+            return 5
+
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("tokens", 100),
+            keep=("messages", 4),
+            token_counter=async_counter,
+        )
+
+        messages = _build_summarizable_messages()
+        result = await processor(messages)
+
+        assert result == messages

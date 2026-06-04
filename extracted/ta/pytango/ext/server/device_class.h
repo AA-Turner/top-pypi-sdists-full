@@ -87,8 +87,7 @@ class DeviceClassTrampoline : public Tango::DeviceClass {
      * @param[in] dev_list The device name list
      */
     void device_factory(const Tango::DevVarStringArray *dev_list) override {
-        CALL_PURE_VOID_METHOD(device_factory,
-                              dev_list);
+        CALL_PURE_VOID_METHOD_KEEP_GIL(device_factory, dev_list);
     }
 
     /**
@@ -131,7 +130,7 @@ class DeviceClassTrampoline : public Tango::DeviceClass {
      * Python method
      */
     void command_factory() override {
-        CALL_PURE_VOID_METHOD(_command_factory, );
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_command_factory, );
     }
 
     /**
@@ -139,9 +138,7 @@ class DeviceClassTrampoline : public Tango::DeviceClass {
      * Python method
      */
     void device_name_factory(StdStringVector &dev_list) override {
-        CALL_VOID_METHOD(device_name_factory,
-                         Tango::DeviceClass,
-                         dev_list)
+        CALL_VOID_METHOD_KEEP_GIL(device_name_factory, Tango::DeviceClass, dev_list)
     }
 
     /**
@@ -152,9 +149,7 @@ class DeviceClassTrampoline : public Tango::DeviceClass {
      * @param[in] signo signal identifier
      */
     void signal_handler(long signo) override {
-        CALL_VOID_METHOD(signal_handler,
-                         Tango::DeviceClass,
-                         signo)
+        CALL_VOID_METHOD_KEEP_GIL(signal_handler, Tango::DeviceClass, signo)
     }
 
   private:

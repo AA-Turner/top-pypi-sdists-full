@@ -1,4 +1,5 @@
 from copy import copy
+from urllib.parse import urlparse
 
 import django
 from behave.runner import Context, ModelRunner, Runner
@@ -20,7 +21,22 @@ class PatchedContext(Context):
             raise RuntimeError(msg) from err
 
     def get_url(self, to=None, *args, **kwargs):
-        return self.base_url + (resolve_url(to, *args, **kwargs) if to else '')
+        """Build a URL for the live test server.
+
+        Without an argument (or with a falsy ``to``), return ``base_url``.
+        Otherwise resolve ``to`` via Django's ``resolve_url`` shortcut and
+        prepend ``base_url``.  If the resolved value is already absolute
+        (e.g. a model's ``get_absolute_url()`` returning a full URL, or
+        ``to`` being a full URL string), it is returned as-is to avoid
+        producing a malformed double-host string like
+        ``"http://localhost:8000http://example.com/"``.
+        """
+        if not to:
+            return self.base_url
+        url = resolve_url(to, *args, **kwargs)
+        if urlparse(url).scheme:
+            return url
+        return self.base_url + url
 
 
 def load_registered_fixtures(context):
@@ -107,6 +123,7 @@ class BehaveHooksMixin:
     def teardown_test(self, context):
         """Tear down the Django test."""
         context.test.tearDownClass()
+        context.test.__class__.doClassCleanups()  # needed for Django 4.1+
         context.test._post_teardown(run=True)
         del context.test
 
@@ -120,24 +137,50 @@ def monkey_patch_behave(django_test_runner):
 
     def load_hooks(self, filename=None):
         """
-        Load hooks and ensure before_scenario/after_scenario are registered.
+        Load hooks and ensure scope hooks are registered.
 
         Behave v1.3+ doesn't call run hooks that aren't defined, so we must
-        do this explicitly to make sure we're called in any case.
+        do this explicitly to make sure we're called in any case (for the
+        ``before_feature`` / ``before_rule`` snapshot and the
+        ``before_scenario`` / ``after_scenario`` Django test setup).
         """
         behave_load_hooks(self, filename)
 
-        if 'before_scenario' not in self.hooks:
-            self.hooks['before_scenario'] = lambda *_: None
-
-        if 'after_scenario' not in self.hooks:
-            self.hooks['after_scenario'] = lambda *_: None
+        for hook_name in (
+            'before_feature',
+            'before_rule',
+            'before_scenario',
+            'after_scenario',
+        ):
+            if hook_name not in self.hooks:
+                self.hooks[hook_name] = lambda *_: None
 
     def run_hook(self, hook_name, *args):
         context = self.context
 
         if hook_name == 'before_all':
             django_test_runner.patch_context(context)
+
+        if hook_name in (
+            'before_all',
+            'before_feature',
+            'before_rule',
+            'before_scenario',
+        ):
+            # Snapshot any fixture configuration set in a higher scope onto
+            # the current behave layer (test run / feature / rule / scenario).
+            # This confines mutations to the scope where they happen — both
+            # assignment (``context.fixtures = [...]``) and in-place edits
+            # (``context.fixtures.append(...)``) — so they are discarded
+            # when behave pops the layer and never bleed into a sibling
+            # feature, rule, or scenario.  Snapshotting on ``before_all``
+            # also lets users call ``context.fixtures.append(...)`` there
+            # without first assigning a list.
+            # Use user mode so behave records the attribute as user-owned;
+            # otherwise reassignment in a user hook (``context.fixtures =
+            # [...]``) would emit a ``ContextMaskWarning``.
+            with context.use_with_user_mode():
+                context.fixtures = list(getattr(context, 'fixtures', []))
 
         behave_run_hook(self, hook_name, *args)
 

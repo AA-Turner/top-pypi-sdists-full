@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-server-git
-Version: 2026.1.14
+Version: 2026.6.4
 Summary: A Model Context Protocol server providing tools to read, search, and manipulate Git repositories programmatically via LLMs
 Author: Anthropic, PBC.
 Maintainer-email: David Soria Parra <davidsp@anthropic.com>
@@ -160,7 +160,7 @@ Add this to your `claude_desktop_config.json`:
 <details>
 <summary>Using docker</summary>
 
-* Note: replace '/Users/username' with the a path that you want to be accessible by this tool
+* Note: replace '/Users/username' with a path that you want to be accessible by this tool
 
 ```json
 "mcpServers": {

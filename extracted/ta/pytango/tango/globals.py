@@ -6,17 +6,17 @@ This is an internal PyTango module.
 """
 
 __all__ = (
+    "class_factory",
+    "class_list",
+    "constructed_class",
+    "cpp_class_list",
+    "delete_class_list",
     "get_class",
     "get_classes",
-    "get_cpp_class",
-    "get_cpp_classes",
     "get_constructed_class",
     "get_constructed_classes",
-    "class_factory",
-    "delete_class_list",
-    "class_list",
-    "cpp_class_list",
-    "constructed_class",
+    "get_cpp_class",
+    "get_cpp_classes",
 )
 
 __docformat__ = "restructuredtext"
@@ -60,6 +60,14 @@ def get_cpp_class(name):
         if klass_info[1] == name:
             return klass_info
     return None
+
+
+def cleanup_classes():
+    global class_list
+    global cpp_class_list
+
+    class_list.clear()
+    cpp_class_list.clear()
 
 
 def get_constructed_classes():

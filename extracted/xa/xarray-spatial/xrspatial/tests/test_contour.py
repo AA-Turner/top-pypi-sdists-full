@@ -133,6 +133,143 @@ class TestNaNHandling:
 
 
 # ---------------------------------------------------------------------------
+# Non-finite (inf) handling in automatic level generation (issue #2797)
+# ---------------------------------------------------------------------------
+
+def _make_ramp_with_inf():
+    """Left-to-right ramp with one +inf and one -inf cell in the corner."""
+    data = _make_ramp(ny=5, nx=10)
+    data[0, 0] = np.inf
+    data[1, 0] = -np.inf
+    return data
+
+
+class TestAutoLevelsInf:
+
+    def test_auto_levels_ignore_inf(self):
+        """+/-inf must not poison auto-generated levels (#2797)."""
+        data = _make_ramp_with_inf()
+        agg = create_test_raster(data, backend='numpy')
+        result = contours(agg, n_levels=5)
+        # The finite ramp spans 0..9, so auto-levels still produce contours.
+        assert len(result) > 0
+        for level, _ in result:
+            assert np.isfinite(level)
+
+    def test_auto_levels_match_finite_range(self):
+        """Levels come from the finite min/max, not the inf extremes."""
+        data = _make_ramp_with_inf()
+        finite = _make_ramp(ny=5, nx=10)
+        agg = create_test_raster(data, backend='numpy')
+        finite_agg = create_test_raster(finite, backend='numpy')
+        inf_levels = sorted({lvl for lvl, _ in contours(agg, n_levels=5)})
+        finite_levels = sorted(
+            {lvl for lvl, _ in contours(finite_agg, n_levels=5)}
+        )
+        assert inf_levels == finite_levels
+
+    def test_all_inf_returns_empty(self):
+        """An entirely non-finite raster yields no contours, no crash."""
+        data = np.full((4, 4), np.inf, dtype=np.float64)
+        agg = create_test_raster(data, backend='numpy')
+        result = contours(agg)
+        assert result == []
+
+    def test_explicit_levels_unaffected_by_inf(self):
+        """Explicit levels bypass the range computation entirely."""
+        data = _make_ramp_with_inf()
+        agg = create_test_raster(data, backend='numpy')
+        result = contours(agg, levels=[4.5])
+        assert len(result) > 0
+
+    @dask_array_available
+    def test_auto_levels_ignore_inf_dask(self):
+        """Dask backend ignores inf in the lazy nanmin/nanmax path."""
+        data = _make_ramp_with_inf()
+        np_agg = create_test_raster(data, backend='numpy')
+        dask_agg = create_test_raster(
+            data, backend='dask+numpy', chunks=(3, 4)
+        )
+        np_levels = sorted({lvl for lvl, _ in contours(np_agg, n_levels=5)})
+        dk_levels = sorted({lvl for lvl, _ in contours(dask_agg, n_levels=5)})
+        assert len(dk_levels) > 0
+        assert np_levels == dk_levels
+
+    @cuda_and_cupy_available
+    def test_auto_levels_ignore_inf_cupy(self):
+        """CuPy backend ignores inf in the nanmin/nanmax path."""
+        data = _make_ramp_with_inf()
+        np_agg = create_test_raster(data, backend='numpy')
+        cupy_agg = create_test_raster(data, backend='cupy')
+        np_levels = sorted({lvl for lvl, _ in contours(np_agg, n_levels=5)})
+        cp_levels = sorted({lvl for lvl, _ in contours(cupy_agg, n_levels=5)})
+        assert len(cp_levels) > 0
+        assert np_levels == cp_levels
+
+    @dask_array_available
+    @cuda_and_cupy_available
+    def test_auto_levels_ignore_inf_dask_cupy(self):
+        """Dask+CuPy backend ignores inf in the lazy nanmin/nanmax path."""
+        data = _make_ramp_with_inf()
+        np_agg = create_test_raster(data, backend='numpy')
+        dc_agg = create_test_raster(
+            data, backend='dask+cupy', chunks=(3, 4)
+        )
+        np_levels = sorted({lvl for lvl, _ in contours(np_agg, n_levels=5)})
+        dc_levels = sorted({lvl for lvl, _ in contours(dc_agg, n_levels=5)})
+        assert len(dc_levels) > 0
+        assert np_levels == dc_levels
+
+
+# ---------------------------------------------------------------------------
+# n_levels validation contract (issue #2895)
+# ---------------------------------------------------------------------------
+
+class TestNLevelsValidation:
+
+    def test_n_levels_zero_raises(self):
+        """n_levels=0 must raise instead of silently returning nothing."""
+        agg = create_test_raster(_make_ramp(), backend='numpy')
+        with pytest.raises(ValueError, match="n_levels must be >= 1"):
+            contours(agg, n_levels=0)
+
+    def test_n_levels_negative_raises(self):
+        """n_levels=-1 must raise a clear out-of-range error."""
+        agg = create_test_raster(_make_ramp(), backend='numpy')
+        with pytest.raises(ValueError, match="n_levels must be >= 1"):
+            contours(agg, n_levels=-1)
+
+    def test_n_levels_float_raises_clear_typeerror(self):
+        """A non-integer n_levels raises a clear TypeError naming the
+        parameter, not a raw numpy 'cannot be interpreted as an integer'."""
+        agg = create_test_raster(_make_ramp(), backend='numpy')
+        with pytest.raises(TypeError, match="n_levels must be an integer"):
+            contours(agg, n_levels=2.5)
+
+    def test_n_levels_bool_raises(self):
+        """bool is an int subclass but is not a valid level count."""
+        agg = create_test_raster(_make_ramp(), backend='numpy')
+        with pytest.raises(TypeError, match="n_levels must be an integer"):
+            contours(agg, n_levels=True)
+
+    def test_n_levels_one_produces_single_level(self):
+        """n_levels=1 is valid and yields exactly one contour level."""
+        agg = create_test_raster(_make_ramp(ny=5, nx=10), backend='numpy')
+        result = contours(agg, n_levels=1)
+        levels = sorted({lvl for lvl, _ in result})
+        assert len(levels) == 1
+
+    def test_explicit_levels_skip_n_levels_validation(self):
+        """When explicit levels are given, n_levels is unused and an
+        otherwise-invalid value must not be rejected."""
+        agg = create_test_raster(_make_ramp(ny=5, nx=6), backend='numpy')
+        # n_levels=0 would raise on the auto branch; with explicit levels
+        # it is ignored and the call must succeed.
+        result = contours(agg, levels=[2.5], n_levels=0)
+        assert len(result) > 0
+
+
+# ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
 
@@ -192,6 +329,46 @@ class TestEdgeCases:
         data = np.ones((3, 3), dtype=np.float64)
         with pytest.raises(TypeError, match="xarray.DataArray"):
             contours(data, levels=[0.5])
+
+    def test_invalid_return_type_rejected(self):
+        """A bad return_type raises ValueError for a normal raster."""
+        data = _make_ramp(ny=5, nx=6)
+        agg = create_test_raster(data, backend='numpy')
+        with pytest.raises(ValueError, match="Invalid return_type"):
+            contours(agg, levels=[2.5], return_type="bad")
+
+    def test_invalid_return_type_rejected_all_nan(self):
+        """A bad return_type raises even on the all-non-finite path.
+
+        Previously the all-non-finite early return handed back an empty
+        GeoDataFrame for any non-'numpy' value instead of raising.
+        """
+        data = np.full((4, 4), np.nan, dtype=np.float64)
+        agg = create_test_raster(data, backend='numpy')
+        with pytest.raises(ValueError, match="Invalid return_type"):
+            contours(agg, return_type="bad")
+
+    def test_invalid_return_type_checked_before_data_work(self):
+        """return_type is validated before level computation / extraction.
+
+        A degenerate all-NaN raster (which would otherwise take the
+        early-return path) still raises on the bad argument.
+        """
+        data = np.full((4, 4), np.nan, dtype=np.float64)
+        agg = create_test_raster(data, backend='numpy')
+        with pytest.raises(ValueError, match="Invalid return_type"):
+            contours(agg, levels=[0.5], return_type="bad")
+
+    def test_valid_return_types_accepted(self):
+        """The two valid return_type values still work."""
+        data = _make_ramp(ny=5, nx=6)
+        agg = create_test_raster(data, backend='numpy')
+        result = contours(agg, levels=[2.5], return_type="numpy")
+        assert isinstance(result, list)
+
+        gpd = pytest.importorskip("geopandas")
+        gdf = contours(agg, levels=[2.5], return_type="geopandas")
+        assert isinstance(gdf, gpd.GeoDataFrame)
 
 
 # ---------------------------------------------------------------------------
@@ -614,6 +791,81 @@ class TestCRSPropagation:
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert gdf.crs is None
 
+    # CRS-resolver parity with polygonize (#2893). contours must use the
+    # same resolution order as polygonize._detect_raster_crs:
+    #   attrs['crs'] -> attrs['crs_wkt'] -> raster.rio.crs -> None.
+
+    @staticmethod
+    def _bare_raster():
+        """A peak raster with explicit coords and no CRS metadata."""
+        data = _make_peak()
+        agg = xr.DataArray(data, dims=['y', 'x'])
+        agg['y'] = np.linspace(2.0, 0.0, data.shape[0])
+        agg['x'] = np.linspace(0.0, 2.0, data.shape[1])
+        return agg
+
+    def test_geopandas_crs_from_crs_wkt(self):
+        """A raster with only attrs['crs_wkt'] still georeferences the gdf.
+
+        Previously contours read only attrs['crs'], so a crs_wkt-only raster
+        produced an unprojected GeoDataFrame.
+        """
+        pytest.importorskip("geopandas")
+        from pyproj import CRS
+
+        agg = self._bare_raster()
+        agg.attrs['crs_wkt'] = CRS.from_epsg(5070).to_wkt()
+        gdf = contours(agg, levels=[1.5], return_type="geopandas")
+        assert gdf.crs is not None
+        assert gdf.crs.to_epsg() == 5070
+
+    def test_geopandas_crs_attr_precedence(self):
+        """attrs['crs'] wins over attrs['crs_wkt'] when both are present."""
+        pytest.importorskip("geopandas")
+        from pyproj import CRS
+
+        agg = self._bare_raster()
+        agg.attrs['crs'] = 'EPSG:5070'
+        agg.attrs['crs_wkt'] = CRS.from_epsg(4326).to_wkt()
+        gdf = contours(agg, levels=[1.5], return_type="geopandas")
+        assert gdf.crs is not None
+        assert gdf.crs.to_epsg() == 5070
+
+    def test_geopandas_no_crs_info(self):
+        """A raster with no CRS info yields a GeoDataFrame with crs None."""
+        gpd = pytest.importorskip("geopandas")
+        agg = self._bare_raster()
+        gdf = contours(agg, levels=[1.5], return_type="geopandas")
+        assert isinstance(gdf, gpd.GeoDataFrame)
+        assert gdf.crs is None
+
+    @staticmethod
+    def _wkt_4326():
+        from pyproj import CRS
+        return {'crs_wkt': CRS.from_epsg(4326).to_wkt()}
+
+    @pytest.mark.parametrize("attrs_factory", [
+        pytest.param(lambda: {'crs': 'EPSG:5070'}, id="crs"),
+        pytest.param(lambda: TestCRSPropagation._wkt_4326(), id="crs_wkt"),
+        pytest.param(lambda: {}, id="no_crs"),
+    ])
+    def test_geopandas_crs_matches_detect_raster_crs(self, attrs_factory):
+        """contours resolves the same CRS polygonize would for one raster."""
+        pytest.importorskip("geopandas")
+        from pyproj import CRS
+
+        from xrspatial.polygonize import _detect_raster_crs
+
+        agg = self._bare_raster()
+        agg.attrs.update(attrs_factory())
+        gdf = contours(agg, levels=[1.5], return_type="geopandas")
+
+        expected = _detect_raster_crs(agg)
+        if expected is None:
+            assert gdf.crs is None
+        else:
+            assert gdf.crs == CRS.from_user_input(expected)
+
 
 # ---------------------------------------------------------------------------
 # Non-default dim names: index -> coordinate transform (#2704 audit, Cat 5)
@@ -667,3 +919,116 @@ class TestNonDefaultDims:
         for (lvl_a, c_a), (lvl_b, c_b) in zip(r_yx, r_ll):
             assert lvl_a == lvl_b
             np.testing.assert_allclose(c_a, c_b)
+
+
+# ---------------------------------------------------------------------------
+# Degenerate geometry at exact-level corners (issue #2892)
+# ---------------------------------------------------------------------------
+
+def _make_checkerboard(n=4, lo=0.0, hi=1.0):
+    """n x n checkerboard alternating between lo and hi."""
+    board = np.indices((n, n)).sum(axis=0) % 2
+    return np.where(board == 0, lo, hi).astype(np.float64)
+
+
+def _assert_no_degenerate_numpy(result):
+    """Every numpy polyline has at least two distinct vertices, no repeats."""
+    for level, coords in result:
+        # No two consecutive points are identical.
+        if len(coords) >= 2:
+            diffs = np.abs(np.diff(coords, axis=0)).sum(axis=1)
+            assert np.all(diffs > 0), (
+                f"repeated consecutive point at level {level}: {coords}"
+            )
+        # At least two distinct vertices (non-zero extent).
+        distinct = np.unique(np.round(coords, 10), axis=0)
+        assert len(distinct) >= 2, (
+            f"single-point polyline at level {level}: {coords}"
+        )
+
+
+def _assert_no_degenerate_geopandas(gdf):
+    """No geometry is zero-length or invalid in Shapely."""
+    for geom in gdf.geometry:
+        assert geom.length > 0, f"zero-length geometry: {geom.wkt}"
+        assert geom.is_valid, f"invalid geometry: {geom.wkt}"
+
+
+class TestDegenerateExactLevel:
+    """A corner exactly equal to the level must not poison the output.
+
+    Corners are classified with ``>= level`` (treated as above), so the
+    fix is to drop the zero-length / single-point segments that would
+    otherwise collapse onto that corner.  The rule must hold identically
+    on every backend.
+    """
+
+    def test_checkerboard_numpy_no_zero_length(self):
+        data = _make_checkerboard(4, lo=0.0, hi=1.0)
+        agg = create_test_raster(data, backend='numpy')
+        result = contours(agg, levels=[1.0])
+        _assert_no_degenerate_numpy(result)
+
+    def test_checkerboard_numpy_geopandas_valid(self):
+        pytest.importorskip("geopandas")
+        data = _make_checkerboard(4, lo=0.0, hi=1.0)
+        agg = create_test_raster(data, backend='numpy')
+        gdf = contours(agg, levels=[1.0], return_type="geopandas")
+        _assert_no_degenerate_geopandas(gdf)
+
+    def test_checkerboard_equality_consistent(self):
+        """The level lands on every 'hi' corner; orientation must not matter.
+
+        Two checkerboards that differ only by which phase carries the
+        exact-level value must both yield clean (degenerate-free) output.
+        """
+        for lo, hi in [(0.0, 1.0), (1.0, 2.0), (2.0, 1.0)]:
+            data = _make_checkerboard(4, lo=lo, hi=hi)
+            agg = create_test_raster(data, backend='numpy')
+            result = contours(agg, levels=[1.0])
+            _assert_no_degenerate_numpy(result)
+
+    @dask_array_available
+    def test_checkerboard_dask_no_zero_length(self):
+        data = _make_checkerboard(4, lo=0.0, hi=1.0)
+        agg = create_test_raster(data, backend='dask+numpy', chunks=(2, 2))
+        result = contours(agg, levels=[1.0])
+        _assert_no_degenerate_numpy(result)
+
+    @dask_array_available
+    def test_checkerboard_dask_geopandas_valid(self):
+        pytest.importorskip("geopandas")
+        data = _make_checkerboard(4, lo=0.0, hi=1.0)
+        agg = create_test_raster(data, backend='dask+numpy', chunks=(2, 2))
+        gdf = contours(agg, levels=[1.0], return_type="geopandas")
+        _assert_no_degenerate_geopandas(gdf)
+
+    @dask_array_available
+    def test_checkerboard_numpy_matches_dask(self):
+        """numpy and dask agree that the checkerboard yields no geometry."""
+        data = _make_checkerboard(4, lo=0.0, hi=1.0)
+        np_agg = create_test_raster(data, backend='numpy')
+        dk_agg = create_test_raster(
+            data, backend='dask+numpy', chunks=(2, 2)
+        )
+        np_res = contours(np_agg, levels=[1.0])
+        dk_res = contours(dk_agg, levels=[1.0])
+        _assert_no_degenerate_numpy(np_res)
+        _assert_no_degenerate_numpy(dk_res)
+        assert len(np_res) == len(dk_res)
+
+    def test_genuine_contour_survives(self):
+        """The degenerate filter must not drop real crossings.
+
+        A ramp that crosses the level mid-edge still produces a valid,
+        non-zero-length contour.
+        """
+        pytest.importorskip("geopandas")
+        data = _make_ramp(ny=5, nx=6)
+        agg = create_test_raster(data, backend='numpy')
+        result = contours(agg, levels=[2.5])
+        assert len(result) > 0
+        _assert_no_degenerate_numpy(result)
+        gdf = contours(agg, levels=[2.5], return_type="geopandas")
+        assert len(gdf) > 0
+        _assert_no_degenerate_geopandas(gdf)

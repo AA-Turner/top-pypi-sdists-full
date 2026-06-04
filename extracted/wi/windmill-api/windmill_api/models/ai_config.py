@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ..models.ai_config_custom_prompts import AIConfigCustomPrompts
     from ..models.ai_config_default_model import AIConfigDefaultModel
     from ..models.ai_config_max_tokens_per_model import AIConfigMaxTokensPerModel
+    from ..models.ai_config_metadata_model import AIConfigMetadataModel
     from ..models.ai_config_providers import AIConfigProviders
 
 
@@ -22,6 +23,7 @@ class AIConfig:
     Attributes:
         providers (Union[Unset, AIConfigProviders]):
         default_model (Union[Unset, AIConfigDefaultModel]):
+        metadata_model (Union[Unset, AIConfigMetadataModel]):
         code_completion_model (Union[Unset, AIConfigCodeCompletionModel]):
         custom_prompts (Union[Unset, AIConfigCustomPrompts]):
         max_tokens_per_model (Union[Unset, AIConfigMaxTokensPerModel]):
@@ -29,6 +31,7 @@ class AIConfig:
 
     providers: Union[Unset, "AIConfigProviders"] = UNSET
     default_model: Union[Unset, "AIConfigDefaultModel"] = UNSET
+    metadata_model: Union[Unset, "AIConfigMetadataModel"] = UNSET
     code_completion_model: Union[Unset, "AIConfigCodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "AIConfigCustomPrompts"] = UNSET
     max_tokens_per_model: Union[Unset, "AIConfigMaxTokensPerModel"] = UNSET
@@ -42,6 +45,10 @@ class AIConfig:
         default_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
+
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
 
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
@@ -62,6 +69,8 @@ class AIConfig:
             field_dict["providers"] = providers
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
@@ -77,6 +86,7 @@ class AIConfig:
         from ..models.ai_config_custom_prompts import AIConfigCustomPrompts
         from ..models.ai_config_default_model import AIConfigDefaultModel
         from ..models.ai_config_max_tokens_per_model import AIConfigMaxTokensPerModel
+        from ..models.ai_config_metadata_model import AIConfigMetadataModel
         from ..models.ai_config_providers import AIConfigProviders
 
         d = src_dict.copy()
@@ -93,6 +103,13 @@ class AIConfig:
             default_model = UNSET
         else:
             default_model = AIConfigDefaultModel.from_dict(_default_model)
+
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, AIConfigMetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = AIConfigMetadataModel.from_dict(_metadata_model)
 
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, AIConfigCodeCompletionModel]
@@ -118,6 +135,7 @@ class AIConfig:
         ai_config = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
             max_tokens_per_model=max_tokens_per_model,

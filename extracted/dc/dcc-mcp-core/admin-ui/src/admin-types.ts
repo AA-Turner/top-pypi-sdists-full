@@ -2,7 +2,48 @@ import { type InterpolationValues, type MessageKey } from './i18n';
 
 export type Translator = (key: MessageKey, values?: InterpolationValues) => string;
 
-export type Panel = 'setup' | 'debug' | 'activity' | 'health' | 'instances' | 'tools' | 'workflows' | 'tasks' | 'openapi' | 'calls' | 'traces' | 'traffic' | 'stats' | 'governance' | 'logs' | 'skill-paths';
+export type Panel = 'setup' | 'debug' | 'activity' | 'health' | 'instances' | 'tools' | 'workflows' | 'tasks' | 'openapi' | 'calls' | 'traces' | 'traffic' | 'stats' | 'governance' | 'logs' | 'skill-paths' | 'analytics';
+
+export type AnalyticsOverview = {
+  range: string;
+  period_start: string;
+  period_end: string;
+  kpi: {
+    calls_total: number;
+    calls_failed: number;
+    failure_rate_pct: string;
+    success_rate_pct: string;
+    tokens_input_total: number;
+    tokens_output_total: number;
+    tokens_response_saved: number;
+    tokens_total: number;
+    llm_tokens_total: number;
+    avg_duration_ms: string;
+    avg_tokens_per_call: string;
+    unique_instances: number;
+    unique_agents: number;
+  };
+  top_tools: { name: string; calls: number; failures: number; success_rate_pct: number; avg_duration_ms: number }[];
+  daily_series: { date: string; dcc_type: string; calls: number; failures: number; tokens_input: number; tokens_output: number }[];
+};
+
+export type AnalyticsTimeseriesPoint = {
+  date: string;
+  calls: number;
+  failures: number;
+  tokens_input: number;
+  tokens_output: number;
+  avg_duration_ms: string;
+};
+
+export type AnalyticsHeatmapCell = {
+  weekday: number;
+  hour: number;
+  calls: number;
+  failures: number;
+  avg_duration_ms: number;
+  tokens_total: number;
+};
 
 export type SignalTone = 'ok' | 'warn' | 'err';
 export type LatencySeverity = 'slow' | 'critical';
@@ -174,6 +215,7 @@ export type TraceRow = {
   input_tokens?: number | null;
   output_tokens?: number | null;
   total_tokens?: number | null;
+  llm_usage?: LlmUsage | null;
   payload_token_estimator?: string | null;
   links?: AdminLinks;
 };
@@ -189,8 +231,17 @@ export type TokenAccounting = {
   savings_pct?: number | string | null;
 };
 
+/** Upstream LLM billing token counts — separate from byte4 TokenAccounting. */
+export type LlmUsage = {
+  prompt_tokens?: number | null;
+  completion_tokens?: number | null;
+  total_tokens?: number | null;
+  model?: string | null;
+};
+
 export type TokenCarrier = {
   token_accounting?: TokenAccounting | null;
+  llm_usage?: LlmUsage | null;
   response_format?: string | null;
   token_estimator?: string | null;
   original_bytes?: number | null;

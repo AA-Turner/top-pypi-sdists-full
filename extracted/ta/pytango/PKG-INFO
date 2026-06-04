@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytango
-Version: 10.1.4
+Version: 10.3.0
 Summary: Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit
 Author: Coutinho
 Maintainer: Anton Joubert, Yury Matveyev
@@ -87,7 +87,7 @@ PyTango_ is compatible with python 3.10+.
 
 General dependencies:
 
--  cppTango_ >= 10.1.1, and its dependencies: omniORB4 and libzmq
+-  cppTango_ and its dependencies: omniORB4 and libzmq
 
 Python dependencies:
 
@@ -101,7 +101,7 @@ Build dependencies:
 
 - pypa-build_
 - scikit-build-core_
-- pybind11_ >= 3.0.0
+- pybind11_
 - pybind11-stubgen_
 
 Optional dependencies (telemetry):
@@ -129,10 +129,8 @@ Optional dependencies (test):
 Install
 -------
 
-PyTango_ is available on PyPI_ as ``pytango``, with pre-built binaries for some platforms
-(you need pip>=19.3, so upgrade first if necessary)::
+PyTango_ is available on PyPI_ as ``pytango``, with pre-built binaries for some platforms::
 
-    $ python -m pip install --upgrade pip
     $ python -m pip install pytango
 
 Alternatively, pre-built PyTango_ binaries can be installed from `Conda Forge_`::
@@ -148,19 +146,19 @@ Usage
 To test the installation, import ``tango`` and check ``tango.utils.info()``::
 
     >>> import tango
-    >>> import tango; print(tango.utils.info())
-        PyTango 10.1.1 (10, 1, 1)
+    >>> print(tango.utils.info())
+        PyTango 10.3.0rc1 (10, 3, 0, 'rc', 1)
         PyTango compiled with:
-            Python   : 3.14.0
-            Numpy    : 2.3.4
-            Tango    : 10.1.1
+            Python   : 3.13.7
+            Numpy    : 2.3.3
+            Tango    : 10.3.0
             pybind11 : 3.0.1
         PyTango runtime is:
-            Python   : 3.14.0
-            Numpy    : 2.3.4
-            Tango    : 10.1.1
+            Python   : 3.13.7
+            Numpy    : 2.3.3
+            Tango    : 10.3.1
         PyTango running on:
-        uname_result(system='Linux', node='debian', release='5.10.0-35-amd64', version='#1 SMP Debian 5.10.237-1 (2025-05-19)', machine='x86_64')
+        uname_result(system='Linux', node='hasm7430lk', release='6.12.74+deb13+1-amd64', version='#1 SMP PREEMPT_DYNAMIC Debian 6.12.74-2 (2026-03-08)', machine='x86_64')
 
 For an interactive use, consider using ITango_, a tango IPython_ profile.
 
@@ -237,4 +235,4 @@ All contributions,  `MR and bug reports`_ are welcome, please see: `How to Contr
 .. _Tango forums: https://tango-controls.org/community/forum
 .. _MR and bug reports: PyTango_
 .. _sources: PyTango_
-.. _How to Contribute: https://pytango.readthedocs.io/en/latest/how-to-contribute.html#how-to-contribute
+.. _How to Contribute: https://tango-controls.readthedocs.io/projects/pytango/en/latest/how-to/how-to-contribute.html

@@ -8,7 +8,6 @@ from pathlib import Path
 
 import tango
 
-
 if __name__ == "__main__":
     pyi_path = Path(tango.__file__).parent / "_tango.pyi"
     if not pyi_path.is_file():

@@ -40,8 +40,8 @@ use crate::solver::arrow_schur::{
 };
 use crate::terms::analytic_penalties::{
     ARDPenalty, AnalyticPenalty, AnalyticPenaltyKind, AnalyticPenaltyRegistry,
-    IBPAssignmentPenalty, IsometryPenalty, MechanismSparsityPenalty, PenaltyTier, PsiSlice,
-    SoftmaxAssignmentSparsityPenalty,
+    DecoderIncoherencePenalty, IBPAssignmentPenalty, IsometryPenalty, MechanismSparsityPenalty,
+    NuclearNormPenalty, PenaltyTier, PsiSlice, SoftmaxAssignmentSparsityPenalty, WeightField,
 };
 use crate::terms::latent_coord::{LatentCoordValues, LatentIdMode, LatentManifold};
 
@@ -61,21 +61,19 @@ const SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS: usize = 12;
 /// Reactivation band width (in units of the JumpReLU temperature `τ`) below the
 /// hard gate threshold. The forward gate value is hard-zero strictly below
 /// `threshold`, but an atom whose logit lies within `threshold − MARGIN·τ` is
-/// still admitted to the compact Newton active set and granted logit gradient,
-/// so a gated-off atom near the boundary keeps the surrogate-sigmoid slope it
-/// needs to climb back across the threshold and reactivate. Below the band the
-/// shifted-sigmoid derivative `σ'((l−θ)/τ)` is vanishingly small, so the band
-/// captures essentially all of the gradient mass that could drive reactivation
-/// (at `MARGIN = 4`, `σ((l−θ)/τ) < σ(−4) ≈ 0.018` at the band edge). Without the
-/// band the gate is an absorbing pruning rule, not a learnable gate.
+/// still admitted to the compact Newton active set for sparsity-prior support.
+/// Below the band the shifted-sigmoid derivative `σ'((l−θ)/τ)` is vanishingly
+/// small, so the band captures essentially all of the prior-gradient mass that
+/// could act on a gated atom (at `MARGIN = 4`, `σ((l−θ)/τ) < σ(−4) ≈ 0.018` at
+/// the band edge). Without the band the gate is an absorbing pruning rule, not a
+/// learnable gate.
 const JUMPRELU_REACTIVATION_MARGIN: f64 = 4.0;
 
 /// Shared band predicate for JumpReLU optimization inclusion. An atom is kept
-/// optimizable (compact-layout inclusion, logit-JVP support, prior-gradient
-/// support) when its logit is above the reactivation band's lower edge
-/// `threshold − MARGIN·τ`. This is strictly weaker than the hard forward gate
-/// `logit > threshold`, which still governs the gate *value*. All inclusion /
-/// gradient-support sites route through this one predicate so they cannot drift.
+/// optimizable (compact-layout inclusion and prior-gradient support) when its
+/// logit is above the reactivation band's lower edge `threshold − MARGIN·τ`.
+/// This is strictly weaker than the hard forward gate `logit > threshold`,
+/// which still governs data-fit reconstruction and its logit JVP.
 #[inline]
 fn jumprelu_in_optimization_band(logit: f64, threshold: f64, temperature: f64) -> bool {
     logit > threshold - JUMPRELU_REACTIVATION_MARGIN * temperature
@@ -316,6 +314,85 @@ impl SaeAtomBasisKind {
     }
 }
 
+/// Per-axis ARD coordinate prior, evaluated as a smooth energy in the latent
+/// coordinate `t` with precision `alpha = exp(log_ard)`.
+///
+/// On a *Euclidean* axis the prior is the usual Gaussian negative-log density
+/// `½·α·t²`, with gradient `α·t` and curvature `α`.
+///
+/// On a *periodic* axis (a `Circle` factor of period `P`) the Euclidean `½α t²`
+/// is geometrically ill-posed (it depends on the arbitrary choice of origin /
+/// branch cut, so a Newton step crossing the cut makes the loss jump by
+/// `½α P²` and breaks Armijo descent). We replace it with the von-Mises energy
+///
+/// ```text
+///   V(t) = (α / κ²) · (1 − cos(κ t)),   κ = 2π / P
+/// ```
+///
+/// which is the period-`P` periodic function whose Taylor expansion at the
+/// origin is `½ α t² + O(t⁴)` — so it carries the *same* precision `α`
+/// (curvature at the origin) as the Gaussian, matching the ARD interpretation,
+/// but is globally smooth and continuous across the cut (`cos(κ·P)=cos 2π=1`).
+/// Its derivatives are
+///
+/// ```text
+///   V'(t)  = (α / κ) · sin(κ t)
+///   V''(t) = α · cos(κ t)
+/// ```
+///
+/// The value, gradient, and curvature returned here all come from this single
+/// energy, so they are mutually FD-consistent. The *value* (`ard_value` /
+/// `loss.ard`) and the *gradient* (the assembled `gt`) use the exact `V` and
+/// `V'`. The curvature `V'' = α·cos(κt)` is INDEFINITE — it turns negative for
+/// `|κt|` past `π/2` (a quarter period) — so it is NOT written raw into the
+/// Newton/Schur `H_tt` diagonal: that would make the per-row coordinate block
+/// indefinite and the Schur (and log-det) Cholesky would fail on a non-PD pivot
+/// at `K ≥ 2`. The assembly accumulates the PSD majorizer `max(V'', 0)` into
+/// `H_tt` instead (mirroring `add_sae_coord_penalty`'s `psd_majorizer_diag` for
+/// the registry coord penalties). Majorizing the curvature of a *fixed* prior
+/// only damps the Newton step; the stationary point is set by the exact gradient
+/// `V'`, so it is unchanged. The Laplace `½ log|H|` is therefore evaluated on the
+/// same PSD-majorized `H_tt` (a valid Cholesky requires a PD operator anyway).
+///
+/// `sq_equiv` is the Euclidean-equivalent `t²` such that `½·α·sq_equiv == V`,
+/// i.e. `sq_equiv = 2V/α = (2/κ²)(1−cos κt)`. It is what the
+/// Mackay/Fellner–Schall `α ← n / (Σ sq_equiv + tr H⁻¹)` fixed point must use so
+/// that the prior energy it implies stays consistent with `ard_value`.
+#[derive(Clone, Copy, Debug)]
+struct ArdAxisPrior {
+    value: f64,
+    grad: f64,
+    hess: f64,
+    sq_equiv: f64,
+}
+
+impl ArdAxisPrior {
+    /// Evaluate the per-axis prior at coordinate `t` with precision `alpha`.
+    /// `period == None` selects the Euclidean Gaussian; `Some(p)` selects the
+    /// von-Mises periodic energy with period `p`.
+    fn eval(alpha: f64, t: f64, period: Option<f64>) -> Self {
+        match period {
+            None => Self {
+                value: 0.5 * alpha * t * t,
+                grad: alpha * t,
+                hess: alpha,
+                sq_equiv: t * t,
+            },
+            Some(p) => {
+                let kappa = std::f64::consts::TAU / p;
+                let (sin, cos) = (kappa * t).sin_cos();
+                let one_minus_cos = 1.0 - cos;
+                Self {
+                    value: (alpha / (kappa * kappa)) * one_minus_cos,
+                    grad: (alpha / kappa) * sin,
+                    hess: alpha * cos,
+                    sq_equiv: (2.0 / (kappa * kappa)) * one_minus_cos,
+                }
+            }
+        }
+    }
+}
+
 pub trait SaeBasisEvaluator: Send + Sync + std::fmt::Debug {
     fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String>;
 
@@ -334,8 +411,9 @@ pub trait SaeBasisEvaluator: Send + Sync + std::fmt::Debug {
     /// evaluate at those points; referencing the grid shape keeps the
     /// otherwise-unused parameter a lint-clean no-op before reporting None.
     /// (`drop(coords)` is a no-op on the `Copy` view and trips
-    /// `dropping_copy_types` under `-D warnings`; `let _ = coords` / `_coords`
-    /// are rejected by the source-hygiene gate in `build.rs`.)
+    /// `dropping_copy_types` under `-D warnings`; discard patterns and
+    /// underscore-prefixed parameters are rejected by the source-hygiene gate in
+    /// `build.rs`.)
     fn second_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array4<f64>, String>> {
         coords.dim();
         None
@@ -359,6 +437,38 @@ pub trait SaeBasisEvaluator: Send + Sync + std::fmt::Debug {
     /// lint-clean under the source-hygiene gate, matching that default.)
     fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>> {
         coords.dim();
+        None
+    }
+
+    /// A dense grid of candidate latent coordinates spanning this atom's
+    /// manifold, used to *globally* seed the fixed-decoder OOS projection
+    /// `t*_i = argmin_t ‖x_i − Φ(t)·B‖²`.
+    ///
+    /// For a frozen decoder the exact out-of-sample encoding of a row is its
+    /// orthogonal projection onto the decoder's image manifold. That objective
+    /// is non-convex on a compact latent — a trigonometric polynomial for the
+    /// periodic / torus harmonic bases, a chart function on the sphere — so a
+    /// cold local seed (PCA-`atan2`) plus a few Newton steps routinely lands in
+    /// the wrong basin and mis-routes the row. Evaluating the decoder on this
+    /// grid and taking the per-row global argmin lands every row in the correct
+    /// basin before the Newton refinement polishes it to full precision.
+    ///
+    /// Returns `None` for evaluators whose latent is unbounded or whose image
+    /// is otherwise not naturally griddable (the affine / Euclidean-patch /
+    /// Duchon bases, whose PCA seed is already in the convex hull of the
+    /// training coordinates). `resolution` is the target number of points along
+    /// each compact axis; implementations cap the total grid for `d > 1`.
+    ///
+    /// The default touches `resolution` via a wildcard assignment so the
+    /// otherwise-unused parameter stays lint-clean under the source-hygiene
+    /// gate (mirrors the jet forwarders). `let _ = resolution;` is rejected by
+    /// `scan_for_let_underscore`; `_resolution`, `drop(resolution)` on a `Copy`
+    /// usize, and `hint::black_box(resolution)` are all rejected as dodge-family
+    /// equivalents. The wildcard-assignment form `_ = resolution;` is the
+    /// Rust 2024 idiom for the same effect and is the form the gate recognizes
+    /// by name (see `strip_leading_wildcard_assignment` in `build.rs`).
+    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
+        _ = resolution;
         None
     }
 }
@@ -457,6 +567,17 @@ impl SaeBasisEvaluator for PeriodicHarmonicEvaluator {
             }
         }
         Ok((phi, jet))
+    }
+
+    /// `resolution` evenly spaced phases on the circle `[0, 1)` (endpoint
+    /// excluded — `0` and `1` are the same point on `S¹`).
+    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
+        let r = resolution.max(2);
+        let mut grid = Array2::<f64>::zeros((r, 1));
+        for i in 0..r {
+            grid[[i, 0]] = i as f64 / r as f64;
+        }
+        Some(grid)
     }
 }
 
@@ -677,6 +798,26 @@ impl SaeBasisEvaluator for SphereChartEvaluator {
 
     fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String> {
         sphere_chart_basis_jet(coords)
+    }
+
+    /// A `resolution × resolution` lat/lon chart grid. Latitude is sampled on
+    /// the open interval `(-π/2, π/2)` (the poles are chart-degenerate) and
+    /// longitude on `[-π, π)`, matching [`sphere_chart_basis_jet`]'s
+    /// convention and the chart box the sphere retraction enforces.
+    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
+        use std::f64::consts::PI;
+        let r = resolution.max(2);
+        let mut grid = Array2::<f64>::zeros((r * r, 2));
+        for i in 0..r {
+            // Midpoints of `r` equal latitude bins, strictly interior to the chart.
+            let lat = -PI / 2.0 + PI * (i as f64 + 0.5) / r as f64;
+            for j in 0..r {
+                let lon = -PI + 2.0 * PI * (j as f64) / r as f64;
+                grid[[i * r + j, 0]] = lat;
+                grid[[i * r + j, 1]] = lon;
+            }
+        }
+        Some(grid)
     }
 }
 
@@ -981,6 +1122,72 @@ impl SaeBasisEvaluator for TorusHarmonicEvaluator {
             }
         }
         Ok((phi, jet))
+    }
+
+    /// The Cartesian product of per-axis `[0, 1)` phase grids. Each axis is a
+    /// circle, so its endpoint is excluded. The per-axis resolution is shrunk
+    /// geometrically so the *total* grid `per_axis^d` stays under a fixed cap —
+    /// a dense seed in low dimensions, a coarse-but-still-global seed as `d`
+    /// grows (the Newton refinement closes the remaining gap).
+    fn projection_seed_grid(&self, resolution: usize) -> Option<Array2<f64>> {
+        let d = self.latent_dim;
+        if d == 0 {
+            return None;
+        }
+        // Cap the total number of grid points; pick the largest per-axis count
+        // whose d-th power stays within the cap (at least 2 per axis).
+        const MAX_GRID_POINTS: usize = 4096;
+        // Even the coarsest dense grid is `2^d` points: above `d = 12` that
+        // already exceeds the cap, so no on-manifold grid can satisfy it (the
+        // `per_axis > 2` loop floors at 2 and would otherwise emit a runaway
+        // `2^d`-row grid that the per-row global-argmin scan must then walk). A
+        // dense seed grid is infeasible for such a high-dimensional torus
+        // anyway, so fall back to the incoming (PCA) seed exactly as the
+        // unbounded / basis-linear evaluators do.
+        let mut floor_total: usize = 1;
+        for _ in 0..d {
+            match floor_total.checked_mul(2) {
+                Some(v) => floor_total = v,
+                None => return None,
+            }
+        }
+        if floor_total > MAX_GRID_POINTS {
+            return None;
+        }
+        let mut per_axis = resolution.max(2);
+        while per_axis > 2 {
+            let mut total: usize = 1;
+            let mut overflow = false;
+            for _ in 0..d {
+                match total.checked_mul(per_axis) {
+                    Some(v) => total = v,
+                    None => {
+                        overflow = true;
+                        break;
+                    }
+                }
+            }
+            if !overflow && total <= MAX_GRID_POINTS {
+                break;
+            }
+            per_axis -= 1;
+        }
+        let total: usize = (0..d).fold(1usize, |acc, _| acc.saturating_mul(per_axis));
+        let mut grid = Array2::<f64>::zeros((total, d));
+        let mut idx = vec![0usize; d];
+        for flat in 0..total {
+            for axis in 0..d {
+                grid[[flat, axis]] = idx[axis] as f64 / per_axis as f64;
+            }
+            for axis in (0..d).rev() {
+                idx[axis] += 1;
+                if idx[axis] < per_axis {
+                    break;
+                }
+                idx[axis] = 0;
+            }
+        }
+        Some(grid)
     }
 }
 
@@ -1529,7 +1736,36 @@ pub struct SaeManifoldAtom {
     pub basis_values: Array2<f64>,
     pub basis_jacobian: Array3<f64>,
     pub decoder_coefficients: Array2<f64>,
+    /// Effective (intrinsic) roughness Gram `S̃_k` that every consumer reads
+    /// (smoothness value, gradient, Kronecker Hessian op, REML rank/log-det).
+    ///
+    /// `S̃_k` is the raw coefficient-space Gram [`Self::smooth_penalty_raw`]
+    /// reparameterized by the decoder pullback metric so the roughness — and
+    /// hence the topology evidence — is gauge-invariant under reparameterization
+    /// of the latent coordinate `t` (issue #673). It is recomputed from the
+    /// current basis Jacobian and decoder coefficients by
+    /// [`Self::refresh_intrinsic_smooth_penalty`] (lagged-diffusivity: the
+    /// metric weight is frozen within each inner Newton/evidence assembly and
+    /// refreshed between them, so at convergence the penalty is the true
+    /// arc-length roughness). The metric weight is centered (geometric mean 1),
+    /// so for constant-speed atoms (the periodic sin/cos basis on `S¹`) every
+    /// weight is exactly `1` and `S̃_k = S_k` — periodic atoms are untouched
+    /// and no overall magnitude leaks into the penalty.
     pub smooth_penalty: Array2<f64>,
+    /// Canonical raw roughness Gram `S_k` in raw coefficient/`t` space (the
+    /// finite-/cyclic-difference Reinsch Gram or the Duchon RKHS Gram). Never
+    /// mutated after construction; [`Self::smooth_penalty`] is derived from it
+    /// each assembly via the pullback-metric reweighting.
+    pub smooth_penalty_raw: Array2<f64>,
+    /// Roughness operator order `r` of [`Self::smooth_penalty_raw`], recovered
+    /// once at construction as its null-space dimension (an order-`r`
+    /// difference / Duchon penalty annihilates the degree-`<r` polynomials, so
+    /// `nullity(S) = r`). Sets the arc-length reweighting exponent
+    /// `β = ½ − r` (`β = −3/2` for the standard second-derivative penalty):
+    /// the metric-speed power that converts raw-`t` roughness into intrinsic
+    /// arc-length roughness. `0` when the raw Gram is empty/zero (no
+    /// reweighting).
+    pub smooth_penalty_order: usize,
     pub basis_evaluator: Option<Arc<dyn SaeBasisEvaluator>>,
     /// Same evaluator upcast to `dyn SaeBasisSecondJet` when the
     /// implementation provides a closed-form Hessian. `None` for
@@ -1577,17 +1813,30 @@ impl SaeManifoldAtom {
         if p == 0 {
             return Err("SaeManifoldAtom::new: decoder output dimension must be positive".into());
         }
-        Ok(Self {
+        // Recover the roughness operator order `r` from the raw Gram's
+        // null-space dimension (`nullity(S) = r` for an order-`r` difference /
+        // Duchon penalty). This pins the arc-length reweighting exponent
+        // `β = ½ − r` once, so the per-assembly reweighting needs no
+        // eigendecomposition in the hot loop.
+        let smooth_penalty_order = smooth_penalty_nullity(&smooth_penalty)?;
+        let mut atom = Self {
             name: name.into(),
             basis_kind,
             latent_dim,
             basis_values,
-            basis_jacobian,
             decoder_coefficients,
+            smooth_penalty_raw: smooth_penalty.clone(),
             smooth_penalty,
+            smooth_penalty_order,
+            basis_jacobian,
             basis_evaluator: None,
             basis_second_jet: None,
-        })
+        };
+        // Seed `smooth_penalty` with the intrinsic Gram at the initial
+        // decoder/coordinates so the very first assembly already reads the
+        // pullback-metric-reweighted penalty.
+        atom.refresh_intrinsic_smooth_penalty();
+        Ok(atom)
     }
 
     pub fn with_basis_evaluator(mut self, evaluator: Arc<dyn SaeBasisEvaluator>) -> Self {
@@ -1703,6 +1952,182 @@ impl SaeManifoldAtom {
             }
         }
     }
+
+    /// Recompute the intrinsic (arc-length) roughness Gram
+    /// [`Self::smooth_penalty`] from [`Self::smooth_penalty_raw`], the current
+    /// basis Jacobian, and the current decoder coefficients (issue #673).
+    ///
+    /// The raw penalty `0.5·λ·tr(BᵀS B)` measures roughness per unit of the raw
+    /// latent coordinate `t`, so it is *not* invariant under reparameterizing
+    /// `t` — and the model evidence that ranks an atom's topology (circle vs
+    /// line) inherits that gauge dependence. The decoder curve is
+    /// `g(t) = Φ(t) B` and its pulled-back metric is the scalar squared speed
+    /// `m(t) = ‖g'(t)‖² = ‖J(t)‖²` with `J(t) = Φ'(t) B` (the decoder
+    /// Jacobian, [`Self::fill_decoded_derivative_row`]). The arc-length
+    /// roughness of an order-`r` operator reweights the raw-`t` derivative
+    /// energy density by `m^{½−r}` (`= m^{−3/2}` for the standard
+    /// second-derivative penalty), which removes the gauge dependence.
+    ///
+    /// Realised as a per-coefficient symmetric congruence
+    /// `S̃ = W^{½} S W^{½}`, `W = diag(w_μ)`, `w_μ = m̄_μ^{β}`, `β = ½ − r`,
+    /// where `m̄_μ` is the basis-activation-weighted average squared speed
+    /// localised to coefficient `μ`,
+    /// `m̄_μ = (Σ_n Φ_μ(t_n)² m_n) / Σ_n Φ_μ(t_n)²`, `m_n = ‖J(t_n)‖²`. The
+    /// congruence keeps `S̃` symmetric PSD with the same rank as `S` (Sylvester
+    /// inertia), so the Kronecker Hessian `S̃ ⊗ I_p` and the REML
+    /// `rank(S)`-Occam term are structurally unchanged; only the metric-aware
+    /// log-det / quadratic value move, which is exactly the gauge correction.
+    ///
+    /// The metric weight is frozen at the current `B` (lagged-diffusivity /
+    /// IRLS surrogate): within one inner solve the penalty stays a quadratic
+    /// Gram form, and refreshing `W` between assemblies makes the *converged*
+    /// penalty the true arc-length roughness. The per-coefficient weight is
+    /// centered (its geometric mean is 1), so constant-speed atoms (the
+    /// periodic sin/cos basis, `m̄_μ ≡ c`) get `w_μ ≡ 1` and hence `S̃ = S`
+    /// exactly — periodic atoms are unaffected and no overall magnitude (which
+    /// `λ` already owns) leaks into the penalty.
+    ///
+    /// Conservative scope: the scalar-speed reweighting is the genuine
+    /// arc-length normalisation only for a 1-D latent (the circle-vs-line case
+    /// the issue is about). For `latent_dim != 1`, or a degenerate (empty/zero)
+    /// raw Gram, `S̃ = S` is left untouched.
+    pub fn refresh_intrinsic_smooth_penalty(&mut self) {
+        let m = self.basis_size();
+        // No reweighting when there is no penalty operator order to invert into
+        // arc length, or for higher-dim latents where the metric is a matrix
+        // (det(g) volume reweighting is deferred — see scope note above).
+        if m == 0 || self.smooth_penalty_order == 0 || self.latent_dim != 1 {
+            self.smooth_penalty.assign(&self.smooth_penalty_raw);
+            return;
+        }
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let beta = 0.5 - self.smooth_penalty_order as f64;
+
+        // Per-sample squared speed m_n = ‖J(t_n)‖², J(t_n) = Φ'(t_n) B (axis 0,
+        // the single latent axis), and the basis-activation accumulators
+        // act_μ = Σ_n Φ_μ(t_n)² and num_μ = Σ_n Φ_μ(t_n)² m_n.
+        let mut act = vec![0.0_f64; m];
+        let mut num = vec![0.0_f64; m];
+        let mut deriv = vec![0.0_f64; p];
+        for row in 0..n {
+            self.fill_decoded_derivative_row(row, 0, &mut deriv);
+            let mut speed_sq = 0.0_f64;
+            for &d in deriv.iter() {
+                speed_sq += d * d;
+            }
+            for col in 0..m {
+                let phi = self.basis_values[[row, col]];
+                let w = phi * phi;
+                if w == 0.0 {
+                    continue;
+                }
+                act[col] += w;
+                num[col] += w * speed_sq;
+            }
+        }
+
+        // Representative squared speed per coefficient, and the geometric-mean
+        // center of the finite positive speeds. Only finite positive speeds
+        // enter the center so a degenerate (inf/NaN) sample cannot corrupt it.
+        let mut speeds = vec![0.0_f64; m];
+        let mut log_acc = 0.0_f64;
+        let mut log_cnt = 0usize;
+        for col in 0..m {
+            let s = if act[col] > 0.0 {
+                num[col] / act[col]
+            } else {
+                0.0
+            };
+            speeds[col] = s;
+            if s > 0.0 && s.is_finite() {
+                log_acc += s.ln();
+                log_cnt += 1;
+            }
+        }
+        let center = if log_cnt > 0 {
+            (log_acc / log_cnt as f64).exp()
+        } else {
+            0.0
+        };
+        // Degenerate curve (no finite positive speed anywhere, or a non-finite
+        // center): the pullback metric carries no usable scale, so leave the
+        // penalty at its raw Gram — exactly `S̃ = S_raw`, matching the
+        // constant-speed limit with no spurious magnitude inflation.
+        if !(center > 0.0 && center.is_finite()) {
+            self.smooth_penalty.assign(&self.smooth_penalty_raw);
+            return;
+        }
+
+        // Reweight relative to the center so the congruence is a *scale-free*
+        // shape reweighting: the geometric mean of `w_μ` is 1, so a
+        // constant-speed atom (every `s_μ = center`) gives `w_μ ≡ 1` and hence
+        // `S̃ = S_raw` exactly — periodic atoms are untouched and no overall
+        // magnitude (which `λ` already owns) leaks in. The relative floor keeps
+        // a vanishing-speed coefficient at a small fraction of the typical
+        // speed rather than a singular negative power, and clamps any non-finite
+        // ratio back to a finite weight.
+        const RELATIVE_SPEED_FLOOR: f64 = 1.0e-6;
+        const RELATIVE_SPEED_CEIL: f64 = 1.0e6;
+        let mut root_w = vec![0.0_f64; m];
+        for col in 0..m {
+            // Normalised squared speed (ratio to the geometric-mean center),
+            // clamped to `[1e-6, 1e6]` so a vanishing-/diverging-speed
+            // coefficient is treated as a bounded fraction/multiple of the
+            // typical speed rather than a singular negative power, and any
+            // non-finite ratio (e.g. an overflowed speed) maps to the ceiling.
+            // The symmetric clamp keeps every weight finite and centered near 1
+            // so the REML numerical-rank eigencutoff cannot drift.
+            let ratio = speeds[col] / center;
+            let ratio = if ratio.is_finite() {
+                ratio.clamp(RELATIVE_SPEED_FLOOR, RELATIVE_SPEED_CEIL)
+            } else {
+                RELATIVE_SPEED_CEIL
+            };
+            // w_μ = ratio^β; the congruence uses W^{½}, so store ratio^{β/2}.
+            root_w[col] = ratio.powf(0.5 * beta);
+        }
+
+        // S̃ = W^{½} S_raw W^{½}: scale row i and column j by root_w.
+        for i in 0..m {
+            let ri = root_w[i];
+            for j in 0..m {
+                self.smooth_penalty[[i, j]] = ri * self.smooth_penalty_raw[[i, j]] * root_w[j];
+            }
+        }
+    }
+}
+
+/// Null-space dimension of the symmetric PSD roughness Gram `S` — the order
+/// `r` of the difference / Duchon penalty it encodes (`nullity(S) = r`, since
+/// the operator annihilates exactly the degree-`<r` polynomials). Used once at
+/// atom construction to fix the arc-length reweighting exponent `β = ½ − r`.
+///
+/// Numerical null space: eigenvalues at or below `1e-9 · max_eig` (the same
+/// conventional relative spectral cutoff [`SaeManifoldTerm::symmetric_rank`]
+/// uses for `S`'s rank).
+fn smooth_penalty_nullity(s: &Array2<f64>) -> Result<usize, String> {
+    let m = s.ncols();
+    if m == 0 {
+        return Ok(0);
+    }
+    let mut sym = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        for j in 0..m {
+            sym[[i, j]] = 0.5 * (s[[i, j]] + s[[j, i]]);
+        }
+    }
+    let (evals, _evecs) = sym
+        .eigh(Side::Lower)
+        .map_err(|e| format!("smooth_penalty_nullity: eigh failed: {e}"))?;
+    let max_eig = evals.iter().fold(0.0_f64, |acc, &v| acc.max(v));
+    if !(max_eig > 0.0) {
+        // A zero (or negative-semidefinite) Gram carries no roughness; report a
+        // zero operator order so the reweighting is skipped.
+        return Ok(0);
+    }
+    let tol = 1.0e-9 * max_eig;
+    Ok(evals.iter().filter(|&&v| v <= tol).count())
 }
 
 /// Assignment prior/relaxation used by [`SaeAssignment`].
@@ -2377,11 +2802,9 @@ impl SaeRowLayout {
     /// JumpReLU optimization active set: atoms within the reactivation band
     /// `logit > threshold − MARGIN·τ` (see [`jumprelu_in_optimization_band`]).
     /// This is intentionally wider than the hard forward gate `logit > threshold`
-    /// so that gated-off atoms near the boundary remain in the Newton system and
-    /// keep logit gradient — their forward reconstruction contribution is still
-    /// hard-zero (`a_k = 0` below threshold), but their logit-JVP row carries the
-    /// surrogate-sigmoid slope needed to cross back. Including only
-    /// `logit > threshold` would make the gate an absorbing pruning rule.
+    /// so that gated-off atoms near the boundary remain in the Newton system for
+    /// value-consistent prior terms. Their forward reconstruction contribution
+    /// and data-fit logit JVP remain hard-zero while `a_k = 0`.
     fn from_jumprelu(
         n: usize,
         k_atoms: usize,
@@ -2511,19 +2934,28 @@ pub struct SaeManifoldTerm {
 /// `refresh_basis`-rebuilt basis evaluations (`basis_values`, `basis_jacobian`),
 /// plus the assignment logits and latent coordinates.
 ///
-/// Static fields (atom names, basis kinds, smoothness penalties, basis-evaluator
-/// `Arc`s, assignment mode, temperature schedule, `last_row_layout`) are *not*
-/// snapshotted: they are invariant across an inner Newton line search, so the
-/// previous `self.clone()` per halving re-copied them needlessly. Cloning only
-/// the mutated arrays keeps the `O(N·M·d)` `basis_jacobian` copy off the
-/// per-halving hot path (one snapshot before the search, one restore per
-/// rejected trial) instead of firing it on every Armijo backtrack.
+/// Static fields (atom names, basis kinds, basis-evaluator `Arc`s, assignment
+/// mode, temperature schedule) are *not* snapshotted: they are invariant across
+/// an inner Newton line search, so the previous `self.clone()` per halving
+/// re-copied them needlessly. Cloning only the line-search state keeps the
+/// `O(N·M·d)` `basis_jacobian` copy off the per-halving hot path (one snapshot
+/// before the search, one restore per rejected trial) instead of firing it on
+/// every Armijo backtrack.
+///
+/// The intrinsic roughness Gram `smooth_penalty` (issue #673) is likewise not
+/// snapshotted: the metric reweight is frozen at the last
+/// [`SaeManifoldTerm::assemble_arrow_schur_scaled`] and is only recomputed at
+/// the *next* assembly, so it is invariant across a line search by
+/// construction — the trial objective must use the same frozen penalty
+/// quadratic the Newton step was built from (lagged diffusivity). The
+/// canonical `smooth_penalty_raw` / `smooth_penalty_order` are static.
 #[derive(Debug)]
 struct SaeManifoldMutableState {
     /// Per-atom `(basis_values, basis_jacobian, decoder_coefficients)`.
     atoms: Vec<(Array2<f64>, Array3<f64>, Array2<f64>)>,
     logits: Array2<f64>,
     coords: Vec<LatentCoordValues>,
+    last_row_layout: Option<SaeRowLayout>,
 }
 
 impl SaeManifoldTerm {
@@ -2660,11 +3092,13 @@ impl SaeManifoldTerm {
     ///
     /// 1. Every Psi-tier penalty is either a logit-target penalty
     ///    (`IBPAssignment`, `SoftmaxAssignmentSparsity`) or in
-    ///    [`sae_penalty_is_row_block_supported`]. Penalty kinds with
-    ///    cross-row structure (`TotalVariation`, `Monotonicity`,
-    ///    `NuclearNorm`, `BlockSparsity`, `IvaeRidgeMeanGauge`,
-    ///    `Orthogonality`, `NestedPrefix`, `SheafConsistency`) cannot be
-    ///    expressed in the SAE row-block layout and are refused here.
+    ///    [`sae_penalty_is_row_block_supported`], or `NuclearNorm` (which is
+    ///    redirected to the per-atom decoder (β) block rather than the coord
+    ///    "t" row block). Penalty kinds with cross-row structure
+    ///    (`TotalVariation`, `Monotonicity`, `BlockSparsity`,
+    ///    `IvaeRidgeMeanGauge`, `Orthogonality`, `NestedPrefix`,
+    ///    `SheafConsistency`) cannot be expressed in the SAE row-block layout
+    ///    and are refused here.
     ///
     /// 2. If any Psi-tier row-block penalty is present, every atom shares
     ///    the same coord latent dim. The current registry model carries one
@@ -2691,6 +3125,13 @@ impl SaeManifoldTerm {
                     | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
             );
             if is_logit {
+                continue;
+            }
+            // NuclearNorm is redirected to the per-atom decoder (β) block in
+            // `add_sae_beta_penalty` (it penalizes each atom's decoder matrix
+            // singular spectrum, i.e. its embedding rank), so it bypasses the
+            // coord "t" row-block requirement below.
+            if matches!(penalty, AnalyticPenaltyKind::NuclearNorm(_)) {
                 continue;
             }
             if !sae_penalty_is_row_block_supported(penalty) {
@@ -2971,6 +3412,179 @@ impl SaeManifoldTerm {
         })
     }
 
+    pub fn analytic_penalty_value_total(
+        &self,
+        registry: &AnalyticPenaltyRegistry,
+        penalty_scale: f64,
+    ) -> Result<f64, ArrowSchurError> {
+        if !(penalty_scale.is_finite() && penalty_scale > 0.0) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "SaeManifoldTerm::analytic_penalty_value_total: penalty_scale must be finite \
+                     and positive; got {penalty_scale}"
+                ),
+            });
+        }
+        let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        let layout = registry.rho_layout();
+        let logits_flat = flat_logits(self.assignment.logits.view());
+        let beta = self.flatten_beta();
+        let mut value = 0.0_f64;
+        for (penalty, (rho_slice, tier, name)) in registry.penalties.iter().zip(layout.iter()) {
+            let rho_local = rho_global.slice(s![rho_slice.clone()]);
+            // Skip the registry `ARDPenalty` here for the same reason it is
+            // skipped in `add_sae_analytic_penalty_contributions`: the coordinate
+            // ARD energy is already counted by `loss.ard` (the von-Mises
+            // `ard_value`), and the registry penalty's legacy Gaussian `½λt²` is
+            // period-discontinuous. Including it would double-count the energy and
+            // make this line-search objective jump across the branch cut while the
+            // assembled gradient (von-Mises only, after the assembly fix) stays
+            // continuous — i.e. a near-zero step would change the objective by a
+            // finite amount and Armijo would wrongly reject it.
+            if matches!(penalty, AnalyticPenaltyKind::Ard(_)) {
+                continue;
+            }
+            match tier {
+                PenaltyTier::Psi => {
+                    if matches!(
+                        penalty,
+                        AnalyticPenaltyKind::IBPAssignment(_)
+                            | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
+                    ) {
+                        value += penalty.value(logits_flat.view(), rho_local);
+                    } else if let AnalyticPenaltyKind::NuclearNorm(base) = penalty {
+                        for (per_atom, start, end) in self.live_nuclear_norm_penalties(base) {
+                            value += penalty_scale
+                                * per_atom.value(beta.slice(s![start..end]), rho_local);
+                        }
+                    } else {
+                        if !sae_penalty_is_row_block_supported(penalty) {
+                            return Err(ArrowSchurError::SchurFactorFailed {
+                                reason: format!(
+                                    "validate_analytic_penalty_registry should have refused \
+                                     non-row-block Psi-tier penalty {:?} (registry layout name \
+                                     {name:?})",
+                                    penalty.name()
+                                ),
+                            });
+                        }
+                        for atom_idx in 0..self.k_atoms() {
+                            let coord = &self.assignment.coords[atom_idx];
+                            if let AnalyticPenaltyKind::Isometry(iso) = penalty {
+                                let corrected_kind =
+                                    self.corrected_isometry_penalty(iso, atom_idx, coord)?;
+                                value += corrected_kind.value(coord.as_flat().view(), rho_local);
+                            } else {
+                                value += penalty.value(coord.as_flat().view(), rho_local);
+                            }
+                        }
+                    }
+                }
+                PenaltyTier::Beta => {
+                    if let AnalyticPenaltyKind::DecoderIncoherence(base) = penalty {
+                        if let Some(per_fit) = self.live_decoder_incoherence_penalty(base) {
+                            value += penalty_scale * per_fit.value(beta.view(), rho_local);
+                        }
+                    } else if let AnalyticPenaltyKind::MechanismSparsity(base) = penalty {
+                        for (per_atom, start, end) in self.live_mechanism_sparsity_penalties(base) {
+                            if start < end {
+                                value += penalty_scale * per_atom.value(beta.view(), rho_local);
+                            }
+                        }
+                    } else {
+                        value += penalty_scale * penalty.value(beta.view(), rho_local);
+                    }
+                }
+                PenaltyTier::Rho => {}
+            }
+        }
+        Ok(value)
+    }
+
+    /// Energy of the decoder-block analytic penalties that have no native
+    /// `SaeManifoldLoss` counterpart, evaluated at the current decoder `β` and
+    /// the converged SAE state. These act on the per-atom decoder coefficient
+    /// matrices: cross-atom decoder incoherence (#671), mechanism
+    /// (feature-group) sparsity, and nuclear-norm embedding rank (#672). Each
+    /// is injected with its live per-atom shape / co-activation before its
+    /// value is taken, mirroring the assemble path.
+    ///
+    /// This is deliberately narrower than [`Self::analytic_penalty_value_total`]:
+    /// it excludes the Psi-tier coordinate / assignment penalties (ARD,
+    /// Isometry, ScadMcp, BlockOrthogonality, IBP/softmax assignment sparsity).
+    /// The SAE already carries its own ARD (`loss.ard`) and assignment sparsity
+    /// (`loss.assignment_sparsity`) energy, so adding the registry ARD /
+    /// assignment value on top would double-count, and the gauge-only
+    /// coordinate penalties are not part of the penalized deviance the
+    /// REML/Laplace criterion scores. The decoder-block penalties, by contrast,
+    /// are real penalized-energy terms with no `loss.*` representative: the
+    /// inner solve minimizes them (they enter `gb`/`hbb`) but they were absent
+    /// from the criterion scalar `v`. This restores that consistency so the
+    /// ρ-sweep ranks the same objective the inner solve descends — the #671
+    /// incoherence lever in particular now shapes model selection, not just the
+    /// Newton step.
+    ///
+    /// NOTE: the coordinate-block penalties with no native `loss.*` twin
+    /// (`ScadMcp`, `BlockOrthogonality`) carry the same residual inconsistency
+    /// (scored in the line search via `penalized_objective_total`, absent from
+    /// the REML scalar). They are left out here because they share a registry
+    /// dispatch with the always-on `Isometry` gauge, whose inclusion in the
+    /// topology-comparison criterion is a separate design question (#673:
+    /// topology evidence is gauge-conditional). Folding the coord-tier energy in
+    /// is tracked apart from this #671 decoder fix.
+    pub fn analytic_decoder_penalty_value_total(
+        &self,
+        registry: &AnalyticPenaltyRegistry,
+    ) -> Result<f64, ArrowSchurError> {
+        // Resolve each penalty's rho slice exactly as `analytic_penalty_value_total`
+        // does (registry-local rho at zeros), so a learnable decoder-penalty weight
+        // is honoured rather than indexing into an empty view.
+        let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
+        let layout = registry.rho_layout();
+        let beta = self.flatten_beta();
+        let mut value = 0.0_f64;
+        for (penalty, (rho_slice, _tier, _name)) in registry.penalties.iter().zip(layout.iter()) {
+            let rho_local = rho_global.slice(s![rho_slice.clone()]);
+            match penalty {
+                AnalyticPenaltyKind::DecoderIncoherence(base) => {
+                    if let Some(per_fit) = self.live_decoder_incoherence_penalty(base) {
+                        value += per_fit.value(beta.view(), rho_local);
+                    }
+                }
+                AnalyticPenaltyKind::MechanismSparsity(base) => {
+                    for (per_atom, start, end) in self.live_mechanism_sparsity_penalties(base) {
+                        if start < end {
+                            value += per_atom.value(beta.view(), rho_local);
+                        }
+                    }
+                }
+                AnalyticPenaltyKind::NuclearNorm(base) => {
+                    for (per_atom, start, end) in self.live_nuclear_norm_penalties(base) {
+                        value += per_atom.value(beta.slice(s![start..end]), rho_local);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(value)
+    }
+
+    pub fn penalized_objective_total(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+        penalty_scale: f64,
+    ) -> Result<f64, String> {
+        let mut total = self.loss_scaled(target, rho, penalty_scale)?.total();
+        if let Some(analytic_registry) = registry {
+            total += self
+                .analytic_penalty_value_total(analytic_registry, penalty_scale)
+                .map_err(|err| format!("SaeManifoldTerm::penalized_objective_total: {err}"))?;
+        }
+        Ok(total)
+    }
+
     fn decoder_smoothness_value(&self, lambda_smooth: f64) -> f64 {
         // Smoothness penalty value is `0.5·λ·Σ_oc B[:,oc]ᵀ S B[:,oc]`. Form the
         // `S·B` matrix product once per atom (O(M²·p)) and reduce against `B`
@@ -3014,17 +3628,24 @@ impl SaeManifoldTerm {
                     rho.log_ard[atom_idx].len()
                 ));
             }
+            // Per-axis periodicity selects the smooth von-Mises energy on
+            // wrapped (Circle) axes and the Gaussian on Euclidean axes.
+            let periods = coord.effective_axis_periods();
             for axis in 0..d {
                 let log_alpha = rho.log_ard[atom_idx][axis];
                 let alpha = log_alpha.exp();
-                let mut sq = 0.0;
+                let period = periods[axis];
+                let mut energy = 0.0;
                 for row in 0..n {
                     let v = coord.row(row)[axis];
-                    sq += v * v;
+                    energy += ArdAxisPrior::eval(alpha, v, period).value;
                 }
-                // Negative log Gaussian prior for precision alpha:
-                // 0.5 * alpha * ||t||^2 - 0.5 * n * log(alpha).
-                acc += 0.5 * alpha * sq - 0.5 * (n as f64) * log_alpha;
+                // Negative-log prior for precision alpha. The data-dependent
+                // energy is the (Gaussian or von-Mises) coordinate prior; the
+                // `-0.5 n log alpha` normaliser is the precision log-partition,
+                // unchanged because the von-Mises energy matches the Gaussian
+                // curvature `alpha` at the origin (same leading normaliser).
+                acc += energy - 0.5 * (n as f64) * log_alpha;
             }
         }
         Ok(acc)
@@ -3084,6 +3705,17 @@ impl SaeManifoldTerm {
                 rho.log_ard.len(),
                 self.k_atoms()
             ));
+        }
+        // Reparameterize each atom's roughness Gram into arc length at the
+        // current decoder/coordinates (issue #673). This is the single
+        // chokepoint for both the inner Newton assembly and the undamped
+        // evidence factorization, so freezing the pullback-metric weight here
+        // (lagged-diffusivity) keeps the smoothness value, gradient, Kronecker
+        // Hessian, and REML log-det mutually consistent within each assembly
+        // and makes the converged penalty — hence the topology evidence —
+        // gauge-invariant. Constant-speed (periodic) atoms are unaffected.
+        for atom in &mut self.atoms {
+            atom.refresh_intrinsic_smooth_penalty();
         }
         let n = self.n_obs();
         let p = self.output_dim();
@@ -3154,9 +3786,8 @@ impl SaeManifoldTerm {
         //     `logit > threshold − MARGIN·τ` enter the compact solve
         //     ([`jumprelu_in_optimization_band`]). Strictly gated-off atoms
         //     (logit ≤ threshold) carry zero assignment mass so their data-fit
-        //     reconstruction contribution is zero, but band atoms keep a
-        //     logit-JVP row + prior gradient so a gated-off atom near the
-        //     boundary can climb back across the threshold and reactivate.
+        //     reconstruction contribution and data-fit logit JVP are zero, but
+        //     band atoms keep value-consistent prior gradient in the row block.
         //   * IBP-MAP at large `K` — the dense `(m_total · p)²` data
         //     Gram is infeasible, so each row is truncated to its
         //     top-`k_active` atoms above a relative magnitude cutoff
@@ -3279,6 +3910,15 @@ impl SaeManifoldTerm {
         // Dense full-support index `[0, k_atoms)`, used by the row loop when no
         // compact layout is engaged so the active-atom iteration is uniform.
         let all_atoms_index: Vec<usize> = (0..k_atoms).collect();
+        // Per-atom per-axis periodicity, hoisted out of the row loop. Selects
+        // the smooth von-Mises coordinate prior on wrapped (Circle) axes and
+        // the Gaussian prior on Euclidean axes; see `ArdAxisPrior`.
+        let ard_axis_periods: Vec<Vec<Option<f64>>> = self
+            .assignment
+            .coords
+            .iter()
+            .map(|coord| coord.effective_axis_periods())
+            .collect();
         for row in 0..n {
             let assignments = self.assignment.try_assignments_row(row)?;
             // Reconstruction uses the row's active support: for the dense
@@ -3332,15 +3972,17 @@ impl SaeManifoldTerm {
                 let logits_row = self.assignment.logits.row(row);
                 for (j, &k) in active.iter().enumerate() {
                     fill_active_atom_logit_jvp(
-                        self.assignment.mode,
-                        k,
-                        logits_row[k],
-                        assignments[k],
-                        decoded.row(k),
-                        fitted.view(),
-                        ibp_prior_slice,
+                        ActiveAtomLogitJvp {
+                            mode: self.assignment.mode,
+                            k,
+                            logit_k: logits_row[k],
+                            a_k: assignments[k],
+                            decoded_k: decoded.row(k),
+                            fitted: fitted.view(),
+                            ibp_prior: ibp_prior_slice,
+                            compact_index: j,
+                        },
                         &mut jac_compact,
-                        j,
                     );
                 }
                 // Coordinate JVP rows for active atoms only.
@@ -3437,14 +4079,32 @@ impl SaeManifoldTerm {
                         ));
                     }
                     let row_t = coord.row(row);
+                    let periods = &ard_axis_periods[k];
                     for axis in 0..d {
                         // ARD on coords is a genuine per-row prior (each row
-                        // contributes 0.5·α·t_row²), so it is NOT minibatch-
-                        // scaled — the per-chunk row sums already reconstruct
-                        // the full ‖t‖² across a pass.
+                        // contributes the per-axis prior energy), so it is NOT
+                        // minibatch-scaled — the per-chunk row sums already
+                        // reconstruct the full coordinate prior across a pass.
+                        // The value (`ard_value`/`loss.ard`) and the gradient
+                        // both come from the SAME `ArdAxisPrior` energy, so they
+                        // stay FD-consistent on periodic axes. The exact
+                        // von-Mises curvature `V'' = α·cos(κt)` is INDEFINITE —
+                        // it goes negative for |t| past a quarter period — so
+                        // writing it raw into the Newton/Schur `htt` diagonal
+                        // makes that PSD curvature block indefinite and the Schur
+                        // Cholesky (used both for the Newton step and the exact
+                        // log-det) fails on a non-PD pivot. Accumulate the PSD
+                        // majorizer `max(V'', 0)` instead, exactly as
+                        // `add_sae_coord_penalty` does for the registry coord
+                        // penalties: the positive part keeps `htt` PSD so the
+                        // factorization succeeds, and majorizing the curvature of
+                        // a fixed prior only damps the Newton step — it does not
+                        // move the stationary point (the gradient, which sets the
+                        // fixed point, stays the exact `V'`).
                         let alpha = rho.log_ard[k][axis].exp();
-                        block.gt[starts[j] + axis] += alpha * row_t[axis];
-                        block.htt[[starts[j] + axis, starts[j] + axis]] += alpha;
+                        let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
+                        block.gt[starts[j] + axis] += prior.grad;
+                        block.htt[[starts[j] + axis, starts[j] + axis]] += prior.hess.max(0.0);
                     }
                 }
             } else {
@@ -3459,10 +4119,17 @@ impl SaeManifoldTerm {
                     }
                     let off = coord_offsets[atom_idx];
                     let row_t = coord.row(row);
+                    let periods = &ard_axis_periods[atom_idx];
                     for axis in 0..d {
+                        // PSD-majorize the (possibly negative) von-Mises curvature
+                        // into the Newton/Schur `htt` block; see the compact-layout
+                        // branch above for why `max(V'', 0)` is required to keep
+                        // `htt` PD (the exact `V'' = α·cos κt` is indefinite past a
+                        // quarter period and breaks the Schur/log-det Cholesky).
                         let alpha = rho.log_ard[atom_idx][axis].exp();
-                        block.gt[off + axis] += alpha * row_t[axis];
-                        block.htt[[off + axis, off + axis]] += alpha;
+                        let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
+                        block.gt[off + axis] += prior.grad;
+                        block.htt[[off + axis, off + axis]] += prior.hess.max(0.0);
                     }
                 }
             }
@@ -3579,6 +4246,7 @@ impl SaeManifoldTerm {
         // Euclidean ext-coord manifolds (see `sparse_active_plan`), so skipping
         // the projector here is correct — there is nothing to project.
         if row_layout.is_none() {
+            let raw_gt_rows: Vec<Array1<f64>> = sys.rows.iter().map(|row| row.gt.clone()).collect();
             self.apply_sae_riemannian_geometry(&mut sys);
             let manifold = self.ext_coord_manifold();
             if !manifold.is_euclidean() {
@@ -3599,14 +4267,18 @@ impl SaeManifoldTerm {
                         *slot = v;
                     }
                     let t_i = ArrayView1::from(t_buf.as_slice());
+                    let raw_gt = raw_gt_rows[row_idx].view();
                     let jac_flat = &mut kron_jac[row_idx];
                     let q_row = jac_flat.len() / p;
                     for j in 0..p {
                         for c in 0..q_row {
                             col_buf[c] = jac_flat[c * p + j];
                         }
-                        let projected_col =
-                            manifold.project_to_tangent(t_i, col_buf.slice(ndarray::s![..q_row]));
+                        let projected_col = manifold.project_vector_to_gradient_tangent(
+                            t_i,
+                            raw_gt.slice(ndarray::s![..q_row]),
+                            col_buf.slice(ndarray::s![..q_row]),
+                        );
                         for c in 0..q_row {
                             jac_flat[c * p + j] = projected_col[c];
                         }
@@ -3885,7 +4557,6 @@ impl SaeManifoldTerm {
     /// selected-inverse traces `(H⁻¹)_tt` / `(H⁻¹)_ββ` without re-factoring.
     /// The cache is the single shared O(K³) Direct factor; both the
     /// log-determinant criterion and the Fellner-Schall ρ-step consume it.
-    #[allow(clippy::too_many_arguments)]
     pub fn reml_criterion_with_cache(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -3933,21 +4604,39 @@ impl SaeManifoldTerm {
             // tolerate the ill-conditioning rejection here (a genuine non-PD pivot
             // still errors). The cache stays undamped at ridge=0, so
             // `arrow_log_det_from_cache` remains exact.
+            // The exact KKT stationarity residual is the joint gradient
+            // ‖g‖ = √(Σ_i ‖g_t^(i)‖² + ‖g_β‖²), read straight off the assembled
+            // system. Unlike the Newton step Δ = H⁻¹g, the gradient is
+            // factorisation-independent: it is NOT amplified by an inverse, so a
+            // genuinely stationary but ill-conditioned fit (tiny g, possibly large
+            // Δ in a flat direction) is correctly recognised as converged. The
+            // `with_ill_conditioning_tolerated` Direct factor below documents that
+            // its Δ may be inaccurate in exactly those flat directions, so using Δ
+            // alone as the convergence gate would falsely reject healthy fits.
+            let grad_norm_sq: f64 = sys
+                .rows
+                .iter()
+                .map(|row| row.gt.iter().map(|&v| v * v).sum::<f64>())
+                .sum::<f64>()
+                + sys.gb.iter().map(|&v| v * v).sum::<f64>();
             let (delta_t, delta_beta, cache): (Array1<f64>, Array1<f64>, ArrowFactorCache) =
                 solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
                     .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?;
             // The Laplace normaliser ½log|H| is only the correct REML criterion at
-            // the inner optimum (t̂, β̂). The undamped Newton step computed here is
-            // the natural KKT residual of that solve: a step whose magnitude
-            // dwarfs the iterate means the inner loop did not converge at this ρ
-            // and the log-det would be evaluated off the manifold.
+            // the inner optimum (t̂, β̂). Convergence is judged by EITHER a small
+            // gradient (KKT stationarity) OR a small undamped Newton step; the
+            // solve is only rejected as non-converged when BOTH are large, i.e.
+            // the iterate is neither stationary nor about to move negligibly. That
+            // disjunction is what keeps an ill-conditioned-but-stationary fit
+            // (small g, large Δ) from being rejected while still refusing to rank
+            // an off-optimum Laplace criterion that is genuinely mid-flight.
             let step_norm_sq: f64 = delta_t.iter().map(|&v| v * v).sum::<f64>()
                 + delta_beta.iter().map(|&v| v * v).sum::<f64>();
-            if !step_norm_sq.is_finite() {
+            if !step_norm_sq.is_finite() || !grad_norm_sq.is_finite() {
                 return Err(format!(
-                    "SaeManifoldTerm::reml_criterion: undamped Newton residual is non-finite at \
-                     the inner optimum (‖Δ‖²={step_norm_sq}); the joint Hessian factorisation is \
-                     degenerate at this ρ"
+                    "SaeManifoldTerm::reml_criterion: undamped inner residual is non-finite at \
+                     the inner optimum (‖Δ‖²={step_norm_sq}, ‖g‖²={grad_norm_sq}); the joint \
+                     Hessian factorisation is degenerate at this ρ"
                 ));
             }
             let mut iterate_norm_sq = 0.0_f64;
@@ -3965,10 +4654,18 @@ impl SaeManifoldTerm {
                     iterate_norm_sq += v * v;
                 }
             }
-            let residual_norm = step_norm_sq.sqrt();
+            let step_norm = step_norm_sq.sqrt();
+            let grad_norm = grad_norm_sq.sqrt();
             let iterate_scale = 1.0 + iterate_norm_sq.sqrt();
-            let residual_tolerance = 1.0e-4 * iterate_scale;
-            if residual_norm <= residual_tolerance {
+            // Relative parameter-step tolerance for Δ (well-conditioned charts)
+            // and a scaled KKT-gradient tolerance. SAE manifold fits can contain
+            // gauge-like coordinate/decoder directions where the raw undamped step
+            // remains large after the line search has exhausted useful descent;
+            // judge stationarity by the gradient at the same parameter scale the
+            // step audit uses instead of demanding near-machine residuals.
+            let step_tolerance = 1.0e-4 * iterate_scale;
+            let grad_tolerance = 3.0e-3 * iterate_scale;
+            if grad_norm <= grad_tolerance || step_norm <= step_tolerance {
                 let log_det = arrow_log_det_from_cache(&cache).ok_or_else(|| {
                     "SaeManifoldTerm::reml_criterion: arrow_log_det_from_cache returned None at \
                      ridge=0 Direct mode (no dense Schur factor); the joint Hessian log-det is \
@@ -3980,9 +4677,10 @@ impl SaeManifoldTerm {
             if total_inner_iter >= max_refine_iter {
                 return Err(format!(
                     "SaeManifoldTerm::reml_criterion: inner solve did not converge at fixed ρ; \
-                     undamped Newton residual ‖Δ‖={residual_norm:.6e} exceeds tolerance \
-                     {residual_tolerance:.6e} after {total_inner_iter} inner iterations. \
-                     Refusing to rank an off-optimum Laplace criterion."
+                     neither the KKT gradient ‖g‖={grad_norm:.6e} (tol {grad_tolerance:.6e}) nor \
+                     the undamped Newton step ‖Δ‖={step_norm:.6e} (tol {step_tolerance:.6e}) met \
+                     tolerance after {total_inner_iter} inner iterations. Refusing to rank an \
+                     off-optimum Laplace criterion."
                 ));
             }
             let remaining = max_refine_iter - total_inner_iter;
@@ -4007,7 +4705,22 @@ impl SaeManifoldTerm {
         }
         let occam = 0.5 * p_out * (smooth_rank_total as f64) * rho.log_lambda_smooth;
 
-        let v = loss.total() + 0.5 * log_det - occam;
+        // Decoder-block analytic-penalty energy (#671/#672). The inner solve
+        // descended this energy (it enters `gb`/`hbb`) but it had no native
+        // `loss.*` representative, so the Laplace criterion `v` was scoring a
+        // different objective than the one minimized. Add the converged
+        // decoder-penalty value so the ρ-sweep ranks the same penalized
+        // deviance. Excludes the Psi-tier ARD/assignment penalties already
+        // accounted for in `loss.total()` (see
+        // `analytic_decoder_penalty_value_total`).
+        let decoder_penalty_energy = match registry {
+            Some(reg) => self
+                .analytic_decoder_penalty_value_total(reg)
+                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?,
+            None => 0.0,
+        };
+
+        let v = loss.total() + decoder_penalty_energy + 0.5 * log_det - occam;
         Ok((v, loss, cache))
     }
 
@@ -4020,7 +4733,6 @@ impl SaeManifoldTerm {
         Ok(0.5 * p_out * (smooth_rank_total as f64) * rho.log_lambda_smooth)
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn reml_criterion_streaming_exact(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -4043,7 +4755,19 @@ impl SaeManifoldTerm {
         )?;
         let log_det = self.streaming_exact_arrow_log_det(target, rho, registry)?;
         let occam = self.reml_occam_term(rho)?;
-        Ok((loss.total() + 0.5 * log_det - occam, loss))
+        // Decoder-block analytic-penalty energy (#671/#672), matching the
+        // full-batch `reml_criterion_with_cache` path so streaming and dense
+        // criteria rank the identical penalized objective.
+        let decoder_penalty_energy = match registry {
+            Some(reg) => self
+                .analytic_decoder_penalty_value_total(reg)
+                .map_err(|err| format!("SaeManifoldTerm::reml_criterion_streaming_exact: {err}"))?,
+            None => 0.0,
+        };
+        Ok((
+            loss.total() + decoder_penalty_energy + 0.5 * log_det - occam,
+            loss,
+        ))
     }
 
     pub fn streaming_exact_arrow_log_det(
@@ -4104,15 +4828,24 @@ impl SaeManifoldTerm {
     /// This is the data-fit sufficient statistic for the ARD precision update
     /// (the numerator-side `‖t‖²` of the deleted `α = n/‖t‖²` rule). Returned
     /// per atom as an `Array1` of length `d_k`.
+    ///
+    /// On a *periodic* (Circle) axis the relevant statistic is the von-Mises
+    /// energy-equivalent `Σ_i 2/α·V(t_i) = Σ_i (2/κ²)(1−cos κ t_i)` (independent
+    /// of α), so that `½·α·sumsq == Σ_i V(t_i)` matches `ard_value`. This keeps
+    /// the Mackay/Fellner–Schall fixed point `α ← n / (sumsq + tr H⁻¹)`
+    /// consistent with the actual periodic prior energy rather than the
+    /// origin-dependent raw `t²`.
     fn ard_coord_sumsq(&self) -> Vec<Array1<f64>> {
         let mut out = Vec::with_capacity(self.k_atoms());
         for coord in &self.assignment.coords {
             let d = coord.latent_dim();
+            let periods = coord.effective_axis_periods();
             let mut sq = Array1::<f64>::zeros(d);
             for row in 0..coord.n_obs() {
                 let t = coord.row(row);
                 for axis in 0..d {
-                    sq[axis] += t[axis] * t[axis];
+                    // `sq_equiv` is independent of `alpha`; pass 1.0.
+                    sq[axis] += ArdAxisPrior::eval(1.0, t[axis], periods[axis]).sq_equiv;
                 }
             }
             out.push(sq);
@@ -4262,38 +4995,75 @@ impl SaeManifoldTerm {
     ///   * decoder β: `beta_dim − tr(λ_smooth · S_β⁻¹ · ⊕_k S_k⊗I_p)`, the
     ///     smoothness effective-dof already assembled for the Fellner-Schall
     ///     step (penalty-shrunk directions do not cost a full parameter);
-    ///   * latent coordinates: the assignment-weighted dimension budget
-    ///     `Σ_i Σ_k a_{ik}·d_k` — each token spends `d_k` of its `p` observed
-    ///     channels locating itself on the atom it is (softly) assigned to.
+    ///   * latent coordinates: the exact ARD-shrunk trace
+    ///     `Σ_k Σ_j (n_active_k − α_{kj}·tr_{kj}(H⁻¹))` — each per-token
+    ///     coordinate is a latent variable whose effective dof is reduced from
+    ///     1 by its ARD prior, so a fully prior-shrunk axis costs ~0 parameters.
     ///
-    /// The coordinate term is an effective-dof approximation (the per-token
-    /// coordinates are latent variables shrunk by their ARD prior, so this is a
-    /// mild over-count and `φ̂` is correspondingly, conservatively, a touch
-    /// wide). In the SAE regime `N·p ≫ edf` the correction is small. The
-    /// residual dof is floored at 1 so `φ̂` stays finite and positive.
+    /// The coordinate term is the **exact** ARD-shrunk effective dof of the
+    /// latent block: along axis `(k,j)` the MacKay/Fellner-Schall edf is
+    /// `n_active_k − α_{kj}·tr_{kj}(H⁻¹)`, the well-determined-direction count
+    /// after the ARD prior `α_{kj}` shrinks each coordinate. `tr_{kj}(H⁻¹)` is
+    /// the same posterior-variance trace [`Self::ard_inverse_traces`] assembles
+    /// for the EFS ARD step (reused here, not recomputed), so the dispersion is
+    /// consistent with the precision update `α_new = n/(‖t‖²+tr(H⁻¹))`. The
+    /// per-axis scalar count `n_active_k` must match the support the trace sums
+    /// over: `n` for the dense full-support layout, or the number of rows where
+    /// atom `k` is active for the compact active-set layout (inactive
+    /// prior-dominated coordinates contribute 0 to both the trace and the
+    /// count, hence 0 edf). The residual dof is floored at 1 so `φ̂` stays
+    /// finite and positive.
     fn reconstruction_dispersion(
         &self,
         loss: &SaeManifoldLoss,
         cache: &ArrowFactorCache,
-        lambda_smooth: f64,
+        rho: &SaeManifoldRho,
     ) -> Result<f64, String> {
         let n = self.n_obs();
         let p = self.output_dim();
         let n_scalar = (n * p) as f64;
         let rss = 2.0 * loss.data_fit;
         let smooth_edf = self
-            .decoder_smoothness_effective_dof(cache, lambda_smooth)
+            .decoder_smoothness_effective_dof(cache, rho.lambda_smooth())
             .map_err(|e| format!("reconstruction_dispersion: smooth edf: {e}"))?;
         let beta_edf = (self.beta_dim() as f64 - smooth_edf).max(0.0);
-        let assignments = self.assignment.assignments();
+        // Exact ARD-shrunk latent-coordinate edf, reusing the EFS trace cache.
+        let traces = self
+            .ard_inverse_traces(cache)
+            .map_err(|e| format!("reconstruction_dispersion: ARD traces: {e}"))?;
+        if rho.log_ard.len() != self.atoms.len() {
+            return Err(format!(
+                "reconstruction_dispersion: ρ has {} ARD atoms but term has {}",
+                rho.log_ard.len(),
+                self.atoms.len()
+            ));
+        }
         let mut coord_edf = 0.0_f64;
         for (k, atom) in self.atoms.iter().enumerate() {
-            let d_k = atom.latent_dim as f64;
-            let mut mass = 0.0_f64;
-            for row in 0..n {
-                mass += assignments[[row, k]];
+            let d_k = atom.latent_dim;
+            if rho.log_ard[k].len() != d_k || traces[k].len() != d_k {
+                return Err(format!(
+                    "reconstruction_dispersion: ARD shape mismatch at atom {k} \
+                     (log_ard={}, traces={}, d_k={d_k})",
+                    rho.log_ard[k].len(),
+                    traces[k].len()
+                ));
             }
-            coord_edf += mass * d_k;
+            // Scalar count matched to the trace support (see fn doc).
+            let n_active_k = match self.last_row_layout {
+                Some(ref layout) => layout
+                    .active_atoms
+                    .iter()
+                    .filter(|active| active.contains(&k))
+                    .count() as f64,
+                None => n as f64,
+            };
+            for j in 0..d_k {
+                let alpha = rho.log_ard[k][j].exp();
+                // edf_kj ∈ [0, n_active_k]; clamp against numerical drift.
+                let edf_kj = (n_active_k - alpha * traces[k][j]).clamp(0.0, n_active_k);
+                coord_edf += edf_kj;
+            }
         }
         let resid_dof = (n_scalar - beta_edf - coord_edf).max(1.0);
         let phi = rss / resid_dof;
@@ -4408,6 +5178,25 @@ impl SaeManifoldTerm {
         let mut beta_penalty_written = false;
         for (penalty, (rho_slice, tier, name)) in registry.penalties.iter().zip(layout.iter()) {
             let rho_local = rho_global.slice(s![rho_slice.clone()]);
+            // The coordinate ARD prior is owned by the built-in `ArdAxisPrior`
+            // path (the unconditional row-block gradient/curvature write above,
+            // and `ard_value`/`loss.ard` for the energy). That path uses the
+            // smooth von-Mises energy `V(t) = (α/κ²)(1−cos κt)` on periodic
+            // (Circle) axes, whose value, gradient (`α/κ·sin κt`), and curvature
+            // (`α·cos κt`) are mutually FD-consistent and continuous across the
+            // branch cut. The registry `ARDPenalty` is the legacy Euclidean
+            // Gaussian (`½λt²`, grad `λt`, curvature `λ`): adding it here would
+            // (a) double-count the coordinate prior in both gradient and Newton
+            // curvature, and (b) reintroduce the period-discontinuous `½λt²`
+            // energy — its grad `λt` is continuous but its value jumps by
+            // `½λ(t_after²−t_before²)` across the cut, so a near-zero Newton step
+            // crossing the cut changes the line-search objective discontinuously
+            // and Armijo rejects it. Skip it on every SAE path so the von-Mises
+            // built-in is the single source of truth (matching the REML criterion,
+            // which already scores only `loss.ard`).
+            if matches!(penalty, AnalyticPenaltyKind::Ard(_)) {
+                continue;
+            }
             match tier {
                 PenaltyTier::Psi => {
                     if matches!(
@@ -4422,6 +5211,19 @@ impl SaeManifoldTerm {
                             rho_local,
                             row_layout,
                         );
+                    } else if matches!(penalty, AnalyticPenaltyKind::NuclearNorm(_)) {
+                        // NuclearNorm is a Psi-tier penalty but it targets each
+                        // atom's decoder (β) matrix singular spectrum, not the
+                        // coord "t" row block. Route it to the β tier so it
+                        // shrinks each atom's embedding rank.
+                        self.add_sae_beta_penalty(
+                            sys,
+                            penalty,
+                            beta.view(),
+                            rho_local,
+                            penalty_scale,
+                        );
+                        beta_penalty_written = true;
                     } else {
                         // Every other Psi-tier penalty here is row-block
                         // supported with a coord-shape that matches each
@@ -4444,110 +5246,37 @@ impl SaeManifoldTerm {
                         for atom_idx in 0..self.k_atoms() {
                             let off = offsets[atom_idx];
                             let coord = &self.assignment.coords[atom_idx];
-                            // Isometry requires per-step cache refresh from the
-                            // atom's second jet before grad_target / hvp are live.
-                            // The registry-held IsometryPenalty was constructed
-                            // with p_out equal to the latent dim (the "t" block's
-                            // `d` in the JSON latent spec) rather than the true
-                            // decoder output dimension; we build a corrected copy
-                            // here with the right p_out and populated caches.
                             if let AnalyticPenaltyKind::Isometry(iso) = penalty {
-                                let atom = &self.atoms[atom_idx];
-                                // The registry penalty was built with p_out equal
-                                // to the latent dim (the "t" JSON block's `d`),
-                                // but IsometryPenalty.p_out must match the atom's
-                                // decoder output dim. Clone and fix p_out before
-                                // calling refresh_isometry_caches_from_atom.
-                                let p = atom.decoder_coefficients.ncols();
-                                let mut corrected: IsometryPenalty = (**iso).clone();
-                                corrected.p_out = p;
-                                let coords_mat = coord.as_matrix();
-                                let second_jet_installed = refresh_isometry_caches_from_atom(
-                                    &corrected,
-                                    atom,
-                                    coords_mat.view(),
-                                )
-                                .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
-                                if !second_jet_installed {
-                                    // refresh_isometry_caches_from_atom returns
-                                    // false when the atom's basis_second_jet slot
-                                    // is None (atom was registered via
-                                    // with_basis_evaluator, not with_basis_second_jet).
-                                    // Fall back to second_jet_dyn, which evaluators
-                                    // like AffineCoordinateEvaluator override even
-                                    // when the SaeBasisSecondJet supertrait Arc is
-                                    // not in the slot.
-                                    match atom
-                                        .basis_evaluator
-                                        .as_ref()
-                                        .and_then(|e| e.second_jet_dyn(coords_mat.view()))
-                                    {
-                                        Some(Ok(hess)) => {
-                                            let n_obs = coords_mat.nrows();
-                                            let d = atom.latent_dim;
-                                            let m = atom.basis_size();
-                                            if hess.dim() != (n_obs, m, d, d) {
-                                                return Err(ArrowSchurError::SchurFactorFailed {
-                                                    reason: format!(
-                                                        "SAE Isometry atom '{}': second_jet_dyn \
-                                                     returned shape {:?}, expected \
-                                                     ({n_obs}, {m}, {d}, {d})",
-                                                        atom.name,
-                                                        hess.dim()
-                                                    ),
-                                                });
-                                            }
-                                            let b = &atom.decoder_coefficients;
-                                            let mut jac2 = Array2::<f64>::zeros((n_obs, p * d * d));
-                                            for n in 0..n_obs {
-                                                for i in 0..p {
-                                                    for a in 0..d {
-                                                        for c in 0..d {
-                                                            let mut acc = 0.0;
-                                                            for mm in 0..m {
-                                                                acc += hess[[n, mm, a, c]]
-                                                                    * b[[mm, i]];
-                                                            }
-                                                            jac2[[n, (i * d + a) * d + c]] = acc;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            corrected
-                                                .set_jacobian_second_cache(Some(Arc::new(jac2)));
-                                        }
-                                        Some(Err(reason)) => {
-                                            return Err(ArrowSchurError::SchurFactorFailed {
-                                                reason,
-                                            });
-                                        }
-                                        None => {
-                                            return Err(ArrowSchurError::SchurFactorFailed {
-                                                reason: format!(
-                                                    "IsometryPenalty requested for SAE atom \
-                                                 '{}' (basis kind {:?}) but this evaluator \
-                                                 does not expose an analytic second jet; \
-                                                 use AffineCoordinateEvaluator, \
-                                                 SphereChartEvaluator, \
-                                                 PeriodicHarmonicEvaluator, or \
-                                                 TorusHarmonicEvaluator for SAE-Isometry",
-                                                    atom.name, atom.basis_kind
-                                                ),
-                                            });
-                                        }
-                                    }
-                                }
                                 let corrected_kind =
-                                    AnalyticPenaltyKind::Isometry(Arc::new(corrected));
+                                    self.corrected_isometry_penalty(iso, atom_idx, coord)?;
                                 self.add_sae_coord_penalty(
                                     sys,
+                                    atom_idx,
                                     off,
                                     coord,
                                     &corrected_kind,
                                     rho_local,
+                                    row_layout,
                                 );
+                                // The isometry penalty value depends on the
+                                // decoder B as well as the latent coords, through
+                                // the pullback metric `g = JᵀWJ` with the model
+                                // Jacobian `J = (∂Φ/∂t)·B`. `add_sae_coord_penalty`
+                                // only routes `∂P/∂t` into `gt`; the matching
+                                // `∂P/∂B` must be accumulated into `gb`, or the
+                                // assembled gradient disagrees with the penalized
+                                // objective on the β block (value path counts the
+                                // isometry energy, which moves with B).
+                                if let AnalyticPenaltyKind::Isometry(corrected) = &corrected_kind {
+                                    self.add_sae_isometry_beta_penalty(
+                                        sys, atom_idx, coord, corrected, rho_local,
+                                    );
+                                    beta_penalty_written = true;
+                                }
                             } else {
-                                self.add_sae_coord_penalty(sys, off, coord, penalty, rho_local);
+                                self.add_sae_coord_penalty(
+                                    sys, atom_idx, off, coord, penalty, rho_local, row_layout,
+                                );
                             }
                         }
                     }
@@ -4562,6 +5291,82 @@ impl SaeManifoldTerm {
             }
         }
         Ok(beta_penalty_written)
+    }
+
+    fn corrected_isometry_penalty(
+        &self,
+        iso: &Arc<IsometryPenalty>,
+        atom_idx: usize,
+        coord: &LatentCoordValues,
+    ) -> Result<AnalyticPenaltyKind, ArrowSchurError> {
+        // Isometry requires per-step cache refresh from the atom's second jet
+        // before value / grad_target / hvp are live. The registry-held
+        // IsometryPenalty was constructed with p_out equal to the latent dim
+        // from the JSON latent spec; clone it and correct p_out to the atom's
+        // true decoder output dimension before refreshing caches.
+        let atom = &self.atoms[atom_idx];
+        let p = atom.decoder_coefficients.ncols();
+        let mut corrected: IsometryPenalty = (**iso).clone();
+        corrected.p_out = p;
+        let coords_mat = coord.as_matrix();
+        let second_jet_installed =
+            refresh_isometry_caches_from_atom(&corrected, atom, coords_mat.view())
+                .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason })?;
+        if !second_jet_installed {
+            match atom
+                .basis_evaluator
+                .as_ref()
+                .and_then(|e| e.second_jet_dyn(coords_mat.view()))
+            {
+                Some(Ok(hess)) => {
+                    let n_obs = coords_mat.nrows();
+                    let d = atom.latent_dim;
+                    let m = atom.basis_size();
+                    if hess.dim() != (n_obs, m, d, d) {
+                        return Err(ArrowSchurError::SchurFactorFailed {
+                            reason: format!(
+                                "SAE Isometry atom '{}': second_jet_dyn returned shape {:?}, \
+                                 expected ({n_obs}, {m}, {d}, {d})",
+                                atom.name,
+                                hess.dim()
+                            ),
+                        });
+                    }
+                    let b = &atom.decoder_coefficients;
+                    let mut jac2 = Array2::<f64>::zeros((n_obs, p * d * d));
+                    for n in 0..n_obs {
+                        for i in 0..p {
+                            for a in 0..d {
+                                for c in 0..d {
+                                    let mut acc = 0.0;
+                                    for mm in 0..m {
+                                        acc += hess[[n, mm, a, c]] * b[[mm, i]];
+                                    }
+                                    jac2[[n, (i * d + a) * d + c]] = acc;
+                                }
+                            }
+                        }
+                    }
+                    corrected.set_jacobian_second_cache(Some(Arc::new(jac2)));
+                }
+                Some(Err(reason)) => {
+                    return Err(ArrowSchurError::SchurFactorFailed { reason });
+                }
+                None => {
+                    return Err(ArrowSchurError::SchurFactorFailed {
+                        reason: format!(
+                            "IsometryPenalty requested for SAE atom '{}' (basis kind {:?}) but \
+                             this evaluator does not expose an analytic second jet; use \
+                             AffineCoordinateEvaluator, SphereChartEvaluator, \
+                             PeriodicHarmonicEvaluator, or TorusHarmonicEvaluator for \
+                             SAE-Isometry",
+                            atom.name, atom.basis_kind
+                        ),
+                    });
+                }
+            }
+        }
+        Ok(AnalyticPenaltyKind::Isometry(Arc::new(corrected)))
     }
 
     fn add_sae_logit_penalty(
@@ -4611,27 +5416,41 @@ impl SaeManifoldTerm {
     fn add_sae_coord_penalty(
         &self,
         sys: &mut ArrowSchurSystem,
-        off: usize,
+        atom_idx: usize,
+        dense_off: usize,
         coord: &LatentCoordValues,
         penalty: &AnalyticPenaltyKind,
         rho_local: ArrayView1<'_, f64>,
+        row_layout: Option<&SaeRowLayout>,
     ) {
         let n = coord.n_obs();
         let d = coord.latent_dim();
         let target = coord.as_flat().view();
         let grad = penalty.grad_target(target, rho_local);
         for row in 0..n {
-            for axis in 0..d {
-                sys.rows[row].gt[off + axis] += grad[row * d + axis];
+            if let Some(row_off) = sae_coord_penalty_offset(row_layout, dense_off, row, atom_idx) {
+                for axis in 0..d {
+                    sys.rows[row].gt[row_off + axis] += grad[row * d + axis];
+                }
             }
+        }
+        if let AnalyticPenaltyKind::Isometry(corrected) = penalty {
+            self.add_sae_isometry_metric_gn_blocks(
+                sys, atom_idx, dense_off, coord, corrected, rho_local, row_layout,
+            );
+            return;
         }
         // `htt` is the PSD Newton / PIRLS curvature block: accumulate the PSD
         // majorizer (exact for convex penalties), not the indefinite exact
         // Hessian, for the same reason as `add_sae_logit_penalty` above.
         if let Some(diag) = penalty.psd_majorizer_diag(target, rho_local) {
             for row in 0..n {
-                for axis in 0..d {
-                    sys.rows[row].htt[[off + axis, off + axis]] += diag[row * d + axis];
+                if let Some(row_off) =
+                    sae_coord_penalty_offset(row_layout, dense_off, row, atom_idx)
+                {
+                    for axis in 0..d {
+                        sys.rows[row].htt[[row_off + axis, row_off + axis]] += diag[row * d + axis];
+                    }
                 }
             }
             return;
@@ -4644,11 +5463,349 @@ impl SaeManifoldTerm {
             }
             let hv = penalty.psd_majorizer_hvp(target, rho_local, probe.view());
             for row in 0..n {
-                for b in 0..d {
-                    sys.rows[row].htt[[off + b, off + axis]] += hv[row * d + b];
+                if let Some(row_off) =
+                    sae_coord_penalty_offset(row_layout, dense_off, row, atom_idx)
+                {
+                    for b in 0..d {
+                        sys.rows[row].htt[[row_off + b, row_off + axis]] += hv[row * d + b];
+                    }
                 }
             }
         }
+    }
+
+    fn add_sae_isometry_metric_gn_blocks(
+        &self,
+        sys: &mut ArrowSchurSystem,
+        atom_idx: usize,
+        dense_off: usize,
+        coord: &LatentCoordValues,
+        corrected: &Arc<IsometryPenalty>,
+        rho_local: ArrayView1<'_, f64>,
+        row_layout: Option<&SaeRowLayout>,
+    ) {
+        let n_obs = coord.n_obs();
+        let d = coord.latent_dim();
+        let atom = &self.atoms[atom_idx];
+        let p = atom.decoder_coefficients.ncols();
+        let m = atom.basis_size();
+        let Some(jac) = corrected.jacobian_cache() else {
+            return;
+        };
+        if jac.dim() != (n_obs, p * d) {
+            return;
+        }
+        let Some(jac2) = corrected.jacobian_second_cache() else {
+            return;
+        };
+        if jac2.dim() != (n_obs, p * d * d) {
+            return;
+        }
+        let beta_off = self.beta_offsets()[atom_idx];
+        let beta_block = m * p;
+        let jet = &atom.basis_jacobian;
+        let mu = corrected.scalar_weight * rho_local[corrected.rho_index].exp();
+        let mut metric_coord_jac = Array2::<f64>::zeros((d * d, d));
+        let mut metric_beta_jac = Array2::<f64>::zeros((d * d, beta_block));
+        let mut wrote_dense_cross = false;
+        for row in 0..n_obs {
+            let Some(row_off) = sae_coord_penalty_offset(row_layout, dense_off, row, atom_idx)
+            else {
+                continue;
+            };
+            let Some(wj) = Self::sae_isometry_weighted_jacobian_row(corrected, &jac, row, p, d)
+            else {
+                return;
+            };
+            metric_coord_jac.fill(0.0);
+            for a in 0..d {
+                for b in 0..d {
+                    let metric_row = a * d + b;
+                    for c in 0..d {
+                        let mut acc = 0.0;
+                        for i in 0..p {
+                            acc += jac2[[row, (i * d + a) * d + c]] * wj[[i, b]];
+                            acc += wj[[i, a]] * jac2[[row, (i * d + b) * d + c]];
+                        }
+                        metric_coord_jac[[metric_row, c]] = acc;
+                    }
+                }
+            }
+            metric_beta_jac.fill(0.0);
+            for a in 0..d {
+                for b in 0..d {
+                    let metric_row = a * d + b;
+                    for basis_col in 0..m {
+                        let jet_a = jet[[row, basis_col, a]];
+                        let jet_b = jet[[row, basis_col, b]];
+                        for output in 0..p {
+                            metric_beta_jac[[metric_row, basis_col * p + output]] =
+                                jet_a * wj[[output, b]] + wj[[output, a]] * jet_b;
+                        }
+                    }
+                }
+            }
+            for c in 0..d {
+                for e in 0..d {
+                    let mut acc = 0.0;
+                    for metric_row in 0..(d * d) {
+                        acc +=
+                            metric_coord_jac[[metric_row, c]] * metric_coord_jac[[metric_row, e]];
+                    }
+                    sys.rows[row].htt[[row_off + c, row_off + e]] += mu * acc;
+                }
+                for beta_col in 0..beta_block {
+                    let mut acc = 0.0;
+                    for metric_row in 0..(d * d) {
+                        acc += metric_coord_jac[[metric_row, c]]
+                            * metric_beta_jac[[metric_row, beta_col]];
+                    }
+                    sys.rows[row].htbeta[[row_off + c, beta_off + beta_col]] += mu * acc;
+                    wrote_dense_cross = true;
+                }
+            }
+        }
+        if wrote_dense_cross {
+            sys.activate_dense_htbeta_supplement();
+        }
+    }
+
+    fn sae_isometry_weighted_jacobian_row(
+        corrected: &IsometryPenalty,
+        jac: &Array2<f64>,
+        row: usize,
+        p: usize,
+        d: usize,
+    ) -> Option<Array2<f64>> {
+        match &corrected.weight {
+            WeightField::Identity => {
+                let mut out = Array2::<f64>::zeros((p, d));
+                for i in 0..p {
+                    for a in 0..d {
+                        out[[i, a]] = jac[[row, i * d + a]];
+                    }
+                }
+                Some(out)
+            }
+            WeightField::Factored { u, rank, p_out } => {
+                if *p_out != p || u.nrows() != jac.nrows() || u.ncols() != p * *rank {
+                    return None;
+                }
+                let mut projected = Array2::<f64>::zeros((*rank, d));
+                for weight_axis in 0..*rank {
+                    for a in 0..d {
+                        let mut acc = 0.0;
+                        for i in 0..p {
+                            acc += u[[row, i * *rank + weight_axis]] * jac[[row, i * d + a]];
+                        }
+                        projected[[weight_axis, a]] = acc;
+                    }
+                }
+                let mut out = Array2::<f64>::zeros((p, d));
+                for i in 0..p {
+                    for a in 0..d {
+                        let mut acc = 0.0;
+                        for weight_axis in 0..*rank {
+                            acc += u[[row, i * *rank + weight_axis]] * projected[[weight_axis, a]];
+                        }
+                        out[[i, a]] = acc;
+                    }
+                }
+                Some(out)
+            }
+        }
+    }
+
+    /// Accumulate the isometry penalty's decoder-block gradient `∂P/∂B` into the
+    /// β-tier `gb` and its decoder-block Gauss-Newton majorizer into `hbb`. The
+    /// isometry value
+    ///   `P = ½ μ Σ_n ‖J_nᵀ W J_n − G_ref‖²_F`
+    /// is a function of the model Jacobian `J_n[i, a] = Σ_m (∂Φ/∂t)[n, m, a]·B[m, i]`,
+    /// so it depends on the decoder `B` as well as the latent coords `t`. The
+    /// penalty exposes `∂P/∂J` (shape `(n_obs, p·d)`, layout `[n, i·d + a]`) via
+    /// [`IsometryPenalty::grad_jacobian`]; the chain rule through
+    /// `∂J[n, i·d + a]/∂B[m, i] = (∂Φ/∂t)[n, m, a]` gives
+    ///   `∂P/∂B[m, i] = Σ_n Σ_a (∂P/∂J)[n, i·d + a] · (∂Φ/∂t)[n, m, a]`.
+    /// Since `J` is linear in `B`, the PSD decoder curvature is the exact
+    /// pullback of the J-space Gauss-Newton block:
+    ///   `Σ_n jet[n,m,a] · B_GN^J[n,(i,a),(i',a')] · jet[n,m',a']`.
+    /// This drops only the indefinite residual-curvature term, matching the
+    /// file-wide PSD-majorizer convention for Newton / Arrow-Schur blocks.
+    /// The flat β layout is `β[beta_offsets[k] + m·p + i] = B_k[m, i]`, so each
+    /// atom's contribution lands in its own decoder span. The isometry penalty is
+    /// unscaled at the row-block (Psi) tier — mirroring its coord-block routing
+    /// and `analytic_penalty_value_total` — so no `penalty_scale` is applied here.
+    fn add_sae_isometry_beta_penalty(
+        &self,
+        sys: &mut ArrowSchurSystem,
+        atom_idx: usize,
+        coord: &LatentCoordValues,
+        corrected: &Arc<IsometryPenalty>,
+        rho_local: ArrayView1<'_, f64>,
+    ) {
+        let atom = &self.atoms[atom_idx];
+        let d = coord.latent_dim();
+        let p = atom.decoder_coefficients.ncols();
+        let m = atom.basis_size();
+        let n_obs = coord.n_obs();
+        let grad_jac = corrected.grad_jacobian(coord.as_flat().view(), rho_local);
+        if grad_jac.dim() != (n_obs, p * d) {
+            return;
+        }
+        let jet = &atom.basis_jacobian;
+        let beta_off = self.beta_offsets()[atom_idx];
+        for basis_col in 0..m {
+            for i in 0..p {
+                let mut acc = 0.0;
+                for n in 0..n_obs {
+                    for a in 0..d {
+                        acc += grad_jac[[n, i * d + a]] * jet[[n, basis_col, a]];
+                    }
+                }
+                sys.gb[beta_off + basis_col * p + i] += acc;
+            }
+        }
+        let Some(jac) = corrected.jacobian_cache() else {
+            return;
+        };
+        if jac.dim() != (n_obs, p * d) {
+            return;
+        }
+        let mut weighted_jacobian_rows = Vec::with_capacity(n_obs);
+        for n in 0..n_obs {
+            let Some(wj) = Self::sae_isometry_weighted_jacobian_row(corrected, &jac, n, p, d)
+            else {
+                return;
+            };
+            weighted_jacobian_rows.push(wj);
+        }
+        let mu = corrected.scalar_weight * rho_local[corrected.rho_index].exp();
+        let mut metric_jvp = Array2::<f64>::zeros((d, d));
+        let mut jac_hvp = Array2::<f64>::zeros((p, d));
+        let mut beta_hvp = Array2::<f64>::zeros((m, p));
+        for probe_basis_col in 0..m {
+            for probe_output in 0..p {
+                beta_hvp.fill(0.0);
+                for n in 0..n_obs {
+                    let wj = &weighted_jacobian_rows[n];
+                    metric_jvp.fill(0.0);
+                    for a in 0..d {
+                        let probe_jet_a = jet[[n, probe_basis_col, a]];
+                        for b in 0..d {
+                            metric_jvp[[a, b]] = probe_jet_a * wj[[probe_output, b]]
+                                + wj[[probe_output, a]] * jet[[n, probe_basis_col, b]];
+                        }
+                    }
+                    jac_hvp.fill(0.0);
+                    for i in 0..p {
+                        for c in 0..d {
+                            let mut acc = 0.0;
+                            for b in 0..d {
+                                acc += metric_jvp[[c, b]] * wj[[i, b]];
+                            }
+                            for a in 0..d {
+                                acc += metric_jvp[[a, c]] * wj[[i, a]];
+                            }
+                            jac_hvp[[i, c]] = mu * acc;
+                        }
+                    }
+                    for basis_row in 0..m {
+                        for i in 0..p {
+                            let mut acc = 0.0;
+                            for a in 0..d {
+                                acc += jac_hvp[[i, a]] * jet[[n, basis_row, a]];
+                            }
+                            beta_hvp[[basis_row, i]] += acc;
+                        }
+                    }
+                }
+                let beta_col = beta_off + probe_basis_col * p + probe_output;
+                for basis_row in 0..m {
+                    for i in 0..p {
+                        sys.hbb[[beta_off + basis_row * p + i, beta_col]] +=
+                            beta_hvp[[basis_row, i]];
+                    }
+                }
+            }
+        }
+    }
+
+    fn live_decoder_incoherence_penalty(
+        &self,
+        base: &Arc<DecoderIncoherencePenalty>,
+    ) -> Option<DecoderIncoherencePenalty> {
+        let k_atoms = self.k_atoms();
+        if k_atoms < 2 {
+            return None;
+        }
+        let p = self.output_dim();
+        let block_sizes: Vec<usize> = self.atoms.iter().map(|atom| atom.basis_size()).collect();
+        let m_total: usize = block_sizes.iter().sum();
+        let gates = self.assignment.assignments();
+        let n = gates.nrows();
+        let inv_n = if n > 0 { 1.0 / n as f64 } else { 0.0 };
+        let mut coactivation = Array2::<f64>::zeros((k_atoms, k_atoms));
+        for j in 0..k_atoms {
+            for k in 0..k_atoms {
+                let mut s = 0.0;
+                for row in 0..n {
+                    s += gates[[row, j]] * gates[[row, k]];
+                }
+                coactivation[[j, k]] = s * inv_n;
+            }
+        }
+        let mut per_fit: DecoderIncoherencePenalty = (**base).clone();
+        per_fit.block_sizes = block_sizes;
+        per_fit.p_out = p;
+        per_fit.target = PsiSlice {
+            range: 0..m_total * p,
+            latent_dim: Some(m_total),
+        };
+        per_fit.coactivation = coactivation;
+        Some(per_fit)
+    }
+
+    fn live_mechanism_sparsity_penalties(
+        &self,
+        base: &Arc<MechanismSparsityPenalty>,
+    ) -> Vec<(MechanismSparsityPenalty, usize, usize)> {
+        let beta_offsets = self.beta_offsets();
+        let p = self.output_dim();
+        let mut out = Vec::with_capacity(self.atoms.len());
+        for (atom_idx, atom) in self.atoms.iter().enumerate() {
+            let m = atom.basis_size();
+            let start = beta_offsets[atom_idx];
+            let end = start + m * p;
+            let mut per_atom: MechanismSparsityPenalty = (**base).clone();
+            per_atom.target = PsiSlice {
+                range: start..end,
+                latent_dim: Some(m),
+            };
+            out.push((per_atom, start, end));
+        }
+        out
+    }
+
+    fn live_nuclear_norm_penalties(
+        &self,
+        base: &Arc<NuclearNormPenalty>,
+    ) -> Vec<(NuclearNormPenalty, usize, usize)> {
+        let beta_offsets = self.beta_offsets();
+        let p = self.output_dim();
+        let mut out = Vec::with_capacity(self.atoms.len());
+        for (atom_idx, atom) in self.atoms.iter().enumerate() {
+            let m = atom.basis_size();
+            let start = beta_offsets[atom_idx];
+            let end = start + m * p;
+            let mut per_atom: NuclearNormPenalty = (**base).clone();
+            per_atom.n_eff = m;
+            per_atom.target = PsiSlice {
+                range: start..end,
+                latent_dim: Some(p),
+            };
+            out.push((per_atom, start, end));
+        }
+        out
     }
 
     fn add_sae_beta_penalty(
@@ -4671,19 +5828,58 @@ impl SaeManifoldTerm {
         // descriptor: range + latent_dim) and accumulate each atom's
         // contribution into the corresponding β segment. This removes the
         // K≥2 limitation (#240) at root rather than guarding it away.
+        // DecoderIncoherencePenalty (#671) is a cross-atom decoder
+        // column-space incoherence term restricted to co-activating atom pairs.
+        // Its descriptor carries only placeholder shape/co-activation: the live
+        // M_k (per-atom basis sizes), p_out, β target span, and the per-pair
+        // co-activation weights `W[j,k] = mean_n gate[n,j]·gate[n,k]` are all
+        // injected here from the current SAE state before the penalty's
+        // gradient / PSD curvature are accumulated into the β-tier system.
+        if let AnalyticPenaltyKind::DecoderIncoherence(base) = penalty {
+            let Some(per_fit) = self.live_decoder_incoherence_penalty(base) else {
+                return;
+            };
+            let beta_dim = self.beta_dim();
+            let grad = per_fit.grad_target(target_beta, rho_local);
+            for j in 0..beta_dim {
+                sys.gb[j] += penalty_scale * grad[j];
+            }
+            // `hbb` is the PSD Newton / PIRLS curvature block: probe the PSD
+            // majorizer (the Gauss-Newton Hessian, which is already PSD here).
+            let mut probe = Array1::<f64>::zeros(beta_dim);
+            for j in 0..beta_dim {
+                probe.fill(0.0);
+                probe[j] = 1.0;
+                let hv = per_fit.psd_majorizer_hvp(target_beta, rho_local, probe.view());
+                for i in 0..beta_dim {
+                    sys.hbb[[i, j]] += penalty_scale * hv[i];
+                }
+            }
+            return;
+        }
         if let AnalyticPenaltyKind::MechanismSparsity(base) = penalty {
-            let beta_offsets = self.beta_offsets();
-            let p = self.output_dim();
-            for (atom_idx, atom) in self.atoms.iter().enumerate() {
-                let m = atom.basis_size();
-                let start = beta_offsets[atom_idx];
-                let end = start + m * p;
-                let mut per_atom: MechanismSparsityPenalty = (**base).clone();
-                per_atom.target = PsiSlice {
-                    range: start..end,
-                    latent_dim: Some(m),
-                };
+            for (per_atom, start, end) in self.live_mechanism_sparsity_penalties(base) {
                 self.add_sae_mech_sparsity_atom(
+                    sys,
+                    &per_atom,
+                    target_beta,
+                    rho_local,
+                    start,
+                    end,
+                    penalty_scale,
+                );
+            }
+            return;
+        }
+        // NuclearNormPenalty is a smoothed sum of singular values of a single
+        // (n_eff, latent_dim) matrix. The flat SAE β layout concatenates the
+        // per-atom decoder blocks `[B_1 (M_1×p), B_2 (M_2×p), …]`, so it must
+        // operate per atom on that atom's own `[beta_offsets[k] .. +M_k*p)`
+        // slice as an `M_k × p` matrix (`n_eff = M_k`, `latent_dim = p`). This
+        // penalizes the embedding rank of each atom's decoder independently.
+        if let AnalyticPenaltyKind::NuclearNorm(base) = penalty {
+            for (per_atom, start, end) in self.live_nuclear_norm_penalties(base) {
+                self.add_sae_nuclear_norm_atom(
                     sys,
                     &per_atom,
                     target_beta,
@@ -4758,6 +5954,44 @@ impl SaeManifoldTerm {
         }
     }
 
+    /// Accumulate one atom's NuclearNorm contribution into `sys`. The
+    /// `per_atom` penalty has `n_eff = M_k` and `latent_dim = Some(p)`, so it
+    /// treats this atom's β segment `[start, end)` as an `M_k × p` matrix and
+    /// shrinks its singular spectrum (embedding rank).
+    ///
+    /// Unlike MechanismSparsity, `NuclearNormPenalty::grad_target` / `hvp`
+    /// reshape the *entire* `target` argument they are given (they do not use
+    /// `self.target.range` to slice), so the local `M_k × p` block is passed
+    /// directly and the returned vectors are local (length `M_k*p`). The PSD
+    /// curvature is probed via `psd_majorizer_hvp`, which for NuclearNorm has
+    /// no diagonal majorizer and delegates to its analytic spectral HVP.
+    fn add_sae_nuclear_norm_atom(
+        &self,
+        sys: &mut ArrowSchurSystem,
+        per_atom: &NuclearNormPenalty,
+        target_beta: ArrayView1<'_, f64>,
+        rho_local: ArrayView1<'_, f64>,
+        start: usize,
+        end: usize,
+        penalty_scale: f64,
+    ) {
+        let block = target_beta.slice(s![start..end]);
+        let block_len = end - start;
+        let grad = per_atom.grad_target(block, rho_local);
+        for local in 0..block_len {
+            sys.gb[start + local] += penalty_scale * grad[local];
+        }
+        let mut probe = Array1::<f64>::zeros(block_len);
+        for local in 0..block_len {
+            probe.fill(0.0);
+            probe[local] = 1.0;
+            let hv = per_atom.psd_majorizer_hvp(block, rho_local, probe.view());
+            for i in 0..block_len {
+                sys.hbb[[start + i, start + local]] += penalty_scale * hv[i];
+            }
+        }
+    }
+
     pub fn solve_newton_step(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -4798,8 +6032,8 @@ impl SaeManifoldTerm {
     }
 
     /// Capture the mutable state perturbed by an `apply_newton_step` +
-    /// `loss` line-search trial (decoder coefficients, basis evaluations,
-    /// assignment logits, latent coordinates). See
+    /// `loss` line-search trial, plus the row-layout state read by
+    /// `apply_newton_step` when unpacking compact Newton steps. See
     /// [`SaeManifoldMutableState`].
     fn snapshot_mutable_state(&self) -> SaeManifoldMutableState {
         let atoms = self
@@ -4817,6 +6051,7 @@ impl SaeManifoldTerm {
             atoms,
             logits: self.assignment.logits.clone(),
             coords: self.assignment.coords.clone(),
+            last_row_layout: self.last_row_layout.clone(),
         }
     }
 
@@ -4833,6 +6068,15 @@ impl SaeManifoldTerm {
         }
         self.assignment.logits.assign(&snapshot.logits);
         self.assignment.coords.clone_from(&snapshot.coords);
+        self.last_row_layout.clone_from(&snapshot.last_row_layout);
+    }
+
+    fn refresh_basis_from_current_coords(&mut self) -> Result<(), String> {
+        for atom_idx in 0..self.k_atoms() {
+            let coords = self.assignment.coords[atom_idx].as_matrix();
+            self.atoms[atom_idx].refresh_basis(coords.view())?;
+        }
+        Ok(())
     }
 
     fn apply_newton_step_impl(
@@ -5015,6 +6259,97 @@ impl SaeManifoldTerm {
         Ok(delta)
     }
 
+    /// Globally seed every atom's per-row latent coordinate by projecting each
+    /// target row onto that atom's **frozen** decoder image manifold.
+    ///
+    /// For a fixed decoder the exact out-of-sample encoding of row `i` against
+    /// atom `k` is the projection
+    /// `t*_{ik} = argmin_t ‖x_i − Φ_k(t)·B_k‖²`. That objective is non-convex
+    /// on a compact latent (a trigonometric polynomial for periodic / torus
+    /// atoms, a chart function on the sphere), so the cold PCA-`atan2` seed plus
+    /// a handful of Newton steps frequently converges into the wrong basin and
+    /// mis-routes the row — the root cause of the negative-`R²`, near-uniform
+    /// assignment OOS failures. We evaluate each atom's decoder once on a dense
+    /// manifold-spanning grid (provided by the basis evaluator), take the per-row
+    /// global argmin as the coordinate seed, refresh the atom basis there, and
+    /// let the subsequent Newton refinement polish to full precision from inside
+    /// the correct basin. Because the residual-based softmax logit seed reads the
+    /// freshly decoded rows, routing then follows the true per-atom projection
+    /// error rather than the cold-seed error.
+    ///
+    /// Atoms whose evaluator exposes no [`SaeBasisEvaluator::projection_seed_grid`]
+    /// (unbounded / basis-linear latents) are left at their incoming seed. The
+    /// decoder, assignment logits, smoothness penalties and ρ are all untouched;
+    /// only the latent coordinates and the basis caches that depend on them move.
+    pub fn seed_coords_by_decoder_projection(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        resolution: usize,
+    ) -> Result<(), String> {
+        let n = self.n_obs();
+        let p = self.output_dim();
+        if target.dim() != (n, p) {
+            return Err(format!(
+                "SaeManifoldTerm::seed_coords_by_decoder_projection: target shape {:?} != ({n}, {p})",
+                target.dim()
+            ));
+        }
+        for atom_idx in 0..self.k_atoms() {
+            let Some(evaluator) = self.atoms[atom_idx].basis_evaluator.clone() else {
+                continue;
+            };
+            let Some(grid) = evaluator.projection_seed_grid(resolution) else {
+                continue;
+            };
+            let d = self.atoms[atom_idx].latent_dim;
+            if grid.ncols() != d {
+                return Err(format!(
+                    "SaeManifoldTerm::seed_coords_by_decoder_projection: atom {atom_idx} grid has {} columns but latent_dim is {d}",
+                    grid.ncols()
+                ));
+            }
+            let g = grid.nrows();
+            if g == 0 {
+                continue;
+            }
+            // Decode the whole grid once: `decoded = Φ(grid) · B_k`  (g × p).
+            let (phi_grid, _jet) = evaluator.evaluate(grid.view())?;
+            if phi_grid.ncols() != self.atoms[atom_idx].basis_size() {
+                return Err(format!(
+                    "SaeManifoldTerm::seed_coords_by_decoder_projection: atom {atom_idx} grid Φ has {} columns but decoder expects {}",
+                    phi_grid.ncols(),
+                    self.atoms[atom_idx].basis_size()
+                ));
+            }
+            let decoded = phi_grid.dot(&self.atoms[atom_idx].decoder_coefficients);
+            // Per-row global argmin of ‖x_i − decoded_g‖² over the grid.
+            let mut seeded = Array2::<f64>::zeros((n, d));
+            for row in 0..n {
+                let mut best_idx = 0usize;
+                let mut best_err = f64::INFINITY;
+                for grid_idx in 0..g {
+                    let mut err = 0.0_f64;
+                    for col in 0..p {
+                        let diff = target[[row, col]] - decoded[[grid_idx, col]];
+                        err += diff * diff;
+                    }
+                    if err < best_err {
+                        best_err = err;
+                        best_idx = grid_idx;
+                    }
+                }
+                for axis in 0..d {
+                    seeded[[row, axis]] = grid[[best_idx, axis]];
+                }
+            }
+            let flat = Array1::from_iter(seeded.iter().copied());
+            self.assignment.coords[atom_idx].set_flat(flat.view());
+            let coords = self.assignment.coords[atom_idx].as_matrix();
+            self.atoms[atom_idx].refresh_basis(coords.view())?;
+        }
+        Ok(())
+    }
+
     pub fn run_fixed_decoder_arrow_schur(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -5039,10 +6374,11 @@ impl SaeManifoldTerm {
         for _ in 0..max_iter {
             self.advance_temperature_schedule()?;
             let pre_step_loss = self.loss(target, rho)?;
-            let pre_step_total = pre_step_loss.total();
             let sys = self
                 .assemble_arrow_schur(target, rho, analytic_penalties)
                 .map_err(|err| format!("SaeManifoldTerm::run_fixed_decoder_arrow_schur: {err}"))?;
+            let pre_step_total =
+                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
             let delta_ext_coord = Self::fixed_decoder_step_from_rows(&sys, ridge_ext_coord)?;
             let directional_decrease = sae_manifold_newton_directional_decrease(
                 &sys,
@@ -5076,13 +6412,14 @@ impl SaeManifoldTerm {
                 }
                 let trial_result = self
                     .apply_newton_step(delta_ext_coord.view(), beta_zero.view(), trial_step_size)
-                    .and_then(|()| self.loss(target, rho));
-                if let Ok(post_step_loss) = trial_result {
-                    let post_step_total = post_step_loss.total();
+                    .and_then(|()| {
+                        self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                    });
+                if let Ok(post_step_total) = trial_result {
                     let armijo_bound = pre_step_total
                         - SAE_MANIFOLD_ARMIJO_C1 * trial_step_size * directional_decrease;
                     if post_step_total.is_finite() && post_step_total <= armijo_bound {
-                        accepted_loss = Some(post_step_loss);
+                        accepted_loss = Some(self.loss(target, rho)?);
                         break;
                     }
                 }
@@ -5115,6 +6452,8 @@ impl SaeManifoldTerm {
                 "SaeManifoldTerm::run_joint_fit_arrow_schur: step_size must be finite and positive; got {step_size}"
             ));
         }
+        self.refresh_basis_from_current_coords()
+            .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
         // ── Pre-fit decoder identifiability audit ──────────────────────────
         //
         // Each decoder atom `k` contributes `η_i += a_ik · Φ_k(t_ik) · B_k`,
@@ -5158,8 +6497,6 @@ impl SaeManifoldTerm {
             // `update_ard_reml` rule (α = n / ‖t‖²) dropped the logdet /
             // effective-dof term and collapsed α on near-degenerate axes; it
             // has been removed in favour of the criterion-driven update.
-            let pre_step_loss = self.loss(target, rho)?;
-            let pre_step_total = pre_step_loss.total();
             let sys = self
                 .assemble_arrow_schur(target, rho, analytic_penalties)
                 .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
@@ -5211,15 +6548,21 @@ impl SaeManifoldTerm {
                 step_norm_sq += v * v;
             }
             let directional_decrease_floor = 1.0e-14 * grad_norm_sq.sqrt() * step_norm_sq.sqrt();
-            // Snapshot only the state that `apply_newton_step` + `loss`
-            // perturb (decoder coefficients, basis evaluations, assignment
-            // logits/coords) once before the line search. Each rejected trial
-            // restores from this snapshot in place; the static atom metadata,
-            // smoothness penalties and basis-evaluator `Arc`s are never
-            // re-cloned. This replaces the per-halving full `self.clone()`,
-            // whose dominant cost was copying the `O(N·M·d)` `basis_jacobian`
-            // and `O(N·M)` `basis_values` on every backtrack.
+            // Capture the exact state whose assembled gradient/Hessian produced
+            // `sys`, then evaluate the Armijo baseline from that same state.
+            // Assembly installs compact active-set layout in `last_row_layout`;
+            // computing the baseline after that mutation prevents comparing a
+            // trial at one represented state against a bound from another.
+            //
+            // Each rejected trial restores from this snapshot in place; the
+            // static atom metadata, smoothness penalties and basis-evaluator
+            // `Arc`s are never re-cloned. This replaces the per-halving full
+            // `self.clone()`, whose dominant cost was copying the
+            // `O(N·M·d)` `basis_jacobian` and `O(N·M)` `basis_values` on every
+            // backtrack.
             let snapshot = self.snapshot_mutable_state();
+            let pre_step_total =
+                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
             if !(pre_step_total.is_finite()
                 && directional_decrease.is_finite()
                 && directional_decrease > 0.0
@@ -5243,9 +6586,10 @@ impl SaeManifoldTerm {
                 }
                 let trial_result = self
                     .apply_newton_step(delta_ext_coord.view(), delta_beta.view(), trial_step_size)
-                    .and_then(|()| self.loss(target, rho));
-                if let Ok(post_step_loss) = trial_result {
-                    let post_step_total = post_step_loss.total();
+                    .and_then(|()| {
+                        self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                    });
+                if let Ok(post_step_total) = trial_result {
                     let armijo_bound = pre_step_total
                         - SAE_MANIFOLD_ARMIJO_C1 * trial_step_size * directional_decrease;
                     if post_step_total.is_finite() && post_step_total <= armijo_bound {
@@ -5272,8 +6616,9 @@ impl SaeManifoldTerm {
                     |trial_delta_t, trial_delta_beta| {
                         self.restore_mutable_state(&snapshot);
                         self.apply_newton_step(trial_delta_t, trial_delta_beta, 1.0)
-                            .and_then(|()| self.loss(target, rho))
-                            .map(|loss| loss.total())
+                            .and_then(|()| {
+                                self.penalized_objective_total(target, rho, analytic_penalties, 1.0)
+                            })
                             .unwrap_or(f64::INFINITY)
                     },
                 )
@@ -5543,6 +6888,12 @@ impl SaeManifoldTerm {
                     atom.latent_dim
                 ));
             }
+            // Seed the chunk atom from the *raw* roughness Gram (not the
+            // already arc-length-reweighted `smooth_penalty`), so its
+            // constructor recovers the true operator order and its own
+            // `refresh_intrinsic_smooth_penalty` reweights from the canonical
+            // penalty on the chunk's coordinates rather than double-applying
+            // the metric (issue #673).
             let mut chunk_atom = SaeManifoldAtom::new(
                 atom.name.clone(),
                 atom.basis_kind.clone(),
@@ -5550,7 +6901,7 @@ impl SaeManifoldTerm {
                 phi,
                 jet,
                 atom.decoder_coefficients.clone(),
-                atom.smooth_penalty.clone(),
+                atom.smooth_penalty_raw.clone(),
             )?;
             chunk_atom.basis_evaluator = atom.basis_evaluator.clone();
             chunk_atom.basis_second_jet = atom.basis_second_jet.clone();
@@ -5694,9 +7045,12 @@ impl SaeManifoldTerm {
                 }
                 let mut chunk = self.materialize_chunk(logits, coords)?;
                 chunk_ranges.push((start, end));
-                pre_step_total += chunk
-                    .loss_scaled(z_chunk.view(), rho, penalty_scale)?
-                    .total();
+                pre_step_total += chunk.penalized_objective_total(
+                    z_chunk.view(),
+                    rho,
+                    analytic_penalties,
+                    penalty_scale,
+                )?;
                 let sys = chunk
                     .assemble_arrow_schur_scaled(
                         z_chunk.view(),
@@ -5765,9 +7119,13 @@ impl SaeManifoldTerm {
                     trial_beta[j] += trial_step * delta_beta[j];
                 }
                 self.set_flat_beta(trial_beta.view())?;
-                let trial_loss =
-                    self.streaming_loss(&chunk_ranges, rho, n_total, &mut chunk_init)?;
-                let trial_total = trial_loss.total();
+                let (trial_loss, trial_total) = self.streaming_loss_and_penalized_objective_total(
+                    &chunk_ranges,
+                    rho,
+                    analytic_penalties,
+                    n_total,
+                    &mut chunk_init,
+                )?;
                 let armijo_bound =
                     pre_step_total - SAE_MANIFOLD_ARMIJO_C1 * trial_step * directional_decrease;
                 if trial_total.is_finite() && trial_total <= armijo_bound {
@@ -5869,6 +7227,50 @@ impl SaeManifoldTerm {
             smoothness,
             ard,
         })
+    }
+
+    fn streaming_loss_and_penalized_objective_total<F>(
+        &self,
+        chunk_ranges: &[(usize, usize)],
+        rho: &SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        n_total: usize,
+        chunk_init: &mut F,
+    ) -> Result<(SaeManifoldLoss, f64), String>
+    where
+        F: FnMut(usize, usize) -> Result<(Array2<f64>, Vec<Array2<f64>>, Array2<f64>), String>,
+    {
+        let mut data_fit = 0.0_f64;
+        let mut assignment_sparsity = 0.0_f64;
+        let mut smoothness = 0.0_f64;
+        let mut ard = 0.0_f64;
+        let mut total = 0.0_f64;
+        for &(start, end) in chunk_ranges {
+            let n_chunk = end - start;
+            let penalty_scale = n_chunk as f64 / n_total as f64;
+            let (logits, coords, z_chunk) = chunk_init(start, end)?;
+            let chunk = self.materialize_chunk(logits, coords)?;
+            let loss = chunk.loss_scaled(z_chunk.view(), rho, penalty_scale)?;
+            data_fit += loss.data_fit;
+            assignment_sparsity += loss.assignment_sparsity;
+            smoothness += loss.smoothness;
+            ard += loss.ard;
+            total += chunk.penalized_objective_total(
+                z_chunk.view(),
+                rho,
+                analytic_penalties,
+                penalty_scale,
+            )?;
+        }
+        Ok((
+            SaeManifoldLoss {
+                data_fit,
+                assignment_sparsity,
+                smoothness,
+                ard,
+            },
+            total,
+        ))
     }
 
     pub fn run_single_external_basis_refresh_step_arrow_schur(
@@ -5985,7 +7387,6 @@ pub struct SaeManifoldOuterObjective {
 }
 
 impl SaeManifoldOuterObjective {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         term: SaeManifoldTerm,
         target: Array2<f64>,
@@ -6047,9 +7448,7 @@ impl SaeManifoldOuterObjective {
             self.ridge_ext_coord,
             self.ridge_beta,
         )?;
-        let dispersion = self
-            .term
-            .reconstruction_dispersion(&loss, &cache, rho.lambda_smooth())?;
+        let dispersion = self.term.reconstruction_dispersion(&loss, &cache, &rho)?;
         self.term.assemble_shape_uncertainty(&cache, dispersion)
     }
 
@@ -6615,34 +8014,45 @@ fn jumprelu_row(logits: ArrayView1<'_, f64>, temperature: f64, threshold: f64) -
     out
 }
 
-/// Fill the single compact logit-JVP row `jac_compact[[j, ·]]` for active atom
-/// `k`, using the per-mode assignment sensitivity `da_k/dl_k` contracted into
-/// the decoded / fitted-corrected output direction. This is the active-set
-/// analogue of [`fill_assignment_logit_jvp_rows`]: it reproduces that
-/// function's diagonal logit row exactly for the atom `k`, but writes into the
-/// compact position `j` of a heterogeneous-`q` row block instead of the dense
-/// full-`K` Jacobian. `fitted` is the row's *active-set* reconstruction so the
-/// softmax cross term `(decoded_k − fitted)` is consistent with the curvature
-/// the compact block carries.
-#[allow(clippy::too_many_arguments)]
-fn fill_active_atom_logit_jvp(
+struct ActiveAtomLogitJvp<'a> {
     mode: AssignmentMode,
     k: usize,
     logit_k: f64,
     a_k: f64,
-    decoded_k: ArrayView1<'_, f64>,
-    fitted: ArrayView1<'_, f64>,
-    ibp_prior: Option<&[f64]>,
-    jac_compact: &mut Array2<f64>,
-    j: usize,
-) {
+    decoded_k: ArrayView1<'a, f64>,
+    fitted: ArrayView1<'a, f64>,
+    ibp_prior: Option<&'a [f64]>,
+    compact_index: usize,
+}
+
+/// Fill the single compact logit-JVP row for active atom `k`, using the
+/// per-mode assignment sensitivity `da_k/dl_k` contracted into the decoded /
+/// fitted-corrected output direction. This is the active-set analogue of
+/// [`fill_assignment_logit_jvp_rows`]: it reproduces that function's diagonal
+/// logit row exactly for the atom `k`, but writes into a compact position of a
+/// heterogeneous-`q` row block instead of the dense full-`K` Jacobian. `fitted`
+/// is the row's *active-set* reconstruction so the softmax cross term
+/// `(decoded_k − fitted)` is consistent with the curvature the compact block
+/// carries.
+fn fill_active_atom_logit_jvp(input: ActiveAtomLogitJvp<'_>, jac_compact: &mut Array2<f64>) {
+    let ActiveAtomLogitJvp {
+        mode,
+        k,
+        logit_k,
+        a_k,
+        decoded_k,
+        fitted,
+        ibp_prior,
+        compact_index,
+    } = input;
     let p = fitted.len();
     match mode {
         AssignmentMode::Softmax { temperature, .. } => {
             // da_k/dl_k contracted: a_k (decoded_k − fitted) / τ.
             let inv_tau = 1.0 / temperature;
             for out_col in 0..p {
-                jac_compact[[j, out_col]] = a_k * (decoded_k[out_col] - fitted[out_col]) * inv_tau;
+                jac_compact[[compact_index, out_col]] =
+                    a_k * (decoded_k[out_col] - fitted[out_col]) * inv_tau;
             }
         }
         AssignmentMode::IBPMap { temperature, .. } => {
@@ -6655,25 +8065,26 @@ fn fill_active_atom_logit_jvp(
             let sig = if pi_k > 0.0 { a_k / pi_k } else { 0.0 };
             let dz = sig * (1.0 - sig) * inv_tau * pi_k;
             for out_col in 0..p {
-                jac_compact[[j, out_col]] = dz * decoded_k[out_col];
+                jac_compact[[compact_index, out_col]] = dz * decoded_k[out_col];
             }
         }
         AssignmentMode::JumpReLU {
             temperature,
             threshold,
         } => {
-            // Hard-gate STE: derivative of the threshold-centered surrogate
-            // σ((l−θ)/τ). Gradient support extends through the reactivation band
-            // (logit > θ − MARGIN·τ), not just above the hard gate, so a
-            // gated-off atom near the boundary can still climb back across it.
-            if !jumprelu_in_optimization_band(logit_k, threshold, temperature) {
+            // The data-fit Jacobian follows the hard forward gate. Below the
+            // threshold the reconstruction contribution is exactly zero, so the
+            // data-fit logit derivative must also be zero. Band-only atoms stay
+            // in the compact row for prior terms, not phantom reconstruction
+            // slope.
+            if logit_k <= threshold {
                 return;
             }
             let inv_tau = 1.0 / temperature;
             let activation = crate::linalg::utils::stable_logistic((logit_k - threshold) * inv_tau);
             let da = activation * (1.0 - activation) * inv_tau;
             for out_col in 0..p {
-                jac_compact[[j, out_col]] = da * decoded_k[out_col];
+                jac_compact[[compact_index, out_col]] = da * decoded_k[out_col];
             }
         }
     }
@@ -6727,14 +8138,13 @@ fn fill_assignment_logit_jvp_rows(
             temperature,
             threshold,
         } => {
-            // STE for the hard gate: derivative of the threshold-centered
-            // surrogate σ((l−θ)/τ). Gradient support extends through the
-            // reactivation band (logit > θ − MARGIN·τ), matching the compact
-            // layout's inclusion predicate so optimization support and Newton
-            // support never drift.
+            // Data-fit sensitivity follows the hard forward gate: rows at or
+            // below the threshold have zero reconstruction value and therefore
+            // zero data-fit logit derivative. The reactivation band is a
+            // compact-layout/prior support rule, not a data-fit STE.
             let inv_tau = 1.0 / temperature;
             for logit_col in 0..assignments.len() {
-                if !jumprelu_in_optimization_band(logits[logit_col], threshold, temperature) {
+                if logits[logit_col] <= threshold {
                     continue;
                 }
                 let activation = crate::linalg::utils::stable_logistic(
@@ -6758,6 +8168,31 @@ fn flat_logits(logits: ArrayView2<'_, f64>) -> Array1<f64> {
         }
     }
     out
+}
+
+fn sae_coord_penalty_offset(
+    row_layout: Option<&SaeRowLayout>,
+    dense_off: usize,
+    row: usize,
+    atom_idx: usize,
+) -> Option<usize> {
+    match row_layout {
+        Some(layout) => {
+            let active = &layout.active_atoms[row];
+            let starts = &layout.coord_starts[row];
+            active
+                .iter()
+                .zip(starts.iter())
+                .find_map(|(&active_atom, &coord_start)| {
+                    if active_atom == atom_idx {
+                        Some(coord_start)
+                    } else {
+                        None
+                    }
+                })
+        }
+        None => Some(dense_off),
+    }
 }
 
 fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifoldRho) -> f64 {
@@ -6800,13 +8235,15 @@ fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifoldRho) -> f
             temperature,
             threshold,
         } => {
-            // Sparsity penalty on the gate value; matches the forward gate
-            // exactly — hard-zero below threshold, threshold-centered surrogate
-            // σ((l−θ)/τ) above.
+            // Sparsity penalty uses the same threshold-centered surrogate and
+            // reactivation-band support as its gradient. This makes band
+            // prior gradients part of the objective evaluated by line search,
+            // while data-fit reconstruction remains hard-gated by
+            // `jumprelu_row`.
             let sparsity_strength = rho.log_lambda_sparse.exp();
             let mut acc = 0.0;
             for &logit in target.iter() {
-                if logit > threshold {
+                if jumprelu_in_optimization_band(logit, threshold, temperature) {
                     acc += crate::linalg::utils::stable_logistic((logit - threshold) / temperature);
                 }
             }
@@ -6867,12 +8304,11 @@ fn assignment_prior_grad_hdiag(
             temperature,
             threshold,
         } => {
-            // Gradient of the threshold-centered surrogate σ((l−θ)/τ). Gradient
-            // support extends through the reactivation band (logit > θ − MARGIN·τ)
-            // so a gated-off atom near the boundary keeps prior gradient and the
-            // prior-gradient support tracks the layout-inclusion and JVP-support
-            // predicates exactly. The forward gate value above stays hard-zero
-            // strictly below threshold.
+            // Gradient of the sparsity value's threshold-centered surrogate
+            // σ((l−θ)/τ). Support extends through the reactivation band
+            // (logit > θ − MARGIN·τ) so a gated-off atom near the boundary keeps
+            // prior gradient. Data-fit JVP support is narrower and follows the
+            // hard forward gate.
             let sparsity_strength = rho.log_lambda_sparse.exp();
             let inv_tau = 1.0 / temperature;
             let inv_tau2 = inv_tau * inv_tau;
@@ -7338,6 +8774,302 @@ mod tests {
             jet[[row, 2, 0]] = -2.0 * std::f64::consts::PI * angle.sin();
         }
         (phi, jet)
+    }
+
+    // --- Periodic/topology ARD prior smoothness + value↔grad consistency ---
+
+    /// The periodic von-Mises ARD energy must be continuous (in value, gradient,
+    /// and curvature) as the latent coordinate crosses the period cut. The old
+    /// Euclidean `½α t²` jumped by `½α P²` here, breaking Armijo descent. With
+    /// period `P = 1` the cut is at `t = 1 ≡ 0`: evaluating just below and just
+    /// above must agree to O(eps), and the wrapped-to-`0` representative must
+    /// match the unwrapped value.
+    #[test]
+    fn ard_axis_prior_periodic_is_continuous_across_cut() {
+        let alpha = 2.3_f64;
+        let period = 1.0_f64;
+        let eps = 1.0e-6;
+        let below = ArdAxisPrior::eval(alpha, period - eps, Some(period));
+        let above = ArdAxisPrior::eval(alpha, period + eps, Some(period));
+        let at_zero = ArdAxisPrior::eval(alpha, 0.0, Some(period));
+        // Crossing the cut changes value/grad/hess by O(eps), NOT O(½αP²≈1.15
+        // for the old Euclidean prior). value and hess are even in (t-cut) so
+        // they match to O(eps²); grad is odd through 0, so it flips sign but its
+        // magnitude → 0 at the cut and the jump is O(eps) (continuous).
+        let cont_tol = 10.0 * alpha * eps; // O(eps) continuity bound
+        assert!((below.value - above.value).abs() < cont_tol);
+        assert!((below.grad - above.grad).abs() < cont_tol);
+        assert!((below.hess - above.hess).abs() < cont_tol);
+        // The gradient vanishes at the cut (no kink): both one-sided values are
+        // O(eps), unlike the old prior whose grad was α·P ≈ 2.3 just below.
+        assert!(below.grad.abs() < cont_tol);
+        assert!(above.grad.abs() < cont_tol);
+        // The unwrapped representative `period - eps` and the wrapped-near-0
+        // representative agree: the energy is a genuine function on the circle.
+        assert_abs_diff_eq!(below.value, at_zero.value, epsilon = 1.0e-9);
+        // At the origin: zero energy/gradient, curvature == alpha (the ARD
+        // precision interpretation is preserved).
+        assert_abs_diff_eq!(at_zero.value, 0.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(at_zero.grad, 0.0, epsilon = 1.0e-12);
+        assert_abs_diff_eq!(at_zero.hess, alpha, epsilon = 1.0e-12);
+        // `sq_equiv` is alpha-independent so the Mackay/Fellner-Schall update is
+        // a clean function of the coordinates.
+        let sq_a = ArdAxisPrior::eval(1.0, 0.3, Some(period)).sq_equiv;
+        let sq_b = ArdAxisPrior::eval(5.0, 0.3, Some(period)).sq_equiv;
+        assert_abs_diff_eq!(sq_a, sq_b, epsilon = 1.0e-12);
+        // ½·α·sq_equiv reproduces the energy (consistency with ard_value).
+        let p = ArdAxisPrior::eval(alpha, 0.3, Some(period));
+        assert_abs_diff_eq!(0.5 * alpha * p.sq_equiv, p.value, epsilon = 1.0e-12);
+    }
+
+    /// The per-axis prior gradient must be the exact derivative of its value, on
+    /// BOTH the Euclidean (Gaussian) and periodic (von-Mises) axes. This is the
+    /// d=1 value↔grad FD agreement that the line search depends on.
+    #[test]
+    fn ard_axis_prior_value_grad_fd_consistent() {
+        let alpha = 1.7_f64;
+        let h = 1.0e-6;
+        for &period in &[None, Some(1.0_f64), Some(std::f64::consts::TAU)] {
+            // Sample several points, including near a periodic cut.
+            for &t in &[-0.37_f64, 0.02, 0.49, 0.83, 0.999, 1.4] {
+                let p = ArdAxisPrior::eval(alpha, t, period);
+                let vp = ArdAxisPrior::eval(alpha, t + h, period).value;
+                let vm = ArdAxisPrior::eval(alpha, t - h, period).value;
+                let fd_grad = (vp - vm) / (2.0 * h);
+                assert_abs_diff_eq!(p.grad, fd_grad, epsilon = 1.0e-5);
+                // Hessian == derivative of gradient.
+                let gp = ArdAxisPrior::eval(alpha, t + h, period).grad;
+                let gm = ArdAxisPrior::eval(alpha, t - h, period).grad;
+                let fd_hess = (gp - gm) / (2.0 * h);
+                assert_abs_diff_eq!(p.hess, fd_hess, epsilon = 1.0e-5);
+            }
+        }
+    }
+
+    /// The manifold → per-axis periodicity map must classify every topology's
+    /// d=1 (and product) axes correctly: line=non-periodic, circle=periodic,
+    /// torus=per-axis periodic, sphere chart=(non-periodic lat, periodic lon),
+    /// embedded sphere=non-periodic (smooth retraction, no cut).
+    #[test]
+    fn axis_periods_map_each_topology() {
+        assert_eq!(LatentManifold::Euclidean.axis_periods(), vec![None]);
+        assert_eq!(
+            LatentManifold::Circle { period: 1.0 }.axis_periods(),
+            vec![Some(1.0)]
+        );
+        // Torus (Product of Circles), each axis periodic.
+        let torus = LatentManifold::Product(vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ]);
+        assert_eq!(torus.axis_periods(), vec![Some(1.0), Some(1.0)]);
+        // Sphere lat/lon chart: lat is an Interval (non-periodic), lon a Circle.
+        let sphere_chart = LatentManifold::Product(vec![
+            LatentManifold::Interval { lo: -1.0, hi: 1.0 },
+            LatentManifold::Circle {
+                period: std::f64::consts::TAU,
+            },
+        ]);
+        assert_eq!(
+            sphere_chart.axis_periods(),
+            vec![None, Some(std::f64::consts::TAU)]
+        );
+        // Embedded sphere: smooth retraction, reported non-periodic per axis.
+        assert_eq!(
+            LatentManifold::Sphere { dim: 3 }.axis_periods(),
+            vec![None, None, None]
+        );
+    }
+
+    /// End-to-end: a periodic term's `ard_value` must be continuous as a latent
+    /// coordinate is stepped across the period cut via the (wrapping)
+    /// retraction. Reproduces the original non-smoothness bug at the term level:
+    /// the old Euclidean prior made `loss.ard` jump by ~½α·P² when a Newton step
+    /// crossed `t = 1 ≡ 0`.
+    #[test]
+    fn ard_value_continuous_across_periodic_cut_d1() {
+        // Single periodic atom, one row sitting just below the cut at t≈1.
+        let coords0 = array![[0.999_f64]];
+        let (phi0, jet0) = periodic_basis(&coords0);
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi0,
+            jet0,
+            array![[0.2], [-0.3], [0.4]],
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((1, 1)),
+            vec![coords0],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::ibp_map(0.7, 1.0, true),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = array![[0.1_f64]];
+        // Large alpha makes the OLD bug's jump (~½·α·P²) enormous relative to
+        // the smooth O(step) change; with the von-Mises prior it stays tiny.
+        let alpha = 50.0_f64;
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![alpha.ln()]]);
+
+        let ard_before = term.loss(target.view(), &rho).unwrap().ard;
+        // Step the coordinate by +0.002 so it crosses the cut: 0.999 -> 1.001,
+        // which the Circle retraction wraps to 0.001.
+        let q = term.assignment.row_block_dim();
+        let beta_dim = term.beta_dim();
+        let mut delta_ext = Array1::<f64>::zeros(q);
+        // coord axis is the last entry of the row block (after the logit).
+        delta_ext[q - 1] = 0.002;
+        let delta_beta = Array1::<f64>::zeros(beta_dim);
+        term.apply_newton_step(delta_ext.view(), delta_beta.view(), 1.0)
+            .unwrap();
+        let wrapped = term.assignment.coords[0].row(0)[0];
+        // Confirm the step actually crossed and wrapped near 0.
+        assert!(
+            wrapped < 0.01,
+            "coordinate should have wrapped across the cut, got {wrapped}"
+        );
+        let ard_after = term.loss(target.view(), &rho).unwrap().ard;
+        // Smooth: a 0.002 step near the cut changes the ARD energy by a tiny
+        // amount. The OLD Euclidean prior would jump by ≈ ½·α·(1² - 0²) = 25.
+        assert!(
+            (ard_after - ard_before).abs() < 1.0e-2,
+            "periodic ARD jumped across the cut: before={ard_before}, after={ard_after}"
+        );
+    }
+
+    /// The *full line-search objective* (`penalized_objective_total`) — not just
+    /// the built-in `loss.ard` — must be continuous across the period cut when a
+    /// registry `ARDPenalty` is present, which is the production SAE config
+    /// (`ard_per_atom=True` emits `{"kind":"ard","target":"t"}`). The registry
+    /// `ARDPenalty` value is the legacy Euclidean Gaussian `½λΣt²`, which jumps by
+    /// ≈ ½λ·P² across the cut. Before the fix it was summed into
+    /// `analytic_penalty_value_total` on top of the von-Mises `loss.ard`, so the
+    /// line-search objective jumped discontinuously while the assembled gradient
+    /// (also double-counting the Gaussian `λt`, but that piece is continuous)
+    /// predicted only an O(step) change — a near-zero Newton step crossing the
+    /// cut then raised the objective by ≈ ½λ and Armijo rejected it (BUG 1). The
+    /// fix skips the registry ARD on every SAE path so the smooth von-Mises
+    /// built-in is the single source of truth; the objective must now stay smooth.
+    #[test]
+    fn penalized_objective_continuous_across_periodic_cut_with_registry_ard() {
+        let coords0 = array![[0.999_f64]];
+        let (phi0, jet0) = periodic_basis(&coords0);
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi0,
+            jet0,
+            array![[0.2], [-0.3], [0.4]],
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((1, 1)),
+            vec![coords0],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::ibp_map(0.7, 1.0, true),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = array![[0.1_f64]];
+        // Large precision makes the OLD Gaussian-registry jump (≈ ½λP² = 25) huge
+        // relative to the smooth O(step) von-Mises change.
+        let alpha = 50.0_f64;
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![alpha.ln()]]);
+
+        // Production-shaped registry: one ARD penalty on the "t" coord block.
+        let coord = &term.assignment.coords[0];
+        let mut registry = AnalyticPenaltyRegistry::new();
+        let ard_pen = ARDPenalty::new(
+            PsiSlice::full(coord.len(), Some(coord.latent_dim())),
+            coord.latent_dim(),
+        );
+        registry.push(AnalyticPenaltyKind::Ard(Arc::new(ard_pen)));
+
+        let obj_before = term
+            .penalized_objective_total(target.view(), &rho, Some(&registry), 1.0)
+            .unwrap();
+        let q = term.assignment.row_block_dim();
+        let beta_dim = term.beta_dim();
+        let mut delta_ext = Array1::<f64>::zeros(q);
+        delta_ext[q - 1] = 0.002; // 0.999 -> 1.001, wraps to 0.001 across the cut.
+        let delta_beta = Array1::<f64>::zeros(beta_dim);
+        term.apply_newton_step(delta_ext.view(), delta_beta.view(), 1.0)
+            .unwrap();
+        let wrapped = term.assignment.coords[0].row(0)[0];
+        assert!(
+            wrapped < 0.01,
+            "coordinate should have wrapped across the cut, got {wrapped}"
+        );
+        let obj_after = term
+            .penalized_objective_total(target.view(), &rho, Some(&registry), 1.0)
+            .unwrap();
+        // Smooth: a 0.002 step changes the full objective by a tiny amount. The
+        // OLD Gaussian-registry path jumped by ≈ ½·50·(1²−0²) = 25.
+        assert!(
+            (obj_after - obj_before).abs() < 1.0e-2,
+            "line-search objective jumped across the cut: before={obj_before}, after={obj_after}"
+        );
+    }
+
+    /// The von-Mises coordinate-prior curvature `V'' = α·cos(κt)` is indefinite
+    /// (negative for |t| past a quarter period). Writing it raw into the
+    /// Newton/Schur `htt` diagonal at K=2 made the per-row coordinate block, and
+    /// hence the Schur complement, non-PD and the Cholesky failed on a negative
+    /// pivot (BUG 3). The assembled `htt` diagonal on every periodic coord axis
+    /// must therefore be non-negative (the `max(V'',0)` PSD majorizer), while the
+    /// gradient stays the exact `V'`.
+    #[test]
+    fn periodic_ard_curvature_is_psd_in_assembled_htt() {
+        // Two rows past the quarter period (t in (0.25, 0.75)) where cos(2πt) < 0.
+        let coords0 = array![[0.40_f64], [0.60_f64]];
+        let (phi0, jet0) = periodic_basis(&coords0);
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi0,
+            jet0,
+            array![[0.2], [-0.3], [0.4]],
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((2, 1)),
+            vec![coords0],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(0.7),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = array![[0.1_f64], [0.2_f64]];
+        // Large α drives V''=α·cos(2πt) strongly negative at t=0.4,0.6
+        // (cos(0.8π)≈-0.809), so a raw write would push the data-fit-only htt
+        // diagonal negative.
+        let alpha = 100.0_f64;
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![array![alpha.ln()]]);
+        let sys = term
+            .assemble_arrow_schur(target.view(), &rho, None)
+            .unwrap();
+        for (row_idx, row) in sys.rows.iter().enumerate() {
+            let d = row.htt.nrows();
+            for a in 0..d {
+                assert!(
+                    row.htt[[a, a]] >= 0.0,
+                    "row {row_idx} htt diagonal[{a}]={} must be PSD (von-Mises \
+                     curvature clamped to its positive part)",
+                    row.htt[[a, a]]
+                );
+            }
+        }
     }
 
     /// `snapshot_mutable_state` / `restore_mutable_state` (the in-place
@@ -7907,6 +9639,148 @@ mod tests {
         );
     }
 
+    /// Smoothed sum of singular values of an `m × p` matrix, matching
+    /// `NuclearNormPenalty::value` (used by the spectrum-shrinkage assertion).
+    fn smoothed_nuclear_norm(decoder: &Array2<f64>, eps: f64) -> f64 {
+        let (_u, s, _vt) = decoder.clone().svd(false, false).unwrap();
+        s.iter()
+            .map(|sigma| (sigma * sigma + eps * eps).sqrt() - eps)
+            .sum()
+    }
+
+    /// NuclearNormPenalty is a Psi-tier penalty, but inside the SAE term it is
+    /// redirected to the per-atom decoder (β) block rather than the coord "t"
+    /// row block (#672). This pins three things:
+    ///   1. `validate_analytic_penalty_registry` does NOT refuse it (it bypasses
+    ///      the row-block requirement).
+    ///   2. It injects a non-trivial gradient into the arrow-Schur `gb`
+    ///      (β-tier gradient) equal to the analytic spectral gradient on the
+    ///      atom's `(M, p)` decoder block.
+    ///   3. A gradient-descent step along `gb` shrinks the decoder block's
+    ///      (smoothed) singular spectrum — the rank-shrinkage objective.
+    #[test]
+    fn sae_nuclear_norm_beta_block_routes_through_gb_and_shrinks_spectrum() {
+        let coords = array![[0.10], [0.35], [0.80]];
+        let (phi, jet) = periodic_basis(&coords);
+        // Full-rank (M=3 basis × p=4 features) decoder block. flatten_beta lays
+        // it out [basis_row * p + feature] = the (M, p) row-major shape the
+        // nuclear-norm penalty treats as a matrix.
+        let decoder = array![
+            [0.9, -0.2, 0.05, 0.4],
+            [-0.5, 0.7, -0.1, 0.3],
+            [0.2, 0.1, -0.8, -0.6],
+        ];
+        let m = 3usize;
+        let p = 4usize;
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            decoder.clone(),
+            Array2::<f64>::eye(3),
+        )
+        .unwrap();
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((3, 1)),
+            vec![coords],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(0.7),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+
+        // Base penalty: the per-atom dispatch in `add_sae_beta_penalty`
+        // overrides n_eff and target, so these initial values only need to
+        // construct validly. Here n_eff = p (the "beta" block declares n=p_out,
+        // d=Σ M_k); the SAE term rebuilds n_eff = M_k, latent_dim = p per atom.
+        let eps = 1.0e-6;
+        let slice = PsiSlice::full(m * p, Some(m));
+        let penalty = NuclearNormPenalty::new(slice, 1.0, p, eps, None, false).unwrap();
+        let mut registry = AnalyticPenaltyRegistry::new();
+        registry.push(AnalyticPenaltyKind::NuclearNorm(Arc::new(penalty)));
+
+        // Must NOT be refused by the construction-time validator.
+        term.validate_analytic_penalty_registry(&registry)
+            .expect("NuclearNorm must be accepted (redirected to the β block)");
+
+        let target = array![
+            [0.20, 0.10, -0.05, 0.25],
+            [-0.10, 0.30, 0.15, -0.20],
+            [0.45, -0.05, 0.10, 0.30],
+        ];
+        let rho = SaeManifoldRho::new(0.0, -6.0, vec![Array1::<f64>::zeros(1)]);
+        let sys = term
+            .assemble_arrow_schur(target.view(), &rho, Some(&registry))
+            .unwrap();
+
+        assert_eq!(sys.gb.len(), m * p, "gb should match flatten_beta length");
+        let mut absmax = 0.0_f64;
+        for v in sys.gb.iter().copied() {
+            assert!(v.is_finite());
+            absmax = absmax.max(v.abs());
+        }
+        assert!(
+            absmax > 1.0e-6,
+            "NuclearNorm must inject a non-trivial gradient into the SAE \
+             arrow-Schur gb; absmax={absmax:.3e}"
+        );
+
+        // The gb gradient must equal the analytic spectral gradient of the
+        // per-atom `(M, p)` block (penalty_scale defaults to 1.0 in
+        // assemble_arrow_schur). Reconstruct the reference directly.
+        let per_atom = NuclearNormPenalty::new(
+            PsiSlice {
+                range: 0..m * p,
+                latent_dim: Some(p),
+            },
+            1.0,
+            m,
+            eps,
+            None,
+            false,
+        )
+        .unwrap();
+        let beta = term.flatten_beta();
+        let ref_grad = per_atom.grad_target(beta.view(), Array1::<f64>::zeros(0).view());
+        for j in 0..m * p {
+            assert!(
+                (sys.gb[j] - ref_grad[j]).abs() <= 1.0e-9,
+                "gb[{j}]={:.12e} must equal analytic spectral grad {:.12e}",
+                sys.gb[j],
+                ref_grad[j]
+            );
+        }
+
+        // A gradient-descent step on the decoder block shrinks the smoothed
+        // singular spectrum: nuclear-norm is the rank-shrinkage objective.
+        let base_norm = smoothed_nuclear_norm(&decoder, eps);
+        let step = 1.0e-2;
+        let mut shrunk = decoder.clone();
+        for row in 0..m {
+            for feat in 0..p {
+                shrunk[[row, feat]] -= step * sys.gb[row * p + feat];
+            }
+        }
+        let shrunk_norm = smoothed_nuclear_norm(&shrunk, eps);
+        assert!(
+            shrunk_norm < base_norm,
+            "a step along gb must shrink the decoder spectrum: \
+             before={base_norm:.9e}, after={shrunk_norm:.9e}"
+        );
+
+        // The β curvature block (hbb) must be PSD (it is the Newton/PIRLS
+        // curvature operator). Symmetric and non-negative diagonal at minimum.
+        for i in 0..m * p {
+            assert!(
+                sys.hbb[[i, i]] >= -1.0e-9,
+                "hbb diagonal must be non-negative (PSD majorizer); hbb[{i},{i}]={:.3e}",
+                sys.hbb[[i, i]]
+            );
+        }
+    }
+
     #[derive(Debug)]
     struct TestPeriodicEvaluator;
 
@@ -7917,6 +9791,722 @@ mod tests {
         ) -> Result<(Array2<f64>, Array3<f64>), String> {
             Ok(periodic_basis(&coords.to_owned()))
         }
+    }
+
+    #[derive(Debug, Clone)]
+    struct SaeFdWorst {
+        index: usize,
+        analytic: f64,
+        finite_difference: f64,
+        absolute_error: f64,
+        relative_error: f64,
+    }
+
+    impl SaeFdWorst {
+        fn new() -> Self {
+            Self {
+                index: 0,
+                analytic: 0.0,
+                finite_difference: 0.0,
+                absolute_error: 0.0,
+                relative_error: 0.0,
+            }
+        }
+
+        fn observe(&mut self, index: usize, analytic: f64, finite_difference: f64) {
+            let absolute_error = (analytic - finite_difference).abs();
+            let scale = analytic.abs().max(finite_difference.abs()).max(1.0e-9);
+            let relative_error = absolute_error / scale;
+            if relative_error > self.relative_error {
+                self.index = index;
+                self.analytic = analytic;
+                self.finite_difference = finite_difference;
+                self.absolute_error = absolute_error;
+                self.relative_error = relative_error;
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct SaeFdBlockReport {
+        label: String,
+        base_loss: f64,
+        coord: SaeFdWorst,
+        decoder: SaeFdWorst,
+    }
+
+    fn sae_fd_decoder(n_basis: usize, p_out: usize) -> Array2<f64> {
+        let mut decoder = Array2::<f64>::zeros((n_basis, p_out));
+        for basis in 0..n_basis {
+            for out_col in 0..p_out {
+                let phase = 0.73 * ((basis + 1) as f64) + 1.17 * ((out_col + 1) as f64);
+                decoder[[basis, out_col]] = 0.16 * phase.sin() + 0.05 * (1.9 * phase).cos();
+            }
+        }
+        decoder
+    }
+
+    fn sae_fd_target(n_obs: usize, p_out: usize) -> Array2<f64> {
+        let mut target = Array2::<f64>::zeros((n_obs, p_out));
+        for row in 0..n_obs {
+            for out_col in 0..p_out {
+                let x = (row as f64) + 1.0;
+                let y = (out_col as f64) + 1.0;
+                target[[row, out_col]] =
+                    0.21 * (0.31 * x + 0.47 * y).sin() - 0.13 * (0.19 * x * y).cos();
+            }
+        }
+        target
+    }
+
+    fn sae_fd_coords(label: &str, n_obs: usize) -> Array2<f64> {
+        let mut coords = Array2::<f64>::zeros((n_obs, 1));
+        for row in 0..n_obs {
+            let x = row as f64;
+            coords[[row, 0]] = match label {
+                "periodic_d1" => 0.07 + 0.043 * x + 0.004 * (1.3 * x).sin(),
+                "euclidean_d1" => -0.46 + 0.048 * x + 0.006 * (1.7 * x).cos(),
+                other => panic!("unknown SAE FD case label {other}"),
+            };
+        }
+        coords
+    }
+
+    fn sae_fd_term(label: &str) -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+        let n_obs = 20usize;
+        let p_out = 3usize;
+        let coords = sae_fd_coords(label, n_obs);
+        let (basis_kind, phi, jet, n_basis, atom) = match label {
+            "periodic_d1" => {
+                let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+                let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+                let n_basis = phi.ncols();
+                let atom = SaeManifoldAtom::new(
+                    "periodic_d1",
+                    SaeAtomBasisKind::Periodic,
+                    1,
+                    phi.clone(),
+                    jet.clone(),
+                    sae_fd_decoder(n_basis, p_out),
+                    Array2::<f64>::eye(n_basis),
+                )
+                .unwrap()
+                .with_basis_second_jet(evaluator);
+                (SaeAtomBasisKind::Periodic, phi, jet, n_basis, atom)
+            }
+            "euclidean_d1" => {
+                let evaluator = Arc::new(EuclideanPatchEvaluator::new(1, 2).unwrap());
+                let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+                let n_basis = phi.ncols();
+                let atom = SaeManifoldAtom::new(
+                    "euclidean_d1",
+                    SaeAtomBasisKind::EuclideanPatch,
+                    1,
+                    phi.clone(),
+                    jet.clone(),
+                    sae_fd_decoder(n_basis, p_out),
+                    Array2::<f64>::eye(n_basis),
+                )
+                .unwrap()
+                .with_basis_second_jet(evaluator);
+                (SaeAtomBasisKind::EuclideanPatch, phi, jet, n_basis, atom)
+            }
+            other => panic!("unknown SAE FD case label {other}"),
+        };
+        assert_eq!(
+            basis_kind.latent_manifold(1),
+            atom.basis_kind.latent_manifold(1)
+        );
+        assert_eq!(phi.dim(), (n_obs, n_basis));
+        assert_eq!(jet.dim(), (n_obs, n_basis, 1));
+
+        let manifold = atom.basis_kind.latent_manifold(1);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((n_obs, 1)),
+            vec![coords],
+            vec![manifold],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = sae_fd_target(n_obs, p_out);
+        let rho = SaeManifoldRho::new(0.0, 1.0e-4_f64.ln(), vec![array![-30.0]]);
+        (term, target, rho)
+    }
+
+    fn sae_fd_refresh(term: &mut SaeManifoldTerm) {
+        let coords = term.assignment.coords[0].as_matrix();
+        term.atoms[0].refresh_basis(coords.view()).unwrap();
+    }
+
+    fn sae_fd_set_coord(term: &mut SaeManifoldTerm, row: usize, value: f64) {
+        let mut flat = term.assignment.coords[0].as_flat().clone();
+        flat[row] = value;
+        term.assignment.coords[0].set_flat(flat.view());
+        sae_fd_refresh(term);
+    }
+
+    fn sae_fd_total_loss(
+        term: &SaeManifoldTerm,
+        target: &Array2<f64>,
+        rho: &SaeManifoldRho,
+    ) -> f64 {
+        term.loss(target.view(), rho).unwrap().total()
+    }
+
+    fn sae_fd_check_case(label: &str) -> SaeFdBlockReport {
+        let epsilon = 1.0e-6;
+        let (term, target, rho) = sae_fd_term(label);
+        let base_loss = sae_fd_total_loss(&term, &target, &rho);
+        assert!(base_loss.is_finite(), "{label}: base loss is not finite");
+
+        let mut assembled = term.clone();
+        sae_fd_refresh(&mut assembled);
+        let sys = assembled
+            .assemble_arrow_schur(target.view(), &rho, None)
+            .unwrap();
+        assert_eq!(sys.rows.len(), term.n_obs());
+        assert_eq!(sys.gb.len(), term.beta_dim());
+        for row in 0..term.n_obs() {
+            assert_eq!(
+                sys.rows[row].gt.len(),
+                1,
+                "{label}: K=1 softmax d=1 should expose exactly one row coordinate gradient"
+            );
+        }
+
+        let mut coord = SaeFdWorst::new();
+        let base_coords = term.assignment.coords[0].as_flat().clone();
+        for row in 0..term.n_obs() {
+            let mut plus = term.clone();
+            sae_fd_set_coord(&mut plus, row, base_coords[row] + epsilon);
+            let loss_plus = sae_fd_total_loss(&plus, &target, &rho);
+
+            let mut minus = term.clone();
+            sae_fd_set_coord(&mut minus, row, base_coords[row] - epsilon);
+            let loss_minus = sae_fd_total_loss(&minus, &target, &rho);
+
+            let finite_difference = (loss_plus - loss_minus) / (2.0 * epsilon);
+            coord.observe(row, sys.rows[row].gt[0], finite_difference);
+        }
+
+        let mut decoder = SaeFdWorst::new();
+        let beta = term.flatten_beta();
+        for beta_idx in 0..beta.len() {
+            let mut beta_plus = beta.clone();
+            beta_plus[beta_idx] += epsilon;
+            let mut plus = term.clone();
+            plus.set_flat_beta(beta_plus.view()).unwrap();
+            sae_fd_refresh(&mut plus);
+            let loss_plus = sae_fd_total_loss(&plus, &target, &rho);
+
+            let mut beta_minus = beta.clone();
+            beta_minus[beta_idx] -= epsilon;
+            let mut minus = term.clone();
+            minus.set_flat_beta(beta_minus.view()).unwrap();
+            sae_fd_refresh(&mut minus);
+            let loss_minus = sae_fd_total_loss(&minus, &target, &rho);
+
+            let finite_difference = (loss_plus - loss_minus) / (2.0 * epsilon);
+            decoder.observe(beta_idx, sys.gb[beta_idx], finite_difference);
+        }
+
+        SaeFdBlockReport {
+            label: label.to_string(),
+            base_loss,
+            coord,
+            decoder,
+        }
+    }
+
+    /// Which manifold/basis a penalty-FD case runs on.
+    #[derive(Clone, Copy)]
+    enum SaePenCaseKind {
+        EuclideanD1,
+        PeriodicD1,
+        EuclideanD2,
+    }
+
+    /// Which analytic penalty a penalty-FD case exercises.
+    #[derive(Clone, Copy)]
+    enum SaePenKind {
+        Isometry,
+        Ard,
+        ScadMcp,
+        NuclearNorm,
+        DecoderIncoherence,
+    }
+
+    /// Single-atom SAE term on the requested manifold for the penalty-FD checks.
+    /// Mirrors `sae_fd_term` but exposes the analytic second jet the Isometry
+    /// penalty needs and allows a chosen latent dimension.
+    fn sae_pen_term(
+        kind: SaePenCaseKind,
+    ) -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho, PsiSlice) {
+        let n_obs = 12usize;
+        let p_out = 3usize;
+        let (coords, latent_dim, atom): (Array2<f64>, usize, SaeManifoldAtom) = match kind {
+            SaePenCaseKind::PeriodicD1 => {
+                let mut coords = Array2::<f64>::zeros((n_obs, 1));
+                for row in 0..n_obs {
+                    let x = row as f64;
+                    coords[[row, 0]] = 0.11 + 0.037 * x + 0.004 * (1.3 * x).sin();
+                }
+                let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+                let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+                let n_basis = phi.ncols();
+                let atom = SaeManifoldAtom::new(
+                    "periodic_d1",
+                    SaeAtomBasisKind::Periodic,
+                    1,
+                    phi,
+                    jet,
+                    sae_fd_decoder(n_basis, p_out),
+                    Array2::<f64>::eye(n_basis),
+                )
+                .unwrap()
+                .with_basis_second_jet(evaluator);
+                (coords, 1, atom)
+            }
+            SaePenCaseKind::EuclideanD1 => {
+                let mut coords = Array2::<f64>::zeros((n_obs, 1));
+                for row in 0..n_obs {
+                    let x = row as f64;
+                    coords[[row, 0]] = -0.41 + 0.052 * x + 0.006 * (1.7 * x).cos();
+                }
+                let evaluator = Arc::new(EuclideanPatchEvaluator::new(1, 2).unwrap());
+                let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+                let n_basis = phi.ncols();
+                let atom = SaeManifoldAtom::new(
+                    "euclidean_d1",
+                    SaeAtomBasisKind::EuclideanPatch,
+                    1,
+                    phi,
+                    jet,
+                    sae_fd_decoder(n_basis, p_out),
+                    Array2::<f64>::eye(n_basis),
+                )
+                .unwrap()
+                .with_basis_second_jet(evaluator);
+                (coords, 1, atom)
+            }
+            SaePenCaseKind::EuclideanD2 => {
+                let mut coords = Array2::<f64>::zeros((n_obs, 2));
+                for row in 0..n_obs {
+                    let x = row as f64;
+                    coords[[row, 0]] = -0.33 + 0.041 * x + 0.005 * (1.1 * x).cos();
+                    coords[[row, 1]] = 0.27 - 0.036 * x + 0.004 * (0.9 * x).sin();
+                }
+                let evaluator = Arc::new(EuclideanPatchEvaluator::new(2, 2).unwrap());
+                let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+                let n_basis = phi.ncols();
+                let atom = SaeManifoldAtom::new(
+                    "euclidean_d2",
+                    SaeAtomBasisKind::EuclideanPatch,
+                    2,
+                    phi,
+                    jet,
+                    sae_fd_decoder(n_basis, p_out),
+                    Array2::<f64>::eye(n_basis),
+                )
+                .unwrap()
+                .with_basis_second_jet(evaluator);
+                (coords, 2, atom)
+            }
+        };
+        let manifold = atom.basis_kind.latent_manifold(latent_dim);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((n_obs, 1)),
+            vec![coords],
+            vec![manifold],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = sae_fd_target(n_obs, p_out);
+        // Suppress the built-in ARD / smoothness contributions so the registered
+        // analytic penalty is the only penalty beyond data-fit + assignment prior.
+        let log_ard = vec![Array1::from_elem(latent_dim, -30.0_f64)];
+        let rho = SaeManifoldRho::new(0.0, 1.0e-4_f64.ln(), log_ard);
+        let slice = PsiSlice {
+            range: 0..n_obs * latent_dim,
+            latent_dim: Some(latent_dim),
+        };
+        (term, target, rho, slice)
+    }
+
+    /// Two-atom K=2 SAE term for the DecoderIncoherence FD check. Both atoms are
+    /// d=1 euclidean patches so the β block is `[B_1 (M×p), B_2 (M×p)]`.
+    fn sae_pen_term_k2() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+        let n_obs = 12usize;
+        let p_out = 3usize;
+        let mut atoms = Vec::with_capacity(2);
+        let mut coord_blocks = Vec::with_capacity(2);
+        for atom_idx in 0..2usize {
+            let mut coords = Array2::<f64>::zeros((n_obs, 1));
+            for row in 0..n_obs {
+                let x = row as f64;
+                coords[[row, 0]] = if atom_idx == 0 {
+                    -0.41 + 0.052 * x + 0.006 * (1.7 * x).cos()
+                } else {
+                    0.18 + 0.039 * x + 0.005 * (1.1 * x).sin()
+                };
+            }
+            let evaluator = Arc::new(EuclideanPatchEvaluator::new(1, 2).unwrap());
+            let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+            let n_basis = phi.ncols();
+            let mut decoder = sae_fd_decoder(n_basis, p_out);
+            if atom_idx == 1 {
+                for basis in 0..n_basis {
+                    for out_col in 0..p_out {
+                        decoder[[basis, out_col]] += 0.07 * ((basis + out_col) as f64 + 1.0).cos();
+                    }
+                }
+            }
+            let atom = SaeManifoldAtom::new(
+                "euclidean_d1",
+                SaeAtomBasisKind::EuclideanPatch,
+                1,
+                phi,
+                jet,
+                decoder,
+                Array2::<f64>::eye(n_basis),
+            )
+            .unwrap()
+            .with_basis_second_jet(evaluator);
+            atoms.push(atom);
+            coord_blocks.push(coords);
+        }
+        let manifold = LatentManifold::Euclidean;
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::from_elem((n_obs, 2), 0.2),
+            coord_blocks,
+            vec![manifold.clone(), manifold],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
+        let target = sae_fd_target(n_obs, p_out);
+        let log_ard = vec![
+            Array1::from_elem(1, -30.0_f64),
+            Array1::from_elem(1, -30.0_f64),
+        ];
+        let rho = SaeManifoldRho::new(0.0, 1.0e-4_f64.ln(), log_ard);
+        (term, target, rho)
+    }
+
+    /// Registry holding exactly one analytic penalty of the requested kind,
+    /// sized for `term`'s coord / β block.
+    fn sae_pen_registry(
+        pen: SaePenKind,
+        coord_slice: &PsiSlice,
+        n_obs: usize,
+        latent_dim: usize,
+        beta_len: usize,
+        p_out: usize,
+    ) -> AnalyticPenaltyRegistry {
+        use crate::terms::analytic_penalties::PenaltyConcavity;
+        use crate::terms::analytic_penalties::ScadMcpPenalty;
+        let mut registry = AnalyticPenaltyRegistry::new();
+        match pen {
+            SaePenKind::Isometry => {
+                let penalty = IsometryPenalty::new_euclidean(coord_slice.clone(), latent_dim);
+                registry.push(AnalyticPenaltyKind::Isometry(Arc::new(penalty)));
+            }
+            SaePenKind::Ard => {
+                let penalty = ARDPenalty::new(coord_slice.clone(), latent_dim);
+                registry.push(AnalyticPenaltyKind::Ard(Arc::new(penalty)));
+            }
+            SaePenKind::ScadMcp => {
+                let penalty = ScadMcpPenalty::new(
+                    coord_slice.clone(),
+                    0.5,
+                    n_obs,
+                    3.0,
+                    1.0e-4,
+                    PenaltyConcavity::Mcp,
+                    false,
+                )
+                .unwrap();
+                registry.push(AnalyticPenaltyKind::ScadMcp(Arc::new(penalty)));
+            }
+            SaePenKind::NuclearNorm => {
+                let slice = PsiSlice {
+                    range: 0..beta_len,
+                    latent_dim: Some(beta_len / p_out),
+                };
+                let penalty =
+                    NuclearNormPenalty::new(slice, 0.7, p_out, 1.0e-4, None, false).unwrap();
+                registry.push(AnalyticPenaltyKind::NuclearNorm(Arc::new(penalty)));
+            }
+            SaePenKind::DecoderIncoherence => {
+                let m_per = beta_len / (2 * p_out);
+                let slice = PsiSlice {
+                    range: 0..beta_len,
+                    latent_dim: Some(beta_len / p_out),
+                };
+                let penalty = DecoderIncoherencePenalty::new(
+                    slice,
+                    vec![m_per, m_per],
+                    p_out,
+                    Array2::<f64>::from_elem((2, 2), 0.5),
+                    0.6,
+                    false,
+                )
+                .unwrap();
+                registry.push(AnalyticPenaltyKind::DecoderIncoherence(Arc::new(penalty)));
+            }
+        }
+        registry
+    }
+
+    /// FD-check the assembled gradient (`gt` / `gb`) against central differences
+    /// of `penalized_objective_total` with the registry's single analytic penalty
+    /// ACTIVE. Softmax mode always assembles the dense uniform row layout, so atom
+    /// `atom_idx`'s axis `a` for row `r` lives at `sys.rows[r].gt[off + a]` with
+    /// `off = coord_offsets()[atom_idx]` (a per-atom column offset, not a row
+    /// offset); the row index is the plain observation row.
+    fn sae_pen_fd_check(
+        label: &str,
+        term: &SaeManifoldTerm,
+        target: &Array2<f64>,
+        rho: &SaeManifoldRho,
+        registry: &AnalyticPenaltyRegistry,
+    ) -> SaeFdBlockReport {
+        let epsilon = 1.0e-6;
+        let base_obj = term
+            .penalized_objective_total(target.view(), rho, Some(registry), 1.0)
+            .unwrap();
+        assert!(base_obj.is_finite(), "{label}: base objective not finite");
+
+        let mut assembled = term.clone();
+        let sys = assembled
+            .assemble_arrow_schur(target.view(), rho, Some(registry))
+            .unwrap();
+
+        let mut coord = SaeFdWorst::new();
+        let coord_offsets = term.assignment.coord_offsets();
+        for atom_idx in 0..term.k_atoms() {
+            let off = coord_offsets[atom_idx];
+            let d = term.assignment.coords[atom_idx].latent_dim();
+            let base_flat = term.assignment.coords[atom_idx].as_flat().clone();
+            let n_atom = base_flat.len() / d;
+            for row in 0..n_atom {
+                for axis in 0..d {
+                    let lin = row * d + axis;
+                    let mut plus = term.clone();
+                    let mut flat_p = base_flat.clone();
+                    flat_p[lin] += epsilon;
+                    plus.assignment.coords[atom_idx].set_flat(flat_p.view());
+                    let coords_p = plus.assignment.coords[atom_idx].as_matrix();
+                    plus.atoms[atom_idx].refresh_basis(coords_p.view()).unwrap();
+                    let obj_p = plus
+                        .penalized_objective_total(target.view(), rho, Some(registry), 1.0)
+                        .unwrap();
+
+                    let mut minus = term.clone();
+                    let mut flat_m = base_flat.clone();
+                    flat_m[lin] -= epsilon;
+                    minus.assignment.coords[atom_idx].set_flat(flat_m.view());
+                    let coords_m = minus.assignment.coords[atom_idx].as_matrix();
+                    minus.atoms[atom_idx]
+                        .refresh_basis(coords_m.view())
+                        .unwrap();
+                    let obj_m = minus
+                        .penalized_objective_total(target.view(), rho, Some(registry), 1.0)
+                        .unwrap();
+
+                    let finite_difference = (obj_p - obj_m) / (2.0 * epsilon);
+                    coord.observe(
+                        row * d + axis,
+                        sys.rows[row].gt[off + axis],
+                        finite_difference,
+                    );
+                }
+            }
+        }
+
+        let mut decoder = SaeFdWorst::new();
+        let beta = term.flatten_beta();
+        for beta_idx in 0..beta.len() {
+            let mut beta_plus = beta.clone();
+            beta_plus[beta_idx] += epsilon;
+            let mut plus = term.clone();
+            plus.set_flat_beta(beta_plus.view()).unwrap();
+            let obj_p = plus
+                .penalized_objective_total(target.view(), rho, Some(registry), 1.0)
+                .unwrap();
+
+            let mut beta_minus = beta.clone();
+            beta_minus[beta_idx] -= epsilon;
+            let mut minus = term.clone();
+            minus.set_flat_beta(beta_minus.view()).unwrap();
+            let obj_m = minus
+                .penalized_objective_total(target.view(), rho, Some(registry), 1.0)
+                .unwrap();
+
+            let finite_difference = (obj_p - obj_m) / (2.0 * epsilon);
+            decoder.observe(beta_idx, sys.gb[beta_idx], finite_difference);
+        }
+
+        SaeFdBlockReport {
+            label: label.to_string(),
+            base_loss: base_obj,
+            coord,
+            decoder,
+        }
+    }
+
+    /// EXACT agreement between the SAE assembled gradient and the penalized
+    /// objective it claims to be the gradient of, per analytic penalty kind.
+    /// Central FD of `penalized_objective_total` (penalty ACTIVE) must match the
+    /// assembled coord `gt` and decoder `gb`. This pins the isometry decoder
+    /// gradient (`∂P/∂B`) that the value path counts but the gradient path used
+    /// to drop, alongside ARD, ScadMcp, NuclearNorm, and DecoderIncoherence.
+    #[test]
+    fn sae_assembled_gradient_matches_penalized_objective_central_fd() {
+        let p_out = 3usize;
+        let mut reports: Vec<SaeFdBlockReport> = Vec::new();
+
+        let single_cases: &[(&str, SaePenCaseKind, SaePenKind)] = &[
+            (
+                "isometry_circle_d1",
+                SaePenCaseKind::PeriodicD1,
+                SaePenKind::Isometry,
+            ),
+            (
+                "isometry_euclid_d2",
+                SaePenCaseKind::EuclideanD2,
+                SaePenKind::Isometry,
+            ),
+            ("ard_circle_d1", SaePenCaseKind::PeriodicD1, SaePenKind::Ard),
+            (
+                "scadmcp_euclid_d1",
+                SaePenCaseKind::EuclideanD1,
+                SaePenKind::ScadMcp,
+            ),
+            (
+                "nuclearnorm_euclid_d1",
+                SaePenCaseKind::EuclideanD1,
+                SaePenKind::NuclearNorm,
+            ),
+        ];
+        for (label, case_kind, pen_kind) in single_cases {
+            let (term, target, rho, slice) = sae_pen_term(*case_kind);
+            let n_obs = term.n_obs();
+            let latent_dim = term.assignment.coords[0].latent_dim();
+            let beta_len = term.beta_dim();
+            let registry = sae_pen_registry(*pen_kind, &slice, n_obs, latent_dim, beta_len, p_out);
+            term.validate_analytic_penalty_registry(&registry)
+                .expect("penalty registry must validate for the SAE term");
+            reports.push(sae_pen_fd_check(label, &term, &target, &rho, &registry));
+        }
+
+        {
+            let (term, target, rho) = sae_pen_term_k2();
+            let beta_len = term.beta_dim();
+            let slice = PsiSlice {
+                range: 0..beta_len,
+                latent_dim: Some(beta_len / p_out),
+            };
+            let registry = sae_pen_registry(
+                SaePenKind::DecoderIncoherence,
+                &slice,
+                term.n_obs(),
+                1,
+                beta_len,
+                p_out,
+            );
+            term.validate_analytic_penalty_registry(&registry)
+                .expect("DecoderIncoherence registry must validate for the K=2 SAE term");
+            reports.push(sae_pen_fd_check(
+                "decoder_incoherence_k2",
+                &term,
+                &target,
+                &rho,
+                &registry,
+            ));
+        }
+
+        let relative_tolerance = 1.0e-5;
+        let absolute_tolerance = 1.0e-7;
+        let mut all_blocks_match = true;
+        for report in &reports {
+            let coord_ok = report.coord.relative_error <= relative_tolerance
+                || report.coord.absolute_error <= absolute_tolerance;
+            let decoder_ok = report.decoder.relative_error <= relative_tolerance
+                || report.decoder.absolute_error <= absolute_tolerance;
+            all_blocks_match = all_blocks_match && coord_ok && decoder_ok;
+            let coord_status = if coord_ok { "MATCH" } else { "MISMATCH" };
+            let decoder_status = if decoder_ok { "MATCH" } else { "MISMATCH" };
+            eprintln!(
+                "{label}: base={base:.12e}; coord_gt={coord_status} max_rel={coord_rel:.6e} \
+                 max_abs={coord_abs:.6e} worst_row={coord_idx} analytic={coord_an:.12e} \
+                 fd={coord_fd:.12e}; decoder_gb={decoder_status} max_rel={decoder_rel:.6e} \
+                 max_abs={decoder_abs:.6e} worst_beta={decoder_idx} analytic={decoder_an:.12e} \
+                 fd={decoder_fd:.12e}",
+                label = report.label,
+                base = report.base_loss,
+                coord_rel = report.coord.relative_error,
+                coord_abs = report.coord.absolute_error,
+                coord_idx = report.coord.index,
+                coord_an = report.coord.analytic,
+                coord_fd = report.coord.finite_difference,
+                decoder_rel = report.decoder.relative_error,
+                decoder_abs = report.decoder.absolute_error,
+                decoder_idx = report.decoder.index,
+                decoder_an = report.decoder.analytic,
+                decoder_fd = report.decoder.finite_difference,
+            );
+        }
+        assert!(
+            all_blocks_match,
+            "SAE assembled gradient does not match central FD of the penalized objective"
+        );
+    }
+
+    #[test]
+    fn sae_d1_assembled_gradient_matches_loss_central_fd() {
+        let reports = vec![
+            sae_fd_check_case("euclidean_d1"),
+            sae_fd_check_case("periodic_d1"),
+        ];
+        let relative_tolerance = 3.0e-5;
+        let absolute_tolerance = 3.0e-7;
+        let mut all_blocks_match = true;
+        for report in &reports {
+            let coord_ok = report.coord.relative_error <= relative_tolerance
+                || report.coord.absolute_error <= absolute_tolerance;
+            let decoder_ok = report.decoder.relative_error <= relative_tolerance
+                || report.decoder.absolute_error <= absolute_tolerance;
+            all_blocks_match = all_blocks_match && coord_ok && decoder_ok;
+            let coord_status = if coord_ok { "MATCH" } else { "MISMATCH" };
+            let decoder_status = if decoder_ok { "MATCH" } else { "MISMATCH" };
+            let line = format!(
+                "{label}: base={base:.12e}; coord_gt={coord_status} max_rel={coord_rel:.6e} \
+                 max_abs={coord_abs:.6e} worst_row={coord_idx} analytic={coord_an:.12e} \
+                 fd={coord_fd:.12e}; decoder_gb={decoder_status} max_rel={decoder_rel:.6e} \
+                 max_abs={decoder_abs:.6e} worst_beta={decoder_idx} analytic={decoder_an:.12e} \
+                 fd={decoder_fd:.12e}",
+                label = report.label,
+                base = report.base_loss,
+                coord_rel = report.coord.relative_error,
+                coord_abs = report.coord.absolute_error,
+                coord_idx = report.coord.index,
+                coord_an = report.coord.analytic,
+                coord_fd = report.coord.finite_difference,
+                decoder_rel = report.decoder.relative_error,
+                decoder_abs = report.decoder.absolute_error,
+                decoder_idx = report.decoder.index,
+                decoder_an = report.decoder.analytic,
+                decoder_fd = report.decoder.finite_difference,
+            );
+            eprintln!("{line}");
+        }
+        assert!(
+            all_blocks_match,
+            "SAE d=1 assembled gradient does not match central finite difference"
+        );
     }
 
     fn assert_jacobian_matches_central_difference<E: SaeBasisEvaluator>(
@@ -8020,6 +10610,229 @@ mod tests {
             assert!(torus_jet[[row, 0, 0]].abs() <= 1.0e-12);
             assert!(torus_jet[[row, 0, 1]].abs() <= 1.0e-12);
         }
+    }
+
+    /// The compact-latent evaluators must each expose a
+    /// [`SaeBasisEvaluator::projection_seed_grid`] that spans their manifold,
+    /// and the unbounded / basis-linear evaluators must expose none (their PCA
+    /// seed already lands in the convex hull of the training coordinates).
+    /// Pins the grid extents the fixed-decoder OOS seed (#628) relies on.
+    #[test]
+    fn projection_seed_grid_spans_each_compact_manifold() {
+        use std::f64::consts::PI;
+
+        // Periodic S¹: `resolution` phases evenly on `[0, 1)` (endpoint
+        // excluded — `0` and `1` are the same point on the circle).
+        let periodic = PeriodicHarmonicEvaluator::new(3)
+            .unwrap()
+            .projection_seed_grid(16)
+            .unwrap();
+        assert_eq!(periodic.dim(), (16, 1));
+        for i in 0..16 {
+            assert_abs_diff_eq!(periodic[[i, 0]], i as f64 / 16.0, epsilon = 1e-12);
+        }
+        assert!(periodic.iter().all(|&t| (0.0..1.0).contains(&t)));
+
+        // Sphere lat/lon chart: an `r × r` grid, latitude strictly interior to
+        // the chart (poles are degenerate), longitude on `[-π, π)`.
+        let r = 6usize;
+        let sphere = SphereChartEvaluator.projection_seed_grid(r).unwrap();
+        assert_eq!(sphere.dim(), (r * r, 2));
+        for row in 0..r * r {
+            let lat = sphere[[row, 0]];
+            let lon = sphere[[row, 1]];
+            assert!(
+                lat > -PI / 2.0 && lat < PI / 2.0,
+                "sphere seed latitude {lat} is not strictly interior to the chart"
+            );
+            assert!(
+                (-PI..PI).contains(&lon),
+                "sphere seed longitude {lon} is outside [-π, π)"
+            );
+        }
+
+        // Unbounded / basis-linear latents expose no grid (default `None`).
+        assert!(
+            AffineCoordinateEvaluator::new(2)
+                .projection_seed_grid(64)
+                .is_none(),
+            "affine (unbounded) evaluator must not expose a projection seed grid"
+        );
+    }
+
+    /// The torus seed grid is the Cartesian product of per-axis `[0, 1)` phase
+    /// grids, with the per-axis resolution shrunk geometrically so the *total*
+    /// point count stays under a fixed cap as the latent dimension grows. Pins
+    /// the cap arithmetic (`per_axis^d ≤ 4096`) the OOS seed depends on so a
+    /// high-`d` torus atom never blows up the per-row global-argmin scan.
+    #[test]
+    fn torus_projection_seed_grid_caps_total_points() {
+        // d == 1: dense, no cap (256¹ ≤ 4096).
+        let g1 = TorusHarmonicEvaluator::new(1, 3)
+            .unwrap()
+            .projection_seed_grid(256)
+            .unwrap();
+        assert_eq!(g1.dim(), (256, 1));
+
+        // d == 3: per-axis shrunk to the largest `p` with `p³ ≤ 4096`, i.e.
+        // `p = 16` ⇒ exactly 4096 points.
+        let g3 = TorusHarmonicEvaluator::new(3, 3)
+            .unwrap()
+            .projection_seed_grid(256)
+            .unwrap();
+        assert_eq!(g3.ncols(), 3);
+        assert_eq!(g3.nrows(), 16 * 16 * 16);
+        assert!(
+            g3.nrows() <= 4096,
+            "torus d=3 seed grid has {} points, over the 4096 cap",
+            g3.nrows()
+        );
+        assert!(
+            g3.iter().all(|&t| (0.0..1.0).contains(&t)),
+            "every torus seed coordinate must be a phase on [0, 1)"
+        );
+        // Full Cartesian product: each axis takes exactly `per_axis` distinct
+        // phase values.
+        for axis in 0..3 {
+            let mut vals: Vec<f64> = g3.column(axis).iter().copied().collect();
+            vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            vals.dedup();
+            assert_eq!(
+                vals.len(),
+                16,
+                "torus seed axis {axis} should take 16 distinct phases"
+            );
+        }
+
+        // d == 12: the coarsest dense grid is `2^12 = 4096`, exactly the cap —
+        // still emitted (per_axis floors at 2).
+        let g12 = TorusHarmonicEvaluator::new(12, 2)
+            .unwrap()
+            .projection_seed_grid(256)
+            .unwrap();
+        assert_eq!(g12.nrows(), 1usize << 12);
+        assert!(g12.nrows() <= 4096);
+
+        // d == 13: even the coarsest dense grid (`2^13 = 8192`) exceeds the
+        // cap, so no on-manifold grid can satisfy it. The evaluator must return
+        // `None` and let the row fall back to its PCA seed rather than allocate
+        // a runaway `2^d`-row grid for the per-row global-argmin scan to walk.
+        assert!(
+            TorusHarmonicEvaluator::new(13, 2)
+                .unwrap()
+                .projection_seed_grid(256)
+                .is_none(),
+            "torus d=13 seed grid (2^13 > 4096) must fall back to None, not blow up the cap"
+        );
+    }
+
+    /// `seed_coords_by_decoder_projection` must replace each cold coordinate
+    /// with the grid point whose frozen-decoder decode is closest to the target
+    /// row, and refresh the atom basis there. Built on a decoder that maps the
+    /// circle injectively into `ℝ²` (`decode(t) = (sin 2πt, cos 2πt)`) so the
+    /// per-row global argmin is unambiguous. Direct Rust pin for the #628 OOS
+    /// seed, complementing the Python oracle end-to-end test.
+    #[test]
+    fn seed_coords_by_decoder_projection_lands_on_grid_minimiser() {
+        use std::f64::consts::PI;
+
+        let resolution = 8usize;
+        // Deliberately wrong cold seed for both rows.
+        let init_coords = array![[0.05], [0.05]];
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let (phi0, jet0) = evaluator.evaluate(init_coords.view()).unwrap();
+        // (basis = [1, sin, cos]) × (2 output channels): decode(t) = (sin, cos).
+        let decoder = array![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]];
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi0,
+            jet0,
+            decoder,
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(evaluator.clone());
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            // `K = logits.ncols()`; a single softmax atom is one logit column
+            // (the lone simplex coordinate, pinned to 1.0 in `try_assignments_row`).
+            Array2::<f64>::zeros((2, 1)),
+            vec![init_coords],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+
+        // Targets sit exactly on two distinct grid phases `k / resolution`.
+        let phases = [3usize, 6usize];
+        let mut target = Array2::<f64>::zeros((2, 2));
+        for (row, &k) in phases.iter().enumerate() {
+            let t = k as f64 / resolution as f64;
+            target[[row, 0]] = (2.0 * PI * t).sin();
+            target[[row, 1]] = (2.0 * PI * t).cos();
+        }
+
+        term.seed_coords_by_decoder_projection(target.view(), resolution)
+            .unwrap();
+
+        // Each row was seeded onto its exact grid minimiser …
+        let seeded = term.assignment.coords[0].as_matrix();
+        let mut expected_coords = Array2::<f64>::zeros((2, 1));
+        for (row, &k) in phases.iter().enumerate() {
+            let expected = k as f64 / resolution as f64;
+            assert_abs_diff_eq!(seeded[[row, 0]], expected, epsilon = 1e-12);
+            expected_coords[[row, 0]] = expected;
+        }
+        // … and the basis cache was refreshed at the seeded coordinates.
+        let (phi_expected, _) = evaluator.evaluate(expected_coords.view()).unwrap();
+        assert_abs_diff_eq!(
+            (&term.atoms[0].basis_values - &phi_expected)
+                .mapv(f64::abs)
+                .sum(),
+            0.0,
+            epsilon = 1e-12
+        );
+    }
+
+    /// A target whose shape does not match `(n_obs, output_dim)` is a caller
+    /// bug and must surface as an error rather than silently mis-seeding.
+    #[test]
+    fn seed_coords_by_decoder_projection_rejects_shape_mismatch() {
+        let init_coords = array![[0.05], [0.05]];
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let (phi0, jet0) = evaluator.evaluate(init_coords.view()).unwrap();
+        let decoder = array![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]];
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi0,
+            jet0,
+            decoder,
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(evaluator);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((2, 1)),
+            vec![init_coords],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+
+        // Output dim is 2; pass a 3-column target.
+        let bad_target = Array2::<f64>::zeros((2, 3));
+        let err = term
+            .seed_coords_by_decoder_projection(bad_target.view(), 8)
+            .unwrap_err();
+        assert!(
+            err.contains("target shape"),
+            "expected a target-shape error, got: {err}"
+        );
     }
 
     /// Parity guard for the sphere chart: the shared engine
@@ -9811,15 +12624,150 @@ mod tests {
             other => panic!("expected RemlOptimizationFailed, got {other:?}"),
         }
     }
+
+    /// Build a non-periodic 1-D atom with a genuine order-2 finite-difference
+    /// roughness Gram, a non-constant-speed decoder, and explicit
+    /// `(basis_values, basis_jacobian)` so the intrinsic reweighting in
+    /// [`SaeManifoldAtom::refresh_intrinsic_smooth_penalty`] is exercised
+    /// directly. A localized (near-diagonal) basis makes each coefficient's
+    /// representative speed the speed at its own sample.
+    fn intrinsic_test_atom(jacobian_scale: f64) -> SaeManifoldAtom {
+        let m = 5usize;
+        let n = m;
+        let p = 1usize;
+        let mut phi = Array2::<f64>::zeros((n, m));
+        let mut jet = Array3::<f64>::zeros((n, m, 1));
+        let mut decoder = Array2::<f64>::zeros((m, p));
+        for mu in 0..m {
+            // Localized basis: Φ_μ(t_n) ≈ δ_{nμ}.
+            phi[[mu, mu]] = 1.0;
+            // Per-sample basis derivative (axis 0) grows with μ — a
+            // non-constant-speed curve — scaled by `jacobian_scale` to emulate
+            // a global linear reparameterization t -> t / jacobian_scale.
+            jet[[mu, mu, 0]] = jacobian_scale * (1.0 + mu as f64);
+            decoder[[mu, 0]] = 1.0;
+        }
+        let s_raw = crate::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
+        SaeManifoldAtom::new(
+            "intrinsic-1d",
+            SaeAtomBasisKind::EuclideanPatch,
+            1,
+            phi,
+            jet,
+            decoder,
+            s_raw,
+        )
+        .unwrap()
+    }
+
+    /// The roughness operator order is recovered from the raw Gram's null
+    /// space: an order-2 difference penalty annihilates the affine functions,
+    /// so `nullity = 2` and the arc-length exponent is `β = ½ − 2 = −3/2`.
+    #[test]
+    fn intrinsic_penalty_recovers_order_two_from_nullity() {
+        let atom = intrinsic_test_atom(1.0);
+        assert_eq!(atom.smooth_penalty_order, 2);
+    }
+
+    /// Gauge invariance (issue #673): a global reparameterization of the latent
+    /// coordinate scales every per-sample speed by a common factor, which
+    /// cancels in the centered reweighting — so the intrinsic Gram `S̃` (and
+    /// hence the topology evidence `tr(BᵀS̃B)`) is identical across the two
+    /// reparameterizations, even though the basis Jacobian (the metric) differs.
+    #[test]
+    fn intrinsic_penalty_is_invariant_to_speed_rescaling() {
+        let a1 = intrinsic_test_atom(1.0);
+        let a2 = intrinsic_test_atom(7.5);
+        // Same raw Gram and decoder; only the basis Jacobian (speed) differs.
+        assert_abs_diff_eq!(
+            (&a1.smooth_penalty_raw - &a2.smooth_penalty_raw)
+                .mapv(f64::abs)
+                .sum(),
+            0.0,
+            epsilon = 1e-12
+        );
+        // The intrinsic (reweighted) Gram is identical despite the 7.5x speed
+        // rescale: the centered ratios are invariant to a global speed factor.
+        let diff = (&a1.smooth_penalty - &a2.smooth_penalty)
+            .mapv(f64::abs)
+            .sum();
+        assert!(
+            diff < 1e-9,
+            "intrinsic Gram changed under a global speed rescale (gauge leak): {diff}"
+        );
+    }
+
+    /// Non-constant speed genuinely reshapes the penalty: the intrinsic Gram
+    /// must differ from the raw Gram when the decoder curve is not
+    /// constant-speed, otherwise the reweighting is a no-op and the gauge fix
+    /// would be vacuous. The congruence preserves symmetry.
+    #[test]
+    fn intrinsic_penalty_differs_from_raw_under_varying_speed() {
+        let atom = intrinsic_test_atom(1.0);
+        let diff = (&atom.smooth_penalty - &atom.smooth_penalty_raw)
+            .mapv(f64::abs)
+            .sum();
+        assert!(
+            diff > 1e-6,
+            "intrinsic reweighting was a no-op on a non-constant-speed curve: {diff}"
+        );
+        for i in 0..atom.basis_size() {
+            for j in 0..atom.basis_size() {
+                assert_abs_diff_eq!(
+                    atom.smooth_penalty[[i, j]],
+                    atom.smooth_penalty[[j, i]],
+                    epsilon = 1e-12
+                );
+            }
+        }
+    }
+
+    /// Constant-speed atoms are untouched: when every sample shares one speed
+    /// (the periodic sin/cos limit), the centered weights are all `1`, so
+    /// `S̃ = S_raw` exactly and the topology comparison among constant-speed
+    /// atoms is unaffected.
+    #[test]
+    fn intrinsic_penalty_leaves_constant_speed_atom_unchanged() {
+        let m = 6usize;
+        let n = m;
+        let mut phi = Array2::<f64>::zeros((n, m));
+        let mut jet = Array3::<f64>::zeros((n, m, 1));
+        let mut decoder = Array2::<f64>::zeros((m, 1));
+        for mu in 0..m {
+            phi[[mu, mu]] = 1.0;
+            // Identical derivative magnitude at every sample => constant speed.
+            jet[[mu, mu, 0]] = 2.0;
+            decoder[[mu, 0]] = 1.0;
+        }
+        let s_raw = crate::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
+        let atom = SaeManifoldAtom::new(
+            "constant-speed",
+            SaeAtomBasisKind::EuclideanPatch,
+            1,
+            phi,
+            jet,
+            decoder,
+            s_raw,
+        )
+        .unwrap();
+        let diff = (&atom.smooth_penalty - &atom.smooth_penalty_raw)
+            .mapv(f64::abs)
+            .sum();
+        assert!(
+            diff < 1e-9,
+            "constant-speed atom's penalty was reweighted (should be identity): {diff}"
+        );
+    }
 }
 
 /// PCA-based seed for SAE atom latent coordinates. Centers `z`, takes its SVD,
 /// and projects onto leading principal components to initialize each atom's
-/// chart according to its [`SaeAtomBasisKind`]: periodic atoms read an angle off
-/// the top-2 PCs (remaining axes min-max normalized to `[-0.5, 0.5]`), sphere
-/// atoms read `(lat, lon)` off the unit-normalized top-3 PCs, torus axes read a
-/// `[0, 1)` phase off disjoint PC pairs, and Euclidean/other atoms take
-/// score-scaled, min-max-normalized PC projections. Returns a padded
+/// chart according to its [`SaeAtomBasisKind`]: periodic atoms read a `[0, 1)`
+/// phase off the top-2 PCs (remaining axes min-max normalized to
+/// `[-0.5, 0.5]`), sphere atoms read `(lat, lon)` off the unit-normalized top-3
+/// PCs, torus axes read a `[0, 1)` phase off disjoint PC pairs, and
+/// Euclidean/other atoms take score-scaled, min-max-normalized PC projections.
+/// Returns a padded
 /// `(K_atoms, n_obs, d_max)` coordinate array.
 pub fn sae_pca_seed_initial_coords(
     z: ArrayView2<'_, f64>,
@@ -9863,12 +12811,25 @@ pub fn sae_pca_seed_initial_coords(
         match &basis_kinds[atom_idx] {
             SaeAtomBasisKind::Periodic => {
                 if vt_rows >= 2 {
-                    let pc1 = vt.row(0);
-                    let pc2_row = if atom_idx == 0 {
-                        1
+                    // Diversify the per-atom circle seed (issue #671). The
+                    // previous scheme shared PC0 as the first phase axis for
+                    // *every* atom, so all periodic atoms read off nearly the
+                    // same phase coordinate, producing near-duplicate basis
+                    // designs and a severely ill-conditioned joint decoder LSQ
+                    // seed. Give each atom a disjoint pair of principal
+                    // components `(PC_{2k}, PC_{2k+1})` when the spectrum is
+                    // wide enough, wrapping around only when atoms outnumber the
+                    // available PC pairs. This keeps distinct atoms' seed
+                    // coordinates decorrelated so the decoder seed stays
+                    // well-conditioned and the cross-atom Gram starts small.
+                    let pc_pairs = vt_rows / 2;
+                    let (pc1_row, pc2_row) = if pc_pairs >= 1 {
+                        let pair = if pc_pairs > 0 { atom_idx % pc_pairs } else { 0 };
+                        (2 * pair, 2 * pair + 1)
                     } else {
-                        1 + atom_idx % vt_rows.saturating_sub(1).max(1)
+                        (0, 1)
                     };
+                    let pc1 = vt.row(pc1_row.min(vt_rows - 1));
                     let pc2 = vt.row(pc2_row.min(vt_rows - 1));
                     for row in 0..n_obs {
                         let mut a = 0.0_f64;
@@ -9877,7 +12838,8 @@ pub fn sae_pca_seed_initial_coords(
                             a += centered[[row, col]] * pc1[col];
                             b += centered[[row, col]] * pc2[col];
                         }
-                        out[[atom_idx, row, 0]] = b.atan2(a) / two_pi;
+                        let phase = b.atan2(a) / two_pi;
+                        out[[atom_idx, row, 0]] = phase - phase.floor();
                     }
                 }
                 for axis in 1..d {

@@ -2,44 +2,66 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 """Define python methods for DeviceProxy object."""
+
 from __future__ import annotations
 
-import time
+import collections
+import collections.abc
+import contextlib
+import enum
+import functools
 import textwrap
 import threading
-import functools
-import enum
-import collections.abc
+import time
 import warnings
-import collections
-from typing import Any, Tuple, Dict
+from collections.abc import Callable, Sequence
+from typing import Any
 
-from tango.utils import PyTangoUserWarning
-
-from tango._tango import StdStringVector, AttributeInfo, EventSubMode, DbDatum, DbData
-from tango._tango import AttributeInfoEx, AttributeInfoList, AttributeInfoListEx
-from tango._tango import DeviceProxy, __EventCallBack
-from tango._tango import EventType, DevFailed, Except, ExtractAs, GreenMode
-from tango._tango import constants
+from tango._instrumentation import _forcefully_traced_method, _trace_client
 from tango._tango import (
+    AttributeInfo,
+    AttributeInfoEx,
+    AttributeInfoList,
+    AttributeInfoListEx,
     CmdArgType,
-    DevState,
-    DeviceAttribute,
-    CommandInfoList,
     CommandInfo,
+    CommandInfoList,
+    DbData,
+    DbDatum,
+    DevFailed,
+    DeviceAttribute,
+    DeviceProxy,
+    DevState,
+    EventSubMode,
+    EventType,
+    Except,
+    ExtractAs,
+    GreenMode,
+    StdStringVector,
+    __EventCallBack,
+    constants,
 )
-
-from tango.utils import is_pure_str, is_non_str_seq, is_integer
-from tango.utils import seq_2_StdStringVector, StdStringVector_2_seq
-from tango.utils import parameter_2_dbdata, get_property_from_db
-from tango.utils import dir2
-from tango.utils import _get_device_fqtrl_if_necessary
-from tango.utils import _trace_client, _forcefully_traced_method
-from tango.utils import _get_new_CallbackAutoDie
-from tango.utils import _check_only_allowed_kwargs
-
-from tango.green import green, green_callback
-from tango.green import get_green_mode
+from tango._telemetry import (
+    _telemetry_endpoint_to_wire,
+    _telemetry_endpoints_from_wire,
+    _telemetry_endpoints_to_wire,
+)
+from tango._warnings import PyTangoUserWarning, warn_once
+from tango.green import get_green_mode, green, green_callback
+from tango.telemetry import TelemetryEndpoint
+from tango.utils import (
+    StdStringVector_2_seq,
+    _check_only_allowed_kwargs,
+    _get_device_fqtrl_if_necessary,
+    _get_new_CallbackAutoDie,
+    dir2,
+    get_property_from_db,
+    is_integer,
+    is_non_str_seq,
+    is_pure_str,
+    parameter_2_dbdata,
+    seq_2_StdStringVector,
+)
 
 __all__ = ("device_proxy_init", "get_device_proxy")
 
@@ -50,11 +72,10 @@ _UNSUBSCRIBE_LIFETIME = 60
 
 @green(consume_green_mode=False)
 @_trace_client
-def get_device_proxy(
-    *args, green_mode=None, executor=None, threadpool=None, asyncio_executor=None
-):
-    """get_device_proxy(self, dev_name, green_mode=None, wait=True, timeout=True) -> DeviceProxy
-    get_device_proxy(self, dev_name, need_check_acc, green_mode=None, wait=True, timeout=None) -> DeviceProxy
+def get_device_proxy(*args, green_mode=None, executor=None, threadpool=None, asyncio_executor=None):
+    """
+    get_device_proxy(self, dev_name: str, green_mode: GreenMode=None, wait: bool=True, timeout: float=True) -> DeviceProxy
+    get_device_proxy(self, dev_name: str, need_check_acc: bool, green_mode: GreenMode=None, wait: bool=True, timeout: float=None) -> DeviceProxy
 
     Returns a new :class:`~tango.DeviceProxy`.
     There is no difference between using this function and the direct
@@ -71,45 +92,45 @@ def get_device_proxy(
         settable through :meth:`~tango.DeviceProxy.set_timeout_millis`)
 
     :param dev_name: the device name or alias
-    :type dev_name: str
-    :param need_check_acc: in first version of the function it defaults to True.
+    :type dev_name: :py:obj:`str`
+    :param need_check_acc: (optional, default is True)
                            Determines if at creation time of DeviceProxy it should check
                            for channel access (rarely used)
-    :type need_check_acc: bool
+    :type need_check_acc: :py:obj:`bool`
     :param green_mode: determines the mode of execution of the device (including
                       the way it is created). Defaults to the current global
                       green_mode (check :func:`~tango.get_green_mode` and
                       :func:`~tango.set_green_mode`)
-    :type green_mode: :obj:`~tango.GreenMode`
+    :type green_mode: :py:obj:`~tango.GreenMode`
     :param wait: whether or not to wait for result. If green_mode
                  Ignored when green_mode is Synchronous (always waits).
-    :type wait: bool
+    :type wait: :py:obj:`bool`
     :param timeout: The number of seconds to wait for the result.
                     If None, then there is no limit on the wait time.
                     Ignored when green_mode is Synchronous or wait is False.
-    :type timeout: float
+    :type timeout: :py:obj:`float`
+
     :returns:
         if green_mode is Synchronous or wait is True:
             :class:`~tango.DeviceProxy`
-        else if green_mode is Futures:
+        elif green_mode is Futures:
             :class:`concurrent.futures.Future`
-        else if green_mode is Gevent:
+        elif green_mode is Gevent:
             :class:`gevent.event.AsynchResult`
-        else if green_mode is Asyncio:
+        elif green_mode is Asyncio:
             :class:`asyncio.Future`
-    :throws:
-        * a *DevFailed* if green_mode is Synchronous or wait is True
-          and there is an error creating the device.
-        * a *concurrent.futures.TimeoutError* if green_mode is Futures,
-          wait is False, timeout is not None and the time to create the device
-          has expired.
-        * a *gevent.timeout.Timeout* if green_mode is Gevent, wait is False,
-          timeout is not None and the time to create the device has expired.
-        * a *asyncio.TimeoutError* if green_mode is Asyncio,
-          wait is False, timeout is not None and the time to create the device
-          has expired.
+    :throws: :obj:`~tango.DevFailed` if green_mode is Synchronous or wait is True
+                and there is an error creating the device.
+             :obj:`concurrent.futures.TimeoutError` if green_mode is Futures,
+                wait is False, timeout is not None and the time to create the device
+                has expired.
+             :obj:`gevent.timeout.Timeout` if green_mode is Gevent, wait is False,
+                timeout is not None and the time to create the device has expired.
+             :obj:`asyncio.TimeoutError` if green_mode is Asyncio,
+                wait is False, timeout is not None and the time to create the device
+                has expired.
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
     """
     return DeviceProxy(
         *args,
@@ -177,8 +198,9 @@ def __check_read_attribute(dev_attr):
 def __init_device_proxy_internals(proxy):
     if proxy.__dict__.get("_initialized", False):
         return
-    executors = {key: None for key in GreenMode.values.values()}
+    executors = dict.fromkeys(GreenMode.values.values())
     proxy.__dict__["_green_mode"] = None
+    proxy.__dict__["_cache_attr_info"] = True
     proxy.__dict__["_dynamic_interface_frozen"] = True
     proxy.__dict__["_initialized"] = True
     proxy.__dict__["_executors"] = executors
@@ -201,11 +223,10 @@ def __DeviceProxy__get_attr_cache(self):
     return ret
 
 
-def __DeviceProxy____init__(
-    self, *args, green_mode=None, executor=None, threadpool=None, asyncio_executor=None
-):
+def __DeviceProxy____init__(self, *args, green_mode=None, executor=None, threadpool=None, asyncio_executor=None):
     __init_device_proxy_internals(self)
     self.__dict__["_initialized"] = False
+    self.__dict__["_cache_attr_info"] = True
     self.__dict__["_green_mode"] = green_mode
     self.__dict__["_executors"][GreenMode.Futures] = executor
     self.__dict__["_executors"][GreenMode.Gevent] = threadpool
@@ -215,7 +236,7 @@ def __DeviceProxy____init__(
     # TRL, using test server's connection details.  Otherwise, left as-is.
     device_name = args[0]
     new_device_name = _get_device_fqtrl_if_necessary(device_name)
-    new_args = [new_device_name] + list(args[1:])
+    new_args = [new_device_name, *args[1:]]
     try:
         DeviceProxy.__init_orig__(self, *new_args)
     except DevFailed as orig_err:
@@ -250,7 +271,7 @@ def __DeviceProxy__get_green_mode(self):
         :func:`tango.get_green_mode`
         :func:`tango.set_green_mode`
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
     """
     gm = self._green_mode
     if gm is None:
@@ -266,7 +287,7 @@ def __DeviceProxy__set_green_mode(self, green_mode=None):
     :param green_mode: the new green mode
     :type green_mode: GreenMode
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
     """
     self._green_mode = green_mode
 
@@ -284,19 +305,12 @@ def __DeviceProxy__refresh_cmd_cache(self):
 
 
 def __DeviceProxy__refresh_attr_cache(self):
-    attr_list = self.attribute_list_query_ex()
+    attr_infos = self.attribute_list_query_ex()
     attr_cache = {}
-    for attr in attr_list:
-        name = attr.name.lower()
-        enum_class = None
-        if attr.data_type == CmdArgType.DevEnum and attr.enum_labels:
-            enum_class = enum.IntEnum(attr.name, " ".join(attr.enum_labels), start=0)
-        elif attr.data_type == CmdArgType.DevState:
-            enum_class = DevState
-        attr_cache[name] = (
-            attr.name,
-            enum_class,
-        )
+    for attr_info in attr_infos:
+        name = attr_info.name.lower()
+        enum_class = __make_enum_class(attr_info)
+        attr_cache[name] = attr_info, enum_class
     self.__dict__["__attr_cache"] = attr_cache
 
 
@@ -333,6 +347,7 @@ def __DeviceProxy__unfreeze_dynamic_interface(self):
         f"Dynamic interface unfrozen on DeviceProxy instance {self} id=0x{id(self):x} - "
         f"arbitrary Python attributes can be set without raising an exception.",
         category=PyTangoUserWarning,
+        stacklevel=1,
     )
     self._dynamic_interface_frozen = False
 
@@ -343,12 +358,52 @@ def __DeviceProxy__is_dynamic_interface_frozen(self):
     See also :meth:`tango.DeviceProxy.freeze_dynamic_interface` and
     :meth:`tango.DeviceProxy.unfreeze_dynamic_interface`.
 
-        :returns: True if the dynamic interface this DeviceProxy is frozen.
-        :rtype: bool
+    :returns: True if the dynamic interface this DeviceProxy is frozen.
+    :rtype: bool
 
     .. versionadded:: 9.4.0
     """
     return self._dynamic_interface_frozen
+
+
+def __DeviceProxy__set_attribute_config_cache(self, enabled: bool) -> None:
+    """Enable or disable the attribute configuration caching.
+
+    For more details, see :ref:`attribute-configuration-caching`.
+
+    See also :meth:`tango.DeviceProxy.is_attribute_config_cache_enabled`
+    and :meth:`tango.DeviceProxy.invalidate_attribute_config_cache`.
+
+    .. versionadded:: 10.3.0
+    """
+    self._cache_attr_info = enabled
+
+
+def __DeviceProxy__is_attribute_config_cache_enabled(self) -> bool:
+    """Returns whether the attribute configuration is cached or not.
+
+    For more details, see :ref:`attribute-configuration-caching`.
+
+    See also :meth:`tango.DeviceProxy.enable_attribute_config_cache`
+    and :meth:`tango.DeviceProxy.invalidate_attribute_config_cache`.
+
+    .. versionadded:: 10.3.0
+    """
+
+    return self._cache_attr_info
+
+
+def __DeviceProxy__invalidate_attribute_config_cache(self) -> None:
+    """Invalidates attribute configuration cache
+
+    For more details, see :ref:`attribute-configuration-caching`.
+
+    See also :meth:`tango.DeviceProxy.enable_attribute_config_cache`
+    and :meth:`tango.DeviceProxy.is_attribute_config_cache_enabled`.
+
+    .. versionadded:: 10.3.0
+    """
+    self.__dict__["__attr_cache"] = {}
 
 
 def __get_command_func(dp, cmd_info, name):
@@ -361,38 +416,68 @@ def __get_command_func(dp, cmd_info, name):
     return f
 
 
-def __update_enum_values(attr_info, attr_value):
-    _, enum_class = attr_info
-    if enum_class and attr_value is not None:
-        if is_non_str_seq(attr_value):
-            ret = []
-            for value in attr_value:
-                if is_non_str_seq(value):
-                    ret.append(tuple([enum_class(v) for v in value]))
-                else:
-                    ret.append(enum_class(value))
-            return tuple(ret)
-
-        return enum_class(attr_value)
-    else:
-        return attr_value
+def __make_enum_class(attr_info):
+    enum_class = None
+    if attr_info.data_type == CmdArgType.DevEnum:
+        if attr_info.enum_labels:
+            enum_class = enum.IntEnum(attr_info.name, " ".join(attr_info.enum_labels), start=0)
+    elif attr_info.data_type == CmdArgType.DevState:
+        enum_class = DevState
+    return enum_class
 
 
-async def __async_get_attribute_value(self, attr_info, name):
+def __get_enum_value(attr_value, enum_class):
+
+    if is_non_str_seq(attr_value):
+        ret = []
+        for value in attr_value:
+            if is_non_str_seq(value):
+                ret.append(tuple([enum_class(v) for v in value]))
+            else:
+                ret.append(enum_class(value))
+        return tuple(ret)
+
+    return enum_class(attr_value)
+
+
+async def __async_get_attribute_value(self, name, enum_class):
     reading = await self.read_attribute(name)
-    return __update_enum_values(attr_info, reading.value)
-
-
-def __sync_get_attribute_value(self, attr_info, name):
-    reading = self.read_attribute(name)
-    return __update_enum_values(attr_info, reading.value)
-
-
-def __get_attribute_value(self, attr_info, name):
-    if self.get_green_mode() == GreenMode.Asyncio:
-        return __async_get_attribute_value(self, attr_info, name)
+    if reading.value is not None and reading.type in [
+        CmdArgType.DevState,
+        CmdArgType.DevEnum,
+    ]:
+        if not self._cache_attr_info:
+            if reading.type == CmdArgType.DevEnum:
+                config = await self.get_attribute_config(name)
+                enum_class = __make_enum_class(config)
+            elif reading.type == CmdArgType.DevState:
+                enum_class = DevState
+        return __get_enum_value(reading.value, enum_class)
     else:
-        return __sync_get_attribute_value(self, attr_info, name)
+        return reading.value
+
+
+def __sync_get_attribute_value(self, name, enum_class):
+    reading = self.read_attribute(name)
+    if reading.value is not None and reading.type in [
+        CmdArgType.DevState,
+        CmdArgType.DevEnum,
+    ]:
+        if not self._cache_attr_info:
+            if reading.type == CmdArgType.DevEnum:
+                enum_class = __make_enum_class(self.get_attribute_config(name))
+            elif reading.type == CmdArgType.DevState:
+                enum_class = DevState
+        return __get_enum_value(reading.value, enum_class)
+    else:
+        return reading.value
+
+
+def __get_attribute_value(self, name, enum_class):
+    if self.get_green_mode() == GreenMode.Asyncio:
+        return __async_get_attribute_value(self, name, enum_class)
+    else:
+        return __sync_get_attribute_value(self, name, enum_class)
 
 
 def __convert_str_to_enum(value, enum_class, attr_name):
@@ -400,41 +485,62 @@ def __convert_str_to_enum(value, enum_class, attr_name):
         return enum_class[value]
     except KeyError:
         raise AttributeError(
-            f"Invalid enum value {value} for attribute {attr_name}. "
-            f"Valid values: {[m for m in enum_class.__members__.keys()]}"
-        )
+            f"Invalid enum value {value} for attribute {attr_name}. Valid values: {list(enum_class.__members__)}"
+        ) from None
 
 
-def __set_attribute_value(self, name, value):
-    attr_info = self.__get_attr_cache().get(name.lower())
-    if attr_info:
-        # allow writing DevEnum attributes using string values
-        _, enum_class = attr_info
-        if enum_class:
-            if is_non_str_seq(value):
-                org_value = value
-                value = []
-                for val in org_value:
-                    if is_non_str_seq(val):
-                        value.append(
-                            [
-                                (
-                                    __convert_str_to_enum(v, enum_class, name)
-                                    if is_pure_str(v)
-                                    else v
-                                )
-                                for v in val
-                            ]
-                        )
-                    else:
-                        value.append(
-                            __convert_str_to_enum(val, enum_class, name)
-                            if is_pure_str(val)
-                            else val
-                        )
-            elif is_pure_str(value):
-                value = __convert_str_to_enum(value, enum_class, name)
-    return self.write_attribute(name, value)
+def __get_value_to_write(value, enum_class, attr_name):
+    if enum_class is not None:
+        if is_non_str_seq(value):
+            org_value = value
+            value = []
+            for val in org_value:
+                if is_non_str_seq(val):
+                    value.append(
+                        [(__convert_str_to_enum(v, enum_class, attr_name) if is_pure_str(v) else v) for v in val]
+                    )
+                else:
+                    value.append(__convert_str_to_enum(val, enum_class, attr_name) if is_pure_str(val) else val)
+        elif is_pure_str(value):
+            value = __convert_str_to_enum(value, enum_class, attr_name)
+
+    return value
+
+
+def __get_attr_info_and_enum(self, attr_name):
+    attr_info, enum_class = None, None
+
+    if self._cache_attr_info:
+        cached_info = self.__get_attr_cache().get(attr_name.lower())
+        if cached_info is not None:
+            attr_info, enum_class = cached_info
+
+    if attr_info is None:
+        attr_info = self.get_attribute_config(attr_name)
+        enum_class = __make_enum_class(attr_info)
+    return attr_info, enum_class
+
+
+def __set_attribute_value(self, attr_name, value):
+    attr_info, enum_class = __get_attr_info_and_enum(self, attr_name)
+    try:
+        value_to_write = __get_value_to_write(value, enum_class, attr_name)
+        return self.write_attribute(attr_info, value_to_write)
+    except (AttributeError, TypeError):
+        new_attr_info = None
+        new_enum_class = None
+        if self._cache_attr_info:
+            # attribute config may have changed on the server, so try updating the cache
+            self.__refresh_attr_cache()
+            cached_info = self.__get_attr_cache().get(attr_name.lower())
+            if cached_info is not None:
+                new_attr_info, new_enum_class = cached_info
+        nothing_new = new_attr_info is None or new_attr_info == attr_info
+        if nothing_new:
+            raise
+    # try once more with the new config
+    value_to_write = __get_value_to_write(value, new_enum_class, attr_name)
+    return self.write_attribute(new_attr_info, value_to_write)
 
 
 def __DeviceProxy__getattr(self, name):
@@ -452,10 +558,11 @@ def __DeviceProxy__getattr(self, name):
         if cmd_info:
             return __get_command_func(self, cmd_info, name)
 
-        attr_info = self.__get_attr_cache().get(name_l)
-        if attr_info:
+        cached_info = self.__get_attr_cache().get(name_l)
+        if cached_info is not None:
+            _, enum_class = cached_info
             try:
-                return __get_attribute_value(self, attr_info, name)
+                return __get_attribute_value(self, name, enum_class)
             except DevFailed as err:
                 # it could be, that attribute was deleted and we have to re-create attribute cache
                 if err.args[0].reason != "API_AttrNotFound":
@@ -477,9 +584,10 @@ def __DeviceProxy__getattr(self, name):
             if cause is None:
                 cause = e
 
-        attr_info = self.__get_attr_cache().get(name_l)
-        if attr_info:
-            return __get_attribute_value(self, attr_info, name)
+        cached_info = self.__get_attr_cache().get(name_l)
+        if cached_info is not None:
+            _, enum_class = cached_info
+            return __get_attribute_value(self, name, enum_class)
 
         raise AttributeError(name) from cause
     finally:
@@ -520,7 +628,7 @@ def __DeviceProxy__setattr(self, name, value):
                 return super(DeviceProxy, self).__setattr__(name, value)
             else:
                 raise AttributeError(
-                    f"Tried to set non-existent attr {repr(name)} to {repr(value)}.\n"
+                    f"Tried to set non-existent attr {name!r} to {value!r}.\n"
                     f"The DeviceProxy object interface is frozen and cannot be modified - "
                     f"see tango.DeviceProxy.freeze_dynamic_interface for details."
                 )
@@ -534,15 +642,11 @@ def __DeviceProxy__dir(self):
     """Return the attribute list including tango objects."""
     extra_entries = set()
     # Add commands
-    try:
+    with contextlib.suppress(Exception):
         extra_entries.update(self.get_command_list())
-    except Exception:
-        pass
     # Add attributes
-    try:
+    with contextlib.suppress(Exception):
         extra_entries.update(self.get_attribute_list())
-    except Exception:
-        pass
     # Merge with default dir implementation
     extra_entries.update([x.lower() for x in extra_entries])
     entries = extra_entries.union(dir2(self))
@@ -561,28 +665,25 @@ def __DeviceProxy__contains(self, key):
     return key.lower() in map(str.lower, self.get_attribute_list())
 
 
-def __DeviceProxy__read_attribute(
-    self, value, extract_as=ExtractAs.Numpy
-) -> DeviceAttribute:
+def __DeviceProxy__read_attribute(self, attr_name: str, extract_as: ExtractAs = ExtractAs.Numpy) -> DeviceAttribute:
     """
-    read_attribute(self, value, extract_as=ExtractAs.Numpy, __GREEN_KWARGS__) -> DeviceAttribute
+    Read a single attribute.
 
-        Read a single attribute.
-
-    :param value: The name of the attribute to read.
-    :type value: str
+    :param attr_name: The name of the attribute to read.
+    :type attr_name: :py:obj:`str`
 
     :param extract_as: Defaults to numpy.
-    :type extract_as: :obj:`tango.ExtractAs`
+    :type extract_as: :obj:`~tango.ExtractAs`
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :return: DeviceAttribute object with read attribute value.
-    :rtype: :obj:`tango.DeviceAttribute`
+    :rtype: :obj:`~tango.DeviceAttribute`
 
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
+    :throws: :py:obj:`~tango.ConnectionFailed`: Raised in case of a connection failure \n
+             :py:obj:`~tango.CommunicationFailed`: Raised in case of a communication failure. \n
+             :py:obj:`~tango.DevFailed`: Raised in case of a device failure
+
     __GREEN_RAISES__
 
     .. versionchanged:: 7.1.4
@@ -612,7 +713,7 @@ def __DeviceProxy__read_attribute(
         while other types get an empty :obj:`numpy.ndarray`.  Using *extract_as* can
         change the sequence type, but it still won't be :obj:`None`.
     """
-    return __check_read_attribute(self._read_attribute(value, extract_as))
+    return __check_read_attribute(self._read_attribute(attr_name, extract_as))
 
 
 def __read_attributes_asynch__(self, attr_names, cb, extract_as):
@@ -628,15 +729,16 @@ def __read_attributes_asynch__(self, attr_names, cb, extract_as):
 
 
 def __DeviceProxy__read_attributes_asynch(
-    self, attr_names, cb=None, extract_as=ExtractAs.Numpy
+    self,
+    attr_names: Sequence[str],
+    cb: Callable | None = None,
+    extract_as: ExtractAs = ExtractAs.Numpy,
 ) -> int | None:
     """
-    read_attributes_asynch(self, attr_names, __GREEN_KWARGS__) -> int
-    read_attributes_asynch(self, attr_names, cb, extract_as=Numpy, __GREEN_KWARGS__) -> None
+    read_attributes_asynch(self, attr_names: Sequence[str], __GREEN_KWARGS__) -> int
+    read_attributes_asynch(self, attr_names: Sequence[str], cb: typing.Callable, extract_as: ExtractAs=Numpy, __GREEN_KWARGS__) -> None
 
-        Read asynchronously an attribute list.
-
-        New in PyTango 7.0.0
+    Read asynchronously an attribute list.
 
     .. important::
         by default, TANGO is initialized with the **polling** model. If you want
@@ -645,22 +747,22 @@ def __DeviceProxy__read_attributes_asynch(
         You can do this with the :meth:`tango.ApiUtil.set_asynch_cb_sub_model`
 
     :param attr_names: A list of attributes to read. See read_attributes.
-    :type attr_names: Sequence[str]
+    :type attr_names: :py:obj:`typing.Sequence`\\[:py:obj:`str`]
 
     :param cb: push model: as soon as attributes read, core calls cb with read results.
         This callback object should be an instance of a user class with an attr_read() method.
         It can also be any callable object.
-    :type cb: Optional[Callable]
+    :type cb: :py:obj:`typing.Optional`\\[:py:obj:`typing.Callable`]
 
     :param extract_as: Defaults to numpy.
-    :type extract_as: :obj:`tango.ExtractAs`
+    :type extract_as: :obj:`~tango.ExtractAs`
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: an asynchronous call identifier which is needed to get attributes value if poll model, None if push model
-    :rtype: Union[int, None]
+    :rtype: :py:obj:`int` | :py:obj:`None`
 
-    :throws: :obj:`tango.ConnectionFailed`
+    :throws: :py:obj:`~tango.ConnectionFailed`
     __GREEN_RAISES__
 
     .. important::
@@ -669,21 +771,21 @@ def __DeviceProxy__read_attributes_asynch(
         to ``write_attributes_asynch([("a", 1)])`` followed immediately with a call to
         ``read_attributes_asynch(["a"])`` could result in the device reading the
         attribute ``a`` before writing to it.
+
+    .. versionadded:: 7.0.0
     """
 
     return __read_attributes_asynch__(self, attr_names, cb, extract_as)
 
 
 def __DeviceProxy__read_attribute_asynch(
-    self, attr_name, cb=None, extract_as=ExtractAs.Numpy
+    self, attr_name: str, cb: Callable | None = None, extract_as: ExtractAs = ExtractAs.Numpy
 ) -> int | None:
     """
-    read_attribute_asynch(self, attr_name, __GREEN_KWARGS__) -> int
-    read_attribute_asynch(self, attr_name, cb, extract_as=Numpy, __GREEN_KWARGS__) -> None
+    read_attribute_asynch(self, attr_name: str, __GREEN_KWARGS__) -> int
+    read_attribute_asynch(self, attr_name: str, cb: typing.Callable, extract_as: ExtractAs=Numpy, __GREEN_KWARGS__) -> None
 
-        Read asynchronously the specified attributes.
-
-        New in PyTango 7.0.0
+    Read asynchronously the specified attributes.
 
     .. important::
         by default, TANGO is initialized with the **polling** model. If you want
@@ -692,22 +794,23 @@ def __DeviceProxy__read_attribute_asynch(
         You can do this with the :meth:`tango.ApiUtil.set_asynch_cb_sub_model`
 
     :param attr_name: an attribute to read
-    :type attr_name: str
+    :type attr_name: :py:obj:`str`
 
     :param cb: push model: as soon as attributes read, core calls cb with read results.
         This callback object should be an instance of a user class with an attr_read() method.
         It can also be any callable object.
-    :type cb: Optional[Callable]
+    :type cb: :py:obj:`typing.Optional`\\[:py:obj:`typing.Callable`]
 
-    :param extract_as: Defaults to numpy.
+    :param extract_as: Defaults to ExtractAs.Numpy
     :type extract_as: ExtractAs
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: an asynchronous call identifier which is needed to get attribute value if poll model, None if push model
-    :rtype: Union[int, None]
+    :rtype: :py:obj:`int` | :py:obj:`None`
 
-    :throws: :obj:`tango.ConnectionFailed`
+    :throws: :py:obj:`~tango.ConnectionFailed`
+
     __GREEN_RAISES__
 
     .. important::
@@ -716,6 +819,8 @@ def __DeviceProxy__read_attribute_asynch(
         to the method ``write_attribute_asynch("a", 1)`` followed immediately with
         a call to ``read_attribute_asynch("a")`` could result in the device reading the
         attribute ``a`` before writing to it.
+
+    .. versionadded:: 7.0.0
     """
     return __read_attributes_asynch__(self, [attr_name], cb, extract_as)
 
@@ -727,12 +832,10 @@ def __read_attributes_reply__(self, *args, **kwargs):
     return self.__read_attributes_reply(*args, **kwargs)
 
 
-def __DeviceProxy__read_attributes_reply(
-    self, *args, **kwargs
-) -> list[DeviceAttribute]:
+def __DeviceProxy__read_attributes_reply(self, *args, **kwargs) -> list[DeviceAttribute]:
     """
-    read_attributes_reply(self, id, extract_as=ExtractAs.Numpy, __GREEN_KWARGS__) -> [DeviceAttribute]
-    read_attributes_reply(self, id, poll_timeout, extract_as=ExtractAs.Numpy, __GREEN_KWARGS__) -> [DeviceAttribute]
+    read_attributes_reply(self, id: int, extract_as: ExtractAs=ExtractAs.Numpy, __GREEN_KWARGS__) -> list[DeviceAttribute]
+    read_attributes_reply(self, id: int, poll_timeout: int, extract_as: ExtractAs=ExtractAs.Numpy, __GREEN_KWARGS__) -> list[DeviceAttribute]
 
     Get the answer of an asynchronous read_attributes call, if it has arrived (polling model).
 
@@ -740,40 +843,53 @@ def __DeviceProxy__read_attributes_reply(
     still be included in the returned list.  However, the has_error field for that item
     will be set to True.
 
-    .. versionchanged:: 7.0.0 New in PyTango
-    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters, the core (cppTango) timeout (previously the optional second positional argument) has been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the keyword argument "timeout". These parameters have distinct meanings and units:
+    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters,
+        the core (cppTango) timeout (previously the optional second positional argument) has
+        been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the
+        keyword argument "timeout". These parameters have distinct meanings and units:
 
-        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until a reply is received. If the reply is not received within the specified poll_timeout duration, an exception is thrown. Setting poll_timeout to 0 causes the call to wait indefinitely until a reply is received.
-        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True. The specific behavior when a reply is not received within the specified timeout period varies depending on the GreenMode.
-
+        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until
+          a reply is received. If the reply is not received within the specified poll_timeout
+          duration, an exception is thrown. Setting poll_timeout to 0 causes the call to
+          wait indefinitely until a reply is received.
+        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous
+          GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True. The specific
+          behavior when a reply is not received within the specified timeout period varies
+          depending on the GreenMode.
 
     :param id: the asynchronous call identifier
-    :type id: int
+    :type id: :py:obj:`int`
 
-    :param poll_timeout: cppTango core timeout in ms.
-        If the reply has not yet arrived, the call will wait for the time specified (in ms).
-        If after timeout, the reply is still not there, an exception is thrown.
-        If timeout set to 0, the call waits until the reply arrives.
-        If the argument is not provided, then there is no timeout check, and an
-        exception is raised immediately if the reply is not ready.
-    :type poll_timeout: Optional[int]
+    :param poll_timeout: cppTango core timeout in ms: \n
+                         - If the reply has not yet arrived, the call will wait for the time specified (in ms). \n
+                         - If after timeout, the reply is still not there, an exception is thrown. \n
+                         - If timeout set to 0, the call waits until the reply arrives. \n
+                         - If the argument is not provided, then there is no timeout check, and an
+                           exception is raised immediately if the reply is not ready.
+    :type poll_timeout: :py:obj:`int`, optional
 
     :param extract_as: Defaults to numpy.
     :type extract_as: ExtractAs
 
     __GREEN_KWARGS_DESCRIPTION__
 
-    :returns: If the reply is arrived and if it is a valid reply,
-        it is returned to the caller in a list of DeviceAttribute.
-        If the reply is an exception, it is re-thrown by this call.
-        If the reply is not yet arrived, the call will wait (blocking the process)
-        for the time specified in timeout. If after timeout milliseconds, the reply is still not there, an
-        exception is thrown. If timeout is set to 0, the call waits
-        until the reply arrived.
-    :rtype: Sequence[DeviceAttribute]
+    :returns: Could be: \n
+                  - If the reply is arrived and if it is a valid reply,
+                    it is returned to the caller in a list of DeviceAttribute. \n
+                  - If the reply is an exception, it is re-thrown by this call. \n
+                  - If the reply is not yet arrived, the call will wait (blocking the process)
+                    for the time specified in timeout. If after timeout milliseconds, the reply is still not there, an
+                    exception is thrown. If timeout is set to 0, the call waits
+                    until the reply arrived.
+    :rtype: :py:obj:`list`\\[:py:obj:`~tango.DeviceAttribute`]
 
-    :throws: Union[AsynCall, AsynReplyNotArrived, ConnectionFailed, CommunicationFailed, DevFailed]
+    :throws: :py:obj:`~tango.AsynCall`, :py:obj:`~tango.AsynReplyNotArrived`,
+             :py:obj:`~tango.ConnectionFailed`, :py:obj:`~tango.CommunicationFailed`,
+             :py:obj:`~tango.DevFailed`
     __GREEN_RAISES__
+
+    .. versionadded:: 7.0.0
+
     """
     _check_only_allowed_kwargs(kwargs, {"id", "poll_timeout", "extract_as"})
 
@@ -782,48 +898,60 @@ def __DeviceProxy__read_attributes_reply(
 
 def __DeviceProxy__read_attribute_reply(self, *args, **kwargs) -> DeviceAttribute:
     """
-    read_attribute_reply(self, id, extract_as=ExtractAs.Numpy, __GREEN_KWARGS__) -> DeviceAttribute
-    read_attribute_reply(self, id, poll_timeout, extract_as=ExtractAs.Numpy, __GREEN_KWARGS__) -> DeviceAttribute
+    read_attribute_reply(self, id: int, extract_as: ExtractAs=ExtractAs.Numpy, __GREEN_KWARGS__) -> DeviceAttribute
+    read_attribute_reply(self, id: int, poll_timeout: int, extract_as: ExtractAs=ExtractAs.Numpy, __GREEN_KWARGS__) -> DeviceAttribute
 
     Get the answer of an asynchronous read_attribute call, if it has arrived (polling model).
 
     If the reply is ready, but the attribute raised an exception while reading, an
     exception will be raised by this function (DevFailed, with reason API_AttrValueNotSet).
 
-    .. versionchanged:: 7.0.0 New in PyTango
-    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters, the core (cppTango) timeout (previously the optional second positional argument) has been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the keyword argument "timeout". These parameters have distinct meanings and units:
+    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters,
+        the core (cppTango) timeout (previously the optional second positional argument) has
+        been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the
+        keyword argument "timeout". These parameters have distinct meanings and units:
 
-        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until a reply is received. If the reply is not received within the specified poll_timeout duration, an exception is thrown. Setting poll_timeout to 0 causes the call to wait indefinitely until a reply is received.
-        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True. The specific behavior when a reply is not received within the specified timeout period varies depending on the GreenMode.
-
+        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until
+          a reply is received. If the reply is not received within the specified poll_timeout
+          duration, an exception is thrown. Setting poll_timeout to 0 causes the call to
+          wait indefinitely until a reply is received.
+        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous
+          GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True. The specific
+          behavior when a reply is not received within the specified timeout period varies
+          depending on the GreenMode.
 
     :param id: the asynchronous call identifier
-    :type id: int
+    :type id: :py:obj:`int`
 
-    :param poll_timeout: cppTango core timeout in ms.
-        If the reply has not yet arrived, the call will wait for the time specified (in ms).
-        If after timeout, the reply is still not there, an exception is thrown.
-        If timeout set to 0, the call waits until the reply arrives.
-        If the argument is not provided, then there is no timeout check, and an
-        exception is raised immediately if the reply is not ready.
-    :type poll_timeout: Optional[int]
+    :param poll_timeout: cppTango core timeout in ms: \n
+                         - If the reply has not yet arrived, the call will wait for the time specified (in ms). \n
+                         - If after timeout, the reply is still not there, an exception is thrown. \n
+                         - If timeout set to 0, the call waits until the reply arrives. \n
+                         - If the argument is not provided, then there is no timeout check, and an
+                           exception is raised immediately if the reply is not ready.
+    :type poll_timeout: :py:obj:`int`, optional
 
     :param extract_as: Defaults to numpy.
     :type extract_as: ExtractAs
 
     __GREEN_KWARGS_DESCRIPTION__
 
-    :returns: If the reply is arrived and if it is a valid reply,
-        it is returned to the caller in a list of DeviceAttribute.
-        If the reply is an exception, it is re-thrown by this call.
-        If the reply is not yet arrived, the call will wait (blocking the process)
-        for the time specified in timeout. If after timeout milliseconds, the reply is still not there, an
-        exception is thrown. If timeout is set to 0, the call waits
-        until the reply arrived.
+    :returns: Could be: \n
+                  - If the reply is arrived and if it is a valid reply,
+                    it is returned to the caller in a DeviceAttribute. \n
+                  - If the reply is an exception, it is re-thrown by this call. \n
+                  - If the reply is not yet arrived, the call will wait (blocking the process)
+                    for the time specified in timeout. If after timeout milliseconds, the reply is still not there, an
+                    exception is thrown. If timeout is set to 0, the call waits
+                    until the reply arrived.
+
     :rtype: :obj:`tango.DeviceAttribute`
 
-    :throws: Union[AsynCall, AsynReplyNotArrived, ConnectionFailed, CommunicationFailed, DevFailed]
+    :throws: :py:obj:`tango.AsynCall`, :py:obj:`tango.AsynReplyNotArrived`,
+             :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`
 
+    .. versionadded:: 7.0.0
     """
     _check_only_allowed_kwargs(kwargs, {"id", "poll_timeout", "extract_as"})
 
@@ -831,20 +959,10 @@ def __DeviceProxy__read_attribute_reply(self, *args, **kwargs) -> DeviceAttribut
     return __check_read_attribute(attr)
 
 
-def __write_attributes_asynch__(self, attr_values, cb=None):
-    if cb is None:
-        return self.__write_attributes_asynch(attr_values)
-
-    cb2 = _get_new_CallbackAutoDie()
-    if isinstance(cb, collections.abc.Callable):
-        cb2.attr_written = _forcefully_traced_method(cb)
-    else:
-        cb2.attr_written = _forcefully_traced_method(cb.attr_written)
-    return self.__write_attributes_asynch(attr_values, cb2)
-
-
 def __DeviceProxy__write_attributes_asynch(
-    self, attr_values: list[tuple[str | AttributeInfoEx, Any]], cb=None
+    self,
+    attr_values: Sequence[tuple[str | AttributeInfoEx, Any]],
+    cb: Callable | None = None,
 ) -> int | None:
     """
     Write asynchronously the specified attributes.
@@ -855,20 +973,22 @@ def __DeviceProxy__write_attributes_asynch(
         need to change the global TANGO model to PUSH_CALLBACK.
         You can do this with the :meth:`tango.ApiUtil.set_asynch_cb_sub_model`
 
-    :param attr_values: pairs of (attr_name, value) to write (see Note below)
-    :type attr_values: Sequence[Sequence[str | :obj:`~tango.AttributeInfoEx`, Any]]
+    :param values: pairs of (attr_name, value) to write (see Note below)
+    :type values: :py:obj:`typing.Sequence`\\[:py:obj:`tuple`\\[:py:obj:`str`
+                  | :py:obj:`~tango.AttributeInfoEx`, :py:obj:`typing.Any`]]
 
     :param cb: push model: as soon as attributes written, core calls cb with write results.
         This callback object should be an instance of a user class with an attr_written() method.
         It can also be any callable object.
-    :type cb: Optional[Callable]
+    :type cb: :py:obj:`typing.Optional`[:py:obj:`typing.Callable`]
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: an asynchronous call identifier which is needed to get the server reply if poll model, None if push model
-    :rtype: Union[int, None]
+    :rtype: :py:obj:`int` | :py:obj:`None`
 
-    :throws: :obj:`tango.ConnectionFailed`
+    :throws: :py:obj:`~tango.ConnectionFailed`
+
     __GREEN_RAISES__
 
     .. important::
@@ -890,11 +1010,19 @@ def __DeviceProxy__write_attributes_asynch(
 
     """
 
-    return __write_attributes_asynch__(self, attr_values, cb)
+    if cb is None:
+        return self.__write_attributes_asynch(attr_values)
+
+    cb2 = _get_new_CallbackAutoDie()
+    if isinstance(cb, collections.abc.Callable):
+        cb2.attr_written = _forcefully_traced_method(cb)
+    else:
+        cb2.attr_written = _forcefully_traced_method(cb.attr_written)
+    return self.__write_attributes_asynch(attr_values, cb2)
 
 
 def __DeviceProxy__write_attribute_asynch(
-    self, attr: str | AttributeInfoEx, value: Any, cb=None
+    self, attr: str | AttributeInfoEx, value: Any, cb: Callable | None = None
 ) -> int | None:
     """
     Write asynchronously the specified attribute.
@@ -906,22 +1034,23 @@ def __DeviceProxy__write_attribute_asynch(
         You can do this with the :meth:`tango.ApiUtil.set_asynch_cb_sub_model`
 
     :param attr: an attribute name to write or AttributeInfoEx object (see Note below)
-    :type attr: str | :obj:`~tango.AttributeInfoEx`
+    :type attr: :py:obj:`str` | :obj:`~tango.AttributeInfoEx`
 
     :param value: value to write
-    :type value: Any
+    :type value: :py:obj:`typing.Any`
 
     :param cb: push model: as soon as attribute written, core calls cb with write results.
-        This callback object should be an instance of a user class with an attr_written() method.
-        It can also be any callable object.
-    :type cb: Optional[Callable]
+                           This callback object should be an instance of a user class with an attr_written() method.
+                           It can also be any callable object.
+    :type cb: :py:obj:`typing.Optional`\\[:py:obj:`typing.Callable`]
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: an asynchronous call identifier which is needed to get the server reply if poll model, None if push model
-    :rtype: Union[int, None]
+    :rtype: :py:obj:`int` | :py:obj:`None`
 
-    :throws: ConnectionFailed
+    :throws: :py:obj:`tango.ConnectionFailed`
+
     __GREEN_RAISES__
 
     .. important::
@@ -943,7 +1072,15 @@ def __DeviceProxy__write_attribute_asynch(
         - added support for AttributeInfoEx for attr parameter
 
     """
-    return __write_attributes_asynch__(self, [(attr, value)], cb)
+    if cb is None:
+        return self.__write_attribute_asynch(attr, value)
+
+    cb2 = _get_new_CallbackAutoDie()
+    if isinstance(cb, collections.abc.Callable):
+        cb2.attr_written = _forcefully_traced_method(cb)
+    else:
+        cb2.attr_written = _forcefully_traced_method(cb.attr_written)
+    return self.__write_attribute_asynch(attr, value, cb2)
 
 
 def __write_attributes_reply__(self, *args, **kwargs):
@@ -956,42 +1093,51 @@ def __write_attributes_reply__(self, *args, **kwargs):
 def __DeviceProxy__write_attributes_reply(self, *args, **kwargs) -> None:
     """
 
-    write_attributes_reply(self, id, __GREEN_KWARGS__) -> None
-    write_attributes_reply(self, id, poll_timeout, __GREEN_KWARGS__) -> None
+    write_attributes_reply(self, id: int, __GREEN_KWARGS__) -> None
+    write_attributes_reply(self, id: int, poll_timeout: int, __GREEN_KWARGS__) -> None
 
-        Check if the answer of an asynchronous write_attributes is arrived
-        (polling model). If the reply is arrived and if it is a valid reply,
-        the call returned. If the reply is an exception, it is re-thrown by
-        this call. An exception is also thrown in case of the reply is not
-        yet arrived.
+    Check if the answer of an asynchronous write_attributes is arrived
+    (polling model). If the reply is arrived and if it is a valid reply,
+    the call returned. If the reply is an exception, it is re-thrown by
+    this call. An exception is also thrown in case of the reply is not
+    yet arrived.
 
-    .. versionchanged:: 7.0.0 New in PyTango
-    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters, the core (cppTango) timeout (previously the optional second positional argument) has been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the keyword argument "timeout". These parameters have distinct meanings and units:
+    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters,
+                        the core (cppTango) timeout (previously the optional second positional argument) has
+                        been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as
+                        the keyword argument "timeout". These parameters have distinct meanings and units:
 
-        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until a reply is received. If the reply is not received within the specified poll_timeout duration, an exception is thrown. Setting poll_timeout to 0 causes the call to wait indefinitely until a reply is received.
-        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True. The specific behavior when a reply is not received within the specified timeout period varies depending on the GreenMode.
+                        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call
+                          until a reply is received. If the reply is not received within the
+                          specified poll_timeout duration, an exception is thrown. Setting poll_timeout
+                          to 0 causes the call to wait indefinitely until a reply is received.
+                        - The pyTango "timeout" is measured in seconds and is applicable only in
+                          asynchronous GreenModes (Asyncio, Futures, Gevent), and only when "wait"
+                          is set to True. The specific behavior when a reply is not received within
+                          the specified timeout period varies depending on the GreenMode.
 
     :param id: the asynchronous call identifier
-    :type id: int
+    :type id: :py:obj:`int`
 
-    :param poll_timeout: cppTango core timeout in ms.
-        If the reply has not yet arrived, the call will wait for the time specified (in ms).
-        If after timeout, the reply is still not there, an exception is thrown.
-        If timeout set to 0, the call waits until the reply arrives.
-        If the argument is not provided, then there is no timeout check, and an
-        exception is raised immediately if the reply is not ready.
-    :type poll_timeout: Optional[int]
+    :param poll_timeout: cppTango core timeout in ms: \n
+                         - If the reply has not yet arrived, the call will wait for the time specified (in ms). \n
+                         - If after timeout, the reply is still not there, an exception is thrown. \n
+                         - If timeout set to 0, the call waits until the reply arrives. \n
+                         - If the argument is not provided, then there is no timeout check, and an
+                           exception is raised immediately if the reply is not ready.
+    :type poll_timeout: :py:obj:`int`, optional
 
     :param extract_as: Defaults to numpy.
     :type extract_as: ExtractAs
 
     __GREEN_KWARGS_DESCRIPTION__
 
-    :returns: None
-    :rtype: None
-
-    :throws: Union[AsynCall, AsynReplyNotArrived, ConnectionFailed, CommunicationFailed, DevFailed]
+    :throws: :py:obj:`tango.AsynCall`, :py:obj:`tango.AsynReplyNotArrived`,
+             :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`
     __GREEN_RAISES__
+
+    .. versionadded:: 7.0.0
 
     """
     _check_only_allowed_kwargs(kwargs, {"id", "poll_timeout"})
@@ -1001,31 +1147,39 @@ def __DeviceProxy__write_attributes_reply(self, *args, **kwargs) -> None:
 
 def __DeviceProxy__write_attribute_reply(self, *args, **kwargs) -> None:
     """
-    write_attribute_reply(self, id, __GREEN_KWARGS__) -> None
-    write_attribute_reply(self, id, poll_timeout, __GREEN_KWARGS__) -> None
+    write_attribute_reply(self, id: int, __GREEN_KWARGS__) -> None
+    write_attribute_reply(self, id: int, poll_timeout: int, __GREEN_KWARGS__) -> None
 
-        Check if the answer of an asynchronous write_attributes is arrived
-        (polling model). If the reply is arrived and if it is a valid reply,
-        the call returned. If the reply is an exception, it is re-thrown by
-        this call. An exception is also thrown in case of the reply is not
-        yet arrived.
+    Check if the answer of an asynchronous write_attributes is arrived
+    (polling model). If the reply is arrived and if it is a valid reply,
+    the call returned. If the reply is an exception, it is re-thrown by
+    this call. An exception is also thrown in case of the reply is not
+    yet arrived.
 
-    .. versionchanged:: 7.0.0 New in PyTango
-    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters, the core (cppTango) timeout (previously the optional second positional argument) has been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the keyword argument "timeout". These parameters have distinct meanings and units:
+    .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters,
+                        the core (cppTango) timeout (previously the optional second positional argument) has
+                        been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the
+                        keyword argument "timeout". These parameters have distinct meanings and units:
 
-        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until a reply is received. If the reply is not received within the specified poll_timeout duration, an exception is thrown. Setting poll_timeout to 0 causes the call to wait indefinitely until a reply is received.
-        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True. The specific behavior when a reply is not received within the specified timeout period varies depending on the GreenMode.
+                        - The cppTango "poll_timeout" is measured in milliseconds and blocks the call until a
+                          reply is received. If the reply is not received within the specified poll_timeout duration,
+                          an exception is thrown. Setting poll_timeout to 0 causes the call to wait
+                          indefinitely until a reply is received.
+                        - The pyTango "timeout" is measured in seconds and is applicable only in asynchronous
+                          GreenModes (Asyncio, Futures, Gevent), and only when "wait" is set to True.
+                          The specific behavior when a reply is not received within the specified
+                          timeout period varies depending on the GreenMode.
 
     :param id: the asynchronous call identifier
-    :type id: int
+    :type id: :py:obj:`int`
 
-    :param poll_timeout: cppTango core timeout in ms.
-        If the reply has not yet arrived, the call will wait for the time specified (in ms).
-        If after timeout, the reply is still not there, an exception is thrown.
-        If timeout set to 0, the call waits until the reply arrives.
-        If the argument is not provided, then there is no timeout check, and an
-        exception is raised immediately if the reply is not ready.
-    :type poll_timeout: Optional[int]
+    :param poll_timeout: cppTango core timeout in ms: \n
+                         - If the reply has not yet arrived, the call will wait for the time specified (in ms). \n
+                         - If after timeout, the reply is still not there, an exception is thrown. \n
+                         - If timeout set to 0, the call waits until the reply arrives. \n
+                         - If the argument is not provided, then there is no timeout check, and an
+                           exception is raised immediately if the reply is not ready.
+    :type poll_timeout: :py:obj:`int`, optional
 
     :param extract_as: Defaults to numpy.
     :type extract_as: ExtractAs
@@ -1033,9 +1187,13 @@ def __DeviceProxy__write_attribute_reply(self, *args, **kwargs) -> None:
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: None
-    :rtype: None
+    :rtype: :py:obj:`None`
 
-    :throws: Union[AsynCall, AsynReplyNotArrived, ConnectionFailed, CommunicationFailed, DevFailed]
+    :throws: :py:obj:`tango.AsynCall`, :py:obj:`tango.AsynReplyNotArrived`,
+             :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`
+
+     .. versionadded:: 7.0.0
     """
     _check_only_allowed_kwargs(kwargs, {"id", "poll_timeout"})
 
@@ -1050,46 +1208,48 @@ def __DeviceProxy__write_read_attribute(
 ) -> DeviceAttribute:
     """
 
-     Write then read a single attribute in a single network call.
-     By default (serialisation by device), the execution of this call in
-     the server can't be interrupted by other clients.
+    Write then read a single attribute in a single network call.
+    By default (serialisation by device), the execution of this call in
+    the server can't be interrupted by other clients.
 
-     :param attr: The name or AttributeInfoEx structure of the attribute to write.
-     :type attr: str | :obj:`~tango.AttributeInfoEx`
+    :param attr: The name or AttributeInfoEx structure of the attribute to write.
+    :type attr: :py:obj:`str` | :obj:`~tango.AttributeInfoEx`
 
-     :param value: The value to write to the attribute.
-     :type value: Any
+    :param value: The value to write to the attribute.
+    :type value: :py:obj:`typing.Any`
 
-     __GREEN_KWARGS_DESCRIPTION__
+    __GREEN_KWARGS_DESCRIPTION__
 
-     :returns: A DeviceAttribute object with readout value.
-     :rtype: :obj:`tango.DeviceAttribute`
+    :returns: A DeviceAttribute object with readout value.
+    :rtype: :obj:`tango.DeviceAttribute`
 
-     :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-     :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-     :throws: :obj:`tango.DeviceUnlocked`: Raised in case of an unlocked device.
-     :throws: :obj:`tango.WrongData`: Raised in case of a wrong data format.
-     :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-     :throws: TypeError: Raised in case of an incorrect type of input arguments.
-     __GREEN_RAISES__
+    :throws:
+        :py:obj:`tango.ConnectionFailed`: Raised in case of a connection failure. \n
+        :py:obj:`tango.CommunicationFailed`: Raised in case of a communication failure. \n
+        :py:obj:`tango.DeviceUnlocked`: Raised in case of an unlocked device. \n
+        :py:obj:`tango.WrongData`: Raised in case of a wrong data format. \n
+        :py:obj:`tango.DevFailed`: Raised in case of a device failure. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments.
 
-     .. note::
-         There are two possibilities for the attr parameter: if you give attribute name,
-         then PyTango will do additional IO to fetch AttributeInfoEx object from device server,
-         since we must know to which c++ data type cast python value. If you would like to avoid this IO you
-         can give AttributeInfoEx instead of attribute name.
+    __GREEN_RAISES__
 
-     .. versionadded:: 7.0.0
+    .. note::
+        There are two possibilities for the attr parameter: if you give attribute name,
+        then PyTango will do additional IO to fetch AttributeInfoEx object from device server,
+        since we must know to which c++ data type cast python value. If you would like to avoid this IO you
+        can give AttributeInfoEx instead of attribute name.
 
-     .. versionadded:: 8.1.0
-         *green_mode* parameter.
-         *wait* parameter.
-         *timeout* parameter.
+    .. versionadded:: 7.0.0
+
+    .. versionadded:: 8.1.0
+        *green_mode* parameter.
+        *wait* parameter.
+        *timeout* parameter.
 
     .. versionchanged:: 10.1.0
 
-         - attr_name parameter was renamed to attr
-         - added support for AttributeInfoEx for attr parameter
+        - attr_name parameter was renamed to attr
+        - added support for AttributeInfoEx for attr parameter
 
     """
     result = self._write_read_attribute(attr, value, extract_as)
@@ -1098,12 +1258,11 @@ def __DeviceProxy__write_read_attribute(
 
 def __DeviceProxy__write_read_attributes(
     self,
-    attr_values: list[tuple[str | AttributeInfoEx, Any]],
-    attr_read_names: list[str],
+    attr_values: Sequence[tuple[str | AttributeInfoEx, Any]],
+    attr_read_names: Sequence[str],
     extract_as: ExtractAs = ExtractAs.Numpy,
 ) -> DeviceAttribute:
     """
-
     Write then read attribute(s) in a single network call. By
     default (serialisation by device), the execution of this
     call in the server can't be interrupted by other clients.
@@ -1112,28 +1271,31 @@ def __DeviceProxy__write_read_attributes(
     attributes will be read.
 
     :param attr_values: A list of pairs (attr, value). See write_attribute
-    :type attr_values: sequence<(str | AttributeInfoEx, Any)>
+    :type attr_values: :py:obj:`typing.Sequence`\\[:py:obj:`tuple`\\[:py:obj:`str` |
+                       :py:obj:`AttributeInfoEx`, :py:obj:`typing.Any`]]
 
     :param attr_read_names: A list of attributes to read.
-    :type attr_read_names: sequence<str>
+    :type attr_read_names: :py:obj:`typing.Sequence`\\[:py:obj:`str`]
 
     :param extract_as: Defaults to numpy.
-    :type extract_as: :obj:`tango.ExtractAs`
+    :type extract_as: ExtractAs
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: A sequence DeviceAttribute object with readout values.
-    :rtype: sequence<:obj:`tango.DeviceAttribute`>
+    :rtype: :py:obj:`list`\\[:obj:`tango.DeviceAttribute`]
 
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DeviceUnlocked`: Raised in case of an unlocked device.
-    :throws: :obj:`tango.WrongData`: Raised in case of a wrong data format.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-    :throws: TypeError: Raised in case of an incorrect type of input arguments.
+    :throws:
+        :py:obj:`tango.ConnectionFailed`: Raised in case of a connection failure. \n
+        :py:obj:`tango.CommunicationFailed`: Raised in case of a communication failure. \n
+        :py:obj:`tango.DeviceUnlocked`: Raised in case of an unlocked device. \n
+        :py:obj:`tango.WrongData`: Raised in case of a wrong data format. \n
+        :py:obj:`tango.DevFailed`: Raised in case of a device failure. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+
     __GREEN_RAISES__
 
-    New in PyTango 9.2.0
+    .. versionadded:: 9.2.0
 
     .. note::
         For each pair of values there are two possibilities for the
@@ -1181,7 +1343,8 @@ def __DeviceProxy__get_property(
                     7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`tango.DbDatum`] [in] - Several `DbDatum.name` are
                        property names to be fetched (keys are ignored). \n
 
-    :param value: Optional. For propname overloads with :py:obj:`str` and :py:obj:`list`\\[:py:obj:`str`] will be filed with the property values, if provided.
+    :param value: Optional. For propname overloads with :py:obj:`str` and :py:obj:`list`\\[:py:obj:`str`]
+                  will be filed with the property values, if provided.
     :type value: :obj:`tango.DbData`, optional
 
     __GREEN_KWARGS_DESCRIPTION__
@@ -1226,12 +1389,14 @@ def __DeviceProxy__put_property(
                     1. :py:obj:`str` - Single property data to be inserted. \n
                     2. :py:obj:`~tango.DbDatum` - Single property data to be inserted. \n
                     3. :py:obj:`~tango.DbData` - Several property data to be inserted. \n
-                    4. :py:obj:`list`\\[:py:obj:`str` | :py:obj:`bytes` | :py:obj:`~tango.DbDatum`] - Several property data to be inserted. \n
+                    4. :py:obj:`list`\\[:py:obj:`str` | :py:obj:`bytes` | :py:obj:`~tango.DbDatum`] -
+                       Several property data to be inserted. \n
                     5. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`~tango.DbDatum`] -
-                        DbDatum is property to be inserted (keys are ignored). \n
+                       DbDatum is property to be inserted (keys are ignored). \n
                     6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`\\[:py:obj:`str`]] - Keys are property names,
-                        and value has data to be inserted. \n
-                    7. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] - Keys are property names, and `str(obj)` is property value.
+                       and value has data to be inserted. \n
+                    7. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] - Keys are property names,
+                       and `str(obj)` is property value.
 
     __GREEN_KWARGS_DESCRIPTION__
 
@@ -1261,17 +1426,18 @@ def __DeviceProxy__delete_property(
     ),
 ) -> None:
     """
-    Delete a the given of properties for this attribute.
+    Delete the given properties for this attribute.
+
     :param value: Can be one of the following: \n
-                    1. :py:obj:`str` [in] - Single property data to be deleted. \n
-                    2. :py:obj:`~tango.DbDatum` [in] - Single property data to be deleted. \n
-                    3. :py:obj:`~tango.DbData` [in] - Several property data to be deleted. \n
-                    4. :py:obj:`list`\\[:py:obj:`str`] [in] - Several property data to be deleted. \n
-                    5. :py:obj:`list`\\[:py:obj:`tango.DbDatum`] [in] - Several property data to be deleted. \n
-                    6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in] - Keys are property names
-                       to be deleted (values are ignored). \n
-                    7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`tango.DbDatum`] [in] - Several `DbDatum.name` are
-                       property names to be deleted (keys are ignored). \n
+        1. :py:obj:`str` [in] - Single property data to be deleted. \n
+        2. :py:obj:`~tango.DbDatum` [in] - Single property data to be deleted. \n
+        3. :py:obj:`~tango.DbData` [in] - Several property data to be deleted. \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in] - Several property data to be deleted. \n
+        5. :py:obj:`list`\\[:py:obj:`tango.DbDatum`] [in] - Several property data to be deleted. \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in] - Keys are property names
+           to be deleted (values are ignored). \n
+        7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`tango.DbDatum`] [in] - Several `DbDatum.name` are
+           property names to be deleted (keys are ignored). \n
 
     __GREEN_KWARGS_DESCRIPTION__
 
@@ -1289,32 +1455,36 @@ def __DeviceProxy__delete_property(
     return self._delete_property(new_value)
 
 
-def __DeviceProxy__get_property_list(self, filter, array=None) -> list[str]:
+def __DeviceProxy__get_property_list(self, filter: str, array: list[object] | None = None) -> list[str]:
     """
     get_property_list(self, filter, array=None, __GREEN_KWARGS__) -> obj
 
-            Get the list of property names for the device. The parameter
-            filter allows the user to filter the returned name list. The
-            wildcard character is '*'. Only one wildcard character is
-            allowed in the filter parameter.
+    Get the list of property names for the device. The parameter
+    filter allows the user to filter the returned name list. The
+    wildcard character is '*'. Only one wildcard character is
+    allowed in the filter parameter.
 
     :param filter: The filter wildcard.
-    :type filter: str
+    :type filter: :py:obj:`str`
 
-    :param array: Optional. An array to be filled with the property names. If `None`, a new list will be created internally with the values. Defaults to `None`.
-    :type array: sequence obj or None, optional
+    :param array: Optional. An array to be filled with the property names.
+                  If `None`, a new list will be created internally with the values.
+                  Defaults to `None`.
+    :type array: :py:obj:`list`\\[:py:obj:`object`]
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: The given array filled with the property names, or a new list if `array` is `None`.
     :rtype: sequence obj
 
-    :throws: :obj:`tango.NonDbDevice`: Raised in case of a non-database device error.
-    :throws: :obj:`tango.WrongNameSyntax`: Raised in case of incorrect syntax in the name.
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure with the database.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure with the database.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure from the database device.
-    :throws: TypeError: Raised in case of an incorrect type of input arguments.
+    :throws:
+        :py:obj:`tango.NonDbDevice`: Raised in case of a non-database device error. \n
+        :py:obj:`tango.WrongNameSyntax`: Raised in case of incorrect syntax in the name. \n
+        :py:obj:`tango.ConnectionFailed`: Raised in case of a connection failure with the database. \n
+        :py:obj:`tango.CommunicationFailed`: Raised in case of a communication failure with the database. \n
+        :py:obj:`tango.DevFailed`: Raised in case of a device failure from the database device. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+
     __GREEN_RAISES__
 
     :versionadded:: 7.0.0
@@ -1337,103 +1507,107 @@ def __DeviceProxy__get_property_list(self, filter, array=None) -> list[str]:
     raise TypeError("array must be a mutable sequence<string>")
 
 
-def __DeviceProxy__get_attribute_config(
-    self, value
-) -> AttributeInfoEx | AttributeInfoList:
+def __DeviceProxy__get_attribute_config(self, names: str | list[str]) -> AttributeInfoEx | AttributeInfoList:
     """
-    get_attribute_config(self, name, __GREEN_KWARGS__) -> AttributeInfoEx
-    get_attribute_config(self, names, __GREEN_KWARGS__) -> AttributeInfoList
+    get_attribute_config(self, name: str, __GREEN_KWARGS__) -> AttributeInfoEx
+    get_attribute_config(self, names: list[str], __GREEN_KWARGS__) -> AttributeInfoList
 
-        Return the attribute configuration for a single or a list of attribute(s). To get all the
-        attributes pass a sequence containing the constant :obj:`tango.constants.AllAttr`
+    Return the attribute configuration for a single or a list of attribute(s). To get all the
+    attributes pass a sequence containing the constant :obj:`tango.constants.AllAttr`
 
-        Deprecated: use get_attribute_config_ex instead
+    .. deprecated:: use get_attribute_config_ex instead
+
 
     :param name: Attribute name.
-    :type name: str
+    :type name: :py:obj:`str`
 
     :param names: Attribute names.
-    :type names: sequence<str>
+    :type names: :py:obj:`list`\\[:py:obj:`str`]
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: An `AttributeInfoEx` or `AttributeInfoList` object containing the attribute(s) information.
-    :rtype: Union[:obj:`tango.AttributeInfoEx`, :obj:`tango.AttributeInfoList`]
+    :rtype: :obj:`tango.AttributeInfoEx` | :obj:`tango.AttributeInfoList`
 
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-    :throws: TypeError: Raised in case of an incorrect type of input arguments.
+    :throws:
+        :py:obj:`tango.ConnectionFailed`: Raised in case of a connection failure. \n
+        :py:obj:`tango.CommunicationFailed`: Raised in case of a communication failure. \n
+        :py:obj:`tango.DevFailed`: Raised in case of a device failure. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+
     __GREEN_RAISES__
     """
-    if isinstance(value, StdStringVector) or is_pure_str(value):
-        return self._get_attribute_config(value)
-    elif isinstance(value, collections.abc.Sequence):
-        v = seq_2_StdStringVector(value)
+    if isinstance(names, StdStringVector) or is_pure_str(names):
+        return self._get_attribute_config(names)
+    elif isinstance(names, collections.abc.Sequence):
+        v = seq_2_StdStringVector(names)
         return self._get_attribute_config(v)
 
     raise TypeError("value must be a string or a sequence<string>")
 
 
-def __DeviceProxy__get_attribute_config_ex(self, value) -> AttributeInfoListEx:
+def __DeviceProxy__get_attribute_config_ex(self, names: str | list[str]) -> AttributeInfoListEx:
     """
-    get_attribute_config_ex(self, name or sequence(names), __GREEN_KWARGS__) -> AttributeInfoListEx :
+    Return the extended attribute configuration for a single attribute or for the list of
+    specified attributes. To get all the attributes pass a sequence
+    containing the constant tango.constants.AllAttr.
 
-        Return the extended attribute configuration for a single attribute or for the list of
-        specified attributes. To get all the attributes pass a sequence
-        containing the constant tango.constants.AllAttr.
-
-    :param name: Attribute name or attribute names. Can be a single string (for one attribute) or a sequence of strings (for multiple attributes).
-    :type name: str or sequence(str)
+    :param names: Attribute name or attribute names. Can be a single string (for one attribute) or a sequence of
+                  strings (for multiple attributes).
+    :type names: :py:obj:`str` | :py:obj:`list`\\[:py:obj:`str`]
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: An `AttributeInfoListEx` object containing the attribute information.
-    :rtype: :obj:`tango.AttributeInfoListEx`
+    :rtype: :obj:`~tango.AttributeInfoListEx`
 
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
+    :throws:
+        :py:obj:`~tango.ConnectionFailed`: Raised in case of a connection failure. \n
+        :py:obj:`~tango.CommunicationFailed`: Raised in case of a communication failure. \n
+        :py:obj:`~tango.DevFailed`: Raised in case of a device failure.
+
     __GREEN_RAISES__
     """
-    if isinstance(value, StdStringVector):
-        return self._get_attribute_config_ex(value)
-    elif is_pure_str(value):
+    if isinstance(names, StdStringVector):
+        return self._get_attribute_config_ex(names)
+    elif is_pure_str(names):
         v = StdStringVector()
-        v.append(value)
+        v.append(names)
         return self._get_attribute_config_ex(v)
-    elif isinstance(value, collections.abc.Sequence):
-        v = seq_2_StdStringVector(value)
+    elif isinstance(names, collections.abc.Sequence):
+        v = seq_2_StdStringVector(names)
         return self._get_attribute_config_ex(v)
 
     raise TypeError("value must be a string or a sequence<string>")
 
 
-def __DeviceProxy__get_command_config(
-    self, value=(constants.AllCmd,)
-) -> CommandInfoList | CommandInfo:
+def __DeviceProxy__get_command_config(self, value=(constants.AllCmd,)) -> CommandInfoList | CommandInfo:
     """
     get_command_config(self, __GREEN_KWARGS__) -> CommandInfoList
-    get_command_config(self, name, __GREEN_KWARGS__) -> CommandInfo
-    get_command_config(self, names, __GREEN_KWARGS__) -> CommandInfoList
+    get_command_config(self, name: str, __GREEN_KWARGS__) -> CommandInfo
+    get_command_config(self, names: Sequence[str], __GREEN_KWARGS__) -> CommandInfoList
 
-        Return the command configuration for single/list/all command(s).
+    Return the command configuration for single/list/all command(s).
 
     :param name: Command name. Used when querying information for a single command.
-    :type name: str, optional
+    :type name: :py:obj:`str`, optional
 
-    :param names: Command names. Used when querying information for multiple commands. This parameter should not be used simultaneously with 'name'.
-    :type names: sequence<str>, optional
+    :param names: Command names. Used when querying information for multiple commands.
+                  This parameter should not be used simultaneously with 'name'.
+    :type names: :py:obj:`typing.Sequence`\\[:py:obj:`str`], optional
 
     __GREEN_KWARGS_DESCRIPTION__
 
-    :returns: A `CommandInfoList` object containing the commands information if multiple command names are provided, or a `CommandInfo` object if a single command name is provided.
-    :rtype: :obj:`tango.CommandInfoList` or :obj:`tango.CommandInfo`
+    :returns: A `CommandInfoList` object containing the commands information if multiple command names are provided,
+              or a `CommandInfo` object if a single command name is provided.
+    :rtype: :py:obj:`~tango.CommandInfoList` | :py:obj:`~tango.CommandInfo`
 
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-    :throws: TypeError: Raised in case of an incorrect type of input arguments.
+    :throws:
+        :py:obj:`tango.ConnectionFailed`: Raised in case of a connection failure. \n
+        :py:obj:`tango.CommunicationFailed`: Raised in case of a communication failure. \n
+        :py:obj:`tango.DevFailed`: Raised in case of a device failure. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+
     __GREEN_RAISES__
     """
     if isinstance(value, StdStringVector) or is_pure_str(value):
@@ -1445,27 +1619,35 @@ def __DeviceProxy__get_command_config(
     raise TypeError("value must be a string or a sequence<string>")
 
 
-def __DeviceProxy__set_attribute_config(self, value) -> None:
+def __DeviceProxy__set_attribute_config(
+    self,
+    value: AttributeInfo | AttributeInfoEx | Sequence[AttributeInfo] | Sequence[AttributeInfoEx],
+) -> None:
     """
-    set_attribute_config(self, attr_info, __GREEN_KWARGS__) -> None
-    set_attribute_config(self, attr_info_ex, __GREEN_KWARGS__) -> None
+    set_attribute_config(self, attr_info: AttributeInfo | Sequence[AttributeInfo], __GREEN_KWARGS__) -> None
+    set_attribute_config(self, attr_info_ex: AttributeInfoEx | Sequence[AttributeInfoEx], __GREEN_KWARGS__) -> None
 
-        Change the attribute configuration/extended attribute configuration for the specified attribute(s)
+    Change the attribute configuration/extended attribute configuration for the specified attribute(s)
 
     :param attr_info: Attribute information. This parameter is used when providing basic attribute(s) information.
-    :type attr_info: Union[:obj:`tango.AttributeInfo`, Sequence[:obj:`tango.AttributeInfo`]], optional
+    :type attr_info: :py:obj:`tango.AttributeInfo` | :py:obj:`typing.Sequence`\\[:py:obj:`~tango.AttributeInfo`]]
 
-    :param attr_info_ex: Extended attribute information. This parameter is used when providing extended attribute information. It should not be used simultaneously with 'attr_info'.
-    :type attr_info_ex: Union[:obj:`tango.AttributeInfoEx`, Sequence[:obj:`tango.AttributeInfoEx`]], optional
+    :param attr_info_ex: Extended attribute information.
+                         This parameter is used when providing extended attribute information.
+                         It should not be used simultaneously with 'attr_info'.
+    :type attr_info_ex: :py:obj:`~tango.AttributeInfoEx` |
+                        :py:obj:`typing.Sequence`\\[:py:obj:`~tango.AttributeInfoEx`]]
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: None
 
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-    :throws: TypeError: Raised in case of an incorrect type of input arguments.
+    :throws:
+        :py:obj:`tango.ConnectionFailed`: Raised in case of a connection failure. \n
+        :py:obj:`tango.CommunicationFailed`: Raised in case of a communication failure. \n
+        :py:obj:`tango.DevFailed`: Raised in case of a device failure. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+
     __GREEN_RAISES__
 
     """
@@ -1475,9 +1657,7 @@ def __DeviceProxy__set_attribute_config(self, value) -> None:
     elif isinstance(value, AttributeInfo):
         v = AttributeInfoList()
         v.append(value)
-    elif isinstance(value, AttributeInfoList):
-        v = value
-    elif isinstance(value, AttributeInfoListEx):
+    elif isinstance(value, (AttributeInfoList, AttributeInfoListEx)):
         v = value
     elif isinstance(value, collections.abc.Sequence):
         if not len(value):
@@ -1488,15 +1668,13 @@ def __DeviceProxy__set_attribute_config(self, value) -> None:
             v = AttributeInfoList()
         else:
             raise TypeError(
-                "Value must be a AttributeInfo, AttributeInfoEx, "
-                "sequence<AttributeInfo> or sequence<AttributeInfoEx"
+                "Value must be a AttributeInfo, AttributeInfoEx, sequence<AttributeInfo> or sequence<AttributeInfoEx"
             )
         for i in value:
             v.append(i)
     else:
         raise TypeError(
-            "Value must be a AttributeInfo, AttributeInfoEx, "
-            "sequence<AttributeInfo> or sequence<AttributeInfoEx"
+            "Value must be a AttributeInfo, AttributeInfoEx, sequence<AttributeInfo> or sequence<AttributeInfoEx"
         )
 
     return self._set_attribute_config(v)
@@ -1516,17 +1694,17 @@ def __DeviceProxy__get_event_map(self):
     """
     Internal helper method"""
     if "_subscribed_events" not in self.__dict__:
-        # do it like this instead of self._subscribed_events = dict() to avoid
+        # do it like this instead of self._subscribed_events = {} to avoid
         # calling __setattr__ which requests list of tango attributes from device
-        self.__dict__["_subscribed_events"] = dict()
+        self.__dict__["_subscribed_events"] = {}
     return self._subscribed_events
 
 
 def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
     """
-    subscribe_event(self, attr_name, event_type, cb, sub_mode=EventSubMode.SyncRead, extract_as=ExtractAs.Numpy, *, __GREEN_KWARGS__) -> int
-    subscribe_event(self, attr_name, event_type, queuesize, sub_mode=EventSubMode.SyncRead, extract_as=ExtractAs.Numpy, *, __GREEN_KWARGS__) -> int
-    subscribe_event(self, event_type, cb, sub_mode=EventSubMode.SyncRead, *, __GREEN_KWARGS__) -> int
+    subscribe_event(self, attr_name: str, event_type: EventType, cb: typing.Callable, sub_mode: EventSubMode=EventSubMode.SyncRead, extract_as: ExtractAs=ExtractAs.Numpy, *, __GREEN_KWARGS__) -> int
+    subscribe_event(self, attr_name: str, event_type: EventType, queuesize: int, sub_mode: EventSubMode=EventSubMode.SyncRead, extract_as: ExtractAs=ExtractAs.Numpy, *, __GREEN_KWARGS__) -> int
+    subscribe_event(self, event_type: EventType, cb: typing.Callable, sub_mode: EventSubMode=EventSubMode.SyncRead, *, __GREEN_KWARGS__) -> int
 
     .. note::
         This function is heavily overloaded, and includes three additional signatures that
@@ -1546,8 +1724,29 @@ def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
     More details of the *push* and *pull* callback models are provided in the
     :external+tangodoc:ref:`cppTango Events API docs <events-tangoclient-api>`.
 
+    A common example, subscribing to change events on the "voltage"  attribute
+    with a callback, is shown below.
+
+    .. code-block:: python
+
+        from tango import DeviceProxy, EventData, EventType
+
+        def on_change_event(evt: EventData):
+            if evt.err:
+                e = evt.errors[0]
+                print(f"Event error: [{e.reason}] {e.desc}")
+            else:
+                print(f"Event received: [{evt.attr_value.quality}] {evt.attr_value.value}")
+
+        # subscribe
+        dp = DeviceProxy("my/power_supply/1")
+        eid = dp.subscribe_event("voltage", EventType.CHANGE_EVENT, on_change_event)
+        ...
+        # when done with subscription
+        dp.unsubscribe_event(eid)
+
     :param attr_name: The device attribute name which will be sent as an event, e.g., "current".
-    :type attr_name: str
+    :type attr_name: :py:obj:`str`
 
     :param event_type: The event reason, which must be one of the enumerated values in `EventType`. This includes:
 
@@ -1559,7 +1758,7 @@ def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
         * `EventType.DATA_READY_EVENT`
         * `EventType.ATTR_CONF_EVENT`
         * `EventType.INTERFACE_CHANGE_EVENT`
-    :type event_type: :obj:`tango.EventType`
+    :type event_type: :py:obj:`~tango.EventType`
 
     :param cb:
         Any callable object or an object with a callable ``push_event`` method
@@ -1571,20 +1770,23 @@ def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
         `EventType.ATTR_CONF_EVENT`, and `EventType.INTERFACE_CHANGE_EVENT` -
         see :ref:`event-arrived-structures`.
 
-    :type cb: callable
+    :type cb: :py:obj:`typing.Callable`
 
     :param queuesize:
         The size of the event reception buffer (i.e., use the *pull* callback model).
         The event reception buffer is implemented as a round-robin buffer.
         This way the client can set up different ways to receive events:
 
-        * Event reception buffer size = 1 : The client is interested only in the value of the last event received. All other events that have been received since the last reading are discarded.
-        * Event reception buffer size > 1 : The client has chosen to keep an event history of a given size. When more events arrive since the last reading, older events will be discarded.
-        * Event reception buffer size = tango.constants.ALL_EVENTS : The client buffers all received events. The buffer size is unlimited and only restricted by the available memory for the client.
-    :type queuesize: int
+        * Event reception buffer size = 1 : The client is interested only in the value of the last event received.
+          All other events that have been received since the last reading are discarded.
+        * Event reception buffer size > 1 : The client has chosen to keep an event history of a given size.
+          When more events arrive since the last reading, older events will be discarded.
+        * Event reception buffer size = tango.constants.ALL_EVENTS : The client buffers all received events.
+          The buffer size is unlimited and only restricted by the available memory for the client.
+    :type queuesize: :py:obj:`int`
 
     :param sub_mode: The event subscription mode.
-    :type sub_mode: :obj:`tango.EventSubMode`
+    :type sub_mode: :obj:`~tango.EventSubMode`
 
     :param extract_as: In which format to return the attribute values. Default: ExtractAs.NumPy
     :type extract_as: ExtractAs
@@ -1592,11 +1794,13 @@ def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: An event id which has to be specified when unsubscribing from this event.
-    :rtype: int
+    :rtype: :py:obj:`int`
 
-    :throws: :obj:`tango.EventSystemFailed`: Raised in case of a failure in the event system.
-    :throws: :obj:`tango.DevFailed`: Raised in case of general communication failures.
-    :throws: :obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+    :throws:
+        :obj:`tango.EventSystemFailed`: Raised in case of a failure in the event system. \n
+        :obj:`tango.DevFailed`: Raised in case of general communication failures. \n
+        :obj:`TypeError`: Raised in case of an incorrect type of input arguments.
+
     __GREEN_RAISES__
 
     .. deprecated:: PyTango 10.1.0
@@ -1647,7 +1851,6 @@ def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
             "queuesize",
             "sub_mode",
             "extract_as",
-            "event_type",
             "cb",
             "filters",
             "stateless",
@@ -1655,9 +1858,7 @@ def __DeviceProxy__subscribe_event(self, *args, **kwargs) -> int:
         },
     )
 
-    if (args and isinstance(args[0], EventType)) or kwargs.get(
-        "event_type", None
-    ) == EventType.INTERFACE_CHANGE_EVENT:
+    if (args and isinstance(args[0], EventType)) or kwargs.get("event_type") == EventType.INTERFACE_CHANGE_EVENT:
         return __DeviceProxy__subscribe_event_global(self, *args, **kwargs)
     # The first argument is the attribute name
     else:
@@ -1689,8 +1890,7 @@ def __DeviceProxy__subscribe_event_global(self, *args, **kwargs):
         "cb",
         1,
         type_check=_is_callable_for_event,
-        type_error_message="Parameter 'cb' must be callable object or "
-        "an object with a 'push_event' method.",
+        type_error_message="Parameter 'cb' must be callable object or an object with a 'push_event' method.",
     )
 
     sub_mode = EventSubMode.SyncRead
@@ -1705,7 +1905,7 @@ def __DeviceProxy__subscribe_event_global(self, *args, **kwargs):
             type_check=lambda x: isinstance(x, EventSubMode),
         )
     except (IndexError, PositionalArgTypeError):
-        try:
+        with contextlib.suppress(IndexError):
             stateless, _ = _get_and_check_param(
                 args,
                 kwargs,
@@ -1714,30 +1914,23 @@ def __DeviceProxy__subscribe_event_global(self, *args, **kwargs):
                 type_check=lambda x: isinstance(x, bool),
                 type_error_message=" must be either EventSubMode (sub_mode) or bool (stateless) type.",
             )
-        except IndexError:
-            pass
 
-    green_mode = kwargs.get("green_mode", None)
+    green_mode = kwargs.get("green_mode")
 
     cbfn = __EventCallBack()
-    cbfn.push_event = green_callback(
-        _callable_for_event(user_cb), obj=self, green_mode=green_mode
-    )
+    cbfn.push_event = green_callback(_callable_for_event(user_cb), obj=self, green_mode=green_mode)
 
     if stateless is not None:
-        warnings.warn(
+        warn_once(
             "The 'stateless' parameter is deprecated. "
             "The version for removal has not been decided, but the earliest is version 11.0.0. "
             "Please, update calls to use the 'sub_mode' parameter instead.",
+            key="deprecated:tango.device_proxy:stateless_parameter",
             category=DeprecationWarning,
         )
-        event_id = self.__subscribe_event_global_with_stateless_flag(
-            event_type, cbfn, stateless
-        )
+        event_id = self.__subscribe_event_global_with_stateless_flag(event_type, cbfn, stateless)
     else:
-        event_id = self.__subscribe_event_global_with_sub_mode(
-            event_type, cbfn, sub_mode
-        )
+        event_id = self.__subscribe_event_global_with_sub_mode(event_type, cbfn, sub_mode)
 
     _add_event_to_map(self, event_id, cbfn, event_type, "dummy")
     return event_id
@@ -1774,9 +1967,7 @@ def __DeviceProxy__subscribe_event_attrib(self, *args, **kwargs):
     )
 
     if "cb" in kwargs and "queuesize" in kwargs:
-        raise TypeError(
-            f"Parameters 'cb' and 'queuesize' cannot be used together'. {args=}, {kwargs=}"
-        )
+        raise TypeError(f"Parameters 'cb' and 'queuesize' cannot be used together'. {args=}, {kwargs=}")
     user_cb = None
     queuesize = None
     try:
@@ -1786,29 +1977,22 @@ def __DeviceProxy__subscribe_event_attrib(self, *args, **kwargs):
             "cb",
             2,
             type_check=_is_callable_for_event,
-            type_error_message="Parameter 'cb' must be callable object or "
-            "an object with a 'push_event' method",
+            type_error_message="Parameter 'cb' must be callable object or an object with a 'push_event' method",
         )
     except (IndexError, PositionalArgTypeError):
         try:
-            queuesize, _ = _get_and_check_param(
-                args, kwargs, "queuesize", 2, type_check=is_integer
-            )
+            queuesize, _ = _get_and_check_param(args, kwargs, "queuesize", 2, type_check=is_integer)
         except (IndexError, PositionalArgTypeError):
             raise TypeError(
                 f"Either parameter 'queuesize' must be an integer, or parameter 'cb' "
                 f"must be callable object or an object with a 'push_event' method. "
                 f"{args=}, {kwargs=}."
-            )
+            ) from None
 
     if "sub_mode" in kwargs and "filters" in kwargs:
-        raise TypeError(
-            f"Parameters 'sub_mode' and 'filters' cannot be used together. {args=}, {kwargs=}"
-        )
+        raise TypeError(f"Parameters 'sub_mode' and 'filters' cannot be used together. {args=}, {kwargs=}")
     if "sub_mode" in kwargs and "stateless" in kwargs:
-        raise TypeError(
-            f"Parameters 'sub_mode' and 'stateless' cannot be used together. {args=}, {kwargs=}"
-        )
+        raise TypeError(f"Parameters 'sub_mode' and 'stateless' cannot be used together. {args=}, {kwargs=}")
     sub_mode = None
     filters = None
     sub_mode_from_caller = False
@@ -1839,9 +2023,9 @@ def __DeviceProxy__subscribe_event_attrib(self, *args, **kwargs):
                 arg_shift = 1
         except (IndexError, PositionalArgTypeError) as filters_exc:
             if isinstance(sub_mode_exc, PositionalArgTypeError):
-                raise sub_mode_exc
+                raise sub_mode_exc from None
             elif isinstance(filters_exc, PositionalArgTypeError):
-                raise filters_exc
+                raise filters_exc from None
             # fallback to defaults
             sub_mode = EventSubMode.SyncRead
             filters = []
@@ -1870,14 +2054,12 @@ def __DeviceProxy__subscribe_event_attrib(self, *args, **kwargs):
         type_error_message="Parameter 'extract_as' must be of type ExtractAs",
     )
 
-    green_mode = kwargs.get("green_mode", None)
+    green_mode = kwargs.get("green_mode")
 
     # at least one of "cb" or "queuesize" must be provided
     if user_cb:
         cb_or_queuesize = __EventCallBack()
-        cb_or_queuesize.push_event = green_callback(
-            _callable_for_event(user_cb), obj=self, green_mode=green_mode
-        )
+        cb_or_queuesize.push_event = green_callback(_callable_for_event(user_cb), obj=self, green_mode=green_mode)
     elif queuesize is not None:
         cb_or_queuesize = queuesize
     else:
@@ -1899,10 +2081,11 @@ def __DeviceProxy__subscribe_event_attrib(self, *args, **kwargs):
             attr_name, event_type, cb_or_queuesize, sub_mode, extract_as
         )
     else:
-        warnings.warn(
+        warn_once(
             "The 'stateless' and 'filters' parameters are deprecated. "
             "The version for removal has not been decided, but the earliest is version 11.0.0. "
             "Please, update calls to use the 'sub_mode' parameter instead.",
+            key="deprecated:tango.device_proxy:stateless_and_filters_parameters",
             category=DeprecationWarning,
         )
         event_id = self.__subscribe_event_attrib_with_stateless_flag(
@@ -1918,26 +2101,27 @@ class _DummyValue:
     pass
 
 
+_DUMMY_VALUE = _DummyValue()
+
+
 class PositionalArgTypeError(TypeError):
     pass
 
 
 def _get_and_check_param(
-    user_args: Tuple[Any, ...],
-    user_kwargs: Dict[str, Any],
+    user_args: tuple[Any, ...],
+    user_kwargs: dict[str, Any],
     name: str,
     index: int,
-    default: Any = _DummyValue(),
+    default: Any = _DUMMY_VALUE,
     type_check: Any = None,
     type_error_message: str = "",
-) -> Tuple[Any, bool]:
+) -> tuple[Any, bool]:
     used_default = False
     if name in user_kwargs:
         value = user_kwargs[name]
         if callable(type_check) and not type_check(value):
-            raise TypeError(
-                f"Invalid type for parameter '{name}={value}': {type_error_message}"
-            )
+            raise TypeError(f"Invalid type for parameter '{name}={value}': {type_error_message}")
         return value, used_default
 
     if len(user_args) > index:
@@ -1954,8 +2138,7 @@ def _get_and_check_param(
 
     if callable(type_check) and not type_check(value):
         raise PositionalArgTypeError(
-            f"Invalid type for parameter '{name}' at position {index}: "
-            f"{type_error_message}. Received: {type(value)}"
+            f"Invalid type for parameter '{name}' at position {index}: {type_error_message}. Received: {type(value)}"
         )
 
     return value, used_default
@@ -1964,9 +2147,7 @@ def _get_and_check_param(
 def _callable_for_event(fn):
     if isinstance(fn, collections.abc.Callable):
         return fn
-    elif hasattr(fn, "push_event") and isinstance(
-        fn.push_event, collections.abc.Callable
-    ):
+    elif hasattr(fn, "push_event") and isinstance(fn.push_event, collections.abc.Callable):
         return fn.push_event
     else:
         return None
@@ -1987,9 +2168,9 @@ def _add_event_to_map(self, event_id, cb_or_queuesize, event_type, attr_name):
         # Raise exception
         desc = textwrap.dedent(
             f"""\
-            Internal PyTango error:
-            {self}.subscribe_event({attr_name}, {event_type}) already has key {event_id} assigned to ({evt_data[2]}, {evt_data[1]})
-            Please report error to PyTango"""
+Internal PyTango error:
+{self}.subscribe_event({attr_name}, {event_type}) already has key {event_id} assigned to ({evt_data[2]}, {evt_data[1]})
+Please report error to PyTango"""
         )
         Except.throw_exception("Py_InternalError", desc, "DeviceProxy.subscribe_event")
 
@@ -2002,21 +2183,24 @@ async def __async_dummy_event_receiver(_event):
     pass
 
 
-def __DeviceProxy__unsubscribe_event(self, event_id) -> None:
+def __DeviceProxy__unsubscribe_event(self, event_id: int) -> None:
     """
-    unsubscribe_event(self, event_id, __GREEN_KWARGS__) -> None
+    Unsubscribes a client from receiving the event specified by event_id.
 
-        Unsubscribes a client from receiving the event specified by event_id.
-
-    :param event_id: The event identifier returned by `DeviceProxy::subscribe_event()`. Unlike in TangoC++, this implementation checks that the `event_id` has been subscribed to in this `DeviceProxy`.
-    :type event_id: int
+    :param event_id: The event identifier returned by `DeviceProxy::subscribe_event()`.
+                     Unlike in TangoC++, this implementation checks that the `event_id` has
+                     been subscribed to in this `DeviceProxy`.
+    :type event_id: :py:obj:`int`
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: None
 
-    :throws: :obj:`tango.EventSystemFailed`: Raised in case of a failure in the event system.
-    :throws: KeyError: Raised if the specified `event_id` is not found or not subscribed in this `DeviceProxy`.
+    :throws:
+        :obj:`tango.EventSystemFailed`: Raised in case of a failure in the event system. \n
+        :obj:`KeyError`: Raised if the specified `event_id` is not found or not subscribed in
+                         this :py:obj:`~tango.DeviceProxy`.
+
     __GREEN_RAISES__
     """
     events_del = set()
@@ -2035,9 +2219,7 @@ def __DeviceProxy__unsubscribe_event(self, event_id) -> None:
         try:
             evt_info = se[event_id]
         except KeyError:
-            raise KeyError(
-                "This device proxy does not own this subscription " + str(event_id)
-            )
+            raise KeyError("This device proxy does not own this subscription " + str(event_id)) from None
 
         del se[event_id]
 
@@ -2067,48 +2249,47 @@ def __DeviceProxy__unsubscribe_event_all(self):
 
 
 def __DeviceProxy__get_events(
-    self, event_id, callback=None, extract_as=ExtractAs.Numpy
-):
+    self,
+    event_id: int,
+    callback: Callable | None = None,
+    extract_as: ExtractAs = ExtractAs.Numpy,
+) -> None:
     """
-    get_events(self, event_id, callback=None, extract_as=Numpy) -> None
 
-        The method extracts all waiting events from the event reception buffer.
+    The method extracts all waiting events from the event reception buffer.
 
-        If callback is not None, it is executed for every event. During event
-        subscription the client must have chosen the pull model for this event.
-        The callback will receive a parameter of type EventData,
-        AttrConfEventData or DataReadyEventData depending on the type of the
-        event (event_type parameter of subscribe_event).
+    If callback is not None, it is executed for every event. During event
+    subscription the client must have chosen the pull model for this event.
+    The callback will receive a parameter of type EventData,
+    AttrConfEventData or DataReadyEventData depending on the type of the
+    event (event_type parameter of subscribe_event).
 
-        If callback is None, the method extracts all waiting events from the
-        event reception buffer. The returned event_list is a vector of
-        EventData, AttrConfEventData or DataReadyEventData pointers, just
-        the same data the callback would have received.
+    If callback is None, the method extracts all waiting events from the
+    event reception buffer. The returned event_list is a vector of
+    EventData, AttrConfEventData or DataReadyEventData pointers, just
+    the same data the callback would have received.
 
     :param event_id: The event identifier returned by the `DeviceProxy.subscribe_event()` method.
-    :type event_id: int
+    :type event_id: :py:obj:`int`
+
     :param callback: Any callable object or any object with a "push_event" method.
-    :type callback: callable
+    :type callback: :py:obj:`typing.Callable`
+
     :param extract_as: (Description Needed)
-    :type extract_as: :obj:`tango.ExtractAs`
+    :type extract_as: :py:obj:`~tango.ExtractAs`
 
-    :returns: None
-
-    :throws: :obj:`tango.EventSystemFailed`: Raised in case of a failure in the event system.
-    :throws: TypeError: Raised in case of an incorrect type of input arguments.
-    :throws: ValueError: Raised in case of an invalid value.
+    :throws:
+        :py:obj:`tango.EventSystemFailed`: Raised in case of a failure in the event system. \n
+        :py:obj:`TypeError`: Raised in case of an incorrect type of input arguments. \n
+        :py:obj:`ValueError`: Raised in case of an invalid value.
 
     :see also: :meth:`~tango.DeviceProxy.subscribe_event`
 
     """
     if callback is None:
-        queuesize, event_type, attr_name = self.__get_event_map().get(
-            event_id, (None, None, None)
-        )
+        _, event_type, _ = self.__get_event_map().get(event_id, (None, None, None))
         if event_type is None:
-            raise ValueError(
-                f"Invalid event_id. You are not subscribed to event {str(event_id)}."
-            )
+            raise ValueError(f"Invalid event_id. You are not subscribed to event {event_id!s}.")
         if event_type in (
             EventType.CHANGE_EVENT,
             EventType.ALARM_EVENT,
@@ -2129,9 +2310,7 @@ def __DeviceProxy__get_events(
         cb = __EventCallBack()
         cb.push_event = callback
         return self.__get_callback_events(event_id, cb, extract_as)
-    elif hasattr(callback, "push_event") and isinstance(
-        callback.push_event, collections.abc.Callable
-    ):
+    elif hasattr(callback, "push_event") and isinstance(callback.push_event, collections.abc.Callable):
         cb = __EventCallBack()
         cb.push_event = callback.push_event
         return self.__get_callback_events(event_id, cb, extract_as)
@@ -2166,26 +2345,25 @@ def __DeviceProxy__str(self):
 
 
 def __DeviceProxy__read_attributes(
-    self, attr_names, extract_as=ExtractAs.Numpy
+    self, attr_names: Sequence[str], extract_as: ExtractAs = ExtractAs.Numpy
 ) -> list[DeviceAttribute]:
     """
-    read_attributes(self, attr_names, extract_as=ExtractAs.Numpy, __GREEN_KWARGS__) -> sequence<DeviceAttribute>
-
-        Read the list of specified attributes.
+    Read the list of specified attributes.
 
     :param attr_names: A list of attributes to read.
-    :type attr_names: sequence<str>
+    :type attr_names: :py:obj:`typing.Sequence`\\[:py:obj:`str`]
 
     :param extract_as: In which format to return the attribute values.
-    :type extract_as: :obj:`tango.ExtractAs`
+    :type extract_as: :py:obj:`~tango.ExtractAs`
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: A list of DeviceAttribute objects.
-    :rtype: sequence<:obj:`tango.DeviceAttribute`>
+    :rtype: :py:obj:`list`\\[:obj:`tango.DeviceAttribute`]
 
-    :throws: :obj:`tango.ConnectionFailed`, :obj:`tango.CommunicationFailed`, :obj:`tango.DeviceUnlocked`:
-    :throws: :obj:`tango.DevFailed`: from device
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DeviceUnlocked`, :py:obj:`tango.DevFailed`: from device
+
     __GREEN_RAISES__
 
     .. versionadded:: 8.1.0
@@ -2196,24 +2374,23 @@ def __DeviceProxy__read_attributes(
     return self._read_attributes(attr_names, extract_as)
 
 
-def __DeviceProxy__write_attribute(
-    self, attr: str | AttributeInfoEx, value: Any
-) -> None:
+def __DeviceProxy__write_attribute(self, attr: str | AttributeInfoEx, value: Any) -> None:
     """
     write_attribute(self, attr, value, __GREEN_KWARGS__) -> None
 
     Write a single attribute.
 
     :param attr: The name or AttributeInfoEx structure of the attribute to write.
-    :type attr: str | :obj:`tango.AttributeInfoEx`
+    :type attr: :py:obj:`str` | :py:obj:`tango.AttributeInfoEx`
 
     :param value: The value to write to the attribute.
-    :type value: Any
+    :type value: :py:obj:`typing.Any`
 
     __GREEN_KWARGS_DESCRIPTION__
 
-    :throws: :obj:`tango.ConnectionFailed`, :obj:`tango.CommunicationFailed`, :obj:`tango.DeviceUnlocked`:
-    :throws: :obj:`tango.DevFailed`: from device
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DeviceUnlocked`, :py:obj:`tango.DevFailed`: from device
+
     __GREEN_RAISES__
 
     .. versionadded:: 8.1.0
@@ -2227,19 +2404,19 @@ def __DeviceProxy__write_attribute(
     return self._write_attribute(attr, value)
 
 
-def __DeviceProxy__write_attributes(self, attr_values) -> None:
+def __DeviceProxy__write_attributes(self, attr_values: Sequence[tuple[str | AttributeInfoEx, Any]]) -> None:
     """
-    write_attributes(self, name_val, __GREEN_KWARGS__) -> None
-
-        Write the specified attributes.
+    Write the specified attributes.
 
     :param attr_values: A list of pairs (attr, value). See write_attribute
-    :type attr_values: Sequence<(str | AttributeInfoEx, Any)>
+    :type attr_values: :py:obj:`typing.Sequence`\\[:py:obj:`tuple`\\[:py:obj:`str` |
+                       :py:obj:`AttributeInfoEx`, :py:obj:`typing.Any`]]
 
     __GREEN_KWARGS_DESCRIPTION__
 
-    :throws: :obj:`tango.ConnectionFailed`, :obj:`tango.CommunicationFailed`, :obj:`tango.DeviceUnlocked`:
-    :throws: :obj:`tango.DevFailed`, :obj:`tango.NamedDevFailedList`: from device
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`, :py:obj:`tango.DeviceUnlocked`,
+             :py:obj:`tango.DevFailed`, :py:obj:`tango.NamedDevFailedList`: from device
+
     __GREEN_RAISES__
 
     .. versionadded:: 8.1.0
@@ -2257,14 +2434,12 @@ def __DeviceProxy__write_attributes(self, attr_values) -> None:
 
 def __DeviceProxy__ping(self) -> int:
     """
-    ping(self, __GREEN_KWARGS__) -> DevState
-
-        A method which sends a ping to the device
+    A method which sends a ping to the device
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: time elapsed in microseconds
-    :rtype: int
+    :rtype: :py:obj:`int`
 
     __GREEN_RAISES__
 
@@ -2274,14 +2449,12 @@ def __DeviceProxy__ping(self) -> int:
 
 def __DeviceProxy__state(self) -> DevState:
     """
-    state(self, __GREEN_KWARGS__) -> DevState
-
-        A method which returns the state of the device.
+    A method which returns the state of the device.
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: A `DevState` constant.
-    :rtype: DevState
+    :rtype: :py:obj:`~tango.DevState`
 
     __GREEN_RAISES__
 
@@ -2291,14 +2464,12 @@ def __DeviceProxy__state(self) -> DevState:
 
 def __DeviceProxy__status(self) -> str:
     """
-    status(self, __GREEN_KWARGS__) -> str
-
-        A method which returns the status of the device as a string.
+    A method which returns the status of the device as a string.
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: string describing the device status
-    :rtype: str
+    :rtype: :py:obj:`str`
 
     __GREEN_RAISES__
 
@@ -2323,6 +2494,336 @@ def __safe_call(fn):
     return safe_call_wrapper
 
 
+def __DeviceProxy__set_telemetry_logging(self, enabled: bool) -> None:
+    """
+    Set the enabled state of telemetry logging for the device.
+
+    :param enabled: True to enable telemetry logging, False to disable it.
+    :type enabled: :py:obj:`bool`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._set_telemetry_logging(enabled)
+
+
+def __DeviceProxy__get_telemetry_logging(self) -> bool:
+    """
+    Get the enabled state of telemetry logging for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :return: The enabled state of telemetry logging.
+    :rtype: :py:obj:`bool`
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._get_telemetry_logging()
+
+
+def __DeviceProxy__set_telemetry_logging_endpoints(self, endpoints: Sequence[TelemetryEndpoint]) -> None:
+    """
+    Set the telemetry logging endpoints for the device.
+
+    Replaces all existing telemetry logging endpoints with the provided endpoints.
+
+    :param endpoints: Telemetry logging endpoints to configure.
+    :type endpoints: :py:obj:`~collections.abc.Sequence` of :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._set_telemetry_logging_endpoints(_telemetry_endpoints_to_wire(endpoints))
+
+
+def __DeviceProxy__get_telemetry_logging_endpoints(
+    self,
+) -> tuple[TelemetryEndpoint, ...]:
+    """
+    Get the telemetry logging endpoints configured for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :return: The configured telemetry logging endpoints.
+    :rtype: :py:obj:`tuple` of :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return _telemetry_endpoints_from_wire(self._get_telemetry_logging_endpoints())
+
+
+def __DeviceProxy__add_telemetry_logging_endpoint(self, endpoint: TelemetryEndpoint) -> None:
+    """
+    Add a telemetry logging endpoint for the device.
+
+    :param endpoint: Telemetry logging endpoint to add.
+    :type endpoint: :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._add_telemetry_logging_endpoint(_telemetry_endpoint_to_wire(endpoint))
+
+
+def __DeviceProxy__remove_telemetry_logging_endpoint(self, endpoint: TelemetryEndpoint) -> None:
+    """
+    Remove a telemetry logging endpoint from the device.
+
+    :param endpoint: Telemetry logging endpoint to remove.
+    :type endpoint: :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._remove_telemetry_logging_endpoint(_telemetry_endpoint_to_wire(endpoint))
+
+
+def __DeviceProxy__set_telemetry_tracing(self, enabled: bool) -> None:
+    """
+    Set the enabled state of telemetry tracing for the device.
+
+    :param enabled: True to enable telemetry tracing, False to disable it.
+    :type enabled: :py:obj:`bool`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._set_telemetry_tracing(enabled)
+
+
+def __DeviceProxy__get_telemetry_tracing(self) -> bool:
+    """
+    Get the enabled state of telemetry tracing for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :return: The enabled state of telemetry tracing.
+    :rtype: :py:obj:`bool`
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._get_telemetry_tracing()
+
+
+def __DeviceProxy__set_telemetry_tracing_endpoints(self, endpoints: Sequence[TelemetryEndpoint]) -> None:
+    """
+    Set the telemetry tracing endpoints for the device.
+
+    Replaces all existing telemetry tracing endpoints with the provided endpoints.
+
+    :param endpoints: Telemetry tracing endpoints to configure.
+    :type endpoints: :py:obj:`~collections.abc.Sequence` of :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`~tango.ConnectionFailed`: Raised in case of a connection failure \n
+             :py:obj:`~tango.CommunicationFailed`: Raised in case of a communication failure. \n
+             :py:obj:`~tango.DevFailed`: Raised in case of a device failure
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._set_telemetry_tracing_endpoints(_telemetry_endpoints_to_wire(endpoints))
+
+
+def __DeviceProxy__get_telemetry_tracing_endpoints(
+    self,
+) -> tuple[TelemetryEndpoint, ...]:
+    """
+    Get the telemetry tracing endpoints configured for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :return: The configured telemetry tracing endpoints.
+    :rtype: :py:obj:`tuple` of :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return _telemetry_endpoints_from_wire(self._get_telemetry_tracing_endpoints())
+
+
+def __DeviceProxy__add_telemetry_tracing_endpoint(self, endpoint: TelemetryEndpoint) -> None:
+    """
+    Add a telemetry tracing endpoint for the device.
+
+    :param endpoint: Telemetry tracing endpoint to add.
+    :type endpoint: :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._add_telemetry_tracing_endpoint(_telemetry_endpoint_to_wire(endpoint))
+
+
+def __DeviceProxy__remove_telemetry_tracing_endpoint(self, endpoint: TelemetryEndpoint) -> None:
+    """
+    Remove a telemetry tracing endpoint from the device.
+
+    :param endpoint: Telemetry tracing endpoint to remove.
+    :type endpoint: :obj:`~tango.telemetry.TelemetryEndpoint`
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._remove_telemetry_tracing_endpoint(_telemetry_endpoint_to_wire(endpoint))
+
+
+def __DeviceProxy__start_telemetry(self) -> None:
+    """
+    Start the telemetry service for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._start_telemetry()
+
+
+def __DeviceProxy__stop_telemetry(self) -> None:
+    """
+    Stop the telemetry service for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._stop_telemetry()
+
+
+def __DeviceProxy__is_telemetry_enabled(self) -> bool:
+    """
+    Get the enabled state of the telemetry service for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :return: The enabled state of device telemetry.
+    :rtype: :py:obj:`bool`
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._is_telemetry_enabled()
+
+
+def __normalize_telemetry_topics(topics):
+    return [str(topic).strip().lower() for topic in topics if str(topic).strip()]
+
+
+def __DeviceProxy__set_telemetry_topics(self, topics: Sequence[str]) -> None:
+    """
+    Set the telemetry topics configured for the device.
+
+    :param topics: Telemetry topics to configure.
+    :type topics: :py:obj:`typing.Sequence`\\[:py:obj:`str`]
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return self._set_telemetry_topics(__normalize_telemetry_topics(topics))
+
+
+def __DeviceProxy__get_telemetry_topics(self) -> tuple[str, ...]:
+    """
+    Get the telemetry topics configured for the device.
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :return: The configured telemetry topics.
+    :rtype: :py:obj:`tuple`\\[:py:obj:`str`, ...]
+
+    :throws: :py:obj:`tango.ConnectionFailed`, :py:obj:`tango.CommunicationFailed`,
+             :py:obj:`tango.DevFailed`: from device
+
+    __GREEN_RAISES__
+
+    .. versionadded:: 10.3.0
+    """
+    return tuple(self._get_telemetry_topics())
+
+
 def device_proxy_init():
     DeviceProxy.__init_orig__ = DeviceProxy.__init__
     DeviceProxy.__init__ = _trace_client(__DeviceProxy____init__)
@@ -2334,26 +2835,20 @@ def device_proxy_init():
     DeviceProxy.unfreeze_dynamic_interface = __DeviceProxy__unfreeze_dynamic_interface
     DeviceProxy.is_dynamic_interface_frozen = __DeviceProxy__is_dynamic_interface_frozen
 
+    DeviceProxy.set_attribute_config_cache = __DeviceProxy__set_attribute_config_cache
+    DeviceProxy.is_attribute_config_cache_enabled = __DeviceProxy__is_attribute_config_cache_enabled
+    DeviceProxy.invalidate_attribute_config_cache = __DeviceProxy__invalidate_attribute_config_cache
+
     DeviceProxy.__get_cmd_cache = __DeviceProxy__get_cmd_cache
     DeviceProxy.__get_attr_cache = __DeviceProxy__get_attr_cache
     DeviceProxy.__refresh_cmd_cache = __DeviceProxy__refresh_cmd_cache
     DeviceProxy.__refresh_attr_cache = __DeviceProxy__refresh_attr_cache
 
-    DeviceProxy.ping = green(
-        _trace_client(__DeviceProxy__ping), update_signature_and_docstring=True
-    )
-    DeviceProxy.state = green(
-        _trace_client(__DeviceProxy__state), update_signature_and_docstring=True
-    )
-    DeviceProxy.status = green(
-        _trace_client(__DeviceProxy__status), update_signature_and_docstring=True
-    )
-    DeviceProxy.state = green(
-        _trace_client(__DeviceProxy__state), update_signature_and_docstring=True
-    )
-    DeviceProxy.status = green(
-        _trace_client(__DeviceProxy__status), update_signature_and_docstring=True
-    )
+    DeviceProxy.ping = green(_trace_client(__DeviceProxy__ping), update_signature_and_docstring=True)
+    DeviceProxy.state = green(_trace_client(__DeviceProxy__state), update_signature_and_docstring=True)
+    DeviceProxy.status = green(_trace_client(__DeviceProxy__status), update_signature_and_docstring=True)
+    DeviceProxy.state = green(_trace_client(__DeviceProxy__state), update_signature_and_docstring=True)
+    DeviceProxy.status = green(_trace_client(__DeviceProxy__status), update_signature_and_docstring=True)
 
     DeviceProxy.read_attribute = green(
         _trace_client(__DeviceProxy__read_attribute),
@@ -2420,12 +2915,8 @@ def device_proxy_init():
         update_signature_and_docstring=True,
     )
 
-    DeviceProxy.get_property = green(
-        _trace_client(__DeviceProxy__get_property), update_signature_and_docstring=True
-    )
-    DeviceProxy.put_property = green(
-        _trace_client(__DeviceProxy__put_property), update_signature_and_docstring=True
-    )
+    DeviceProxy.get_property = green(_trace_client(__DeviceProxy__get_property), update_signature_and_docstring=True)
+    DeviceProxy.put_property = green(_trace_client(__DeviceProxy__put_property), update_signature_and_docstring=True)
     DeviceProxy.delete_property = green(
         _trace_client(__DeviceProxy__delete_property),
         update_signature_and_docstring=True,
@@ -2449,6 +2940,75 @@ def device_proxy_init():
 
     DeviceProxy.get_command_config = green(
         _trace_client(__DeviceProxy__get_command_config),
+        update_signature_and_docstring=True,
+    )
+
+    DeviceProxy.set_telemetry_logging = green(
+        _trace_client(__DeviceProxy__set_telemetry_logging),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.get_telemetry_logging = green(
+        _trace_client(__DeviceProxy__get_telemetry_logging),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.set_telemetry_logging_endpoints = green(
+        _trace_client(__DeviceProxy__set_telemetry_logging_endpoints),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.get_telemetry_logging_endpoints = green(
+        _trace_client(__DeviceProxy__get_telemetry_logging_endpoints),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.add_telemetry_logging_endpoint = green(
+        _trace_client(__DeviceProxy__add_telemetry_logging_endpoint),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.remove_telemetry_logging_endpoint = green(
+        _trace_client(__DeviceProxy__remove_telemetry_logging_endpoint),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.set_telemetry_tracing = green(
+        _trace_client(__DeviceProxy__set_telemetry_tracing),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.get_telemetry_tracing = green(
+        _trace_client(__DeviceProxy__get_telemetry_tracing),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.set_telemetry_tracing_endpoints = green(
+        _trace_client(__DeviceProxy__set_telemetry_tracing_endpoints),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.get_telemetry_tracing_endpoints = green(
+        _trace_client(__DeviceProxy__get_telemetry_tracing_endpoints),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.add_telemetry_tracing_endpoint = green(
+        _trace_client(__DeviceProxy__add_telemetry_tracing_endpoint),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.remove_telemetry_tracing_endpoint = green(
+        _trace_client(__DeviceProxy__remove_telemetry_tracing_endpoint),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.start_telemetry = green(
+        _trace_client(__DeviceProxy__start_telemetry),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.stop_telemetry = green(
+        _trace_client(__DeviceProxy__stop_telemetry),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.is_telemetry_enabled = green(
+        _trace_client(__DeviceProxy__is_telemetry_enabled),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.set_telemetry_topics = green(
+        _trace_client(__DeviceProxy__set_telemetry_topics),
+        update_signature_and_docstring=True,
+    )
+    DeviceProxy.get_telemetry_topics = green(
+        _trace_client(__DeviceProxy__get_telemetry_topics),
         update_signature_and_docstring=True,
     )
 

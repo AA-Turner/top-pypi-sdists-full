@@ -426,4 +426,96 @@ struct type_caster<std::vector<Tango::Attribute *>> {
     }
 };
 
+#if defined(PYTANGO_USE_TELEMETRY)
+
+template <>
+struct type_caster<Tango::telemetry::Configuration::Collector> {
+  public:
+    // Collector is not default-constructible, so we cannot use PYBIND11_TYPE_CASTER
+    // here because it declares an in-place `value` member of the target type.
+
+    using Collector = Tango::telemetry::Configuration::Collector;
+    using Exporter = Tango::telemetry::Configuration::Exporter;
+
+    static constexpr auto name = _("TelemetryEndpoint");
+
+    std::unique_ptr<Collector> value;
+
+    static Exporter exporter_from_python(handle src) {
+        auto exporter_name = py::reinterpret_borrow<py::object>(src).attr("name").cast<std::string>();
+        if(exporter_name == "GRPC") {
+            return Exporter::grpc;
+        }
+        if(exporter_name == "HTTP") {
+            return Exporter::http;
+        }
+        if(exporter_name == "CONSOLE") {
+            return Exporter::console;
+        }
+        throw py::cast_error("unsupported telemetry exporter: " + exporter_name);
+    }
+
+    static const char *exporter_name(Exporter exporter) {
+        switch(exporter) {
+        case Exporter::grpc:
+            return "GRPC";
+        case Exporter::http:
+            return "HTTP";
+        case Exporter::console:
+            return "CONSOLE";
+        }
+        throw py::cast_error("unsupported telemetry exporter");
+    }
+
+    bool load(handle src, bool) {
+        if(!py::hasattr(src, "exporter") || !py::hasattr(src, "endpoint")) {
+            return false;
+        }
+        value =
+            std::make_unique<Collector>(exporter_from_python(py::reinterpret_borrow<py::object>(src).attr("exporter")),
+                                        py::reinterpret_borrow<py::object>(src).attr("endpoint").cast<std::string>());
+        return true;
+    }
+
+    template <
+        typename T_,
+        ::pybind11::detail::enable_if_t<std::is_same<Collector, ::pybind11::detail::remove_cv_t<T_>>::value, int> = 0>
+    static handle cast(T_ *src, return_value_policy policy, handle parent) {
+        if(!src) {
+            return py::none().release();
+        }
+        if(policy == return_value_policy::take_ownership) {
+            auto h = cast(std::move(*src), policy, parent);
+            delete src;
+            return h;
+        }
+        return cast(*src, policy, parent);
+    }
+
+    operator Collector *() {
+        return value.get();
+    }
+
+    operator Collector &() {
+        return *value;
+    }
+
+    operator Collector &&() && {
+        return std::move(*value);
+    }
+
+    template <typename T_>
+    using cast_op_type = ::pybind11::detail::movable_cast_op_type<T_>;
+
+    static handle cast(const Collector &src, return_value_policy, handle) {
+        py::object telemetry_module = py::module_::import("tango.telemetry");
+        py::object telemetry_exporter = telemetry_module.attr("TelemetryExporter");
+        py::object telemetry_endpoint = telemetry_module.attr("TelemetryEndpoint");
+        return telemetry_endpoint(telemetry_exporter[exporter_name(src.exporter_type)], py::cast(src.endpoint))
+            .release();
+    }
+};
+
+#endif
+
 } // namespace pybind11::detail

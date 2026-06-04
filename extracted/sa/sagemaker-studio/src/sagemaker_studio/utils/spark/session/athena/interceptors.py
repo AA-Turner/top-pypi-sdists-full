@@ -18,7 +18,7 @@ from sagemaker_studio.utils.spark.session.base_interceptors import (
 class SparkConnectGRPCInterceptor(BaseSparkConnectGRPCInterceptor):
 
     def __init__(self, athena_session_id: str, athena_client):
-        super().__init__(session_id=athena_session_id)
+        super().__init__(session_id=athena_session_id, logger_name="SparkConnect.Athena")
         self.athena = athena_client
 
     def _do_refresh_token(self) -> _TokenState:

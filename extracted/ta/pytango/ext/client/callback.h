@@ -86,16 +86,14 @@ class PyEventCallBack : public Tango::CallBack {
 
     void push_event(Tango::DevIntrChangeEventData *ev) override;
 
-    static void fill_py_event(Tango::EventData *ev,
-                              py::object &py_ev,
-                              PyTango::ExtractAs extract_as);
-    static void fill_py_event(Tango::AttrConfEventData *ev,
-                              py::object &py_ev,
-                              PyTango::ExtractAs extract_as);
-    static void fill_py_event(Tango::DataReadyEventData *ev,
-                              py::object &py_ev,
-                              PyTango::ExtractAs extract_as);
-    static void fill_py_event(Tango::DevIntrChangeEventData *ev,
-                              py::object &py_ev,
-                              PyTango::ExtractAs extract_as);
+    template <typename EventT>
+    static void fill_py_event([[maybe_unused]] EventT *ev,
+                              [[maybe_unused]] py::object &py_ev,
+                              [[maybe_unused]] PyTango::ExtractAs extract_as) { }
 };
+
+// Explicit specialization declaration to prevent multiple instantiations
+template <>
+void PyEventCallBack::fill_py_event<Tango::EventData>(Tango::EventData *ev,
+                                                      py::object &py_ev,
+                                                      PyTango::ExtractAs extract_as);

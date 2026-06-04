@@ -162,11 +162,15 @@ BACKEND_REGISTRY = {
 
 def resolve_backend(name: str, knowledge_manager):
     """Resolve a backend name to an instance. Falls back to builtin."""
+    import sys as _sys
     cls = BACKEND_REGISTRY.get(name)
     if cls is None:
         import warnings
         warnings.warn(f"Unknown knowledge backend '{name}', falling back to builtin")
         cls = BuiltinBackend
     if cls is MemoryBackend:
+        msg = ("WARNING: MemoryBackend is in-memory only. All data will be lost on process exit. "
+               "Use 'builtin' (default) for production.")
+        print(f"⚠️  {msg}", file=_sys.stderr)
         return cls()
     return cls(knowledge_manager)

@@ -253,6 +253,24 @@ def test_apply_small_kernel_not_rejected_1284():
     assert out.shape == (50, 50)
 
 
+@pytest.mark.parametrize("entry_point", [
+    lambda agg, kernel: apply(agg, kernel),
+    lambda agg, kernel: focal_stats(agg, kernel, stats_funcs=['mean']),
+    lambda agg, kernel: hotspots(agg, kernel),
+])
+@pytest.mark.parametrize("bad_kernel", [
+    np.ones(3, dtype=np.float32),            # 1D
+    np.ones((3, 3, 3), dtype=np.float32),    # 3D
+])
+def test_entry_points_reject_non_2d_kernel_2842(entry_point, bad_kernel):
+    # Regression for #2842: a non-2D kernel must raise a clear, descriptive
+    # error rather than the raw "not enough values to unpack" ValueError
+    # leaking out of custom_kernel's `rows, cols = kernel.shape`.
+    raster = xr.DataArray(np.ones((10, 10), dtype=np.float32))
+    with pytest.raises(ValueError, match="not a 2D array"):
+        entry_point(raster, bad_kernel)
+
+
 def test_convolution_numpy(
     convolve_2d_data,
     convolution_custom_kernel,
@@ -558,6 +576,194 @@ def test_focal_stats_dask_cupy():
         equal_nan=True, rtol=1e-4)
 
 
+# --- float64 preservation (issue-2769) ------------------------------------
+# apply() and focal_stats() used to cast every input to float32 internally,
+# silently downcasting float64 rasters. convolve_2d() preserves the input
+# floating dtype (see test_convolution); these mirror that contract for the
+# focal APIs across all four backends.
+
+
+def _compute_dtype(agg):
+    """Return the materialised dtype regardless of backend."""
+    data = agg.data
+    if hasattr(data, 'compute'):
+        data = data.compute()
+    if hasattr(data, 'get'):
+        data = data.get()
+    return data.dtype
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+def test_apply_preserves_float64(backend):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+
+    if 'cupy' in backend:
+        from xrspatial.focal import _focal_mean_cuda
+        func = _focal_mean_cuda
+    else:
+        from xrspatial.focal import _calc_mean
+        func = _calc_mean
+
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+    result = apply(agg, kernel, func)
+
+    assert _compute_dtype(result) == np.float64
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+def test_focal_stats_preserves_float64(backend):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    kernel = custom_kernel(np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+    result = focal_stats(agg, kernel,
+                         stats_funcs=['mean', 'sum', 'min', 'max',
+                                      'std', 'var', 'range'])
+
+    assert _compute_dtype(result) == np.float64
+
+
+# --- non-binary kernel rejection (issue-2848) -----------------------------
+# apply() and focal_stats() document the kernel as a binary membership mask
+# ("values of 1 indicate the kernel"). The CPU path only kept cells equal to
+# 1 (dropping a weight of 2 entirely) while the GPU sum/mean kernels weighted
+# every nonzero cell by its value, so the same non-binary kernel produced
+# backend-dependent output. Both APIs now reject non-binary kernels on every
+# backend, so the inconsistency cannot arise.
+
+NON_BINARY_KERNELS = [
+    np.array([[0, 2, 0], [2, 2, 2], [0, 2, 0]]),   # all weights are 2
+    np.array([[0, 1, 0], [1, 2, 1], [0, 1, 0]]),   # mixed 1 and 2
+    np.array([[0, 0.5, 0], [0.5, 1, 0.5], [0, 0.5, 0]]),  # fractional weights
+]
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+@pytest.mark.parametrize("kernel", NON_BINARY_KERNELS)
+def test_apply_rejects_non_binary_kernel(backend, kernel):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+
+    with pytest.raises(ValueError, match="kernel must be binary"):
+        apply(agg, kernel)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+@pytest.mark.parametrize("kernel", NON_BINARY_KERNELS)
+def test_focal_stats_rejects_non_binary_kernel(backend, kernel):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+
+    with pytest.raises(ValueError, match="kernel must be binary"):
+        focal_stats(agg, kernel, stats_funcs=['mean', 'sum'])
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+def test_apply_and_focal_stats_accept_binary_kernel(backend):
+    # The binary 0/1 contract still works on every backend after the guard.
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+
+    if 'cupy' in backend:
+        from xrspatial.focal import _focal_mean_cuda
+        func = _focal_mean_cuda
+    else:
+        from xrspatial.focal import _calc_mean
+        func = _calc_mean
+
+    apply_result = apply(agg, kernel, func)
+    general_output_checks(agg, apply_result)
+
+    stats_result = focal_stats(agg, kernel, stats_funcs=['mean', 'sum'])
+    assert stats_result.ndim == 3
+
+
+def test_apply_rejects_nan_kernel():
+    # A NaN kernel cell is neither 0 nor 1, so it is rejected like any other
+    # non-binary value (the error message calls out NaN explicitly).
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    kernel = np.array([[0, np.nan, 0], [1, 1, 1], [0, 1, 0]])
+    agg = xr.DataArray(data, dims=['y', 'x'])
+    with pytest.raises(ValueError, match="kernel must be binary"):
+        apply(agg, kernel)
+
+
+def test_apply_focal_stats_agree_on_binary_kernel_numpy():
+    # Reference invariant the guard protects: on a binary kernel,
+    # focal_stats(mean) and apply(mean) agree (focal_stats delegates to
+    # apply on the CPU). This is the consistency the issue is about; with a
+    # non-binary kernel the two would have diverged, which is now blocked.
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+    agg = xr.DataArray(data, dims=['y', 'x'])
+
+    from xrspatial.focal import _calc_mean
+    apply_mean = apply(agg, kernel, _calc_mean)
+    stats_mean = focal_stats(agg, kernel, stats_funcs=['mean']).sel(stats='mean')
+
+    np.testing.assert_allclose(
+        apply_mean.data, stats_mean.data, equal_nan=True)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+def test_apply_keeps_float32(backend):
+    # The other side of the contract: a float32 input must not be promoted
+    # to float64. (On dask the lazy dtype is float64, but the computed
+    # result is float32 -- matching convolve_2d.)
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float32).reshape(4, 5)
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+
+    if 'cupy' in backend:
+        from xrspatial.focal import _focal_mean_cuda
+        func = _focal_mean_cuda
+    else:
+        from xrspatial.focal import _calc_mean
+        func = _calc_mean
+
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+    result = apply(agg, kernel, func)
+
+    assert _compute_dtype(result) == np.float32
+
+
 # --- focal_stats NaN handling (issue-1092) --------------------------------
 
 @pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
@@ -660,6 +866,43 @@ def test_focal_stats_all_nan_window_1092(backend):
     assert np.isnan(_val('max', 1, 1))
 
 
+# --- GPU std/var precision on large-offset rasters (issue-2831) -----------
+
+
+@cuda_and_cupy_available
+@pytest.mark.parametrize("offset", [1e6, 1e7])
+def test_focal_stats_std_var_large_offset_gpu_matches_numpy_2831(offset):
+    """GPU std/var must not collapse on large-offset rasters (#2831).
+
+    The old GPU kernels used a one-pass E[x^2] - E[x]^2 variance in
+    float32. On values with a large offset (~1e6-1e7) the two terms are
+    nearly equal, so the subtraction lost all precision and the result
+    collapsed toward zero -- diverging from the float64 two-pass numpy
+    path. The two-pass kernel subtracts the window mean before squaring,
+    which holds precision at any offset.
+    """
+    rng = np.random.default_rng(0)
+    data = (offset + rng.random((8, 8))).astype(np.float64)
+    kernel = custom_kernel(np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+
+    numpy_agg = create_test_raster(data, backend='numpy')
+    cupy_agg = create_test_raster(data, backend='cupy')
+
+    np_res = focal_stats(numpy_agg, kernel, stats_funcs=['std', 'var'])
+    cp_res = focal_stats(cupy_agg, kernel, stats_funcs=['std', 'var'])
+
+    for stat in ['std', 'var']:
+        # Interior only: boundary='nan' blanks the outer ring identically
+        # on both backends, but the interior is where the variance lives.
+        np_interior = np_res.sel(stats=stat).data[1:-1, 1:-1]
+        cp_interior = cp_res.sel(stats=stat).data.get()[1:-1, 1:-1]
+        # The variance is ~0.08 here; the old one-pass kernel returned ~0.
+        assert np.nanmax(np_interior) > 0.01, f"{stat} reference is flat"
+        np.testing.assert_allclose(
+            cp_interior, np_interior, rtol=1e-3, atol=1e-4,
+            err_msg=f"{stat} diverges at offset {offset:g}")
+
+
 # --- focal variety (issue-1040) ------------------------------------------
 
 def _variety_reference_data():
@@ -736,31 +979,75 @@ def test_variety_single_cell():
     assert result.sel(stats='variety').values.item() == 1.0
 
 
+def _all_unique_window(n):
+    """(n x n) raster of all-distinct values with an (n x n) all-ones kernel.
+
+    The center pixel's window is the whole raster, so its variety equals n*n.
+    """
+    data = np.arange(n * n, dtype=np.float64).reshape(n, n)
+    kernel = np.ones((n, n))
+    return data, kernel
+
+
+@pytest.mark.parametrize("n", [7, 9])
+def test_variety_large_kernel_numpy(n):
+    """Variety must not cap below the true distinct count for large kernels."""
+    data, kernel = _all_unique_window(n)
+    agg = create_test_raster(data)
+    result = focal_stats(agg, kernel, stats_funcs=['variety'])
+    vals = result.sel(stats='variety').values
+    center = n // 2
+    assert vals[center, center] == float(n * n)
+
+
+@cuda_and_cupy_available
+@pytest.mark.parametrize("n", [7, 9])
+def test_variety_gpu_large_kernel_parity(n):
+    """GPU variety must match numpy for kernels larger than 5x5 (#2775).
+
+    The old CUDA kernel capped unique counts at 25, so a 7x7 all-unique
+    window returned 25 on GPU vs 49 on CPU. The center pixel's window covers
+    the whole raster, so its variety equals n*n (49 for 7x7, 81 for 9x9).
+    """
+    data, kernel = _all_unique_window(n)
+    np_agg = create_test_raster(data)
+    cupy_agg = create_test_raster(data, backend='cupy')
+    np_result = focal_stats(np_agg, kernel, stats_funcs=['variety'])
+    cupy_result = focal_stats(cupy_agg, kernel, stats_funcs=['variety'])
+    center = n // 2
+    assert cupy_result.sel(stats='variety').data.get()[center, center] == float(n * n)
+    np.testing.assert_allclose(
+        np_result.values, cupy_result.data.get(), equal_nan=True)
+
+
 @pytest.fixture
 def data_hotspots():
+    # Clusters sit fully in the interior (away from the outer ring) so the
+    # single-array NaN-edge behavior and the dask map_overlap result agree
+    # on every cell. NaN cells are excluded from the Gi* sums and stats.
     data = np.asarray([
         [np.nan, 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
         [0., 10000., 10000., 10000., 0., 0., 0., 0., 0., 0.],
+        [0., 10000., 10000., 10000., 0., 0., np.nan, 0., 0., 0.],
         [0., 10000., 10000., 10000., 0., 0., 0., 0., 0., 0.],
-        [0., 10000., 10000., 10000., 0., 0., 0., 0., 0., 0.],
-        [0., 0., 0., 0., np.nan, 0., 0., 0., 0., 0.],
-        [0., 0., 0., 0., 0., np.nan, 0., 0., 0., 0.],
-        [0., 0., 0., 0., 0., 0., np.nan, 0., 0., 0.],
-        [0., 0., 0., 0., 0., 0., 0., -10000., -10000., -10000.],
-        [0., 0., 0., 0., 0., 0., 0., -10000., -10000., -10000.],
-        [0., 0., 0., 0., 0., 0., 0., -10000., -10000., -10000.]
+        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0., 0., -10000., -10000., -10000., 0.],
+        [0., 0., 0., 0., 0., 0., -10000., -10000., -10000., 0.],
+        [0., 0., 0., 0., 0., 0., -10000., -10000., -10000., 0.],
+        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
     ])
     kernel = np.array([[0., 1., 0.], [1., 1., 1.], [0., 1., 0.]])
     expected_result = np.array([
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 90, 0, 0, 0, 0, 0, 0, 0],
-        [0, 90, 95, 90, 0, 0, 0, 0, 0, 0],
-        [0, 0, 90, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 99, 99, 99, 0, 0, 0, 0, 0, 0],
+        [0, 99, 99, 99, 0, 0, 0, 0, 0, 0],
+        [0, 99, 99, 99, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, -90, 0],
-        [0, 0, 0, 0, 0, 0, 0, -90, -95, 0],
+        [0, 0, 0, 0, 0, 0, -99, -99, -99, 0],
+        [0, 0, 0, 0, 0, 0, -99, -99, -99, 0],
+        [0, 0, 0, 0, 0, 0, -99, -99, -99, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ], dtype=np.int8)
 
@@ -774,6 +1061,115 @@ def test_hotspots_zero_global_std():
     msg = "Standard deviation of the input raster values is 0."
     with pytest.raises(ZeroDivisionError, match=msg):
         hotspots(agg, kernel)
+
+
+# Degenerate inputs: constant raster (std == 0), all-NaN raster (n == 0),
+# and a single valid cell (n == 1). The numpy/cupy paths raise eagerly via
+# _gistar_global_stats; the dask paths must raise the same error at compute
+# time instead of silently classifying to all zeros (issue #2843).
+def _hotspots_degenerate_cases():
+    constant = np.zeros((10, 10), dtype=np.float32)
+
+    all_nan = np.full((10, 10), np.nan, dtype=np.float32)
+
+    single_valid = np.full((10, 10), np.nan, dtype=np.float32)
+    single_valid[0, 0] = 5.0
+
+    std_msg = "Standard deviation of the input raster values is 0."
+    n_msg = "needs at least 2 valid"
+    return [
+        ('constant', constant, ZeroDivisionError, std_msg),
+        ('all_nan', all_nan, ValueError, n_msg),
+        ('single_valid', single_valid, ValueError, n_msg),
+    ]
+
+
+_HOTSPOTS_DEGENERATE = _hotspots_degenerate_cases()
+
+
+@pytest.mark.parametrize('case,data,exc,msg', _HOTSPOTS_DEGENERATE,
+                         ids=[c[0] for c in _HOTSPOTS_DEGENERATE])
+def test_hotspots_degenerate_numpy_2843(case, data, exc, msg):
+    agg = create_test_raster(data)
+    kernel = np.ones((3, 3))
+    with pytest.raises(exc, match=msg):
+        hotspots(agg, kernel)
+
+
+@dask_array_available
+@pytest.mark.parametrize('case,data,exc,msg', _HOTSPOTS_DEGENERATE,
+                         ids=[c[0] for c in _HOTSPOTS_DEGENERATE])
+def test_hotspots_degenerate_dask_numpy_2843(case, data, exc, msg):
+    # The dask backend must reject degenerate inputs the same way numpy does,
+    # but lazily: the error fires at compute(), not at graph-build time.
+    agg = create_test_raster(data, backend='dask')
+    kernel = np.ones((3, 3))
+    result = hotspots(agg, kernel)
+    with pytest.raises(exc, match=msg):
+        result.data.compute()
+
+
+@cuda_and_cupy_available
+@pytest.mark.parametrize('case,data,exc,msg', _HOTSPOTS_DEGENERATE,
+                         ids=[c[0] for c in _HOTSPOTS_DEGENERATE])
+def test_hotspots_degenerate_cupy_2843(case, data, exc, msg):
+    agg = create_test_raster(data, backend='cupy')
+    kernel = np.ones((3, 3))
+    with pytest.raises(exc, match=msg):
+        hotspots(agg, kernel)
+
+
+@cuda_and_cupy_available
+@dask_array_available
+@pytest.mark.parametrize('case,data,exc,msg', _HOTSPOTS_DEGENERATE,
+                         ids=[c[0] for c in _HOTSPOTS_DEGENERATE])
+def test_hotspots_degenerate_dask_cupy_2843(case, data, exc, msg):
+    agg = create_test_raster(data, backend='dask+cupy')
+    kernel = np.ones((3, 3))
+    result = hotspots(agg, kernel)
+    with pytest.raises(exc, match=msg):
+        result.data.compute()
+
+
+def test_hotspots_kernel_none_2771():
+    # Regression for #2771: hotspots skipped custom_kernel validation, so a
+    # None kernel raised AttributeError on kernel.shape instead of ValueError.
+    agg = create_test_raster(np.ones((10, 10), dtype=np.float32))
+    with pytest.raises(ValueError):
+        hotspots(agg, None)
+
+
+def test_hotspots_kernel_list_of_list_2771():
+    # Regression for #2771: a list-of-list kernel reached kernel.shape and
+    # raised AttributeError; it should be rejected as a non-ndarray.
+    agg = create_test_raster(np.ones((10, 10), dtype=np.float32))
+    with pytest.raises(ValueError):
+        hotspots(agg, [[1, 1, 1]])
+
+
+def test_hotspots_kernel_even_dim_2771():
+    # Regression for #2771: an even-dimensioned kernel silently succeeded
+    # before; custom_kernel now rejects it for improper shape.
+    agg = create_test_raster(np.ones((10, 10), dtype=np.float32))
+    with pytest.raises(ValueError):
+        hotspots(agg, np.ones((2, 2)))
+
+
+def test_hotspots_kernel_zero_sum_2771():
+    # Regression for #2771: hotspots normalizes by kernel.sum(); a zero-sum
+    # kernel divided by zero instead of raising a clear error.
+    agg = create_test_raster(np.ones((10, 10), dtype=np.float32))
+    kernel = np.zeros((3, 3))
+    with pytest.raises(ValueError, match=r"hotspots\(\): kernel sums to zero"):
+        hotspots(agg, kernel)
+
+
+def test_hotspots_valid_kernel_happy_path_2771(data_hotspots):
+    # Regression for #2771: the added validation must not reject valid kernels.
+    data, kernel, expected_result = data_hotspots
+    numpy_agg = create_test_raster(data)
+    numpy_hotspots = hotspots(numpy_agg, kernel)
+    general_output_checks(numpy_agg, numpy_hotspots, expected_result, verify_attrs=False)
 
 
 def test_hotspots_numpy(data_hotspots):
@@ -882,6 +1278,137 @@ def test_hotspots_dask_cupy_matches_numpy():
         numpy_hotspots.data[pad:-pad, pad:-pad])
 
 
+def _gistar_reference(data, kernel):
+    """Brute-force Getis-Ord Gi* z-scores for the interior cells.
+
+    Mirrors the closed-form definition cell-by-cell so the production
+    code is checked against an independent computation, not against
+    itself. NaN cells (and out-of-raster neighbors) are dropped from the
+    neighborhood sums and the global statistics, matching hotspots().
+    """
+    data = data.astype(np.float64)
+    valid = ~np.isnan(data)
+    x = data[valid]
+    n = x.size
+    xbar = x.mean()
+    s = x.std()  # population std (ddof=0)
+    rows, cols = data.shape
+    kr, kc = kernel.shape
+    pr, pc = kr // 2, kc // 2
+    z = np.zeros(data.shape, dtype=np.float64)
+    # Only the interior is well defined for boundary='nan'; the outer ring
+    # is blanked by the convolution and classified as 0.
+    for i in range(pr, rows - pr):
+        for j in range(pc, cols - pc):
+            wx = w = w2 = 0.0
+            for a in range(kr):
+                for b in range(kc):
+                    ii, jj = i + a - pr, j + b - pc
+                    if 0 <= ii < rows and 0 <= jj < cols and valid[ii, jj]:
+                        weight = kernel[a, b]
+                        wx += weight * data[ii, jj]
+                        w += weight
+                        w2 += weight * weight
+            var_term = (n * w2 - w * w) / (n - 1)
+            if var_term <= 0:
+                z[i, j] = 0.0
+            else:
+                z[i, j] = (wx - xbar * w) / (s * np.sqrt(var_term))
+    return z
+
+
+def test_hotspots_gistar_zscore_matches_reference():
+    # Validate the Gi* z-scores themselves (not just the classification)
+    # against a hand-rolled reference on a small known window.
+    from xrspatial.focal import _gistar_convolutions_numpy, _gistar_zscore
+    data = np.array([
+        [1., 1., 1., 1., 1.],
+        [1., 9., 9., 1., 1.],
+        [1., 9., 9., 1., 1.],
+        [1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1.],
+    ], dtype=np.float64)
+    kernel = np.array([[0., 1., 0.], [1., 1., 1.], [0., 1., 0.]])
+
+    d32 = data.astype(np.float32)
+    n = int((~np.isnan(d32)).sum())
+    gm = np.float32(np.nanmean(d32))
+    gs = np.float32(np.nanstd(d32))
+    ws, wsum, sq = _gistar_convolutions_numpy(d32, kernel, 'nan')
+    z = _gistar_zscore(ws, wsum, sq, gm, gs, n)
+
+    expected = _gistar_reference(data, kernel)
+    pad = kernel.shape[0] // 2
+    np.testing.assert_allclose(
+        z[pad:-pad, pad:-pad], expected[pad:-pad, pad:-pad], rtol=1e-4)
+    # The 9-valued cluster center is a significant hot spot.
+    assert z[1, 1] == pytest.approx(2.9399, abs=1e-3)
+
+
+def test_hotspots_gistar_weighted_kernel_matches_reference():
+    # Non-binary kernel: weight sum and squared-weight sum diverge, which
+    # exercises the W2 term that the old normalized-mean code ignored.
+    rng = np.random.default_rng(7)
+    data = (rng.standard_normal((8, 9)) * 5).astype(np.float64)
+    kernel = np.array([[0., 2., 0.], [2., 3., 2.], [0., 2., 0.]])
+
+    result = hotspots(create_test_raster(data), kernel)
+
+    from xrspatial.focal import _gistar_convolutions_numpy, _gistar_zscore
+    d32 = data.astype(np.float32)
+    n = int((~np.isnan(d32)).sum())
+    gm = np.float32(np.nanmean(d32))
+    gs = np.float32(np.nanstd(d32))
+    ws, wsum, sq = _gistar_convolutions_numpy(d32, kernel, 'nan')
+    z = _gistar_zscore(ws, wsum, sq, gm, gs, n)
+
+    expected_z = _gistar_reference(data, kernel)
+    pad = kernel.shape[0] // 2
+    np.testing.assert_allclose(
+        z[pad:-pad, pad:-pad], expected_z[pad:-pad, pad:-pad], rtol=1e-3)
+    # Output is the classified raster; confirm it is the int8 banding.
+    assert result.data.dtype == np.int8
+    assert set(np.unique(result.data)).issubset(
+        {-99, -95, -90, 0, 90, 95, 99})
+
+
+def test_hotspots_gistar_nan_excluded_from_stats():
+    # NaN cells must not enter the neighborhood sums or the global mean/std.
+    data = np.zeros((7, 7), dtype=np.float64)
+    data[2:5, 2:5] = 50.0
+    data[0, 0] = np.nan
+    data[6, 6] = np.nan
+    kernel = np.array([[0., 1., 0.], [1., 1., 1.], [0., 1., 0.]])
+
+    result = hotspots(create_test_raster(data), kernel)
+    assert not np.any(np.isnan(result.data))
+    assert result.data[3, 3] > 0  # cluster center is a hot spot
+
+
+def test_hotspots_single_valid_cell_raises():
+    # n < 2 leaves the Gi* variance term undefined (divides by n - 1).
+    data = np.full((4, 4), np.nan, dtype=np.float64)
+    data[1, 1] = 5.0
+    kernel = np.ones((3, 3))
+    with pytest.raises(ValueError, match="at least 2 valid"):
+        hotspots(create_test_raster(data), kernel)
+
+
+@dask_array_available
+def test_hotspots_gistar_dask_matches_numpy_full():
+    # With clusters kept off the outer ring, numpy and dask agree on every
+    # cell, so this is a full-array parity check of the Gi* dask path.
+    data = np.zeros((12, 12), dtype=np.float64)
+    data[3:6, 3:6] = 100.0
+    data[7:10, 7:10] = -100.0
+    kernel = np.array([[0., 1., 0.], [1., 1., 1.], [0., 1., 0.]])
+
+    numpy_res = hotspots(create_test_raster(data), kernel)
+    dask_res = hotspots(
+        create_test_raster(data, backend='dask+numpy', chunks=(6, 6)), kernel)
+    np.testing.assert_array_equal(numpy_res.data, dask_res.data.compute())
+
+
 @dask_array_available
 def test_convolution_2d_boundary_modes():
     data = np.random.default_rng(42).random((8, 10)).astype(np.float64)
@@ -936,14 +1463,23 @@ def test_apply_boundary_invalid():
 
 
 @dask_array_available
-def test_hotspots_boundary_modes():
+@pytest.mark.parametrize("boundary", ['nan', 'nearest', 'reflect', 'wrap'])
+def test_hotspots_boundary_modes(boundary):
     data = np.random.default_rng(42).standard_normal((10, 12)).astype(np.float64)
     kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float64)
     numpy_agg = create_test_raster(data)
     dask_agg = create_test_raster(data, backend='dask+numpy')
-    from functools import partial
-    func = partial(hotspots, kernel=kernel)
-    assert_boundary_mode_correctness(numpy_agg, dask_agg, func, nan_edges=False)
+    numpy_res = hotspots(numpy_agg, kernel, boundary=boundary).data
+    dask_res = hotspots(dask_agg, kernel, boundary=boundary).data.compute()
+    assert numpy_res.shape == data.shape
+    if boundary == 'nan':
+        # The outer ring diverges: the single-array convolution blanks it
+        # while the dask map_overlap path computes a partial neighborhood.
+        # The Gi* statistic matches on every interior cell.
+        np.testing.assert_array_equal(numpy_res[1:-1, 1:-1],
+                                      dask_res[1:-1, 1:-1])
+    else:
+        np.testing.assert_array_equal(numpy_res, dask_res)
 
 
 def test_hotspots_boundary_invalid():
@@ -1026,10 +1562,17 @@ def test_hotspots_boundary_numpy_equals_dask(boundary, size, chunks):
     kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float64)
     numpy_agg = create_test_raster(data, backend='numpy')
     dask_agg = create_test_raster(data, backend='dask+numpy', chunks=chunks)
-    np_result = hotspots(numpy_agg, kernel, boundary=boundary)
-    da_result = hotspots(dask_agg, kernel, boundary=boundary)
-    np.testing.assert_allclose(
-        np_result.data, da_result.data.compute(), equal_nan=True, rtol=1e-5)
+    np_result = hotspots(numpy_agg, kernel, boundary=boundary).data
+    da_result = hotspots(dask_agg, kernel, boundary=boundary).data.compute()
+    if boundary == 'nan':
+        # boundary='nan' diverges on the outer ring (single-array blanking
+        # vs dask map_overlap partial neighborhoods); compare the interior.
+        np.testing.assert_allclose(
+            np_result[1:-1, 1:-1], da_result[1:-1, 1:-1],
+            equal_nan=True, rtol=1e-5)
+    else:
+        np.testing.assert_allclose(
+            np_result, da_result, equal_nan=True, rtol=1e-5)
 
 
 # --- cupy honours boundary (issue-2730) ---
@@ -1289,8 +1832,14 @@ def test_hotspots_3d_dask():
     dask_agg = xr.DataArray(dask_data, dims=['band', 'y', 'x'])
     dask_result = hotspots(dask_agg, kernel)
     assert dask_result.shape == (3, 10, 12)
+    # Compare the interior only: boundary='nan' diverges on the outer ring
+    # between the single-array convolution (blanks the ring) and the dask
+    # map_overlap path (NaN-pads the halo). The Gi* statistic itself is
+    # identical on every interior cell.
+    pad = kernel.shape[0] // 2
     np.testing.assert_array_equal(
-        dask_result.data.compute(), numpy_result.data)
+        dask_result.data.compute()[:, pad:-pad, pad:-pad],
+        numpy_result.data[:, pad:-pad, pad:-pad])
 
 
 # --- result .name consistency across backends (metadata sweep) ----------
@@ -1395,6 +1944,39 @@ def test_focal_stats_default_stats_funcs():
     agg = xr.DataArray(data_random)
     result = focal_stats(agg, _api_kernel)
     assert result.sizes['stats'] == 8
+
+
+def test_focal_stats_rejects_unknown_stats_func():
+    # Regression for #2770: an unknown name used to fall through as a raw
+    # KeyError. It must now raise a clear ValueError listing valid options.
+    agg = xr.DataArray(data_random)
+    with pytest.raises(ValueError, match=r"Invalid stats_funcs.*bogus"):
+        focal_stats(agg, _api_kernel, stats_funcs=['bogus'])
+
+
+def test_focal_stats_accepts_bare_string():
+    # Regression for #2770: a bare string used to be iterated character by
+    # character (e.g. 'mean' -> 'm','e','a','n') and fail. It must be treated
+    # as a single stat name.
+    agg = xr.DataArray(data_random)
+    result = focal_stats(agg, _api_kernel, stats_funcs='mean')
+    assert result.sizes['stats'] == 1
+    assert list(result.coords['stats'].values) == ['mean']
+
+
+def test_focal_stats_rejects_empty_stats_funcs():
+    # Regression for #2770: an empty list used to reach xr.concat and fail with
+    # an obscure error. It must raise a clear ValueError instead.
+    agg = xr.DataArray(data_random)
+    with pytest.raises(ValueError, match=r"stats_funcs must not be empty"):
+        focal_stats(agg, _api_kernel, stats_funcs=[])
+
+
+def test_focal_stats_valid_list_happy_path():
+    agg = xr.DataArray(data_random)
+    result = focal_stats(agg, _api_kernel, stats_funcs=['mean', 'sum'])
+    assert result.sizes['stats'] == 2
+    assert list(result.coords['stats'].values) == ['mean', 'sum']
 
 
 @cuda_and_cupy_available

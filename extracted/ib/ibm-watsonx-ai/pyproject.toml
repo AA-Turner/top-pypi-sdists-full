@@ -9,8 +9,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.12"
-requires-python = ">=3.11,<3.14"
+version = "1.5.13"
+requires-python = ">=3.11,<3.15"
 authors = [
   {name = "IBM"}
 ]
@@ -37,6 +37,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
@@ -51,14 +52,15 @@ classifiers = [
 ]
 dependencies = [
     "requests",
-    "httpx<0.29,>=0.27",
+    "httpx>=0.27,<0.29",
     "urllib3",
-    "pandas<2.4.0,>=0.24.2",
+    "pandas<2.4.0,>=0.24.2; python_version < '3.14'",
+    "pandas>=2.3.3; python_version >= '3.14'",
     "certifi",
     "lomond",
     "tabulate",
     "packaging",
-    "ibm-cos-sdk<2.15.0,>=2.12.0",
+    "ibm-cos-sdk>=2.12.0,<2.15.0",
     "cachetools"
 ]
 
@@ -75,18 +77,18 @@ rag = [
     "langchain-elasticsearch>=0.3.0,<=0.3.2",
     "langchain-ibm>=0.3,<0.4",
     "langgraph>=0.2.40,<0.7",
-    "langchain-chroma>=0.1.4,<=0.2.5",
-    "langchain-milvus>=0.1.8,<=0.2.1",
-    "pymilvus<=2.6.6",
+    "langchain-chroma>=0.1.4,<=0.2.5; python_version < '3.14'",
+    "langchain-milvus>=0.1.8,<=0.2.1; python_version < '3.14'",
+    "pymilvus<=2.6.6; python_version < '3.14'",
     "langchain-text-splitters>=0.3,<0.4",
-    "grpcio>=1.54.3",
+    "grpcio>=1.54.3; python_version < '3.14'",
     "python-docx>=1.1.2,<=1.2.0",
     "python-pptx==1.0.2",
     "pypdf>=4.2.0",
     "beautifulsoup4>=4.12.3,<=4.13.5",
     "markdown>=3.4.1,<=3.8.2",
     "pyYAML>=5.1.2",
-    "scikit-learn>=1.3.0",
+    "scikit-learn>=1.3.0; python_version < '3.14'",
     "openpyxl==3.1.5",
     "langchain-db2>=0.1,<0.2"
 ]
@@ -127,7 +129,7 @@ dev_common = [
   "ipykernel>=6.29.5,<7",
   "setuptools",
   "pyarrow",
-  "sphinx",
+  "sphinx>=8,<9",
   "sphinx-design",
   "sphinx-multiversion",
   "furo",
@@ -139,7 +141,7 @@ dev = [
     { include-group = "dev_common" },
     { include-group = "test_core" },
     "matplotlib",
-    "tensorflow==2.18.*",
+    "tensorflow>=2.18.0,<2.22.0; python_version < '3.14'",
 ]
 dev_autoai_rt24_1 = [
     { include-group = "dev_common" },

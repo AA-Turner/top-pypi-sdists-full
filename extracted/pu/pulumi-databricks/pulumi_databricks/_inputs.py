@@ -395,6 +395,8 @@ __all__ = [
     'AccountSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict',
     'AccountSettingV2BooleanValArgs',
     'AccountSettingV2BooleanValArgsDict',
+    'AccountSettingV2CollaborationPlatformConnectivityArgs',
+    'AccountSettingV2CollaborationPlatformConnectivityArgsDict',
     'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs',
     'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict',
     'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs',
@@ -413,6 +415,8 @@ __all__ = [
     'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict',
     'AccountSettingV2EffectiveBooleanValArgs',
     'AccountSettingV2EffectiveBooleanValArgsDict',
+    'AccountSettingV2EffectiveCollaborationPlatformConnectivityArgs',
+    'AccountSettingV2EffectiveCollaborationPlatformConnectivityArgsDict',
     'AccountSettingV2EffectiveIntegerValArgs',
     'AccountSettingV2EffectiveIntegerValArgsDict',
     'AccountSettingV2EffectiveOperationalEmailCustomRecipientArgs',
@@ -2435,6 +2439,8 @@ __all__ = [
     'WorkspaceSettingV2AutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict',
     'WorkspaceSettingV2BooleanValArgs',
     'WorkspaceSettingV2BooleanValArgsDict',
+    'WorkspaceSettingV2CollaborationPlatformConnectivityArgs',
+    'WorkspaceSettingV2CollaborationPlatformConnectivityArgsDict',
     'WorkspaceSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs',
     'WorkspaceSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict',
     'WorkspaceSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs',
@@ -2453,6 +2459,8 @@ __all__ = [
     'WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceMaintenanceWindowWeekDayBasedScheduleWindowStartTimeArgsDict',
     'WorkspaceSettingV2EffectiveBooleanValArgs',
     'WorkspaceSettingV2EffectiveBooleanValArgsDict',
+    'WorkspaceSettingV2EffectiveCollaborationPlatformConnectivityArgs',
+    'WorkspaceSettingV2EffectiveCollaborationPlatformConnectivityArgsDict',
     'WorkspaceSettingV2EffectiveIntegerValArgs',
     'WorkspaceSettingV2EffectiveIntegerValArgsDict',
     'WorkspaceSettingV2EffectiveOperationalEmailCustomRecipientArgs',
@@ -4507,6 +4515,10 @@ class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIden
 class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
@@ -4525,6 +4537,10 @@ class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -4554,6 +4570,10 @@ class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -5003,6 +5023,10 @@ class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdent
 class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
@@ -5021,6 +5045,10 @@ class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -5050,6 +5078,10 @@ class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -5612,6 +5644,10 @@ class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticati
 class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
@@ -5630,6 +5666,10 @@ class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationA
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -5659,6 +5699,10 @@ class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationA
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -6108,6 +6152,10 @@ class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticatio
 class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
@@ -6126,6 +6174,10 @@ class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAr
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -6155,6 +6207,10 @@ class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAr
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -6649,6 +6705,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdent
 class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
@@ -6667,6 +6727,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -6696,6 +6760,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -7155,6 +7223,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdenti
 class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
@@ -7173,6 +7245,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -7202,6 +7278,10 @@ class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -7706,6 +7786,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdenti
 class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
@@ -7724,6 +7808,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -7753,6 +7841,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -8260,6 +8352,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentit
 class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
@@ -8278,6 +8374,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -8307,6 +8407,10 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -8859,6 +8963,10 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityArg
 class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
@@ -8877,6 +8985,10 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -8906,6 +9018,10 @@ class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -9365,6 +9481,10 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityArgs
 class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
@@ -9383,6 +9503,10 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -9412,6 +9536,10 @@ class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -9916,6 +10044,10 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityArgs
 class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
@@ -9934,6 +10066,10 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -9963,6 +10099,10 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -10470,6 +10610,10 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityArgs:
 class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgsDict(TypedDict):
     account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiArgsDict']]]
     account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    """
+    Account DatabricksOne destination is not supported.
+    DO NOT change the stage of this destination past PRIVATE_PREVIEW
+    """
     account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiArgsDict']]]
     all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
@@ -10488,6 +10632,10 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgs:
                  lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
                  workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
                  workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        """
+        :param pulumi.Input['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgs'] account_databricks_one: Account DatabricksOne destination is not supported.
+               DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         if account_api is not None:
             pulumi.set(__self__, "account_api", account_api)
         if account_databricks_one is not None:
@@ -10517,6 +10665,10 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgs:
     @_builtins.property
     @pulumi.getter(name="accountDatabricksOne")
     def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        """
+        Account DatabricksOne destination is not supported.
+        DO NOT change the stage of this destination past PRIVATE_PREVIEW
+        """
         return pulumi.get(self, "account_databricks_one")
 
     @account_databricks_one.setter
@@ -11295,6 +11447,34 @@ class AccountSettingV2BooleanValArgs:
         pulumi.set(self, "value", value)
 
 
+class AccountSettingV2CollaborationPlatformConnectivityArgsDict(TypedDict):
+    connectivity: pulumi.Input[_builtins.str]
+    """
+    Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+    """
+
+@pulumi.input_type
+class AccountSettingV2CollaborationPlatformConnectivityArgs:
+    def __init__(__self__, *,
+                 connectivity: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] connectivity: Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        pulumi.set(__self__, "connectivity", connectivity)
+
+    @_builtins.property
+    @pulumi.getter
+    def connectivity(self) -> pulumi.Input[_builtins.str]:
+        """
+        Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        return pulumi.get(self, "connectivity")
+
+    @connectivity.setter
+    def connectivity(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "connectivity", value)
+
+
 class AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict(TypedDict):
     access_policy_type: pulumi.Input[_builtins.str]
     """
@@ -11637,6 +11817,34 @@ class AccountSettingV2EffectiveBooleanValArgs:
     @value.setter
     def value(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "value", value)
+
+
+class AccountSettingV2EffectiveCollaborationPlatformConnectivityArgsDict(TypedDict):
+    connectivity: pulumi.Input[_builtins.str]
+    """
+    Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+    """
+
+@pulumi.input_type
+class AccountSettingV2EffectiveCollaborationPlatformConnectivityArgs:
+    def __init__(__self__, *,
+                 connectivity: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] connectivity: Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        pulumi.set(__self__, "connectivity", connectivity)
+
+    @_builtins.property
+    @pulumi.getter
+    def connectivity(self) -> pulumi.Input[_builtins.str]:
+        """
+        Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        return pulumi.get(self, "connectivity")
+
+    @connectivity.setter
+    def connectivity(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "connectivity", value)
 
 
 class AccountSettingV2EffectiveIntegerValArgsDict(TypedDict):
@@ -28230,16 +28438,24 @@ class JobDbtTaskArgs:
 
 class JobDeploymentArgsDict(TypedDict):
     kind: pulumi.Input[_builtins.str]
+    deployment_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     metadata_file_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    version_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
 @pulumi.input_type
 class JobDeploymentArgs:
     def __init__(__self__, *,
                  kind: pulumi.Input[_builtins.str],
-                 metadata_file_path: pulumi.Input[Optional[_builtins.str]] = None):
+                 deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_id: pulumi.Input[Optional[_builtins.str]] = None):
         pulumi.set(__self__, "kind", kind)
+        if deployment_id is not None:
+            pulumi.set(__self__, "deployment_id", deployment_id)
         if metadata_file_path is not None:
             pulumi.set(__self__, "metadata_file_path", metadata_file_path)
+        if version_id is not None:
+            pulumi.set(__self__, "version_id", version_id)
 
     @_builtins.property
     @pulumi.getter
@@ -28251,6 +28467,15 @@ class JobDeploymentArgs:
         pulumi.set(self, "kind", value)
 
     @_builtins.property
+    @pulumi.getter(name="deploymentId")
+    def deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "deployment_id")
+
+    @deployment_id.setter
+    def deployment_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deployment_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="metadataFilePath")
     def metadata_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "metadata_file_path")
@@ -28258,6 +28483,15 @@ class JobDeploymentArgs:
     @metadata_file_path.setter
     def metadata_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "metadata_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionId")
+    def version_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "version_id")
+
+    @version_id.setter
+    def version_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "version_id", value)
 
 
 class JobEmailNotificationsArgsDict(TypedDict):
@@ -53259,13 +53493,13 @@ class MwsNetworksGcpNetworkInfoArgs:
         pulumi.set(__self__, "subnet_region", subnet_region)
         pulumi.set(__self__, "vpc_id", vpc_id)
         if pod_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if pod_ip_range_name is not None:
             pulumi.set(__self__, "pod_ip_range_name", pod_ip_range_name)
         if service_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if service_ip_range_name is not None:
             pulumi.set(__self__, "service_ip_range_name", service_ip_range_name)
 
@@ -53319,7 +53553,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="podIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def pod_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "pod_ip_range_name")
 
@@ -53329,7 +53563,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="serviceIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def service_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "service_ip_range_name")
 
@@ -53587,13 +53821,13 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
                  gke_cluster_service_ip_range: pulumi.Input[Optional[_builtins.str]] = None):
         pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if gke_cluster_pod_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_pod_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_pod_ip_range", gke_cluster_pod_ip_range)
         if gke_cluster_service_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_service_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_service_ip_range", gke_cluster_service_ip_range)
 
@@ -53608,7 +53842,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterPodIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_pod_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_pod_ip_range")
 
@@ -53618,7 +53852,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterServiceIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_service_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_service_ip_range")
 
@@ -56358,23 +56592,31 @@ class PipelineDeploymentArgsDict(TypedDict):
     """
     The deployment method that manages the pipeline.
     """
+    deployment_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     metadata_file_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The path to the file containing metadata about the deployment.
     """
+    version_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
 @pulumi.input_type
 class PipelineDeploymentArgs:
     def __init__(__self__, *,
                  kind: pulumi.Input[_builtins.str],
-                 metadata_file_path: pulumi.Input[Optional[_builtins.str]] = None):
+                 deployment_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 metadata_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 version_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] kind: The deployment method that manages the pipeline.
         :param pulumi.Input[_builtins.str] metadata_file_path: The path to the file containing metadata about the deployment.
         """
         pulumi.set(__self__, "kind", kind)
+        if deployment_id is not None:
+            pulumi.set(__self__, "deployment_id", deployment_id)
         if metadata_file_path is not None:
             pulumi.set(__self__, "metadata_file_path", metadata_file_path)
+        if version_id is not None:
+            pulumi.set(__self__, "version_id", version_id)
 
     @_builtins.property
     @pulumi.getter
@@ -56389,6 +56631,15 @@ class PipelineDeploymentArgs:
         pulumi.set(self, "kind", value)
 
     @_builtins.property
+    @pulumi.getter(name="deploymentId")
+    def deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "deployment_id")
+
+    @deployment_id.setter
+    def deployment_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "deployment_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="metadataFilePath")
     def metadata_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -56399,6 +56650,15 @@ class PipelineDeploymentArgs:
     @metadata_file_path.setter
     def metadata_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "metadata_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionId")
+    def version_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "version_id")
+
+    @version_id.setter
+    def version_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "version_id", value)
 
 
 class PipelineEnvironmentArgsDict(TypedDict):
@@ -73245,6 +73505,34 @@ class WorkspaceSettingV2BooleanValArgs:
         pulumi.set(self, "value", value)
 
 
+class WorkspaceSettingV2CollaborationPlatformConnectivityArgsDict(TypedDict):
+    connectivity: pulumi.Input[_builtins.str]
+    """
+    Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+    """
+
+@pulumi.input_type
+class WorkspaceSettingV2CollaborationPlatformConnectivityArgs:
+    def __init__(__self__, *,
+                 connectivity: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] connectivity: Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        pulumi.set(__self__, "connectivity", connectivity)
+
+    @_builtins.property
+    @pulumi.getter
+    def connectivity(self) -> pulumi.Input[_builtins.str]:
+        """
+        Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        return pulumi.get(self, "connectivity")
+
+    @connectivity.setter
+    def connectivity(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "connectivity", value)
+
+
 class WorkspaceSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict(TypedDict):
     access_policy_type: pulumi.Input[_builtins.str]
     """
@@ -73587,6 +73875,34 @@ class WorkspaceSettingV2EffectiveBooleanValArgs:
     @value.setter
     def value(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "value", value)
+
+
+class WorkspaceSettingV2EffectiveCollaborationPlatformConnectivityArgsDict(TypedDict):
+    connectivity: pulumi.Input[_builtins.str]
+    """
+    Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+    """
+
+@pulumi.input_type
+class WorkspaceSettingV2EffectiveCollaborationPlatformConnectivityArgs:
+    def __init__(__self__, *,
+                 connectivity: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] connectivity: Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        pulumi.set(__self__, "connectivity", connectivity)
+
+    @_builtins.property
+    @pulumi.getter
+    def connectivity(self) -> pulumi.Input[_builtins.str]:
+        """
+        Possible values are: `ALLOW_ALL`, `ALLOW_SLACK`, `ALLOW_TEAMS`, `DENY_ALL`
+        """
+        return pulumi.get(self, "connectivity")
+
+    @connectivity.setter
+    def connectivity(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "connectivity", value)
 
 
 class WorkspaceSettingV2EffectiveIntegerValArgsDict(TypedDict):
@@ -84551,16 +84867,24 @@ class GetJobJobSettingsSettingsDbtTaskArgs:
 
 class GetJobJobSettingsSettingsDeploymentArgsDict(TypedDict):
     kind: _builtins.str
+    deployment_id: NotRequired[_builtins.str]
     metadata_file_path: NotRequired[_builtins.str]
+    version_id: NotRequired[_builtins.str]
 
 @pulumi.input_type
 class GetJobJobSettingsSettingsDeploymentArgs:
     def __init__(__self__, *,
                  kind: _builtins.str,
-                 metadata_file_path: Optional[_builtins.str] = None):
+                 deployment_id: Optional[_builtins.str] = None,
+                 metadata_file_path: Optional[_builtins.str] = None,
+                 version_id: Optional[_builtins.str] = None):
         pulumi.set(__self__, "kind", kind)
+        if deployment_id is not None:
+            pulumi.set(__self__, "deployment_id", deployment_id)
         if metadata_file_path is not None:
             pulumi.set(__self__, "metadata_file_path", metadata_file_path)
+        if version_id is not None:
+            pulumi.set(__self__, "version_id", version_id)
 
     @_builtins.property
     @pulumi.getter
@@ -84572,6 +84896,15 @@ class GetJobJobSettingsSettingsDeploymentArgs:
         pulumi.set(self, "kind", value)
 
     @_builtins.property
+    @pulumi.getter(name="deploymentId")
+    def deployment_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "deployment_id")
+
+    @deployment_id.setter
+    def deployment_id(self, value: Optional[_builtins.str]):
+        pulumi.set(self, "deployment_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="metadataFilePath")
     def metadata_file_path(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "metadata_file_path")
@@ -84579,6 +84912,15 @@ class GetJobJobSettingsSettingsDeploymentArgs:
     @metadata_file_path.setter
     def metadata_file_path(self, value: Optional[_builtins.str]):
         pulumi.set(self, "metadata_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionId")
+    def version_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "version_id")
+
+    @version_id.setter
+    def version_id(self, value: Optional[_builtins.str]):
+        pulumi.set(self, "version_id", value)
 
 
 class GetJobJobSettingsSettingsEmailNotificationsArgsDict(TypedDict):

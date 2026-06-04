@@ -349,7 +349,7 @@ action)</option>
             ACTION_CHECKBOX_NAME: [self.s1.pk],
             # Two different actions selected on the two forms...
             "action": ["external_mail", "delete_selected"],
-            # ...but "go" was clicked on the top form.
+            # ...but "Run" was clicked on the top form.
             "index": 0,
         }
         self.client.post(
@@ -372,7 +372,7 @@ action)</option>
 
     def test_user_message_on_none_selected(self):
         """
-        User sees a warning when 'Go' is pressed and no items are selected.
+        User sees a warning when 'Run' is pressed and no items are selected.
         """
         action_data = {
             ACTION_CHECKBOX_NAME: [],
@@ -392,7 +392,7 @@ action)</option>
 
     def test_user_message_on_no_action(self):
         """
-        User sees a warning when 'Go' is pressed and no action is selected.
+        User sees a warning when 'Run' is pressed and no action is selected.
         """
         action_data = {
             ACTION_CHECKBOX_NAME: [self.s1.pk, self.s2.pk],

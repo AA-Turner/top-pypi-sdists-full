@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.31                                                                                #
-# Generated on 2026-06-01T01:50:49.516945                                                            #
+# MF version: 2.19.32                                                                                #
+# Generated on 2026-06-03T21:26:43.499480                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -260,6 +260,8 @@ ARGO_EVENTS_SENSOR_NAMESPACE: str
 NAMESPACED_EVENTS_PREFIX: str
 
 ARGO_WORKFLOWS_UI_URL: None
+
+ARGO_WORKFLOWS_USE_SCHEDULES: bool
 
 AIRFLOW_KUBERNETES_STARTUP_TIMEOUT_SECONDS: int
 

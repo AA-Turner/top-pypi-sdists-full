@@ -165,23 +165,23 @@ class SearchByIDHelper:
 
 @Status.top_level_spy_function()
 def search(
-    query: Union[str, dict, list, pd.DataFrame, pd.Series],
-    *,
-    all_properties: bool = False,
-    include_properties: Optional[List[str]] = None,
-    workbook: Optional[str] = _common.DEFAULT_WORKBOOK_PATH,
-    recursive: Optional[bool] = True,
-    ignore_unindexed_properties: Optional[bool] = True,
-    include_archived: Optional[bool] = False,
-    include_swappable_assets: Optional[bool] = False,
-    estimate_sample_period: Optional[dict] = None,
-    old_asset_format: Optional[bool] = None,
-    order_by: Optional[Union[str, List[str]]] = None,
-    limit: Optional[int] = USE_DEFAULT_LIMIT,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        query: Union[str, dict, list, pd.DataFrame, pd.Series],
+        *,
+        all_properties: bool = False,
+        include_properties: Optional[List[str]] = None,
+        workbook: Optional[str] = _common.DEFAULT_WORKBOOK_PATH,
+        recursive: Optional[bool] = True,
+        ignore_unindexed_properties: Optional[bool] = True,
+        include_archived: Optional[bool] = False,
+        include_swappable_assets: Optional[bool] = False,
+        estimate_sample_period: Optional[dict] = None,
+        old_asset_format: Optional[bool] = None,
+        order_by: Optional[Union[str, List[str]]] = None,
+        limit: Optional[int] = USE_DEFAULT_LIMIT,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> pd.DataFrame:
     """
     Issues a query to the Seeq Server to retrieve metadata for signals,
@@ -198,6 +198,10 @@ def search(
 
         If you supply a DataFrame or a Series, then the matching
         operations are "equal to" (instead of "contains").
+
+        If you surround the match criteria with a leading/trailing slash (/),
+        that indicates that the match criteria is a regular expression that
+        must match on the entire property.
 
         If you supply a str, it must be the URL of a Seeq Workbench worksheet.
         The retrieved metadata will be the signals, conditions and scalars
@@ -655,7 +659,13 @@ def _process_query(context: SearchContext, current_query):
 
     for prop_name in ['Name', 'Description', 'Datasource Class', 'Datasource ID', 'Data ID']:
         if prop_name in current_query and not pd.isna(current_query[prop_name]):
-            clauses[prop_name] = (context.comparison, current_query[prop_name])
+            this_comparison = context.comparison
+            this_query_matcher = current_query[prop_name]
+            if this_query_matcher.startswith('/') and this_query_matcher.endswith('/'):
+                # The user wants to do regex for this query, which means we have to use ~=
+                this_comparison = '~='
+
+            clauses[prop_name] = (this_comparison, this_query_matcher)
 
     if _common.present(current_query, 'Datasource Name'):
         datasource_name = _common.get(current_query, 'Datasource Name')

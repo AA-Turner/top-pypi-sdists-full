@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-spanner
-Version: 1.18.0
+Version: 1.19.0
 Summary: SQLAlchemy dialect integrated into Cloud Spanner database
 Home-page: https://github.com/cloudspannerecosystem/python-spanner-sqlalchemy
 Author: Google LLC
@@ -8,13 +8,12 @@ Author-email: googleapis-packages@google.com
 License: Apache 2.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: sqlalchemy>=1.1.13
 Requires-Dist: google-cloud-spanner>=3.55.0
@@ -32,6 +31,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 Spanner dialect for SQLAlchemy

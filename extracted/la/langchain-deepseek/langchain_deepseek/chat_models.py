@@ -5,13 +5,19 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator, Sequence
 from json import JSONDecodeError
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, cast
+from urllib.parse import urlparse
 
 import openai
 from langchain_core.callbacks import (
     CallbackManagerForLLMRun,
 )
-from langchain_core.language_models import LangSmithParams, LanguageModelInput
+from langchain_core.language_models import (
+    LangSmithParams,
+    LanguageModelInput,
+    ModelProfile,
+    ModelProfileRegistry,
+)
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
@@ -21,11 +27,21 @@ from langchain_openai.chat_models.base import BaseChatOpenAI
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
+from langchain_deepseek.data._profiles import _PROFILES
+
 DEFAULT_API_BASE = "https://api.deepseek.com/v1"
 DEFAULT_BETA_API_BASE = "https://api.deepseek.com/beta"
 
 _DictOrPydanticClass: TypeAlias = dict[str, Any] | type[BaseModel]
 _DictOrPydantic: TypeAlias = dict[str, Any] | BaseModel
+
+
+_MODEL_PROFILES = cast("ModelProfileRegistry", _PROFILES)
+
+
+def _get_default_model_profile(model_name: str) -> ModelProfile:
+    default = _MODEL_PROFILES.get(model_name) or {}
+    return default.copy()
 
 
 class ChatDeepSeek(BaseChatOpenAI):
@@ -173,11 +189,21 @@ class ChatDeepSeek(BaseChatOpenAI):
     )
     """DeepSeek API key"""
     api_base: str = Field(
+        alias="base_url",
         default_factory=from_env("DEEPSEEK_API_BASE", default=DEFAULT_API_BASE),
     )
-    """DeepSeek API base URL"""
+    """DeepSeek API base URL.
+
+    Automatically read from env variable `DEEPSEEK_API_BASE` if not provided.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @property
+    def _is_azure_endpoint(self) -> bool:
+        """Check if the configured endpoint is an Azure deployment."""
+        hostname = urlparse(self.api_base or "").hostname or ""
+        return hostname == "azure.com" or hostname.endswith(".azure.com")
 
     @property
     def _llm_type(self) -> str:
@@ -232,6 +258,9 @@ class ChatDeepSeek(BaseChatOpenAI):
             self.async_client = self.root_async_client.chat.completions
         return self
 
+    def _resolve_model_profile(self) -> ModelProfile | None:
+        return _get_default_model_profile(self.model_name) or None
+
     def _get_request_payload(
         self,
         input_: LanguageModelInput,
@@ -254,6 +283,17 @@ class ChatDeepSeek(BaseChatOpenAI):
                     if isinstance(block, dict) and block.get("type") == "text"
                 ]
                 message["content"] = "".join(text_parts) if text_parts else ""
+
+        # Azure-hosted DeepSeek does not support the dict/object form of
+        # tool_choice (e.g. {"type": "function", "function": {"name": "..."}}).
+        # It only accepts string values: "none", "auto", or "required".
+        # Convert the unsupported dict form to "required", which is the closest
+        # string equivalent — it forces the model to call a tool without
+        # constraining which one. In the common with_structured_output() case
+        # only a single tool is bound, so the behavior is effectively identical.
+        if self._is_azure_endpoint and isinstance(payload.get("tool_choice"), dict):
+            payload["tool_choice"] = "required"
+
         return payload
 
     def _create_chat_result(

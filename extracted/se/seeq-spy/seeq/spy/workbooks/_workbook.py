@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import concurrent.futures
 import copy
 import glob
 import json
 import logging
 import os
 from dataclasses import dataclass
-from types import SimpleNamespace
 from typing import Dict, Iterable, List, Optional, Type, Union, Tuple
 from urllib.parse import urljoin
 
@@ -214,6 +214,10 @@ class Workbook(ItemWithOwnerAndAcl):
             if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
                 new_worksheet_id = worksheet.id
             else:
+                if worksheet.id not in item_map and status.errors == 'catalog':
+                    # An error occurred during push but we kept going. We'll do the same when refreshing.
+                    continue
+
                 new_worksheet_id = item_map[worksheet.id]
 
             new_worksheet_list = [w for w in new_item.worksheets if w.id == new_worksheet_id]
@@ -400,9 +404,9 @@ class Workbook(ItemWithOwnerAndAcl):
                     worksheet_ids.extend([ws for ws in archived_worksheet_ids if ws not in worksheet_ids])
 
         if extra_workstep_tuples:
-            for workbook_id, worksheet_id, workstep_id in extra_workstep_tuples:
-                if workbook_id == self.id and worksheet_id not in worksheet_ids:
-                    worksheet_ids.append(worksheet_id)
+            for extra_workbook_id, extra_worksheet_id, _ in extra_workstep_tuples:
+                if extra_workbook_id == self.id and extra_worksheet_id not in worksheet_ids:
+                    worksheet_ids.append(extra_worksheet_id)
 
         for worksheet_id in worksheet_ids:
             self.update_status('Pulling worksheets', 0)
@@ -544,7 +548,6 @@ class Workbook(ItemWithOwnerAndAcl):
 
             props = list()
             existing_worksheet_identifiers = dict()
-            workbook_output: Optional[WorkbookOutputV1] = None
 
             if not workbook_item:
                 workbook_input = WorkbookInputV1()
@@ -558,6 +561,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 if not context.dry_run:
                     status.log(f'Create new workbook:\n{workbook_input}')
                     workbook_output = workbooks_api.create_workbook(body=workbook_input)  # type: WorkbookOutputV1
+                    pushed_workbook_id = workbook_output.id
 
                     if session.options.wants_compatibility_with(194):
                         data_id = data_id_with_label_suffix_maybe
@@ -565,30 +569,33 @@ class Workbook(ItemWithOwnerAndAcl):
                         data_id = data_id_without_label_suffix
 
                     status.log(f'Set workbook properties for Data ID {data_id}')
-                    items_api.set_properties(id=workbook_output.id, body=[
+                    items_api.set_properties(id=pushed_workbook_id, body=[
                         ScalarPropertyV1(name='Datasource Class', value=datasource_output.datasource_class),
                         ScalarPropertyV1(name='Datasource ID', value=datasource_output.datasource_id),
                         ScalarPropertyV1(name='Data ID', value=data_id),
                         ScalarPropertyV1(name='workbookState', value=_common.DEFAULT_WORKBOOK_STATE)])
                 else:
+                    workbook_output = None
+                    pushed_workbook_id = item_map.add_dry_run_placeholder_id(self.id)
                     status.log(f'[Dry Run] Would create new workbook:\n{workbook_input}')
 
             else:
                 workbook_output = Workbook._get_workbook_output(session, workbook_item.id)  # type: WorkbookOutputV1
+                pushed_workbook_id = workbook_output.id
 
                 if workbook_output.is_archived:
                     # If the workbook happens to be archived, un-archive it. If you're pushing a new copy it seems
                     # likely you're intending to revive it.
                     if not context.dry_run:
-                        status.log(f'Un-archive existing workbook {workbook_output.id}')
-                        items_api.set_properties(id=workbook_output.id,
+                        status.log(f'Un-archive existing workbook {pushed_workbook_id}')
+                        items_api.set_properties(id=pushed_workbook_id,
                                                  body=[ScalarPropertyV1(name='Archived', value=False)])
                     else:
-                        status.log(f'[Dry Run] Would un-archive existing workbook {workbook_output.id}')
+                        status.log(f'[Dry Run] Would un-archive existing workbook {pushed_workbook_id}')
 
                 if (self._push_context.current_params.specific_worksheet_ids is None or
                         len(self._push_context.current_params.specific_worksheet_ids) > 0):
-                    existing_worksheet_identifiers = self._get_existing_worksheet_identifiers(workbook_output)
+                    existing_worksheet_identifiers = self._get_existing_worksheet_identifiers(pushed_workbook_id)
 
                 owner_id = self.decide_owner(context, item_map, owner=context.current_params.owner,
                                              current_owner_id=workbook_output.owner.id)
@@ -596,18 +603,17 @@ class Workbook(ItemWithOwnerAndAcl):
                 self._push_owner_and_location(session, workbook_output, owner_id, folder_id, status,
                                               dry_run=context.dry_run)
 
-            if workbook_output is not None:
-                status.put('Pushed Workbook ID', workbook_output.id)
+            status.put('Pushed Workbook ID', pushed_workbook_id)
 
-                item_map[self.id] = workbook_output.id
+            item_map[self.id] = pushed_workbook_id
 
-                if context.current_params.access_control:
-                    self._push_acl(context, workbook_output.id, item_map)
+            if context.current_params.access_control:
+                self._push_acl(context, pushed_workbook_id, item_map)
 
             if include_inventory:
                 results_df = self._push_inventory(
                     item_map=item_map, label=label,
-                    datasource_output=datasource_output, workbook_output=workbook_output
+                    datasource_output=datasource_output, pushed_workbook_id=pushed_workbook_id
                 )
                 self._push_context.pushed_inventory[self.id] = results_df
 
@@ -619,7 +625,7 @@ class Workbook(ItemWithOwnerAndAcl):
 
             if not context.dry_run:
                 status.log(f'Update workbook properties:\n{props}')
-                items_api.set_properties(id=workbook_output.id, body=props)
+                items_api.set_properties(id=pushed_workbook_id, body=props)
             else:
                 status.log(f'[Dry Run] Would update workbook properties:\n{props}')
 
@@ -632,46 +638,52 @@ class Workbook(ItemWithOwnerAndAcl):
                         worksheet.id not in self._push_context.current_params.specific_worksheet_ids):
                     continue
 
-                if context.dry_run and workbook_output is None:
-                    status.log(f'[Dry Run] Would push worksheet "{worksheet.name}" but workbook was not created')
-                    continue
+                status.log(f'Pushing {worksheet}')
 
                 self.update_status('Pushing worksheet', 1)
-                worksheet_output = safely(
-                    lambda: worksheet.push(context, workbook_output.id, item_map, datasource_output,
-                                           existing_worksheet_identifiers, include_inventory, label),
-                    action_description=f'push Worksheet "{worksheet.name}" to Workbook {workbook_output.id}',
-                    status=status)
 
-                if (not _common.get(worksheet, 'Archived', False) and first_worksheet_id is None
-                        and worksheet_output is not None):
-                    first_worksheet_id = worksheet_output.id
+                try:
+                    pushed_worksheet_id = safely(
+                        lambda: worksheet.push(context, pushed_workbook_id, item_map, datasource_output,
+                                               existing_worksheet_identifiers, include_inventory, label),
+                        action_description=f'push Worksheet "{worksheet.name}" to Workbook {pushed_workbook_id}',
+                        status=status)
+                except (SPyRuntimeError, ApiException) as e:
+                    status.raise_or_callback(f'Could not push {worksheet}:\n{_common.format_exception(e)}')
+                    continue
+
+                if not _common.get(worksheet, 'Archived', False) and first_worksheet_id is None:
+                    first_worksheet_id = pushed_worksheet_id
 
             dependencies_not_found = set()
             if self._push_context.current_params.specific_worksheet_ids is None:
                 if context.dry_run and workbook_output is None:
                     status.log(f'[Dry Run] Would reorder and archive worksheets but workbook was not created')
                 else:
-                    self._reorder_and_archive_worksheets(context, item_map, workbook_output)
+                    self._reorder_and_archive_worksheets(context, item_map, pushed_workbook_id)
 
             # Now go back through all the worksheets to see if any worksteps weren't resolved
             for worksheet in self.worksheets:
+                if not item_map.was_item_pushed(worksheet.id):
+                    continue
+
                 if (self._push_context.current_params.specific_worksheet_ids is not None and
                         worksheet.id not in self._push_context.current_params.specific_worksheet_ids):
                     continue
 
                 dependencies_not_found.update(worksheet.find_unresolved_worksteps(item_map))
 
-            if context.current_params.include_annotations and self._annotation is not None:
-                self._annotation.push(context, workbook_output.id, workbook_output.id, item_map,
+            if (context.current_params.include_annotations and self._annotation is not None and
+                    item_map.was_item_pushed(self.id)):
+                self._annotation.push(context, pushed_workbook_id, pushed_workbook_id, item_map,
                                       datasource_output, context.current_params.access_control, push_images=True,
                                       label=label)
 
-            if workbook_output is not None:
+            if item_map.was_item_pushed(self.id):
                 link_url = Workbook.construct_url(
                     session,
                     folder_id,
-                    workbook_output.id,
+                    pushed_workbook_id,
                     first_worksheet_id
                 )
                 status.put('URL', link_url)
@@ -692,36 +704,48 @@ class Workbook(ItemWithOwnerAndAcl):
             self._push_context = None
 
     def _reorder_and_archive_worksheets(self, context: WorkbookPushContext, item_map: ItemMap,
-                                        workbook_output: WorkbookOutputV1):
+                                        pushed_workbook_id: str):
         session = context.session
         status = context.status
         workbooks_api = WorkbooksApi(session.client)
 
         # Pull the set of worksheets and re-order them
-        maybe_worksheet_ids = Workbook._pull_worksheet_ids(session, workbook_output.id, status)
+        maybe_worksheet_ids = Workbook._pull_worksheet_ids(session, pushed_workbook_id, status)
         remaining_pushed_worksheet_ids = list() if maybe_worksheet_ids is None else maybe_worksheet_ids
 
         next_worksheet_id = None
         for worksheet in reversed(self.worksheets):
-            if context.dry_run and worksheet.id not in item_map:
-                # Can't reorder something that wasn't pushed
-                status.log(f'[Dry Run] Would reorder worksheets')
-                return
+            if worksheet.id not in item_map:
+                if status.errors == 'catalog':
+                    continue
+                # With errors='raise', a worksheet push failure would have already raised before reaching here.
+                raise SPyRuntimeError(
+                    f'Worksheet {worksheet.id} not found in item_map during reorder — this is an unexpected state. '
+                    f'Please contact Seeq Support to file a bug report.')
 
             pushed_worksheet_id = item_map[worksheet.id]
+            ids_are_real = item_map.is_real_id(pushed_workbook_id) and item_map.is_real_id(pushed_worksheet_id)
             if next_worksheet_id is None:
-                safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
-                                                            worksheet_id=pushed_worksheet_id),
-                       action_description=f'move worksheet {pushed_worksheet_id} to be last in '
-                                          f'workbook {workbook_output.id}',
-                       status=status, dry_run=context.dry_run)
+                if ids_are_real:
+                    safely(lambda: workbooks_api.move_worksheet(workbook_id=pushed_workbook_id,
+                                                                worksheet_id=pushed_worksheet_id),
+                           action_description=f'move worksheet {pushed_worksheet_id} to be last in '
+                                              f'workbook {pushed_workbook_id}',
+                           status=status, dry_run=context.dry_run)
+                else:
+                    status.log(f'[Dry Run] Would move worksheet {pushed_worksheet_id} to be last in '
+                               f'workbook {pushed_workbook_id}')
             else:
-                safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
-                                                            worksheet_id=pushed_worksheet_id,
-                                                            next_worksheet_id=item_map[next_worksheet_id]),
-                       action_description=f'move worksheet {pushed_worksheet_id} to be before '
-                                          f'{item_map[next_worksheet_id]} in workbook {workbook_output.id}',
-                       status=status, dry_run=context.dry_run)
+                if ids_are_real:
+                    safely(lambda: workbooks_api.move_worksheet(workbook_id=pushed_workbook_id,
+                                                                worksheet_id=pushed_worksheet_id,
+                                                                next_worksheet_id=item_map[next_worksheet_id]),
+                           action_description=f'move worksheet {pushed_worksheet_id} to be before '
+                                              f'{item_map[next_worksheet_id]} in workbook {pushed_workbook_id}',
+                           status=status, dry_run=context.dry_run)
+                else:
+                    status.log(f'[Dry Run] Would move worksheet {pushed_worksheet_id} to be before '
+                               f'{item_map[next_worksheet_id]} in workbook {pushed_workbook_id}')
 
             if pushed_worksheet_id in remaining_pushed_worksheet_ids:
                 remaining_pushed_worksheet_ids.remove(pushed_worksheet_id)
@@ -731,13 +755,17 @@ class Workbook(ItemWithOwnerAndAcl):
         # Archive any worksheets that are no longer active
         items_api = ItemsApi(session.client)
         for remaining_pushed_worksheet_id in remaining_pushed_worksheet_ids:
-            safely(
-                lambda: items_api.archive_item(id=remaining_pushed_worksheet_id,
-                                               note='Archived by SPy because the worksheet is no longer '
-                                                    'active in the workbook'),
-                action_description=f'archive Worksheet {remaining_pushed_worksheet_id} from '
-                                   f'Workbook {workbook_output.id}',
-                status=status, dry_run=context.dry_run)
+            if item_map.is_real_id(remaining_pushed_worksheet_id):
+                safely(
+                    lambda: items_api.archive_item(id=remaining_pushed_worksheet_id,
+                                                   note='Archived by SPy because the worksheet is no longer '
+                                                        'active in the workbook'),
+                    action_description=f'archive Worksheet {remaining_pushed_worksheet_id} from '
+                                       f'Workbook {pushed_workbook_id}',
+                    status=status, dry_run=context.dry_run)
+            else:
+                status.log(f'[Dry Run] Would archive Worksheet {remaining_pushed_worksheet_id} from '
+                           f'Workbook {pushed_workbook_id}')
 
     @staticmethod
     def construct_url(session: Session, folder_id, workbook_id, worksheet_id=None):
@@ -752,7 +780,7 @@ class Workbook(ItemWithOwnerAndAcl):
 
         return url
 
-    def _get_existing_worksheet_identifiers(self, workbook_output: WorkbookOutputV1) -> dict:
+    def _get_existing_worksheet_identifiers(self, existing_workbook_id: str) -> dict:
         workbooks_api = WorkbooksApi(self._push_context.session.client)
         items_api = ItemsApi(self._push_context.session.client)
         existing_worksheet_identifiers = dict()
@@ -761,11 +789,11 @@ class Workbook(ItemWithOwnerAndAcl):
             limit = 1000
             while True:
                 worksheet_output_list = safely(
-                    lambda: workbooks_api.get_worksheets(workbook_id=workbook_output.id,
+                    lambda: workbooks_api.get_worksheets(workbook_id=existing_workbook_id,
                                                          is_archived=is_archived,
                                                          offset=offset,
                                                          limit=limit),
-                    action_description=f'get worksheets for workbook {workbook_output.id}',
+                    action_description=f'get worksheets for workbook {existing_workbook_id}',
                     status=self._push_context.status)  # type: WorksheetOutputListV1
                 if worksheet_output_list is None:
                     break
@@ -773,7 +801,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 for worksheet_output in worksheet_output_list.worksheets:  # type: WorksheetOutputV1
                     @request_safely(
                         action_description=f'get Data ID for worksheet '
-                                           f'{workbook_output.id}/{worksheet_output.id}',
+                                           f'{existing_workbook_id}/{worksheet_output.id}',
                         status=self._push_context.status)
                     def _add_worksheet_data_id_to_identifiers():
                         item_output = items_api.get_item_and_all_properties(
@@ -804,7 +832,7 @@ class Workbook(ItemWithOwnerAndAcl):
         return existing_worksheet_identifiers
 
     def _push_inventory(
-            self, *, item_map: ItemMap, label, datasource_output, workbook_output
+            self, *, item_map: ItemMap, label, datasource_output, pushed_workbook_id: Optional[str]
     ) -> Optional[pd.DataFrame]:
         references_exist = self._do_references_exist()
 
@@ -819,10 +847,9 @@ class Workbook(ItemWithOwnerAndAcl):
             # noinspection PyBroadException
             try:
                 item_exists, item_search_preview = references_exist.get(item.id, (ItemExists.MAYBE, None))
-                workbook_output_id = workbook_output.id if workbook_output is not None else None
                 to_push = item.get_metadata_to_push(
                     self._push_context, self._push_context.datasource_maps, datasource_output, self.item_inventory,
-                    pushed_workbook_id=workbook_output_id, item_map=item_map, label=label, item_exists=item_exists,
+                    pushed_workbook_id=pushed_workbook_id, item_map=item_map, label=label, item_exists=item_exists,
                     item_search_preview=item_search_preview
                 )
 
@@ -846,6 +873,12 @@ class Workbook(ItemWithOwnerAndAcl):
             return None
 
         results_df = self._push_accumulated_inventory_metadata(metadata_to_push, item_map, datasource_output)
+        if self._push_context.dry_run:
+            # Add entries to the item_map so that the rest of the dry run can proceed
+            for item_id in metadata_to_push:
+                item_map[item_id] = item_id
+            return None
+
         if results_df is None:
             return None
 
@@ -867,26 +900,31 @@ class Workbook(ItemWithOwnerAndAcl):
         references = Workbook._fill_in_item_search_preview_on_references(self._push_context.status, raw_references)
         items_api = ItemsApi(self._push_context.session.client)
         item_exists: Dict[str, Tuple[ItemExists, Optional[ItemSearchPreviewV1]]] = dict()
-        for reference in references:
+
+        def _check_reference(reference):
             if reference.item_search_preview is not None:
-                item_exists[reference.id] = (ItemExists.YES, reference.item_search_preview)
-                continue
+                return reference.id, (ItemExists.YES, reference.item_search_preview)
             elif reference.id in self.item_inventory:
                 # Due to CRAB-40580, we have to do an extra check when this is a swap item
                 item = self.item_inventory.get(reference.id)
                 if 'Swap Key' in item:
                     try:
-                        self._push_context.status.log(f'Checking existence of swap item {reference.id} explicitly')
                         if items_api.get_item_and_all_properties(id=reference.id) is not None:
-                            item_exists[reference.id] = (ItemExists.YES, None)
-                            continue
+                            return reference.id, (ItemExists.YES, None)
                     except ApiException:
                         pass
 
             if _version.is_sdk_module_version_at_least(62):
-                item_exists[reference.id] = (ItemExists.NO, None)
+                return reference.id, (ItemExists.NO, None)
             else:
-                item_exists[reference.id] = (ItemExists.MAYBE, None)
+                return reference.id, (ItemExists.MAYBE, None)
+
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self._push_context.session.options.max_concurrent_requests) as executor:
+            for ref_id, existence in executor.map(_check_reference, references):
+                item_exists[ref_id] = existence
+
+        self._push_context.status.log(f'Checked {len(item_exists)} swap items for existence')
         return item_exists
 
     def _push_accumulated_inventory_metadata(self, metadata_to_push: Dict[str, Dict],
@@ -1012,14 +1050,11 @@ class Workbook(ItemWithOwnerAndAcl):
 
         # This step will end up only processing StoredItems and filling the item_map. CalculatedItems will
         # be skipped unless they are explicitly mapped in a Datasource Map override.
-        # Create a minimal workbook_output-like object with the existing workbook ID to ensure
-        # pushed_workbook_id is correctly set for item scope checking downstream
-        workbook_output_stub = SimpleNamespace(id=self.id)
         pushed_inventory_df = self._push_inventory(
             item_map=item_map,
             label=None,
             datasource_output=datasource_output,
-            workbook_output=workbook_output_stub
+            pushed_workbook_id=self.id
         )
         self._push_context.pushed_inventory[self.id] = pushed_inventory_df
 
@@ -1029,7 +1064,10 @@ class Workbook(ItemWithOwnerAndAcl):
 
         # Push worksteps only (skip workbook and worksheet updates)
         for worksheet in self.worksheets:
-            self._push_in_place_datasource_swap_worksheet(context, self, worksheet, item_map)
+            try:
+                self._push_in_place_datasource_swap_worksheet(context, self, worksheet, item_map)
+            except (SPyRuntimeError, ApiException) as e:
+                status.raise_or_callback(f'Could not push {worksheet}:\n{_common.format_exception(e)}')
 
         # Push annotations if they have changed (handled in worksheet/workstep push)
         if context.current_params.include_annotations and self._annotation is not None:
@@ -1065,10 +1103,14 @@ class Workbook(ItemWithOwnerAndAcl):
                 for workstep_id, workstep in worksheet.worksteps.items():
                     self.update_status('Pushing worksteps', 0)
 
-                    pushed_workstep_id = workstep.push_to_specific_worksheet(
-                        context, workbook.id, worksheet.id,
-                        item_map, include_inventory=False, no_workstep_message=True
-                    )
+                    try:
+                        pushed_workstep_id = workstep.push_to_specific_worksheet(
+                            context, workbook.id, worksheet.id,
+                            item_map, include_inventory=False, no_workstep_message=True
+                        )
+                    except (SPyRuntimeError, ApiException) as e:
+                        status.raise_or_callback(f'Could not push {workstep}:\n{_common.format_exception(e)}')
+                        continue
 
                     self.update_status('Pushing worksteps', 1)
 
@@ -1084,11 +1126,15 @@ class Workbook(ItemWithOwnerAndAcl):
 
             # Set the current workstep if needed
             if pushed_current_workstep_id and not context.dry_run:
-                workbooks_api.set_current_workstep(
-                    workbook_id=workbook.id,
-                    worksheet_id=worksheet.id,
-                    workstep_id=pushed_current_workstep_id
-                )
+                try:
+                    workbooks_api.set_current_workstep(
+                        workbook_id=workbook.id,
+                        worksheet_id=worksheet.id,
+                        workstep_id=pushed_current_workstep_id
+                    )
+                except ApiException as e:
+                    status.raise_or_callback(
+                        f'Could not set current workstep for {worksheet}:\n{_common.format_exception(e)}')
 
         # Push worksheet-level annotations if they exist
         if context.current_params.include_annotations and worksheet.annotation is not None:
@@ -1301,7 +1347,8 @@ class Workbook(ItemWithOwnerAndAcl):
                     if content.type == 'Folder' and content_name == content.name:
                         if parent_id is not None:
                             # When parent_id is specified, ensure the folder's parent matches
-                            if content.ancestors is not None and len(content.ancestors) >= 1 and content.ancestors[-1].id != parent_id:
+                            if content.ancestors is not None and len(content.ancestors) >= 1 and content.ancestors[
+                                    -1].id != parent_id:
                                 continue
                         else:
                             # When parent_id is None (root level), ensure the folder is at the root level by checking
@@ -1427,12 +1474,16 @@ class Workbook(ItemWithOwnerAndAcl):
                         else:
                             parent_folder = _folder.create_user_folder_if_necessary(context, owner_id)
 
-                        if not context.dry_run and parent_folder is None:
+                        if parent_folder is None:
                             owner_reference = f'{owner} ({owner_id})' if owner is not None else owner_id
-                            raise SPyRuntimeError(
-                                f'Home folder for owner "{owner_reference}" '
-                                'does not exist on the target server. Cannot push.'
-                            )
+                            if not context.dry_run:
+                                raise SPyRuntimeError(
+                                    f'Home folder for owner "{owner_reference}" '
+                                    'does not exist on the target server. Cannot push.'
+                                )
+                            else:
+                                status.log(f'[Dry Run] Would create home folder for owner "{owner_reference}".')
+                                return None, None
 
                         status.log(f'Mapped owner\'s {folder} to "{parent_folder.name}" ({parent_folder.id})')
                         parent_folder_id = parent_folder.id
@@ -1587,10 +1638,6 @@ class Workbook(ItemWithOwnerAndAcl):
 
         Workbook.save_push_errors(workbook_folder, self._push_errors)
 
-        # Put the final "complete" file in place in a relatively atomic way so that if the save gets interrupted we
-        # know whether the folder is complete and can be trusted (or not)
-        open(os.path.join(workbook_folder, 'Complete'), 'w').close()
-
     @staticmethod
     def load_push_errors(workbook_folder):
         push_errors_file = os.path.join(workbook_folder, 'Push Errors.json')
@@ -1687,7 +1734,12 @@ class Workbook(ItemWithOwnerAndAcl):
     @staticmethod
     def _load_inventory(file_name):
         with util.safe_open(file_name, 'r', encoding='utf-8') as f:
-            loaded_inventory = json.load(f)
+            try:
+                loaded_inventory = json.load(f)
+            except ValueError as e:
+                raise SPyValueError(
+                    f'Error reading JSON file "{file_name}":\n{str(e)}'
+                ) from e
 
         inventory_dict = dict()
         for item_id, item_def in loaded_inventory.items():

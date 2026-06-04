@@ -9,11 +9,11 @@ __all__ = ("time_val_init",)
 
 __docformat__ = "restructuredtext"
 
-import time
 import datetime
+import numbers
+import time
 
 from tango import TimeVal
-import numbers
 
 
 def __TimeVal__init(self, a=None, b=None, c=None):
@@ -35,112 +35,81 @@ def __TimeVal__init(self, a=None, b=None, c=None):
             self.tv_sec, self.tv_usec, self.tv_nsec = a, b, c
 
 
-def __TimeVal__totime(self):
+def __TimeVal__totime(self) -> float:
     """
-    totime(self) -> float
+    Returns a float representing this time value
 
-        Returns a float representing this time value
-
-        Parameters : None
-        Return     : a float representing the time value
-
-    .. versionadded:: 7.1.0"""
+    .. versionadded:: 7.1.0
+    """
     return self.tv_sec + 1e-6 * self.tv_usec + 1e-9 * self.tv_nsec
 
 
-def __TimeVal__todatetime(self):
+def __TimeVal__todatetime(self) -> datetime.datetime:
     """
-    todatetime(self) -> datetime.datetime
+    Returns a :class:`datetime.datetime` object representing
+    the same time value
 
-        Returns a :class:`datetime.datetime` object representing
-        the same time value
-
-        Parameters : None
-        Return     : (datetime.datetime) the time value in datetime format
-
-    .. versionadded:: 7.1.0"""
+    .. versionadded:: 7.1.0
+    """
     return datetime.datetime.fromtimestamp(self.totime())
 
 
-def __TimeVal__fromtimestamp(ts):
+def __TimeVal__fromtimestamp(ts: float) -> TimeVal:
     """
-    fromtimestamp(ts) -> TimeVal
+    A static method returning a :class:`tango.TimeVal` object representing
+    the given timestamp
 
-        A static method returning a :class:`tango.TimeVal` object representing
-        the given timestamp
+    :param ts: a timestamp
+    :type ts: float
 
-        Parameters :
-            - ts : (float) a timestamp
-        Return     : (TimeVal) representing the given timestamp
-
-    .. versionadded:: 7.1.0"""
+    .. versionadded:: 7.1.0
+    """
     return TimeVal(ts)
 
 
-def __TimeVal__fromdatetime(dt):
+def __TimeVal__fromdatetime(dt: datetime.datetime) -> TimeVal:
     """
-    fromdatetime(dt) -> TimeVal
+    A static method returning a :class:`tango.TimeVal` object representing
+    the given :class:`datetime.datetime`
 
-        A static method returning a :class:`tango.TimeVal` object representing
-        the given :class:`datetime.datetime`
-
-        Parameters :
-            - dt : (datetime.datetime) a datetime object
-        Return     : (TimeVal) representing the given timestamp
+    :param dt: a datetime object
+    :type dt: :py:obj:`datetime.datetime`
 
     .. versionadded:: 7.1.0
-
-    .. versionadded:: 7.1.2
-        Documented
     """
     return TimeVal(dt)
 
 
-def __TimeVal__now():
+def __TimeVal__now() -> TimeVal:
     """
-    now() -> TimeVal
-
-        A static method returning a :class:`tango.TimeVal` object representing
-        the current time
-
-        Parameters : None
-        Return     : (TimeVal) representing the current time
+    A static method returning a :class:`tango.TimeVal` object representing
+    the current time
 
     .. versionadded:: 7.1.0
-
-    .. versionadded:: 7.1.2
-        Documented
     """
     return TimeVal(time.time())
 
 
-def __TimeVal__strftime(self, format):
+def __TimeVal__strftime(self, format: str) -> str:
     """
-    strftime(self, format) -> str
 
-        Convert a time value to a string according to a format specification.
+    Convert a time value to a string according to a format specification.
 
-        Parameters :
-            format : (str) See the python library reference manual for formatting codes
-        Return     : (str) a string representing the time according to a format specification.
+    :param format: see the python library reference manual for formatting codes
+    :type format: :py:obj:`str`
 
     .. versionadded:: 7.1.0
 
-    .. versionadded:: 7.1.2
-        Documented
     """
     return self.todatetime().strftime(format)
 
 
-def __TimeVal__isoformat(self, sep="T"):
+def __TimeVal__isoformat(self, sep: str = "T") -> str:
     """
-    isoformat(self, sep='T') -> str
+    Returns a string in ISO 8601 format, YYYY-MM-DDTHH:MM:SS[.mmmmmm][+HH:MM]
 
-        Returns a string in ISO 8601 format, YYYY-MM-DDTHH:MM:SS[.mmmmmm][+HH:MM]
-
-        Parameters :
-            sep : (str) sep is used to separate the year from the time, and defaults to 'T'
-        Return     : (str) a string representing the time according to a format specification.
+    :param sep: (str) sep is used to separate the year from the time, and defaults to 'T'
+    :type sep: :py:obj:`str`
 
     .. versionadded:: 7.1.0
 
@@ -153,19 +122,12 @@ def __TimeVal__isoformat(self, sep="T"):
     return self.todatetime().isoformat(sep)
 
 
-def __TimeVal__str__(self):
+def __TimeVal__str__(self) -> str:
     """
-    __str__(self) -> str
 
-        Returns a string representation of TimeVal
-
-        Parameters : None
-        Return     : (str) a string representing the time (same as :class:`datetime.datetime`)
+    Returns a string representation of TimeVal
 
     .. versionadded:: 7.1.0
-
-    .. versionadded:: 7.1.2
-        Documented
     """
     return str(self.todatetime())
 

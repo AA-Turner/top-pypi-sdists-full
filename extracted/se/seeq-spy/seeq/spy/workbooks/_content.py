@@ -84,7 +84,7 @@ class Content(Item):
         return Item.digest_hash(definition_copy)
 
     def push(self, context: WorkbookPushContext, session: Session, item_map: ItemMap, existing_contents: dict,
-             status: Status):
+             status: Status) -> Optional[str]:
         session = Session.validate(session)
         content_input = self._create_content_input(context, item_map)
 
@@ -107,6 +107,13 @@ class Content(Item):
                                    f'{content_input.worksheet_id}/{content_input.workstep_id}',
                 status=status, dry_run=context.dry_run)  # type: ContentOutputV1
         else:
+            if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+                if existing_content['Workstep ID'] == content_input.workstep_id:
+                    context.status.log(
+                        f'No changes for Content "{content_input.name}" ({existing_content.id}) -- skipping')
+                    item_map[self.id] = existing_content.id
+                    return existing_content.id
+
             content_output = safely(
                 lambda: content_api.update_content(id=existing_content.id, body=content_input),
                 action_description=f'update Content "{content_input.name}" '
@@ -118,7 +125,7 @@ class Content(Item):
 
         item_map[self.id] = content_output.id
 
-        return content_output
+        return content_output.id
 
     def _create_content_input(self, context: WorkbookPushContext, item_map: ItemMap = None):
         self._validate_fields_before_push()
@@ -269,9 +276,10 @@ class Content(Item):
                f'fr-draggable" src="/api/content/{self.id}/image"></a>'
 
     @staticmethod
-    def push_with_check_for_existing(self: Union[DateRange, AssetSelection], existing_dict: dict,
-                                     input_object: Union[DateRangeInputV1, AssetSelectionInputV1], item_map: ItemMap,
-                                     create_func, update_func, status: Status, context: WorkbookPushContext):
+    def push_with_check_for_existing(
+            self: Union[DateRange, AssetSelection], existing_dict: dict,
+            input_object: Union[DateRangeInputV1, AssetSelectionInputV1], item_map: ItemMap,
+            create_func, update_func, status: Status, context: WorkbookPushContext) -> Optional[str]:
         existing_object = existing_dict.get(self.id)
         if not existing_object:
             existing_object = existing_dict.get(self.name)
@@ -281,20 +289,36 @@ class Content(Item):
                 lambda: create_func(body=input_object),
                 action_description=f'create {self.type} "{input_object.name}"',
                 status=status, dry_run=context.dry_run)
+
+            if context.dry_run:
+                return None
+
             existing_id = output_object.id
         else:
             existing_id = existing_object.id
 
+        if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            skip = False
+            if isinstance(existing_object, DateRange) and existing_object['Condition ID'] == input_object.condition_id:
+                skip = True
+            elif isinstance(existing_object, AssetSelection) and existing_object['Asset ID'] == input_object.asset_id:
+                skip = True
+
+            if skip:
+                context.status.log(
+                    f'No changes for {self.type} "{input_object.name}" ({existing_id}) -- skipping')
+                item_map[self.id] = existing_id
+                return existing_id
+
         # We update even if we just created it, because if we're trying to create an archived item, the create
         # function doesn't look at the archived flag on the input object.
-        output_object = safely(
-            lambda: update_func(id=existing_id, body=input_object),
-            action_description=f'update {self.type} "{input_object.name}"',
-            status=status, dry_run=context.dry_run)
+        safely(lambda: update_func(id=existing_id, body=input_object),
+               action_description=f'update {self.type} "{input_object.name}"',
+               status=status, dry_run=context.dry_run)
 
-        item_map[self.id] = output_object.id
+        item_map[self.id] = existing_id
 
-        return output_object
+        return existing_id
 
 
 class DateRange(Item):
@@ -334,7 +358,7 @@ class DateRange(Item):
         self.report = report
 
     def push(self, context: WorkbookPushContext, session: Session, item_map: ItemMap, existing_date_ranges: dict,
-             status: Status):
+             status: Status) -> Optional[str]:
         date_range_input = self._create_date_range_input(context, session, item_map)
         content_api = ContentApi(session.client)
         return Content.push_with_check_for_existing(self, existing_date_ranges, date_range_input, item_map,
@@ -640,7 +664,7 @@ class AssetSelection(Item):
         self.report = report
 
     def push(self, context: WorkbookPushContext, session: Session, item_map: ItemMap, existing_asset_selections: dict,
-             status: Status):
+             status: Status) -> Optional[str]:
         asset_selection_input = self._create_asset_selection_input(context, item_map)
 
         content_api = ContentApi(session.client)

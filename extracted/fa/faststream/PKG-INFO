@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faststream
-Version: 0.7.0
+Version: 0.7.1
 Summary: FastStream: the simplest way to work with a messaging queues
 Keywords: rabbitmq,kafka,nats,redis,mqtt,asyncapi,framework,message brokers
 Author: AG2AI, Nikita Pastukhov
@@ -67,7 +67,7 @@ Description-Content-Type: text/markdown
 
 # FastStream
 
-<b>Effortless event stream integration for your services</b>
+[**FastStream**](https://faststream.ag2.ai/latest/) is an asynchronous Python framework for building event-driven applications. It brings together message broker integration, dependency injection, validation, testing utilities, and [**AsyncAPI**](https://www.asyncapi.com/) documentation generation in a single toolkit, reducing boilerplate without hiding the capabilities of the underlying broker.
 
 ---
 

@@ -28,7 +28,7 @@ changelog = "https://gitlab.com/tango-controls/pytango/-/releases"
 
 [project]
 name = "pytango"
-version = "10.1.4"
+version = "10.3.0"
 description = "Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit"
 readme = "README.rst"
 requires-python = ">=3.10"
@@ -105,9 +105,13 @@ Tango_USE_PKG_CONFIG="OFF"
 [tool.pytest.ini_options]
 # see also pytest_win_config.toml
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-v --showlocals --forked"
+addopts = "-v --showlocals -p no:terminalprogress --forked"
 env = ["PYTANGO_TESTS_RUNNING=True"]
-filterwarnings = ["error", "ignore::ResourceWarning"]
+filterwarnings = [
+    "error",
+    "ignore::ResourceWarning",
+    "ignore:SelectableGroups dict interface is deprecated\\. Use select\\.:DeprecationWarning",
+]
 testpaths = [
     "tests"
 ]
@@ -130,6 +134,7 @@ omit = [
 patch = ["subprocess", "fork", "_exit"]
 
 [tool.ruff]
+line-length = 120
 exclude = [
     ".git",
     "__pycache__",
@@ -145,11 +150,25 @@ exclude = [
 [tool.ruff.lint]
 ignore = [
     "E402",  # Module level import not at top of file
-    "E501",  # Line too long (> 79 characters)
+    "E501",  # Line too long (> 120 characters)
     "E731",  # Do not assign a lambda expression, use a def
 ]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
+    "I", # isort
+    "U", # pyupdate
+    "B",# flake8-bugbear
+    "SIM", # flake8-simplify
+    "C4", # flake8-comprehensions
+    "PIE", # flake8-pie
+    "RUF",  # Ruff-specific
 ]
+
+[tool.ruff.lint.isort]
+# Declare first-party packages explicitly so import grouping does not depend on
+# build artifacts (e.g. generated tango/_tango.pyi).  Without this, CI runs
+# before any build classify tango._tango as third-party (grouping it with pytest)
+# while local runs (where the stub is on disk) classify it as first-party.
+known-first-party = ["tango", "PyTango"]

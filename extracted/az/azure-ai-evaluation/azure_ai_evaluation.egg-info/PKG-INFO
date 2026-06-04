@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-evaluation
-Version: 1.16.9
+Version: 1.17.0
 Summary: Microsoft Azure Evaluation Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -417,7 +417,11 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
-## 1.16.9 (2026-05-21)
+## 1.17.0 (2026-06-03)
+
+### Breaking Changes
+
+- Updated `EVALUATOR_NAME_METRICS_MAPPINGS` so `document_retrieval` and `rouge_score` report single primary metrics (`document_retrieval`, `rouge`), with previous sub-metrics now represented in each evaluator's `*_properties` payload.
 
 ### Bugs Fixed
 

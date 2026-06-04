@@ -30,8 +30,20 @@ CLAUDE_SETTINGS_FILES = ("settings.json", "settings.local.json")
 CLAUDE_GUARD_DAEMON_HOOK_MARKER = "HOL_GUARD_CLAUDE_DAEMON_HOOK"
 
 
-def _guard_command_handler(command: str, *, timeout: int) -> dict[str, object]:
-    return {"type": "command", "command": command, "timeout": timeout}
+def _guard_command_handler(
+    command: str,
+    *,
+    timeout: int,
+    status_message: str | None = None,
+) -> dict[str, object]:
+    handler: dict[str, object] = {"type": "command", "command": command, "timeout": timeout}
+    if status_message is not None:
+        handler["statusMessage"] = status_message
+    return handler
+
+
+def _claude_managed_settings_path(context: HarnessContext) -> Path:
+    return context.home_dir / ".claude" / "settings.json"
 
 
 def _shell_command(command: tuple[str, ...], *, windows: bool | None = None) -> str:
@@ -42,18 +54,28 @@ def _shell_command(command: tuple[str, ...], *, windows: bool | None = None) -> 
 
 
 def _sync_runtime_hook_groups(hooks: dict[str, object], hook_command: str) -> None:
-    for key, matcher, timeout in (
-        ("PreToolUse", CLAUDE_GUARD_TOOL_MATCHER, CLAUDE_GUARD_TOOL_TIMEOUT_SECONDS),
-        ("PermissionRequest", CLAUDE_GUARD_TOOL_MATCHER, CLAUDE_GUARD_NOTIFICATION_TIMEOUT_SECONDS),
-        ("PostToolUse", CLAUDE_GUARD_POST_TOOL_MATCHER, CLAUDE_GUARD_TOOL_TIMEOUT_SECONDS),
-        ("Notification", CLAUDE_GUARD_NOTIFICATION_MATCHER, CLAUDE_GUARD_NOTIFICATION_TIMEOUT_SECONDS),
-        ("Stop", None, CLAUDE_GUARD_STOP_TIMEOUT_SECONDS),
+    for key, matcher, timeout, status_message in (
+        (
+            "PreToolUse",
+            CLAUDE_GUARD_TOOL_MATCHER,
+            CLAUDE_GUARD_TOOL_TIMEOUT_SECONDS,
+            "HOL Guard is checking this tool use",
+        ),
+        (
+            "PermissionRequest",
+            CLAUDE_GUARD_TOOL_MATCHER,
+            CLAUDE_GUARD_NOTIFICATION_TIMEOUT_SECONDS,
+            "HOL Guard is reviewing this approval prompt",
+        ),
+        ("PostToolUse", CLAUDE_GUARD_POST_TOOL_MATCHER, CLAUDE_GUARD_TOOL_TIMEOUT_SECONDS, None),
+        ("Notification", CLAUDE_GUARD_NOTIFICATION_MATCHER, CLAUDE_GUARD_NOTIFICATION_TIMEOUT_SECONDS, None),
+        ("Stop", None, CLAUDE_GUARD_STOP_TIMEOUT_SECONDS, None),
     ):
         existing_entries = hooks.get(key)
         hooks[key] = _merge_hook_group(
             _prune_guard_hook_entries(existing_entries if isinstance(existing_entries, list) else []),
             matcher,
-            _guard_command_handler(hook_command, timeout=timeout),
+            _guard_command_handler(hook_command, timeout=timeout, status_message=status_message),
         )
 
 
@@ -494,104 +516,17 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
             query["home"] = str(context.home_dir)
         if context.workspace_dir is not None:
             query["workspace"] = str(context.workspace_dir)
-        js = (
-            f"const MARKER={CLAUDE_GUARD_DAEMON_HOOK_MARKER!r};"
-            "void MARKER;"
-            "const fs=require('fs');"
-            "const http=require('http');"
-            "const cp=require('child_process');"
-            "const {URL}=require('url');"
-            f"const statePath={str(state_path)!r};"
-            f"const fallbackUrl={fallback_daemon_url!r};"
-            f"const fallbackCommand={list(fallback_command)!r};"
-            f"const query={urlencode(query)!r};"
-            "function daemonUrl(){"
-            "try{"
-            "const payload=JSON.parse(fs.readFileSync(statePath,'utf8'));"
-            "if(Number.isInteger(payload.port))return `http://127.0.0.1:${payload.port}`;"
-            "}catch(_error){}"
-            "return fallbackUrl;"
-            "}"
-            "function eventName(data){"
-            "try{const payload=JSON.parse(data||'{}');"
-            "return String(payload.hook_event_name||payload.event||'PreToolUse');}"
-            "catch(_error){return 'PreToolUse';}"
-            "}"
-            "function promptText(data){"
-            "try{const payload=JSON.parse(data||'{}');return String(payload.prompt||payload.user_prompt||'');}"
-            "catch(_error){return '';}"
-            "}"
-            "function degradedPrompt(data){"
-            "const prompt=promptText(data).toLowerCase();"
-            "const risky=prompt.includes('.env')||prompt.includes('secret')||prompt.includes('api key')"
-            "||prompt.includes('token');"
-            "if(risky){"
-            "return JSON.stringify({systemMessage:'HOL Guard intercepted this prompt because it asks Claude to access "
-            "local secrets. If Claude asks to continue, HOL Guard will route the decision through a branded approval "
-            "prompt.',hookSpecificOutput:{hookEventName:'UserPromptSubmit',additionalContext:'HOL Guard will intercept "
-            "Claude\\'s next attempt to access local secrets and open a branded approval question to protect you.'"
-            "}});"
-            "}"
-            "return JSON.stringify({hookSpecificOutput:{hookEventName:'UserPromptSubmit'}});"
-            "}"
-            "function degraded(reason,data){"
-            "const event=eventName(data);"
-            "const message=`HOL Guard could not reach the local daemon (${reason}), so it is using Claude's native "
-            "approval prompt as a temporary safety fallback.`;"
-            "if(event==='UserPromptSubmit'){return degradedPrompt(data);}"
-            "if(event==='PreToolUse'){return JSON.stringify({systemMessage:'HOL Guard could not reach the local "
-            "daemon, so it cannot render the full HOL Guard approval flow.',hookSpecificOutput:{"
-            "hookEventName:'PreToolUse',permissionDecision:'ask',permissionDecisionReason:`${message} Keep this "
-            "action blocked unless you intentionally trust it. Restart Guard to restore the branded Allow once / "
-            "Allow during this session / Keep blocked flow.`}});}"
-            "return '{}';"
-            "}"
-            "function shouldSuppressOutput(data,responseBody){"
-            "if(eventName(data)!=='UserPromptSubmit')return false;"
-            "const trimmed=(responseBody||'').trim();"
-            "return trimmed===''||trimmed==='{}';"
-            "}"
-            "function runLocalFallback(reason,data){"
-            "try{"
-            "const result=cp.spawnSync(fallbackCommand[0],fallbackCommand.slice(1),{input:data,encoding:'utf8',"
-            "timeout:30000,env:process.env});"
-            "if(result.error)return degraded(`${reason}; fallback failed: ${result.error.message}`,data);"
-            "if(result.status===0){"
-            "if(shouldSuppressOutput(data,result.stdout)){process.exit(0);}"
-            "process.stdout.write(result.stdout&&result.stdout.trim()?result.stdout:'{}');"
-            "process.exit(0);}"
-            "return degraded(`${reason}; fallback exited ${result.status}`,data);"
-            "}catch(error){return degraded(`${reason}; fallback crashed: ${error.message}`,data);}"
-            "}"
-            "function fail(reason){"
-            "process.stdout.write(runLocalFallback(reason,body.trim()?body:'{}'));"
-            "process.exit(0);"
-            "}"
-            "let body='';"
-            "process.stdin.setEncoding('utf8');"
-            "process.stdin.on('data',chunk=>{body+=chunk;});"
-            "process.stdin.on('end',()=>{"
-            "let endpoint;"
-            "try{endpoint=new URL('/v1/hooks/claude-code?'+query,daemonUrl());}"
-            "catch(error){fail(error.message);return;}"
-            "const data=body.trim()?body:'{}';"
-            "const headers={'content-type':'application/json','content-length':Buffer.byteLength(data)};"
-            "const request=http.request(endpoint,{method:'POST',headers},response=>{"
-            "let responseBody='';"
-            "response.setEncoding('utf8');"
-            "response.on('data',chunk=>{responseBody+=chunk;});"
-            "response.on('end',()=>{"
-            "if(response.statusCode>=200&&response.statusCode<300){"
-            "if(shouldSuppressOutput(data,responseBody)){process.exit(0);}"
-            "process.stdout.write(responseBody);process.exit(0);}"
-            "fail(`daemon returned HTTP ${response.statusCode||0}`);"
-            "});"
-            "});"
-            "request.on('error',error=>{fail(error.message);});"
-            "request.end(data);"
-            "});"
+        package_root = Path(__file__).resolve().parents[3]
+        code = (
+            f"_HOL_GUARD_CLAUDE_DAEMON_HOOK_MARKER = {CLAUDE_GUARD_DAEMON_HOOK_MARKER!r};"
+            "import sys;"
+            f"sys.path.insert(0, {str(package_root)!r});"
+            "from codex_plugin_scanner.guard.adapters.claude_daemon_hook_bridge import main;"
+            f"raise SystemExit(main(state_path={str(state_path)!r}, "
+            f"fallback_daemon_url={fallback_daemon_url!r}, "
+            f"fallback_command={fallback_command!r}, query={urlencode(query)!r}))"
         )
-        return ("node", "-e", js)
+        return (sys.executable, "-c", code)
 
     @staticmethod
     def _hook_command_parts(context: HarnessContext) -> tuple[str, ...]:
@@ -617,6 +552,7 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
     @staticmethod
     def _session_start_command_parts(context: HarnessContext) -> tuple[str, ...]:
         package_root = Path(__file__).resolve().parents[3]
+        workspace_dir_literal = f"Path({str(context.workspace_dir)!r})" if context.workspace_dir is not None else "None"
         code = (
             "import sys;"
             f"sys.path.insert(0, {str(package_root)!r});"
@@ -626,7 +562,8 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
             "from codex_plugin_scanner.guard.adapters.claude_code import ClaudeCodeHarnessAdapter;"
             f"ensure_guard_daemon(Path({str(context.guard_home)!r}));"
             f"ClaudeCodeHarnessAdapter.refresh_installed_hook_urls(home_dir=Path({str(context.home_dir)!r}), "
-            f"workspace_dir=Path({str(context.workspace_dir)!r}), guard_home=Path({str(context.guard_home)!r}));"
+            f"workspace_dir={workspace_dir_literal}, "
+            f"guard_home=Path({str(context.guard_home)!r}));"
             "print(json.dumps({'hookSpecificOutput': {'hookEventName': 'SessionStart', "
             "'additionalContext': 'HOL Guard protection is active for this workspace.'}}, "
             "separators=(',', ':')))"
@@ -640,9 +577,7 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
         )
 
     def refresh_runtime_hook_urls(self, context: HarnessContext) -> None:
-        if context.workspace_dir is None:
-            return
-        settings_path = context.workspace_dir / ".claude" / "settings.local.json"
+        settings_path = _claude_managed_settings_path(context)
         payload = _json_payload(settings_path)
         hooks = payload.get("hooks")
         if not isinstance(hooks, dict):
@@ -665,15 +600,8 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
             launcher_name="claude",
             display_name="claude",
         )
-        if context.workspace_dir is None:
-            return {
-                "harness": self.harness,
-                "active": True,
-                "config_path": shim_manifest["shim_path"],
-                **shim_manifest,
-            }
-        settings_path = context.workspace_dir / ".claude" / "settings.local.json"
-        _ensure_path_within_root(context.workspace_dir, settings_path, label="Claude Code")
+        settings_path = _claude_managed_settings_path(context)
+        _ensure_path_within_root(context.home_dir, settings_path, label="Claude Code")
         payload = _json_payload(settings_path)
         session_start_command = self._session_start_command(context)
         hook_command = self._daemon_hook_command(context)
@@ -701,7 +629,7 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
             "config_path": str(settings_path),
             **shim_manifest,
             "notes": [
-                "Guard hook entries added to .claude/settings.local.json",
+                "Guard hook entries added to ~/.claude/settings.json",
                 *[str(note) for note in shim_manifest.get("notes", [])],
             ],
         }
@@ -714,15 +642,8 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
             display_name="claude",
             legacy_launcher_names=("claude-code",),
         )
-        if context.workspace_dir is None:
-            return {
-                "harness": self.harness,
-                "active": False,
-                "config_path": shim_manifest["shim_path"],
-                **shim_manifest,
-            }
-        settings_path = context.workspace_dir / ".claude" / "settings.local.json"
-        _ensure_path_within_root(context.workspace_dir, settings_path, label="Claude Code")
+        settings_path = _claude_managed_settings_path(context)
+        _ensure_path_within_root(context.home_dir, settings_path, label="Claude Code")
         payload = _json_payload(settings_path)
         hooks = payload.get("hooks")
         if isinstance(hooks, dict):
@@ -746,7 +667,7 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
             "config_path": str(settings_path),
             **shim_manifest,
             "notes": [
-                "Guard hook entries removed from .claude/settings.local.json",
+                "Guard hook entries removed from ~/.claude/settings.json",
                 *[str(note) for note in shim_manifest.get("notes", [])],
             ],
         }

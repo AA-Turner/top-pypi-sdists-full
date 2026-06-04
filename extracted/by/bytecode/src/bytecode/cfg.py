@@ -1,4 +1,5 @@
-import sys
+from __future__ import annotations
+
 import types
 from collections import defaultdict
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ import bytecode as _bytecode
 from bytecode.concrete import ConcreteInstr
 from bytecode.flags import CompilerFlags
 from bytecode.instr import UNSET, Instr, Label, SetLineno, TryBegin, TryEnd
-from bytecode.utils import PY310, PY311, PY313
+from bytecode.utils import PY313
 
 T = TypeVar("T", bound="BasicBlock")
 U = TypeVar("U", bound="ControlFlowGraph")
@@ -37,43 +38,79 @@ class BasicBlock(_bytecode._InstrList[Union[Instr, SetLineno, TryBegin, TryEnd]]
         ] = None,
     ) -> None:
         # a BasicBlock object, or None
-        self.next_block: Optional["BasicBlock"] = None
+        self.next_block: Optional[BasicBlock] = None
         if instructions:
             super().__init__(instructions)
 
-    def __iter__(self) -> Iterator[Union[Instr, SetLineno, TryBegin, TryEnd]]:
-        index = 0
-        while index < len(self):
-            instr = self[index]
-            index += 1
+    _VALID_TYPES = (SetLineno, Instr, TryBegin, TryEnd)
 
-            if not isinstance(instr, (SetLineno, Instr, TryBegin, TryEnd)):
+    @staticmethod
+    def _check_instr(instr: Any) -> None:
+        if not isinstance(instr, (SetLineno, Instr, TryBegin, TryEnd)):
+            raise ValueError(
+                "BasicBlock must only contain SetLineno and Instr objects, "
+                "but %s was found" % instr.__class__.__name__
+            )
+
+    def append(self, instr: Union[Instr, SetLineno, TryBegin, TryEnd]) -> None:
+        self._check_instr(instr)
+        if isinstance(instr, Instr):
+            last = self.get_last_non_artificial_instruction()
+            if last is not None and last.has_jump():
                 raise ValueError(
-                    "BasicBlock must only contain SetLineno and Instr objects, "
-                    "but %s was found" % instr.__class__.__name__
+                    "Only the last instruction of a basic block can be a jump"
                 )
+        super().append(instr)
 
-            if isinstance(instr, Instr) and instr.has_jump():
-                if index < len(self) and any(
-                    isinstance(self[i], Instr) for i in range(index, len(self))
+    def insert(
+        self, index: SupportsIndex, instr: Union[Instr, SetLineno, TryBegin, TryEnd]
+    ) -> None:
+        self._check_instr(instr)
+        super().insert(index, instr)
+
+    def extend(
+        self, instrs: Iterable[Union[Instr, SetLineno, TryBegin, TryEnd]]
+    ) -> None:
+        instrs = list(instrs)
+        for instr in instrs:
+            self._check_instr(instr)
+        existing_last = self.get_last_non_artificial_instruction()
+        last_new_instr: Optional[Instr] = None
+        for instr in instrs:
+            if isinstance(instr, Instr):
+                if (existing_last is not None and existing_last.has_jump()) or (
+                    last_new_instr is not None and last_new_instr.has_jump()
                 ):
                     raise ValueError(
                         "Only the last instruction of a basic block can be a jump"
                     )
+                last_new_instr = instr
+        super().extend(instrs)
 
+    def __setitem__(self, index, value):
+        if isinstance(index, slice):
+            values = list(value)
+            for instr in values:
+                self._check_instr(instr)
+            super().__setitem__(index, values)
+        else:
+            self._check_instr(value)
+            super().__setitem__(index, value)
+
+    def __iter__(self) -> Iterator[Union[Instr, SetLineno, TryBegin, TryEnd]]:
+        for instr in super().__iter__():
+            if isinstance(instr, Instr) and instr.has_jump():
                 if not isinstance(instr.arg, BasicBlock):
                     raise ValueError(
-                        "Jump target must a BasicBlock, got %s",
-                        type(instr.arg).__name__,
+                        "Jump target must a BasicBlock, got %s"
+                        % type(instr.arg).__name__
                     )
-
-            if isinstance(instr, TryBegin):
+            elif isinstance(instr, TryBegin):
                 if not isinstance(instr.target, BasicBlock):
                     raise ValueError(
-                        "TryBegin target must a BasicBlock, got %s",
-                        type(instr.target).__name__,
+                        "TryBegin target must a BasicBlock, got %s"
+                        % type(instr.target).__name__
                     )
-
             yield instr
 
     @overload
@@ -93,10 +130,9 @@ class BasicBlock(_bytecode._InstrList[Union[Instr, SetLineno, TryBegin, TryEnd]]
         return value
 
     def get_last_non_artificial_instruction(self) -> Optional[Instr]:
-        for instr in reversed(self):
+        for instr in super().__reversed__():
             if isinstance(instr, Instr):
                 return instr
-
         return None
 
     def copy(self: T) -> T:
@@ -130,7 +166,7 @@ class BasicBlock(_bytecode._InstrList[Union[Instr, SetLineno, TryBegin, TryEnd]]
 
         return current_lineno
 
-    def get_jump(self) -> Optional["BasicBlock"]:
+    def get_jump(self) -> Optional[BasicBlock]:
         if not self:
             return None
 
@@ -244,7 +280,7 @@ class _StackSizeComputer:
         self.pending_try_begin = pending_try_begin
         self._current_try_begin = pending_try_begin
 
-    def run(self) -> Generator[Union["_StackSizeComputer", int], int, None]:
+    def run(self) -> Generator[Union[_StackSizeComputer, int], int, None]:
         """Iterate over the block instructions to compute stack usage."""
         # Blocks are not hashable but in this particular context we know we won't be
         # modifying blocks in place so we can safely use their id as hash rather than
@@ -307,7 +343,17 @@ class _StackSizeComputer:
                 # current try begin. However inside the CFG some blocks may
                 # start with a TryEnd relevant only when reaching this block
                 # through a particular jump. So we are lenient here.
-                if instr.entry is not self._current_try_begin:
+                #
+                # We match on the exception handler (the TryBegin target block)
+                # rather than on the TryBegin instance: a single exception region
+                # can be split into several TryBegin copies that share the same
+                # handler (see ``from_bytecode``), and the copy carried over as
+                # ``pending_try_begin`` through a jump is not necessarily the same
+                # instance as the one referenced by this block's leading TryEnd.
+                if (
+                    self._current_try_begin is None
+                    or instr.entry.target is not self._current_try_begin.target
+                ):
                     continue
 
                 # Compute the stack usage of the exception handler
@@ -344,9 +390,11 @@ class _StackSizeComputer:
                     None,
                     # Do not propagate the TryBegin if a final instruction is followed
                     # by a TryEnd.
-                    None
-                    if instr.is_final() and self.block.get_trailing_try_end(i)
-                    else self._current_try_begin,
+                    (
+                        None
+                        if instr.is_final() and self.block.get_trailing_try_end(i)
+                        else self._current_try_begin
+                    ),
                 )
 
                 # Update the maximum used size by the usage implied by the following
@@ -363,8 +411,10 @@ class _StackSizeComputer:
                     # start with a TryEnd relevant only when reaching this block
                     # through a particular jump. So we are lenient here.
                     if (
-                        te := self.block.get_trailing_try_end(i)
-                    ) and te.entry is self._current_try_begin:
+                        (te := self.block.get_trailing_try_end(i))
+                        and self._current_try_begin is not None
+                        and te.entry.target is self._current_try_begin.target
+                    ):
                         assert isinstance(te.entry.target, BasicBlock)
                         yield from self._compute_exception_handler_stack_usage(
                             te.entry.target,
@@ -427,7 +477,7 @@ class _StackSizeComputer:
 
     def _compute_exception_handler_stack_usage(
         self, block: BasicBlock, push_lasti: bool
-    ) -> Generator[Union["_StackSizeComputer", int], int, None]:
+    ) -> Generator[Union[_StackSizeComputer, int], int, None]:
         b_id = id(block)
         if self.minsize < self.common.exception_block_startsize[b_id]:
             block_size = yield _StackSizeComputer(
@@ -447,18 +497,10 @@ class _StackSizeComputer:
     def _is_stacksize_computation_relevant(
         self, block_id: int, fingerprint: Tuple[int, Optional[bool]]
     ) -> bool:
-        if PY311:
-            # The computation is relevant if the block was not visited previously
-            # with the same starting size and exception handler status than the
-            # one in use
-            return fingerprint not in self.common.blocks_startsizes[block_id]
-        else:
-            # The computation is relevant if the block was only visited with smaller
-            # starting sizes than the one in use
-            if sizes := self.common.blocks_startsizes[block_id]:
-                return fingerprint[0] > max(f[0] for f in sizes)
-            else:
-                return True
+        # The computation is relevant if the block was not visited previously
+        # with the same starting size and exception handler status than the
+        # one in use
+        return fingerprint not in self.common.blocks_startsizes[block_id]
 
 
 class ControlFlowGraph(_bytecode.BaseBytecode):
@@ -521,11 +563,10 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
         )
 
         # Starting with Python 3.10, generator and coroutines start with one object
-        # on the stack (None, anything is an error).
+        # on the stack (None, anything else is an error).
         initial_stack_size = 0
         if (
             not PY313  # under 3.13+ RETURN_GENERATOR make this explicit
-            and PY310
             and self.flags
             & (
                 CompilerFlags.GENERATOR
@@ -588,7 +629,6 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
             if compute_exception_stack_depths:
                 for tb in common.try_begins:
                     size = common.exception_block_startsize[id(tb.target)]
-                    assert size >= 0
                     tb.stack_depth = size
 
             return args
@@ -629,7 +669,7 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
                         # argument rather than a Label. This is fine for comparison
                         # purposes which is our sole goal here.
                         c_instr = ConcreteInstr(
-                            instr.name,
+                            instr._name,
                             self.get_block_index(target_block),
                             location=instr.location,
                         )
@@ -748,7 +788,7 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
         return [b for b in self if id(b) not in seen_block_ids]
 
     @staticmethod
-    def from_bytecode(bytecode: _bytecode.Bytecode) -> "ControlFlowGraph":
+    def from_bytecode(bytecode: _bytecode.Bytecode) -> ControlFlowGraph:
         # label => instruction index
         label_to_block_index = {}
         jumps = []
@@ -841,7 +881,7 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
                 # The last instruction is final, if the current instruction is a
                 # TryEnd insert it in the same block and move to the next instruction
                 if last_instr.is_final() and isinstance(instr, TryEnd):
-                    assert active_try_begin
+                    assert active_try_begin is not None
                     nte = instr.copy()
                     nte.entry = try_begins[active_try_begin][-1]
                     old_block.append(nte)
@@ -888,7 +928,6 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
             if isinstance(instr, (Instr, TryBegin, TryEnd)):
                 new = instr.copy()
                 if isinstance(instr, TryBegin):
-                    assert active_try_begin is None
                     active_try_begin = instr
                     try_begin_inserted_in_block = True
                     assert isinstance(new, TryBegin)
@@ -982,9 +1021,7 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
                         # If due to jumps and split TryBegin, we encounter a TryBegin
                         # while we still have a TryBegin ensure they can be fused.
                         if last_try_begin is not None:
-                            cfg_tb, byt_tb = last_try_begin
-                            assert instr.target is cfg_tb.target
-                            assert instr.push_lasti == cfg_tb.push_lasti
+                            _, byt_tb = last_try_begin
                             byt_tb.stack_depth = min(
                                 byt_tb.stack_depth, instr.stack_depth
                             )
@@ -1003,7 +1040,6 @@ class ControlFlowGraph(_bytecode.BaseBytecode):
                                 # If we did not yet compute the required stack depth
                                 # keep the value as UNSET
                                 if entry.stack_depth is UNSET:
-                                    assert instr.stack_depth is UNSET
                                     byt_te.entry.stack_depth = UNSET
                                 else:
                                     byt_te.entry.stack_depth = min(

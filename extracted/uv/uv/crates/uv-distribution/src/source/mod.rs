@@ -50,6 +50,7 @@ use uv_workspace::pyproject::ToolUvSources;
 
 use crate::distribution_database::ManagedClient;
 use crate::error::Error;
+use crate::hash::http_hash_algorithms;
 use crate::metadata::{ArchiveMetadata, GitWorkspaceMember, Metadata};
 use crate::source::built_wheel_metadata::{BuiltWheelFile, BuiltWheelMetadata};
 use crate::source::revision::Revision;
@@ -224,10 +225,10 @@ pub(crate) const LOCAL_REVISION: &str = "revision.rev";
 pub(crate) const HASHES: &str = "hashes.msgpack";
 
 /// The name of the file that contains the cached distribution metadata, encoded via `MsgPack`.
-pub(crate) const METADATA: &str = "metadata.msgpack";
+const METADATA: &str = "metadata.msgpack";
 
 /// The directory within each entry under which to store the unpacked source distribution.
-pub(crate) const SOURCE: &str = "src";
+const SOURCE: &str = "src";
 
 impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
     /// Initialize a [`SourceDistributionBuilder`] from a [`BuildContext`].
@@ -980,7 +981,7 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
                 // Download the source distribution.
                 debug!("Downloading source distribution: {source}");
                 let entry = cache_shard.shard(revision.id()).entry(SOURCE);
-                let algorithms = hashes.algorithms();
+                let algorithms = http_hash_algorithms(hashes);
                 let hashes = self
                     .download_archive(query_url, response, source, ext, entry.path(), &algorithms)
                     .await?;
@@ -2718,7 +2719,7 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
             async {
                 // Take the union of the requested and existing hash algorithms.
                 let algorithms = {
-                    let mut algorithms = hashes.algorithms();
+                    let mut algorithms = http_hash_algorithms(hashes);
                     for digest in revision.hashes() {
                         algorithms.push(digest.algorithm());
                     }
@@ -3516,7 +3517,7 @@ impl LocalRevisionPointer {
     }
 
     /// Return the [`Revision`] for the pointer.
-    pub(crate) fn revision(&self) -> &Revision {
+    fn revision(&self) -> &Revision {
         &self.revision
     }
 

@@ -8,6 +8,19 @@
 
 #include "precompiled_header.hpp"
 
+// cppTango decides whether telemetry support exists via TANGO_USE_TELEMETRY.
+// For testing PyTango's no-telemetry code paths, allow masking that feature
+// at PyTango build time without rebuilding cppTango.
+#if defined(PYTANGO_FORCE_DISABLE_TELEMETRY)
+  #ifdef TANGO_USE_TELEMETRY
+    #undef TANGO_USE_TELEMETRY
+  #endif
+#endif
+
+#if defined(TANGO_USE_TELEMETRY)
+  #define PYTANGO_USE_TELEMETRY 1
+#endif
+
 // define some common project-wide aliases
 #include "defs.h"
 

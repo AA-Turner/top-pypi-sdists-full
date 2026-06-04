@@ -26,9 +26,6 @@ CPython/CFFI wrapper for OpenLDAP's "Lightning" MDB database.
 Please see https://lmdb.readthedocs.io/
 """
 
-from __future__ import absolute_import
-from __future__ import with_statement
-
 import errno
 import inspect
 import os
@@ -38,11 +35,6 @@ import threading
 is_win32 = sys.platform == 'win32'
 if is_win32:
     import msvcrt
-
-try:
-    import __builtin__
-except ImportError:
-    import builtins as __builtin__  # type: ignore
 
 import lmdb
 try:
@@ -90,17 +82,13 @@ __all__ += [
 ]
 
 
-# Handle moronic Python 3 mess.
-UnicodeType = getattr(__builtin__, 'unicode', str)
-BytesType = getattr(__builtin__, 'bytes', str)
-
 O_0755 = int('0755', 8)
 
 # Global set of canonical paths for open environments, to prevent
 # opening the same environment twice in one process (causes segfaults).
 _open_env_paths = set()
 O_0111 = int('0111', 8)
-EMPTY_BYTES = UnicodeType().encode()
+EMPTY_BYTES = b""
 
 
 # Cached process ID for fork detection, mirroring cpython.c.
@@ -540,7 +528,7 @@ def _error(what, rc):
     `rc`, using :py:class:`Error` if no better class exists."""
     return _error_map.get(rc, Error)(what, rc)
 
-class Some_LMDB_Resource_That_Was_Deleted_Or_Closed(object):
+class Some_LMDB_Resource_That_Was_Deleted_Or_Closed:
     """We need this because CFFI on PyPy treats None as cffi.NULL, instead of
     throwing an exception it feeds LMDB null pointers. That means simply
     replacing native handles with None during _invalidate() will cause NULL
@@ -551,9 +539,6 @@ class Some_LMDB_Resource_That_Was_Deleted_Or_Closed(object):
     of a native handle to ensure the handle is still valid prior to calling
     LMDB, or doing no crash-safety checking at all.
     """
-    def __nonzero__(self):
-        return 0
-
     def __bool__(self):
         return False
 
@@ -598,7 +583,7 @@ def version(subpatch=False):
             _lib.MDB_VERSION_PATCH)
 
 
-class Environment(object):
+class Environment:
     """
     Structure for a database environment. An environment may contain multiple
     databases, all residing in the same shared-memory map and underlying disk
@@ -749,6 +734,10 @@ class Environment(object):
         self._creating_db_in_readonly = False
         self._write_txn_tid = 0
         self._close_lock = threading.RLock()
+        # Signalled by the owning thread when it releases a write txn, so
+        # close() on another thread can block (no polling) until the
+        # robust write mutex is unlocked on its owning thread.  #465.
+        self._write_txn_cond = threading.Condition()
 
         self.set_mapsize(map_size)
 
@@ -793,7 +782,7 @@ class Environment(object):
         if not lock:
             flags |= _lib.MDB_NOLOCK
 
-        if isinstance(path, UnicodeType):
+        if isinstance(path, str):
             path = path.encode(sys.getfilesystemencoding())
 
         rc = _lib.mdb_env_open(self._env, path, flags, mode & ~O_0111)
@@ -932,6 +921,26 @@ class Environment(object):
         <http://lmdb.tech/doc/group__mdb.html#ga4366c43ada8874588b6a62fbda2d1e95>`_
         """
         if self._env:
+            # Issue #465: LMDB requires all transactions closed before
+            # mdb_env_close, and a write transaction belongs to the OS
+            # thread that began it (MDB_NOTLS).  On Linux its robust
+            # process-shared write mutex can only be released by that
+            # thread.  If close() runs on a different thread while a write
+            # txn is still open, wait (bounded) for the owning thread to
+            # release it first, so the mutex is unlocked on its own thread
+            # before mdb_env_close unmaps the lock file; otherwise it is
+            # left dangling on the owning thread's robust list and a later
+            # begin() crashes inside pthread_mutex_lock on aarch64.  The
+            # wait MUST be outside _close_lock — the owning thread needs
+            # that lock to abort.  Block on the condition (woken by the
+            # owning thread when it clears _write_txn_tid); _close_lock
+            # then serialises that abort's mutex unlock ahead of our
+            # mdb_env_close.  No polling.
+            me = threading.get_ident()
+            with self._write_txn_cond:
+                while self._write_txn_tid and self._write_txn_tid != me:
+                    self._write_txn_cond.wait()
+
             with self._close_lock:
                 if not self._env:
                     return
@@ -1226,7 +1235,7 @@ class Environment(object):
             rc = _lib.mdb_reader_list(self._env, _msg_func, _ffi.NULL)
             if rc:
                 raise _error("mdb_reader_list", rc)
-            return UnicodeType().join(_callbacks.msg_func)
+            return "".join(_callbacks.msg_func)
         finally:
             del _callbacks.msg_func
 
@@ -1333,7 +1342,7 @@ class Environment(object):
                 duplicate value for a key to be stored without a header
                 indicating its size.  Implies `dupsort` is ``True``.
         """
-        if isinstance(key, UnicodeType):
+        if isinstance(key, str):
             raise TypeError('key must be bytes')
 
         if key is None and (reverse_key or dupsort or integerkey or integerdup
@@ -1403,7 +1412,7 @@ class Environment(object):
         return Transaction(self, db, parent, write, buffers)
 
 
-class _Database(object):
+class _Database:
     """
     Internal database handle.  This class is opaque, save a single method.
 
@@ -1465,7 +1474,7 @@ class _Database(object):
 open = Environment
 
 
-class Transaction(object):
+class Transaction:
     """
     A transaction object. All operations require a transaction handle,
     transactions may be read-only or read-write. Write transactions may not
@@ -1568,6 +1577,8 @@ class Transaction(object):
                 if rc:
                     if not parent:
                         env._write_txn_tid = 0
+                        with env._write_txn_cond:
+                            env._write_txn_cond.notify_all()
                     raise _error("mdb_txn_begin", rc)
                 self._txn = txnpp[0]
                 self._write = True
@@ -1707,6 +1718,8 @@ class Transaction(object):
                 self._txn = _invalid
                 if self._write and not self._parent:
                     self.env._write_txn_tid = 0
+                    with self.env._write_txn_cond:
+                        self.env._write_txn_cond.notify_all()
                 if not self.env._env:
                     raise _error("env has been closed", _lib.EINVAL)
                 rc = _lib.mdb_txn_commit(txn)
@@ -1732,6 +1745,8 @@ class Transaction(object):
                     self._txn = _invalid
                     if self._write and not self._parent:
                         self.env._write_txn_tid = 0
+                        with self.env._write_txn_cond:
+                            self.env._write_txn_cond.notify_all()
                     if not self.env._env:
                         self._invalidate()
                         return
@@ -1860,7 +1875,7 @@ class Transaction(object):
         return Cursor(db or self._db, self)
 
 
-class Cursor(object):
+class Cursor:
     """
     Structure for navigating a database.
 

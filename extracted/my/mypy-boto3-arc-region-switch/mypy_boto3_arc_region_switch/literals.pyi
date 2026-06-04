@@ -51,6 +51,8 @@ __all__ = (
     "ListPlansPaginatorName",
     "ListRoute53HealthChecksInRegionPaginatorName",
     "ListRoute53HealthChecksPaginatorName",
+    "NeptuneDefaultBehaviorType",
+    "NeptuneUngracefulBehaviorType",
     "PaginatorName",
     "PlanEvaluationStatusPassedWaiterName",
     "PlanExecutionCompletedWaiterName",
@@ -87,6 +89,8 @@ ExecutionBlockTypeType = Literal[
     "ARCRegionSwitchPlan",
     "ARCRoutingControl",
     "AuroraGlobalDatabase",
+    "AuroraProvisionedScaling",
+    "AuroraServerlessScaling",
     "CustomActionLambda",
     "DocumentDb",
     "EC2AutoScaling",
@@ -94,6 +98,7 @@ ExecutionBlockTypeType = Literal[
     "EKSResourceScaling",
     "LambdaEventSourceMapping",
     "ManualApproval",
+    "NeptuneGlobalDatabase",
     "Parallel",
     "RdsCreateCrossRegionReplica",
     "RdsPromoteReadReplica",
@@ -156,6 +161,8 @@ ListPlansInRegionPaginatorName = Literal["list_plans_in_region"]
 ListPlansPaginatorName = Literal["list_plans"]
 ListRoute53HealthChecksInRegionPaginatorName = Literal["list_route53_health_checks_in_region"]
 ListRoute53HealthChecksPaginatorName = Literal["list_route53_health_checks"]
+NeptuneDefaultBehaviorType = Literal["failover", "switchoverOnly"]
+NeptuneUngracefulBehaviorType = Literal["failover"]
 PlanEvaluationStatusPassedWaiterName = Literal["plan_evaluation_status_passed"]
 PlanExecutionCompletedWaiterName = Literal["plan_execution_completed"]
 RecoveryApproachType = Literal["activeActive", "activePassive"]
@@ -496,6 +503,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -523,6 +531,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

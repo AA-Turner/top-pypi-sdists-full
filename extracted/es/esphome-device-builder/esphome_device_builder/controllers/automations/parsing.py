@@ -17,29 +17,30 @@ carries it: that entry comes back with ``error`` set and an empty
 tree (the frontend renders it read-only as "edit raw YAML"), while
 every sibling parses normally. A YAML that won't load at all is the
 one whole-document failure that still raises.
+
+Body decomposition (handler body → tree) lives in :mod:`._decompose`;
+source-line mapping in :mod:`._ranges`; the shared YAML factory in
+:mod:`._yaml`. This module owns the document walk that stitches them
+into the ordered :class:`ParsedAutomation` list.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Iterator
 from functools import partial
-from io import StringIO
+from importlib import resources
 from typing import Any
 
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import TaggedScalar
-from ruamel.yaml.scalarfloat import ScalarFloat
-from ruamel.yaml.scalarstring import LiteralScalarString
-
 from ...helpers.api import CommandError
+from ...helpers.json import loads as json_loads
+from ...helpers.lazy_catalog import is_unsafe_catalog_id
 from ...models.api import ErrorCode
 from ...models.automations import (
-    ActionNode,
     ApiActionLocation,
     AutomationTree,
     AutomationTrigger,
+    ComponentActionFieldLocation,
     ComponentOnLocation,
-    ConditionNode,
     DeviceOnLocation,
     IntervalLocation,
     LightEffectLocation,
@@ -47,31 +48,48 @@ from ...models.automations import (
     ScriptLocation,
 )
 from . import catalog
+from ._decompose import (
+    DEFAULT_SHORTHAND_KEY,
+    _block_tree,
+    _collect_api_action_params,
+    _collect_block_params,
+    _decompose_action,
+    _decompose_action_list,
+    _decompose_condition,
+    _decompose_condition_list,
+    _decompose_trigger_body,
+    _decompose_trigger_mapping,
+    _render_params,
+    _render_value,
+    _safe_tree,
+)
+from ._ranges import _dump_slice, _estimate_end_line, _item_range, _key_range, _pretty_name
+from ._yaml import make_yaml
+
+__all__ = [
+    "DEFAULT_SHORTHAND_KEY",
+    "_decompose_action",
+    "_decompose_action_list",
+    "_decompose_condition",
+    "_decompose_condition_list",
+    "_decompose_trigger_mapping",
+    "_dump_slice",
+    "_estimate_end_line",
+    "_item_range",
+    "_key_range",
+    "_render_params",
+    "_render_value",
+    "make_yaml",
+    "parse_device_yaml",
+    "resolve_component_domain",
+    "singleton_component_id",
+]
+
+# Package holding the per-component body JSON (``config_entries`` trees).
+_COMPONENTS_PACKAGE = "esphome_device_builder.definitions.components"
 
 # Device-level trigger keys under the ``esphome:`` block.
 _DEVICE_TRIGGER_KEYS: tuple[str, ...] = ("on_boot", "on_loop", "on_shutdown")
-
-# Action-body keys that introduce a condition gate rather than plain params.
-_CONDITION_GATE_KEYS: frozenset[str] = frozenset({"condition", "all", "any"})
-
-# Fallback shorthand key when a catalog entry has no ``scalar_shorthand_key``
-# (id-reference actions / conditions). Shared with the emitter's collapse check.
-DEFAULT_SHORTHAND_KEY = "id"
-
-
-def make_yaml() -> YAML:
-    """
-    Build the round-trip YAML parser/emitter the controller shares.
-
-    Two-space mapping indent matches ESPHome's canonical layout;
-    ``preserve_quotes`` keeps quoted scalars like ``"on"`` intact so
-    a quoted boolean-looking string round-trips unchanged.
-    """
-    yaml = YAML(typ="rt")
-    yaml.preserve_quotes = True
-    yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.width = 4096
-    return yaml
 
 
 def parse_device_yaml(yaml_text: str) -> list[ParsedAutomation]:
@@ -98,6 +116,7 @@ def parse_device_yaml(yaml_text: str) -> list[ParsedAutomation]:
     out.extend(_parse_top_level_intervals(data))
     out.extend(_parse_api_actions(data))
     out.extend(_parse_inline_component_triggers(data))
+    out.extend(_parse_component_action_fields(data))
     out.extend(_parse_light_effects(data))
     return out
 
@@ -105,34 +124,6 @@ def parse_device_yaml(yaml_text: str) -> list[ParsedAutomation]:
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
-
-
-def _safe_tree(
-    build: Callable[[], AutomationTree], *, trigger_id: str | None
-) -> tuple[AutomationTree, str | None]:
-    """
-    Run *build*, isolating a per-automation decompose failure.
-
-    The decompose helpers normalise every per-automation fault to
-    ``CommandError`` (unknown action / condition id), so catching it
-    here contains the fault to this one entry — it comes back with an
-    empty tree plus the message while its siblings parse. A document
-    that won't load at all is the separate whole-file failure raised by
-    :func:`parse_device_yaml` upstream.
-    """
-    try:
-        return build(), None
-    except CommandError as err:
-        return AutomationTree(trigger_id=trigger_id, trigger_params={}, actions=[]), err.message
-
-
-def _block_tree(trigger_params: dict[str, Any], then_body: Any) -> AutomationTree:
-    """Build the trigger-less tree for a ``script:`` / ``interval:`` / ``api.actions:`` item."""
-    return AutomationTree(
-        trigger_id=None,
-        trigger_params=trigger_params,
-        actions=_decompose_action_list(then_body),
-    )
 
 
 # Cache of component domains that host inline ``on_*:`` triggers,
@@ -307,58 +298,139 @@ def resolve_component_domain(yaml_text: str, component_id: str) -> str | None:
     """
     Return the top-level domain whose instance declares *component_id*.
 
-    Keys instances exactly as :func:`_parse_inline_component_triggers`
-    does — list instances on ``id`` (or the synthetic ``<domain>_<idx>``),
-    flat singletons on :func:`singleton_component_id` — so the writer
-    attributes an id to the same domain the parser did. Only declared
-    instance ids match; an action *reference* (``id:`` nested in a
-    handler body) never does. ``None`` when no instance matches or the
-    YAML can't be parsed.
+    Shares the :func:`_iter_component_instances` walk so the writer
+    attributes an id to the same domain/instance the parser did — list
+    instances on ``id`` (or the synthetic ``<domain>_<idx>``), flat
+    singletons on :func:`singleton_component_id`. Resolves any component
+    domain (not only trigger-hosting ones), so component action-list
+    fields on e.g. ``cover`` resolve too. Only declared instance ids
+    match; an action *reference* (``id:`` nested in a handler body)
+    never does. ``None`` when no instance matches or the YAML won't load.
     """
     yaml = make_yaml()
     try:
         root = yaml.load(yaml_text)
     except Exception:  # noqa: BLE001 — any load failure falls back to the catalog guess
         return None
-    if not isinstance(root, dict):
-        return None
-    for domain, section in root.items():
-        if domain not in _component_trigger_domains():
-            continue
-        if isinstance(section, list):
-            for idx, instance in enumerate(section):
-                if not isinstance(instance, dict):
-                    continue
-                if str(instance.get("id") or f"{domain}_{idx}") == component_id:
-                    return str(domain)
-        elif isinstance(section, dict) and singleton_component_id(section, domain) == component_id:
-            return str(domain)
+    for domain, _instance, comp_id in _iter_component_instances(root):
+        if comp_id == component_id:
+            return domain
     return None
 
 
-def _parse_inline_component_triggers(root: Any) -> list[ParsedAutomation]:
+def _iter_component_instances(
+    root: Any,
+) -> Iterator[tuple[str, dict, str]]:
     """
-    Walk component instances for inline ``on_*:`` handlers.
+    Yield ``(domain, instance, comp_id)`` for every configured component.
 
     Handles list-domain instances (``switch:`` is a list) and flat
     singleton components (``sun:`` / ``mqtt:`` are a single mapping).
+    The id matches what :func:`resolve_component_domain` reconstructs,
+    so the parser and writer attribute the same id to the same instance.
+    Shared by the inline-``on_*`` and component-action-field passes so
+    the instance-walk lives in one place.
     """
     if not isinstance(root, dict):
-        return []
-    out: list[ParsedAutomation] = []
+        return
     for domain, section in root.items():
-        if domain not in _component_trigger_domains():
-            continue
         if isinstance(section, list):
             for idx, instance in enumerate(section):
-                if not isinstance(instance, dict):
-                    continue
-                comp_id = str(instance.get("id") or f"{domain}_{idx}")
-                out.extend(_parse_instance_triggers(domain, instance, comp_id))
+                if isinstance(instance, dict):
+                    yield str(domain), instance, str(instance.get("id") or f"{domain}_{idx}")
         elif isinstance(section, dict):
-            # Flat singleton: the whole block is the single instance.
-            out.extend(
-                _parse_instance_triggers(domain, section, singleton_component_id(section, domain))
+            yield str(domain), section, singleton_component_id(section, str(domain))
+
+
+def _parse_inline_component_triggers(root: Any) -> list[ParsedAutomation]:
+    """Walk component instances for inline ``on_*:`` handlers."""
+    trigger_domains = _component_trigger_domains()
+    out: list[ParsedAutomation] = []
+    for domain, instance, comp_id in _iter_component_instances(root):
+        if domain not in trigger_domains:
+            continue
+        out.extend(_parse_instance_triggers(domain, instance, comp_id))
+    return out
+
+
+# Per-``<domain>.<platform>`` set of ``type: trigger`` action-list field
+# keys, read from the component bodies on first use (process cache).
+_ACTION_FIELD_INDEX: dict[str, frozenset[str]] = {}
+
+
+def _component_action_fields(catalog_id: str) -> frozenset[str]:
+    """
+    Return the ``type: trigger`` action-list field keys for *catalog_id*.
+
+    Reads the component body's top-level ``config_entries`` (the same
+    JSON the components controller serves) once per id. Empty when the
+    body is absent or carries no such field.
+    """
+    cached = _ACTION_FIELD_INDEX.get(catalog_id)
+    if cached is not None:
+        return cached
+    fields: set[str] = set()
+    if not is_unsafe_catalog_id(catalog_id):
+        try:
+            raw = resources.files(_COMPONENTS_PACKAGE).joinpath(f"{catalog_id}.json").read_bytes()
+        except FileNotFoundError:
+            # Absent body — the expected "component has no shipped catalog
+            # entry" case. Only this is swallowed: a real read error or a
+            # missing definitions package (ModuleNotFoundError — a packaging
+            # defect that would otherwise silently disable the whole feature
+            # process-wide via the empty-set cache) propagates instead.
+            raw = b""
+        if raw:
+            body = json_loads(raw)
+            for entry in body.get("config_entries") or []:
+                if isinstance(entry, dict) and entry.get("type") == "trigger":
+                    key = entry.get("key")
+                    if isinstance(key, str):
+                        fields.add(key)
+    frozen = frozenset(fields)
+    _ACTION_FIELD_INDEX[catalog_id] = frozen
+    return frozen
+
+
+def _parse_component_action_fields(root: Any) -> list[ParsedAutomation]:
+    """
+    Emit each ``type: trigger`` action-list config field on a component.
+
+    Cover ``open_action`` / ``close_action`` / ``stop_action``, climate
+    ``*_action``, … are bare action lists keyed on the field name — a
+    trigger-less automation parallel to ``script:`` / ``api.actions:``.
+    Reuses the shared instance walk and the same body decomposition as
+    inline ``on_*`` handlers (``trigger_id`` is ``None`` — no trigger).
+    """
+    out: list[ParsedAutomation] = []
+    for domain, instance, comp_id in _iter_component_instances(root):
+        # Catalog id mirrors the sync's: ``<domain>.<platform>`` for a
+        # platform component (``cover: - platform: feedback``), the bare
+        # ``<domain>`` for a single-mapping hub (``opentherm:``).
+        platform = instance.get("platform")
+        catalog_id = f"{domain}.{platform}" if platform else domain
+        fields = _component_action_fields(catalog_id)
+        if not fields:
+            continue
+        comp_name = str(instance.get("name") or comp_id)
+        for key, body in list(instance.items()):
+            if key not in fields:
+                continue
+            from_line, to_line = _key_range(instance, key)
+            tree, error = _safe_tree(
+                partial(_decompose_trigger_body, body, trigger_id=None),
+                trigger_id=None,
+            )
+            out.append(
+                ParsedAutomation(
+                    location=ComponentActionFieldLocation(component_id=comp_id, field=key),
+                    label=f"{comp_name} → {_pretty_name(key)}",
+                    automation=tree,
+                    from_line=from_line,
+                    to_line=to_line,
+                    raw_yaml=_dump_slice({key: body}),
+                    error=error,
+                )
             )
     return out
 
@@ -537,268 +609,3 @@ def _parse_light_effects(root: Any) -> list[ParsedAutomation]:
                 )
             )
     return out
-
-
-def _decompose_trigger_body(body: Any, *, trigger_id: str) -> AutomationTree:
-    """
-    Build an :class:`AutomationTree` from a trigger handler's body.
-
-    Accepts three YAML shortcut forms that all collapse to the same
-    tree: bare action list (``on_press: - action: ...``), single
-    bare action (``on_press: action: ...``), explicit ``then:``.
-    """
-    if isinstance(body, dict):
-        return _decompose_trigger_mapping(body, trigger_id=trigger_id)
-    actions = _decompose_action_list(body) if isinstance(body, list) else []
-    return AutomationTree(trigger_id=trigger_id, trigger_params={}, actions=actions)
-
-
-def _decompose_trigger_mapping(body: dict[str, Any], *, trigger_id: str) -> AutomationTree:
-    """
-    Decompose one mapping-form trigger handler (params + ``then:``).
-
-    Splits the mapping into trigger params and its action list,
-    accepting the explicit ``then:`` form and the single-action
-    shortcut. Reused per list entry for list-shaped triggers.
-    """
-    trigger_params = _collect_block_params(body, action_list_keys={"then"})
-    if "then" in body:
-        actions = _decompose_action_list(body["then"])
-    else:
-        # Single-action shortcut: the body's keys are a mix of
-        # trigger params and known catalog action ids.
-        # ``_collect_block_params`` naively absorbed both; pull
-        # the action keys back out by catalog lookup and rebuild
-        # ``trigger_params`` without them.
-        action_body = {k: v for k, v in body.items() if catalog.action_by_id(k) is not None}
-        actions = []
-        if action_body:
-            actions = _decompose_action_list([action_body])
-            trigger_params = {k: v for k, v in trigger_params.items() if k not in action_body}
-    return AutomationTree(
-        trigger_id=trigger_id,
-        trigger_params=trigger_params,
-        actions=actions,
-    )
-
-
-def _decompose_action_list(body: Any) -> list[ActionNode]:
-    """
-    Recursively turn a YAML action-list body into a list of nodes.
-
-    Accepts a list of action mappings, a single mapping, or ``None``.
-    Each mapping is the registry-shape ``{<action_id>: <params>}``.
-    """
-    if body is None:
-        return []
-    items = body if isinstance(body, list) else [body]
-    out: list[ActionNode] = []
-    for item in items:
-        if not isinstance(item, dict) or not item:
-            continue
-        for action_id, params in item.items():
-            out.append(_decompose_action(str(action_id), params))
-    return out
-
-
-def _decompose_action(action_id: str, raw_params: Any) -> ActionNode:
-    """Build one :class:`ActionNode` from a registry-shaped mapping entry."""
-    action = catalog.action_by_id(action_id)
-    if action is None:
-        msg = f"Unknown action id: {action_id!r}"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    children: dict[str, list[ActionNode]] = {}
-    conditions: list[ConditionNode] = []
-
-    if raw_params is None:
-        params: dict[str, Any] = {}
-    elif isinstance(raw_params, dict):
-        params = {}
-        for key, value in raw_params.items():
-            if key in action.accepts_action_list:
-                children[key] = _decompose_action_list(value)
-                continue
-            if key in _CONDITION_GATE_KEYS:
-                conditions = _decompose_condition_list(value)
-                continue
-            params[key] = _render_value(value)
-    else:
-        # Bare-scalar shorthand (``logger.log: "hi"`` / ``light.turn_on: id``):
-        # surface the scalar under the action's own ``maybe_simple_value`` key
-        # so the writer reconstructs the short form on round-trip.
-        key = action.scalar_shorthand_key or DEFAULT_SHORTHAND_KEY
-        # ``core.wait_until`` has ``maybe == "condition"``; a shorthand that
-        # names a gate / sub-list key must never land in ``params`` — fall
-        # back to ``id`` so it round-trips harmlessly.
-        if key in _CONDITION_GATE_KEYS or key in action.accepts_action_list:
-            key = DEFAULT_SHORTHAND_KEY
-        params = {key: _render_value(raw_params)}
-
-    return ActionNode(
-        action_id=action_id,
-        params=params,
-        children=children,
-        conditions=conditions,
-    )
-
-
-def _decompose_condition_list(body: Any) -> list[ConditionNode]:
-    """Turn a ``condition`` / ``and`` / ``or`` / ``not`` body into nodes."""
-    if body is None:
-        return []
-    if isinstance(body, list):
-        return [_decompose_condition(item) for item in body if isinstance(item, dict)]
-    if isinstance(body, dict):
-        return [_decompose_condition(body)]
-    return []
-
-
-def _decompose_condition(raw: dict) -> ConditionNode:
-    """Build one :class:`ConditionNode` from a registry-shaped entry."""
-    if not raw or not isinstance(raw, dict):
-        msg = "Empty condition entry"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    if len(raw) != 1:
-        msg = f"Condition entry must carry a single id key, got: {sorted(raw)}"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    cond_id, value = next(iter(raw.items()))
-    catalog_entry = catalog.condition_by_id(str(cond_id))
-    if catalog_entry is None:
-        msg = f"Unknown condition id: {cond_id!r}"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    children: list[ConditionNode] = []
-    params: dict[str, Any] = {}
-    if catalog_entry.accepts_condition_list:
-        children = _decompose_condition_list(value)
-    elif isinstance(value, dict):
-        params = {k: _render_value(v) for k, v in value.items()}
-    elif value is not None:
-        key = catalog_entry.scalar_shorthand_key or DEFAULT_SHORTHAND_KEY
-        params = {key: _render_value(value)}
-    return ConditionNode(
-        condition_id=str(cond_id),
-        params=params,
-        children=children,
-    )
-
-
-def _collect_block_params(
-    block: dict,
-    *,
-    action_list_keys: set[str],
-) -> dict[str, Any]:
-    """Collect non-action-list keys as plain ``params`` values."""
-    out: dict[str, Any] = {}
-    for key, value in block.items():
-        if key in action_list_keys:
-            continue
-        out[key] = _render_value(value)
-    return out
-
-
-def _collect_api_action_params(block: dict) -> dict[str, Any]:
-    """Collect ``api.actions:`` item params, dropping the discriminator + ``then:``."""
-    out: dict[str, Any] = {}
-    for key, value in block.items():
-        if key in ("then", "action", "service"):
-            continue
-        out[key] = _render_value(value)
-    return out
-
-
-def _render_value(value: Any) -> Any:
-    """
-    Convert a ruamel-parsed value to its JSON-wire shape.
-
-    Lambda block scalars (``|`` or ``!lambda`` tagged) become the
-    ``{"_lambda": "<source>"}`` sentinel; ruamel maps and lists
-    become plain dicts/lists, recursively. Tagged scalars from
-    ruamel are not JSON-serialisable on their own, so any
-    unrecognised tag falls back to its plain string value.
-    """
-    if isinstance(value, LiteralScalarString):
-        return {"_lambda": str(value)}
-    if isinstance(value, TaggedScalar):
-        tag = getattr(value.tag, "value", "") if value.tag is not None else ""
-        if tag == "!lambda":
-            return {"_lambda": str(value)}
-        return str(value)
-    if isinstance(value, dict):
-        return {k: _render_value(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_render_value(v) for v in value]
-    # ruamel round-trip mode wraps floats in ScalarFloat (a float subclass);
-    # orjson serialises int/bool subclasses but refuses float subclasses, so
-    # coerce to a plain float for the wire.
-    return float(value) if isinstance(value, ScalarFloat) else value
-
-
-def _render_params(value: Any) -> Any:
-    """Wrap an arbitrary ruamel value as a plain dict for ``params``."""
-    rendered = _render_value(value)
-    if isinstance(rendered, dict):
-        return rendered
-    return {"_value": rendered}
-
-
-def _pretty_name(key: str) -> str:
-    """Title-case an ``on_x_y`` key for display labels."""
-    return key.replace("_", " ").title()
-
-
-def _key_range(mapping: Any, key: str) -> tuple[int, int]:
-    """Return the 1-indexed line range covering ``mapping[key]``."""
-    lc = getattr(mapping, "lc", None)
-    if lc is None or not getattr(lc, "data", None) or key not in lc.data:
-        return 1, 1
-    key_line, _key_col, _val_line, _val_col = lc.data[key]
-    start = key_line + 1
-    end = _estimate_end_line(mapping[key], start)
-    return start, end
-
-
-def _item_range(seq: Any, idx: int) -> tuple[int, int]:
-    """Return the 1-indexed line range for the *idx*'th list item."""
-    lc = getattr(seq, "lc", None)
-    if lc is None or not getattr(lc, "data", None) or idx not in lc.data:
-        return 1, 1
-    # Use the dash-line index so leading blank / comment lines
-    # don't shift the start.
-    dash_line = lc.data[idx][0]
-    start = dash_line + 1
-    end = _estimate_end_line(seq[idx], start)
-    return start, end
-
-
-def _estimate_end_line(value: Any, start: int) -> int:
-    """Walk a sub-tree and pick the largest ``lc.line`` we observe."""
-    max_line = start
-    stack: list[Any] = [value]
-    while stack:
-        node = stack.pop()
-        lc = getattr(node, "lc", None)
-        if lc is not None and getattr(lc, "line", None) is not None:
-            max_line = max(max_line, lc.line + 1)
-        if isinstance(node, dict):
-            stack.extend(node.values())
-            data = getattr(lc, "data", None) if lc else None
-            if data:
-                for entry in data.values():
-                    # ruamel entries are (key_line, key_col, val_line, val_col)
-                    if isinstance(entry, (list, tuple)) and len(entry) >= 3:
-                        max_line = max(max_line, entry[2] + 1)
-        elif isinstance(node, list):
-            stack.extend(node)
-            # ruamel sequence ``lc.data`` entries are 2-tuples
-            # (dash_line, dash_col) — they don't carry a value-line
-            # we could use, so we rely on the recursive walk into
-            # the inner mapping for the actual end line.
-    return max_line
-
-
-def _dump_slice(value: Any) -> str:
-    """Serialise *value* through the round-trip emitter as a YAML string."""
-    yaml = make_yaml()
-    buf = StringIO()
-    yaml.dump(value, buf)
-    return buf.getvalue()

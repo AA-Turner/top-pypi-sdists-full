@@ -158,10 +158,10 @@ void export_exceptions(py::module_ &m) {
                                 Structure describing any error resulting from a command execution,
                                 or an attribute query, with following members:
 
-                                    - reason : (str) reason
-                                    - severity : (ErrSeverity) error severity (WARN, ERR, PANIC)
-                                    - desc : (str) error description
-                                    - origin : (str) Tango server method in which the error happened
+                                - reason : (str) reason
+                                - severity : (ErrSeverity) error severity (WARN, ERR, PANIC)
+                                - desc : (str) error description
+                                - origin : (str) Tango server method in which the error happened
                                 )doc")
         .def(py::init<>())
 
@@ -233,48 +233,47 @@ void export_exceptions(py::module_ &m) {
     static py::exception<Tango::NotAllowed> NotAllowed(m, "NotAllowed", DevFailed.ptr());
     m.attr("NotAllowed") = NotAllowed;
 
-    py::register_exception_translator(
-        [](std::exception_ptr p) {
-            try {
-                if(p) {
-                    std::rethrow_exception(p);
-                }
-            } catch(const Tango::ConnectionFailed &e) {
-                translate_dev_failed(e, ConnectionFailed);
-            } catch(const Tango::CommunicationFailed &e) {
-                translate_dev_failed(e, CommunicationFailed);
-            } catch(const Tango::WrongNameSyntax &e) {
-                translate_dev_failed(e, WrongNameSyntax);
-            } catch(const Tango::NonDbDevice &e) {
-                translate_dev_failed(e, NonDbDevice);
-            } catch(const Tango::WrongData &e) {
-                translate_dev_failed(e, WrongData);
-            } catch(const Tango::NonSupportedFeature &e) {
-                translate_dev_failed(e, NonSupportedFeature);
-            } catch(const Tango::AsynCall &e) {
-                translate_dev_failed(e, AsynCall);
-            } catch(const Tango::AsynReplyNotArrived &e) {
-                translate_dev_failed(e, AsynReplyNotArrived);
-            } catch(const Tango::EventSystemFailed &e) {
-                translate_dev_failed(e, EventSystemFailed);
-            } catch(const Tango::DeviceUnlocked &e) {
-                translate_dev_failed(e, DeviceUnlocked);
-            } catch(const Tango::NotAllowed &e) {
-                translate_dev_failed(e, NotAllowed);
-            } catch(const Tango::DevFailed &e) {
-                translate_dev_failed(e, DevFailed);
+    py::register_exception_translator([](std::exception_ptr p) {
+        try {
+            if(p) {
+                std::rethrow_exception(p);
             }
-        });
+        } catch(const Tango::ConnectionFailed &e) {
+            translate_dev_failed(e, ConnectionFailed);
+        } catch(const Tango::CommunicationFailed &e) {
+            translate_dev_failed(e, CommunicationFailed);
+        } catch(const Tango::WrongNameSyntax &e) {
+            translate_dev_failed(e, WrongNameSyntax);
+        } catch(const Tango::NonDbDevice &e) {
+            translate_dev_failed(e, NonDbDevice);
+        } catch(const Tango::WrongData &e) {
+            translate_dev_failed(e, WrongData);
+        } catch(const Tango::NonSupportedFeature &e) {
+            translate_dev_failed(e, NonSupportedFeature);
+        } catch(const Tango::AsynCall &e) {
+            translate_dev_failed(e, AsynCall);
+        } catch(const Tango::AsynReplyNotArrived &e) {
+            translate_dev_failed(e, AsynReplyNotArrived);
+        } catch(const Tango::EventSystemFailed &e) {
+            translate_dev_failed(e, EventSystemFailed);
+        } catch(const Tango::DeviceUnlocked &e) {
+            translate_dev_failed(e, DeviceUnlocked);
+        } catch(const Tango::NotAllowed &e) {
+            translate_dev_failed(e, NotAllowed);
+        } catch(const Tango::DevFailed &e) {
+            translate_dev_failed(e, DevFailed);
+        }
+    });
 
     py::class_<Tango::Except>(m,
                               "Except",
                               R"doc(
                               A container for the static methods:
 
-                                - throw_exception
-                                - re_throw_exception
-                                - print_exception
-                                - compare_exception
+                              - throw_exception
+                              - re_throw_exception
+                              - print_exception
+                              - compare_exception
                               )doc")
         .def_static(
             "throw_exception",
@@ -283,20 +282,24 @@ void export_exceptions(py::module_ &m) {
                const std::string &origin,
                Tango::ErrSeverity severity) { Tango::Except::throw_exception(reason, description, origin, severity); },
             R"doc(
-                    throw_exception(reason, desc, origin, sever=tango.ErrSeverity.ERR) -> None
+                Generate and throw a TANGO DevFailed exception.
+                The exception is created with a single :class:`~tango.DevError`
+                object. A default value *tango.ErrSeverity.ERR* is defined for
+                the :class:`~tango.DevError` severity field.
 
-                        Generate and throw a TANGO DevFailed exception.
-                        The exception is created with a single :class:`~tango.DevError`
-                        object. A default value *tango.ErrSeverity.ERR* is defined for
-                        the :class:`~tango.DevError` severity field.
+                :param reason: The exception :class:`~tango.DevError` object reason field
+                :type reason: :py:obj:`str`
 
-                    Parameters :
-                        - reason   : (str) The exception :class:`~tango.DevError` object reason field
-                        - desc     : (str) The exception :class:`~tango.DevError` object desc field
-                        - origin   : (str) The exception :class:`~tango.DevError` object origin field
-                        - severity : (tango.ErrSeverity) The exception DevError object severity field
+                :param desc: The exception :class:`~tango.DevError` object desc field
+                :type desc: :py:obj:`str`
 
-                    Throws : DevFailed
+                :param origin: The exception :class:`~tango.DevError` object origin field
+                :type origin: :py:obj:`str`
+
+                :param severity: The exception DevError object severity field
+                :type severity: :py:obj:`~tango.ErrSeverity`
+
+                :throws: :py:obj:`~tango.DevFailed`
                )doc",
             py::arg("reason"),
             py::arg("description"),
@@ -309,23 +312,31 @@ void export_exceptions(py::module_ &m) {
                const std::string &reason,
                const std::string &description,
                const std::string &origin,
-               Tango::ErrSeverity severity) { Tango::Except::re_throw_exception(exception, reason, description, origin, severity); },
+               Tango::ErrSeverity severity) {
+                Tango::Except::re_throw_exception(exception, reason, description, origin, severity);
+            },
             R"doc(
-                re_throw_exception(ex, reason, desc, origin, sever=tango.ErrSeverity.ERR) -> None
+                Re-throw a TANGO :class:`~tango.DevFailed` exception with one more error.
+                The exception is re-thrown with one more :class:`~tango.DevError` object.
+                A default value *tango.ErrSeverity.ERR* is defined for the new
+                :class:`~tango.DevError` severity field.
 
-                        Re-throw a TANGO :class:`~tango.DevFailed` exception with one more error.
-                        The exception is re-thrown with one more :class:`~tango.DevError` object.
-                        A default value *tango.ErrSeverity.ERR* is defined for the new
-                        :class:`~tango.DevError` severity field.
+                :param exception: The :class:`~tango.DevFailed` exception
+                :type exception: :class:`~tango.DevFailed`
 
-                    Parameters :
-                        - ex       : (tango.DevFailed) The :class:`~tango.DevFailed` exception
-                        - reason   : (str) The exception :class:`~tango.DevError` object reason field
-                        - desc     : (str) The exception :class:`~tango.DevError` object desc field
-                        - origin   : (str) The exception :class:`~tango.DevError` object origin field
-                        - severity : (tango.ErrSeverity) The exception DevError object severity field
+                :param reason: The exception :class:`~tango.DevError` object reason field
+                :type reason: :py:obj:`str`
 
-                    Throws     : DevFailed
+                :param desc: The exception :class:`~tango.DevError` object desc field
+                :type desc: :py:obj:`str`
+
+                :param origin: The exception :class:`~tango.DevError` object origin field
+                :type origin: :py:obj:`str`
+
+                :param severity: The exception DevError object severity field
+                :type severity: :py:obj:`~tango.ErrSeverity`
+
+                :throws: :py:obj:`~tango.DevFailed`
             )doc",
             py::arg("exception"),
             py::arg("reason"),
@@ -336,51 +347,51 @@ void export_exceptions(py::module_ &m) {
         .def_static("print_error_stack",
                     py::overload_cast<const Tango::DevErrorList &>(&Tango::Except::print_error_stack),
                     R"doc(
-                        print_error_stack(ex) -> None
-
                         Print all the details of a TANGO error stack.
 
-                        Parameters :
-                        - ex     : (tango.DevErrorList) The error stack reference)
-                    )doc")
+                        :param error_stack: The error stack
+                    )doc",
+                    py::arg("error_stack"))
 
         .def_static("compare_exception", &Tango::Except::compare_exception)
 
         .def_static(
             "to_dev_failed",
-            [](py::object type,
-               py::object value,
-               py::object traceback) { return to_dev_failed(type.ptr(), value.ptr(), traceback.ptr()); },
+            [](py::object type, py::object value, py::object traceback) {
+                return to_dev_failed(type.ptr(), value.ptr(), traceback.ptr());
+            },
             py::arg("type") = py::none(),
             py::arg("value") = py::none(),
             py::arg("traceback") = py::none())
 
         .def_static(
             "throw_python_exception",
-            [](py::object type,
-               py::object value,
-               py::object traceback) { throw to_dev_failed(type.ptr(), value.ptr(), traceback.ptr()); },
+            [](py::object type, py::object value, py::object traceback) {
+                throw to_dev_failed(type.ptr(), value.ptr(), traceback.ptr());
+            },
             R"doc(
-                throw_python_exception(type, value, traceback) -> None
+                Generate and throw a TANGO DevFailed exception.
+                The exception is created with a single :class:`~tango.DevError`
+                object. A default value *tango.ErrSeverity.ERR* is defined for
+                the :class:`~tango.DevError` severity field.
 
-                    Generate and throw a TANGO DevFailed exception.
-                    The exception is created with a single :class:`~tango.DevError`
-                    object. A default value *tango.ErrSeverity.ERR* is defined for
-                    the :class:`~tango.DevError` severity field.
+                The parameters are the same as the ones generates by a call to
+                :func:`sys.exc_info`.
 
-                    The parameters are the same as the ones generates by a call to
-                    :func:`sys.exc_info`.
+                :param type:  the exception type of the exception being handled
+                :type type: class
 
-                Parameters :
-                    - type : (class)  the exception type of the exception being handled
-                    - value : (object) exception parameter (its associated value or the
+                :param value: exception parameter (its associated value or the
                               second argument to raise, which is always a class instance
                               if the exception type is a class object)
-                    - traceback : (traceback) traceback object
+                :type value: object
 
-                Throws     : DevFailed
+                :param traceback: traceback object
+                :type traceback: traceback
 
-                New in PyTango 7.2.1
+                :throws: :obj:`~tango.DevFailed`
+
+                .. versionadded:: 7.2.1
             )doc",
             py::arg("type") = py::none(),
             py::arg("value") = py::none(),

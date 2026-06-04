@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb
-Version: 0.27.0
+Version: 0.27.1
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -65,12 +65,6 @@ Requires-Dist: azure-identity; extra == 'azure'
 Requires-Dist: azure-storage-blob; extra == 'azure'
 Provides-Extra: gcp
 Requires-Dist: google-cloud-storage; extra == 'gcp'
-Provides-Extra: importers
-Requires-Dist: filelock; extra == 'importers'
-Requires-Dist: mlflow; extra == 'importers'
-Requires-Dist: polars<=1.2.1; extra == 'importers'
-Requires-Dist: rich; extra == 'importers'
-Requires-Dist: tenacity; extra == 'importers'
 Provides-Extra: kubeflow
 Requires-Dist: google-cloud-storage; extra == 'kubeflow'
 Requires-Dist: kubernetes; extra == 'kubeflow'

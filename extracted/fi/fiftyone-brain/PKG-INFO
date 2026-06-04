@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone-brain
-Version: 0.21.6
+Version: 0.22.0
 Summary: FiftyOne Brain
 Home-page: https://github.com/voxel51/fiftyone-brain
 Author: Voxel51, Inc.
@@ -19,10 +19,10 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy

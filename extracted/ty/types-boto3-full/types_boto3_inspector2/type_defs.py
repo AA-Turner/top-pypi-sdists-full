@@ -116,6 +116,7 @@ from .literals import (
     StringComparisonType,
     TitleSortByType,
     UsageTypeType,
+    VMScannerStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -470,6 +471,7 @@ __all__ = (
     "UpdateOrganizationConfigurationResponseTypeDef",
     "UsageTotalTypeDef",
     "UsageTypeDef",
+    "VMScannerStateTypeDef",
     "VulnerabilityTypeDef",
     "VulnerablePackageTypeDef",
     "WeeklyScheduleOutputTypeDef",
@@ -947,8 +949,15 @@ class Ec2ScanModeStateTypeDef(TypedDict):
     scanModeStatus: NotRequired[Ec2ScanModeStatusType]
 
 
+class VMScannerStateTypeDef(TypedDict):
+    activated: NotRequired[bool]
+    activatedAt: NotRequired[datetime]
+    status: NotRequired[VMScannerStatusType]
+
+
 class Ec2ConfigurationTypeDef(TypedDict):
     scanMode: Ec2ScanModeType
+    activateVMScanner: NotRequired[bool]
 
 
 class MapFilterTypeDef(TypedDict):
@@ -1941,6 +1950,7 @@ class GetDelegatedAdminAccountResponseTypeDef(TypedDict):
 
 class Ec2ConfigurationStateTypeDef(TypedDict):
     scanModeState: NotRequired[Ec2ScanModeStateTypeDef]
+    vmScannerState: NotRequired[VMScannerStateTypeDef]
 
 
 class Ec2InstanceAggregationTypeDef(TypedDict):

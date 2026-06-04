@@ -842,22 +842,29 @@ class Report(Annotation):
         content_ids_to_archive = list(existing_annotation.content_ids)
 
         existing_date_ranges = dict()
-        for date_range_id in existing_annotation.date_range_ids:
-            existing_date_range = DateRange.pull(date_range_id, session=session, status=status)
-            existing_date_ranges[existing_date_range.id] = existing_date_range
-            existing_date_ranges[existing_date_range.name] = existing_date_range
-
         existing_asset_selections = dict()
-        for asset_selection_id in existing_annotation.asset_selection_ids:
-            existing_asset_selection = AssetSelection.pull(asset_selection_id, session=session, status=status)
-            existing_asset_selections[existing_asset_selection.id] = existing_asset_selection
-            existing_asset_selections[existing_asset_selection.name] = existing_asset_selection
-
         existing_contents = dict()
-        for content_id in existing_annotation.content_ids:
-            existing_content = Content.pull(content_id, session=session, status=status)
-            existing_contents[existing_content.id] = existing_content
-            existing_contents[existing_content.name] = existing_content
+
+        if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            # No need to pull the content again, we assume our in-memory objects represent what's on the server
+            existing_date_ranges = self.date_ranges
+            existing_asset_selections = self.asset_selections
+            existing_contents = self.content
+        else:
+            for date_range_id in existing_annotation.date_range_ids:
+                existing_date_range = DateRange.pull(date_range_id, session=session, status=status)
+                existing_date_ranges[existing_date_range.id] = existing_date_range
+                existing_date_ranges[existing_date_range.name] = existing_date_range
+
+            for asset_selection_id in existing_annotation.asset_selection_ids:
+                existing_asset_selection = AssetSelection.pull(asset_selection_id, session=session, status=status)
+                existing_asset_selections[existing_asset_selection.id] = existing_asset_selection
+                existing_asset_selections[existing_asset_selection.name] = existing_asset_selection
+
+            for content_id in existing_annotation.content_ids:
+                existing_content = Content.pull(content_id, session=session, status=status)
+                existing_contents[existing_content.id] = existing_content
+                existing_contents[existing_content.name] = existing_content
 
         # Pushing date ranges, asset selections, and content has to be done in a couple of steps. First, we push the
         # date ranges and get their corresponding Seeq guids. Next, we push the asset selections and get their
@@ -874,14 +881,10 @@ class Report(Annotation):
         def _push_it(_item_type, _item_dict, _existing, _ids_to_archive):
             for _item_object in _item_dict.values():  # type: Union[DateRange, AssetSelection, Content]
                 try:
-                    if not context.dry_run:
-                        _item_output = _item_object.push(
-                            context, session, item_map, _existing, status=inner_status)
-                        status.log(f'Pushed {_item_object} to {_item_output.id}')
-                        if _item_output.id in _ids_to_archive:
-                            _ids_to_archive.remove(_item_output.id)
-                    else:
-                        status.log(f'[Dry Run] Would push {_item_object}')
+                    _item_output_id = _item_object.push(
+                        context, session, item_map, _existing, status=inner_status)
+                    if _item_output_id is not None and _item_output_id in _ids_to_archive:
+                        _ids_to_archive.remove(_item_output_id)
                 except ApiException as e:
                     status.on_error(
                         f'Error processing {_item_type}: {_item_object}\n{_common.format_exception(e)}')
@@ -1105,9 +1108,6 @@ class Report(Annotation):
         return new_content.html
 
     def find_workstep_references(self, item_map: Optional[ItemMap] = None):
-        if not self.html:
-            return set()
-
         content_dict = self.content
         if item_map is not None and self.id in item_map.content_mappings:
             content_dict = item_map.content_mappings[self.id]

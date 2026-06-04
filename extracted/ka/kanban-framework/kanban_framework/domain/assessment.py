@@ -80,14 +80,14 @@ def assess_task(title: str, description: str) -> dict:
         mode = "quick"
         reason = f"检测到简单信号: {', '.join((quick or light)[:3])} → 建议 quick 模式，直接执行"
     elif heavy:
-        mode = "full"
-        reason = f"检测到重度信号: {', '.join(heavy[:3])} → 建议 full 模式，完整评审"
+        mode = "lightweight"
+        reason = f"检测到重度信号: {', '.join(heavy[:3])} → 建议 lightweight 模式，含完整评审"
     elif light or score < 0.6:
         mode = "lightweight"
         reason = f"检测到轻量信号: {', '.join(light[:3])} → 建议 lightweight 模式，快速迭代"
     else:
         mode = "lightweight"
-        reason = "无明显重度信号 → 默认 lightweight 模式（如需要可手动指定 --mode full）"
+        reason = "无明显重度信号 → 默认 lightweight 模式"
 
     risk_factors = []
     if any(kw in text for kw in ["数据库", "database", "data migration"]):

@@ -2960,7 +2960,8 @@ class SAGEMessageBridge:
                 STALE_AFTER    = 90  # seconds without a pong → reconnect
 
                 while not self._stop.is_set():
-                    ws.settimeout(5)
+                    if hasattr(ws, "settimeout"):
+                        ws.settimeout(5)
                     try:
                         raw = ws.recv()
                         if not raw:

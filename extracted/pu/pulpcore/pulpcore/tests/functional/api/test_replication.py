@@ -36,7 +36,9 @@ def test_replication(
         pulpcore_bindings.UpstreamPulpsApi, upstream_pulp_body, pulp_domain=non_default_domain.name
     )
     # Run the replicate task and assert that all tasks successfully complete.
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     task_group = monitor_task_group(response.task_group)
     for task in task_group.tasks:
         assert task.state == "completed"
@@ -101,7 +103,9 @@ def test_replication_idempotence(
         pulpcore_bindings.UpstreamPulpsApi, upstream_pulp_body, pulp_domain=replica_domain.name
     )
     # Run the replicate task and assert that all tasks successfully complete.
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
 
     for api_client in (
@@ -140,7 +144,9 @@ def test_replication_idempotence(
         pulpcore_bindings.UpstreamPulpsApi, upstream_pulp_body, pulp_domain=source_domain.name
     )
     # Run the replicate task and assert that all tasks successfully complete.
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp2.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp2.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     # Replicating backwards will create a new repository (deleting the old) + new remote,
     # but use the same distribution
@@ -232,7 +238,9 @@ def test_replication_remote_settings_propagation(
         pulpcore_bindings.UpstreamPulpsApi, upstream_pulp_body, pulp_domain=replica_domain.name
     )
 
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
 
     result = file_bindings.RemotesFileApi.list(pulp_domain=replica_domain.name)
@@ -257,7 +265,9 @@ def test_replication_remote_settings_propagation(
             "max_retries": 2,
         },
     )
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
 
     result = file_bindings.RemotesFileApi.list(pulp_domain=replica_domain.name)
@@ -315,7 +325,9 @@ def test_replication_with_repo_based_distribution(
         },
         pulp_domain=replica_domain.name,
     )
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
 
     # Verify replica distribution uses repository_version, not repository or publication
@@ -393,7 +405,9 @@ def test_replication_multi_distribution_content_update(
         },
         pulp_domain=replica_domain.name,
     )
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
 
     # Record initial versions
@@ -432,7 +446,9 @@ def test_replication_multi_distribution_content_update(
         )
 
     # Re-replicate
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
 
     # Verify all distributions were updated to new versions with new content
@@ -513,7 +529,9 @@ SQiVeWgI8fDCpQ/6KiI7F3el8nEc5w==
     )
     # Run the replicate task and assert that it fails with SSLError
     with pytest.raises(PulpTaskGroupError) as e:
-        response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+        response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+            upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+        )
         monitor_task_group(response.task_group)
 
     task = pulpcore_bindings.TasksApi.read(e.value.task_group.tasks[0].pulp_href)
@@ -526,7 +544,9 @@ SQiVeWgI8fDCpQ/6KiI7F3el8nEc5w==
     )
 
     # Run the replicate task again and assert that all tasks successfully complete.
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     task_group = monitor_task_group(response.task_group)
     for task in task_group.tasks:
         assert task.state == "completed"
@@ -637,7 +657,9 @@ def check_replication(
         old_replication,
         should_run_sync_task=True,
     ):
-        response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+        response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+            upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+        )
         # check if the replication succeeded
         task_group = monitor_task_group(response.task_group)
         add_domain_objects_to_cleanup(local_domain)
@@ -760,18 +782,45 @@ def test_replicate_rbac(
         )
 
     # Assert that Alice (upstream pulp viewer) gets a 403
-    try_action(alice, pulpcore_bindings.UpstreamPulpsApi, "replicate", 403, upstream_pulp.pulp_href)
+    replicate_body = pulpcore_bindings.module.UpstreamPulpReplicate()
+    try_action(
+        alice,
+        pulpcore_bindings.UpstreamPulpsApi,
+        "replicate",
+        403,
+        upstream_pulp.pulp_href,
+        replicate_body,
+    )
 
     # Assert that B (upstream pulp owner) gets a 202
-    try_action(bob, pulpcore_bindings.UpstreamPulpsApi, "replicate", 202, upstream_pulp.pulp_href)
+    try_action(
+        bob,
+        pulpcore_bindings.UpstreamPulpsApi,
+        "replicate",
+        202,
+        upstream_pulp.pulp_href,
+        replicate_body,
+    )
 
     # Assert that Charlie (no role) get a 404
     try_action(
-        charlie, pulpcore_bindings.UpstreamPulpsApi, "replicate", 404, upstream_pulp.pulp_href
+        charlie,
+        pulpcore_bindings.UpstreamPulpsApi,
+        "replicate",
+        404,
+        upstream_pulp.pulp_href,
+        replicate_body,
     )
 
     # Assert that Dean can run replication
-    try_action(dean, pulpcore_bindings.UpstreamPulpsApi, "replicate", 202, upstream_pulp.pulp_href)
+    try_action(
+        dean,
+        pulpcore_bindings.UpstreamPulpsApi,
+        "replicate",
+        202,
+        upstream_pulp.pulp_href,
+        replicate_body,
+    )
 
     # Assert that Dean can view the upstream pulp
     try_action(dean, pulpcore_bindings.UpstreamPulpsApi, "read", 200, upstream_pulp.pulp_href)
@@ -780,6 +829,227 @@ def test_replicate_rbac(
     try_action(
         dean, pulpcore_bindings.UpstreamPulpsApi, "partial_update", 403, upstream_pulp.pulp_href, {}
     )
+
+
+@pytest.mark.parallel
+def test_replication_base_path_conflict(
+    domain_factory,
+    bindings_cfg,
+    pulpcore_bindings,
+    file_bindings,
+    monitor_task,
+    monitor_task_group,
+    pulp_settings,
+    gen_object_with_cleanup,
+    file_distribution_factory,
+    file_publication_factory,
+    file_repository_factory,
+    tmp_path,
+    add_domain_objects_to_cleanup,
+):
+    """Test that replication succeeds when a distribution in the replica domain has a
+    base_path that conflicts with an upstream distribution. The existing distribution
+    should be reused (updated in-place) rather than deleted and recreated, preserving
+    content continuity at that base_path."""
+
+    source_domain = domain_factory()
+    add_domain_objects_to_cleanup(source_domain)
+
+    # Create content in the upstream domain
+    repository = file_repository_factory(pulp_domain=source_domain.name)
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("DEADBEEF")
+    monitor_task(
+        file_bindings.ContentFilesApi.create(
+            file=str(file_path),
+            relative_path="file.txt",
+            repository=repository.pulp_href,
+            pulp_domain=source_domain.name,
+        ).task
+    )
+    publication = file_publication_factory(
+        pulp_domain=source_domain.name, repository=repository.pulp_href
+    )
+    # Create upstream distribution with a known base_path
+    conflicting_base_path = str(uuid.uuid4())
+    upstream_distro = file_distribution_factory(
+        pulp_domain=source_domain.name,
+        publication=publication.pulp_href,
+        base_path=conflicting_base_path,
+    )
+
+    # Create the replica domain and a "blocker" distribution with the same base_path
+    # but a different name — simulating a rename or a locally-created distribution
+    replica_domain = domain_factory()
+    add_domain_objects_to_cleanup(replica_domain)
+    blocker_distro = file_distribution_factory(
+        pulp_domain=replica_domain.name,
+        base_path=conflicting_base_path,
+    )
+    assert blocker_distro.base_path == conflicting_base_path
+    assert blocker_distro.name != upstream_distro.name
+
+    # Create UpstreamPulp and run replication — should succeed because the existing
+    # distribution is found by base_path and updated in-place (renamed)
+    upstream_pulp = gen_object_with_cleanup(
+        pulpcore_bindings.UpstreamPulpsApi,
+        {
+            "name": str(uuid.uuid4()),
+            "base_url": bindings_cfg.host,
+            "api_root": pulp_settings.API_ROOT,
+            "domain": source_domain.name,
+            "username": bindings_cfg.username,
+            "password": bindings_cfg.password,
+        },
+        pulp_domain=replica_domain.name,
+    )
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
+    task_group = monitor_task_group(response.task_group)
+    for task in task_group.tasks:
+        assert task.state == "completed"
+
+    # Verify the distribution was reused — same pulp_href, renamed to match upstream
+    result = file_bindings.DistributionsFileApi.list(pulp_domain=replica_domain.name)
+    assert result.count == 1
+    replica_distro = result.results[0]
+    assert replica_distro.pulp_href == blocker_distro.pulp_href
+    assert replica_distro.name == upstream_distro.name
+    assert replica_distro.base_path == conflicting_base_path
+    assert replica_distro.repository_version is not None
+
+
+@pytest.mark.parallel
+def test_replication_partial_failure_recovery(
+    domain_factory,
+    bindings_cfg,
+    pulpcore_bindings,
+    file_bindings,
+    monitor_task,
+    monitor_task_group,
+    pulp_settings,
+    gen_object_with_cleanup,
+    file_distribution_factory,
+    file_publication_factory,
+    file_repository_factory,
+    tmp_path,
+    add_domain_objects_to_cleanup,
+):
+    """Test that after a partially failed replication (some syncs succeed, some fail),
+    a subsequent successful replication correctly updates all distributions to their
+    latest repository versions — including versions created by the failed run's
+    successful syncs."""
+
+    source_domain = domain_factory()
+    add_domain_objects_to_cleanup(source_domain)
+
+    # Distribution A: has valid content, will sync successfully
+    repo_a = file_repository_factory(pulp_domain=source_domain.name)
+    file_path_a = tmp_path / "file_a.txt"
+    file_path_a.write_text("content_a")
+    monitor_task(
+        file_bindings.ContentFilesApi.create(
+            file=str(file_path_a),
+            relative_path="file_a.txt",
+            repository=repo_a.pulp_href,
+            pulp_domain=source_domain.name,
+        ).task
+    )
+    pub_a = file_publication_factory(pulp_domain=source_domain.name, repository=repo_a.pulp_href)
+    distro_a = file_distribution_factory(
+        pulp_domain=source_domain.name, publication=pub_a.pulp_href
+    )
+
+    # Distribution B: points to a repository with no content or publication.
+    # The distribution has a base_url but serves no PULP_MANIFEST, so the
+    # file sync task will fail trying to download it.
+    repo_b = file_repository_factory(pulp_domain=source_domain.name)
+    distro_b = file_distribution_factory(
+        pulp_domain=source_domain.name, repository=repo_b.pulp_href
+    )
+
+    # Set up replica
+    replica_domain = domain_factory()
+    add_domain_objects_to_cleanup(replica_domain)
+    upstream_pulp = gen_object_with_cleanup(
+        pulpcore_bindings.UpstreamPulpsApi,
+        {
+            "name": str(uuid.uuid4()),
+            "base_url": bindings_cfg.host,
+            "api_root": pulp_settings.API_ROOT,
+            "domain": source_domain.name,
+            "username": bindings_cfg.username,
+            "password": bindings_cfg.password,
+        },
+        pulp_domain=replica_domain.name,
+    )
+
+    # First replication — should fail because sync for B fails (no content to serve)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
+    with pytest.raises(PulpTaskGroupError):
+        monitor_task_group(response.task_group)
+
+    # last_replication should NOT be updated after a failed run
+    upstream_pulp = pulpcore_bindings.UpstreamPulpsApi.read(upstream_pulp.pulp_href)
+    assert upstream_pulp.last_replication is None
+
+    # Verify that repo A's sync succeeded on the replica — it has a version with content
+    replica_repo_a = file_bindings.RepositoriesFileApi.list(
+        name=distro_a.name, pulp_domain=replica_domain.name
+    ).results[0]
+    version_from_failed_run = replica_repo_a.latest_version_href
+    assert version_from_failed_run is not None
+    version_detail = file_bindings.RepositoriesFileVersionsApi.read(version_from_failed_run)
+    assert version_detail.content_summary.present["file.file"]["count"] == 1
+
+    # But distribution A was NOT updated — finalize never ran
+    replica_distro_a = file_bindings.DistributionsFileApi.list(
+        name=distro_a.name, pulp_domain=replica_domain.name
+    ).results[0]
+    assert replica_distro_a.repository_version is None
+
+    # Fix upstream B: add content and create a publication. The distribution already
+    # points to repository=repo_b, so it will automatically serve the latest
+    # publication from the latest version — no distribution update needed.
+    file_path_b = tmp_path / "file_b.txt"
+    file_path_b.write_text("content_b")
+    monitor_task(
+        file_bindings.ContentFilesApi.create(
+            file=str(file_path_b),
+            relative_path="file_b.txt",
+            repository=repo_b.pulp_href,
+            pulp_domain=source_domain.name,
+        ).task
+    )
+    file_publication_factory(pulp_domain=source_domain.name, repository=repo_b.pulp_href)
+
+    # Second replication — should now succeed
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream_pulp.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
+    task_group = monitor_task_group(response.task_group)
+    for task in task_group.tasks:
+        assert task.state == "completed"
+
+    # Verify BOTH distributions now have repository_versions with correct content
+    for distro_name in (distro_a.name, distro_b.name):
+        replica_distro = file_bindings.DistributionsFileApi.list(
+            name=distro_name, pulp_domain=replica_domain.name
+        ).results[0]
+        assert replica_distro.repository_version is not None
+        version = file_bindings.RepositoriesFileVersionsApi.read(replica_distro.repository_version)
+        assert version.content_summary.present["file.file"]["count"] == 1
+
+    # Verify that repo A's latest version is still the one created during the failed run.
+    # The second run's sync found no content changes and didn't create a new version,
+    # so finalize picked up the version from the first (failed) run's successful sync.
+    replica_repo_a = file_bindings.RepositoriesFileApi.list(
+        name=distro_a.name, pulp_domain=replica_domain.name
+    ).results[0]
+    assert replica_repo_a.latest_version_href == version_from_failed_run
 
 
 @pytest.fixture
@@ -841,7 +1111,9 @@ def test_replicate_with_basic_q_select(
         pulpcore_bindings.UpstreamPulpsApi, upstream_body, pulp_domain=dest_domain.name
     )
     # Run the replicate task and assert that all 6 repos got synced
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     add_domain_objects_to_cleanup(dest_domain)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
@@ -850,7 +1122,9 @@ def test_replicate_with_basic_q_select(
     # Update q_select to sync only 'even' repos
     body = {"q_select": "pulp_label_select='even'"}
     pulpcore_bindings.UpstreamPulpsApi.partial_update(upstream.pulp_href, body)
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
     assert result.count == 3
@@ -859,7 +1133,9 @@ def test_replicate_with_basic_q_select(
     # Update q_select to sync one 'upstream' repo
     body["q_select"] = "pulp_label_select='upstream=4'"
     pulpcore_bindings.UpstreamPulpsApi.partial_update(upstream.pulp_href, body)
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
     assert result.count == 1
@@ -868,11 +1144,76 @@ def test_replicate_with_basic_q_select(
     # Show that basic label select is ANDed together
     body["q_select"] = "pulp_label_select='even,upstream=0'"
     pulpcore_bindings.UpstreamPulpsApi.partial_update(upstream.pulp_href, body)
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
     assert result.count == 1
     assert result.results[0].name == "0"
+
+
+@pytest.mark.parallel
+def test_replicate_with_per_request_q_select(
+    domain_factory,
+    populate_upstream,
+    bindings_cfg,
+    pulpcore_bindings,
+    monitor_task_group,
+    pulp_settings,
+    gen_object_with_cleanup,
+    add_domain_objects_to_cleanup,
+):
+    """Test that q_select can be passed per-request to the replicate action."""
+    source_domain = populate_upstream(6)
+    dest_domain = domain_factory()
+    add_domain_objects_to_cleanup(dest_domain)
+
+    # Create upstream pulp with NO stored q_select
+    upstream = gen_object_with_cleanup(
+        pulpcore_bindings.UpstreamPulpsApi,
+        {
+            "name": str(uuid.uuid4()),
+            "base_url": bindings_cfg.host,
+            "api_root": pulp_settings.API_ROOT,
+            "domain": source_domain.name,
+            "username": bindings_cfg.username,
+            "password": bindings_cfg.password,
+        },
+        pulp_domain=dest_domain.name,
+    )
+
+    # Selective replicate: only sync 'even' distributions
+    replicate_body = pulpcore_bindings.module.UpstreamPulpReplicate(
+        q_select="pulp_label_select='even'"
+    )
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, upstream_pulp_replicate=replicate_body
+    )
+    monitor_task_group(response.task_group)
+    result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
+    assert result.count == 3
+    assert {d.name for d in result.results} == {"0", "2", "4"}
+
+    # Selective replicate of 'odd' should NOT delete the 'even' ones (remove_missing skipped)
+    replicate_body = pulpcore_bindings.module.UpstreamPulpReplicate(
+        q_select="pulp_label_select='odd'"
+    )
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, upstream_pulp_replicate=replicate_body
+    )
+    monitor_task_group(response.task_group)
+    result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
+    assert result.count == 6
+    assert {d.name for d in result.results} == {"0", "1", "2", "3", "4", "5"}
+
+    # Full replicate (no per-request q_select) should still work and run remove_missing
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
+    monitor_task_group(response.task_group)
+    result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
+    assert result.count == 6
 
 
 @pytest.mark.parallel
@@ -903,7 +1244,9 @@ def test_replicate_with_complex_q_select(
         pulpcore_bindings.UpstreamPulpsApi, upstream_body, pulp_domain=dest_domain.name
     )
     # Run the replicate task and assert that two repos got synced
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
     assert result.count == 2
@@ -912,7 +1255,9 @@ def test_replicate_with_complex_q_select(
     # Test odds but not five
     body = {"q_select": "pulp_label_select='odd' AND NOT pulp_label_select='upstream=5'"}
     pulpcore_bindings.UpstreamPulpsApi.partial_update(upstream.pulp_href, body)
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=dest_domain.name)
     assert result.count == 2
@@ -990,7 +1335,9 @@ def test_replicate_policy(
         pulpcore_bindings.UpstreamPulpsApi, upstream_body, pulp_domain=b_domain.name
     )
 
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     add_domain_objects_to_cleanup(b_domain)
 
@@ -1007,7 +1354,9 @@ def test_replicate_policy(
     assert result.results[0].name == "a0"
 
     # Perform second replicate and check the correct distros were deleted
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=b_domain.name)
     assert result.count == len(results[1])
@@ -1024,7 +1373,9 @@ def test_replicate_policy(
     )
 
     # Replicate again and check that it was managed correctly by policy
-    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream.pulp_href)
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(
+        upstream.pulp_href, pulpcore_bindings.module.UpstreamPulpReplicate()
+    )
     monitor_task_group(response.task_group)
     result = pulpcore_bindings.DistributionsApi.list(pulp_domain=b_domain.name)
     if policy in ("nodelete", "labeled"):

@@ -146,6 +146,7 @@ __all__ = (
     "TagComparisonType",
     "TitleSortByType",
     "UsageTypeType",
+    "VMScannerStatusType",
     "VulnerabilitySourceType",
 )
 
@@ -393,7 +394,7 @@ RuntimeType = Literal[
     "UNSUPPORTED",
 ]
 SbomReportFormatType = Literal["CYCLONEDX_1_4", "SPDX_2_3"]
-ScanModeType = Literal["EC2_AGENTLESS", "EC2_SSM_AGENT_BASED"]
+ScanModeType = Literal["EC2_AGENTLESS", "EC2_INSPECTOR_AGENT_BASED", "EC2_SSM_AGENT_BASED"]
 ScanStatusCodeType = Literal["ACTIVE", "INACTIVE"]
 ScanStatusReasonType = Literal[
     "ACCESS_DENIED",
@@ -471,6 +472,7 @@ UsageTypeType = Literal[
     "LAMBDA_FUNCTION_CODE_HOURS",
     "LAMBDA_FUNCTION_HOURS",
 ]
+VMScannerStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
 VulnerabilitySourceType = Literal["NVD"]
 Inspector2ServiceName = Literal["inspector2"]
 ServiceName = Literal[

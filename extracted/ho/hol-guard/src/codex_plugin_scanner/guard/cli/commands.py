@@ -193,8 +193,10 @@ from .connect_flow import (
     DEFAULT_GUARD_CONNECT_URL,
     DEFAULT_GUARD_SYNC_URL,
     build_connect_status_payload,
+    connect_recovery_command,
     run_guard_browser_connect_command,
     run_guard_device_connect_command,
+    run_guard_disconnect_command,
 )
 from .docs import build_install_connect_docs_payload
 from .install_commands import (
@@ -244,6 +246,7 @@ _GUARD_HELP_GROUPS = (
     "\n"
     "Team and cloud coordination:\n"
     "  connect      Pair this machine to Guard Cloud\n"
+    "  disconnect   Revoke local Guard Cloud auth and optionally revoke cloud grant state\n"
     "  login        Compatibility alias for browser pairing\n"
     "  sync         Send local decisions, receipts, and policy memory to Guard Cloud\n"
     "  service      Manage hosted-runtime Guard Cloud login and sync\n"
@@ -386,6 +389,7 @@ def _configure_guard_parser(guard_parser: argparse.ArgumentParser) -> None:
         metavar=(
             "{start,status,dashboard,init,apps,bootstrap,detect,install,update,uninstall,package-shims,run,protect,preflight,scan,diff,"
             "receipts,inventory,abom,approvals,explain,allow,deny,policies,exceptions,advisories,events,doctor,connect,"
+            "disconnect,"
             "login,sync,device,bridge}"
         ),
     )
@@ -876,6 +880,18 @@ def _configure_guard_parser(guard_parser: argparse.ArgumentParser) -> None:
         help="Alias for --headless. Start Device Code approval without opening a browser.",
     )
     connect_parser.add_argument("--json", action="store_true")
+
+    disconnect_parser = guard_subparsers.add_parser(
+        "disconnect",
+        help="Revoke local Guard Cloud OAuth credentials and optionally revoke the cloud grant",
+    )
+    _add_guard_common_args(disconnect_parser)
+    disconnect_parser.add_argument(
+        "--revoke-cloud-grant",
+        action="store_true",
+        help="Also revoke the machine and runtime grant state in Guard Cloud.",
+    )
+    disconnect_parser.add_argument("--json", action="store_true")
 
     sync_parser = guard_subparsers.add_parser("sync", help="Sync receipts to the configured Guard endpoint")
     sync_parser.add_argument("--home")
@@ -2324,6 +2340,7 @@ def run_guard_command(
             adapter = get_adapter(args.harness)
             payload = adapter.diagnostics(context)
             payload["runtime_detector_registry"] = _runtime_detector_registry_payload(config)
+            payload["connect_health"] = _guard_doctor_connect_health_payload(store)
             if args.harness == "codex":
                 payload["codex_resume"] = inspect_codex_resume_capabilities(store)
         else:
@@ -2348,8 +2365,12 @@ def run_guard_command(
         payload, exit_code = _build_guard_device_connect_payload(
             store=store,
             connect_url=args.connect_url,
-            use_browser_oauth=True,
+            use_browser_oauth=False,
+            open_device_browser=True,
             wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
+            announce_copy=None
+            if getattr(args, "json", False)
+            else _announce_guard_device_connect_copy,
         )
         if payload is None:
             return exit_code
@@ -2376,8 +2397,12 @@ def run_guard_command(
             payload, exit_code = _build_guard_device_connect_payload(
                 store=store,
                 connect_url=args.connect_url,
-                use_browser_oauth=True,
+                use_browser_oauth=False,
+                open_device_browser=True,
                 wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
+                announce_copy=None
+                if getattr(args, "json", False)
+                else _announce_guard_device_connect_copy,
             )
             if payload is None:
                 return exit_code
@@ -2400,6 +2425,22 @@ def run_guard_command(
                 return exit_code
             _emit("connect", payload, getattr(args, "json", False))
             return exit_code
+
+    if args.guard_command == "disconnect":
+        try:
+            payload = run_guard_disconnect_command(
+                store=store,
+                revoke_cloud_grant=bool(getattr(args, "revoke_cloud_grant", False)),
+                now=_now(),
+            )
+        except (RuntimeError, TimeoutError, urllib.error.URLError, http.client.HTTPException) as error:
+            if getattr(args, "json", False):
+                _emit("disconnect", {"status": "error", "error": str(error)}, True)
+            else:
+                print(str(error), file=sys.stderr)
+            return 1
+        _emit("disconnect", payload, getattr(args, "json", False))
+        return 0
 
     if args.guard_command == "bridge":
         poll_interval = getattr(args, "poll_interval", 10) or 10
@@ -2851,6 +2892,7 @@ def run_guard_command(
                 queued=queued,
                 managed_install=managed_install,
             )
+            _localize_pending_approval_copy(response_payload, harness=args.harness)
             _record_harness_usage_for_hook(
                 store=store,
                 action_envelope=action_envelope,
@@ -2883,17 +2925,71 @@ def run_guard_command(
         )
         if _is_claude_permission_request(args, payload):
             notice = _peek_claude_permission_notice(store, payload)
-            if notice is None:
+            if notice is not None and _claude_permission_notice_prefers_ask_user_question(notice):
+                _mark_claude_pending_permission_prompt_seen(store=store, payload=payload, notice=notice)
+                _emit_native_hook_response(
+                    harness=args.harness,
+                    policy_action="block",
+                    event_name="PermissionRequest",
+                    reason="HOL Guard is routing this approval through AskUserQuestion.",
+                    system_message=_claude_permission_prompt_system_message(payload=payload, notice=notice),
+                    additional_context=_claude_guard_approval_question_message(notice),
+                    output_stream=output_stream,
+                )
+                return 0
+            native_reason: str | None = None
+            policy_action: str | None = None
+            if notice is not None:
+                policy_action = "require-reapproval"
+                native_reason = _optional_string(notice.get("reason"))
+            elif runtime_artifact is not None:
+                policy_action, reason_stub = _resolve_claude_permission_request_policy_action(
+                    config=config,
+                    store=store,
+                    args=args,
+                    runtime_artifact=runtime_artifact,
+                    runtime_workspace=runtime_workspace,
+                )
+                if policy_action not in {"block", "sandbox-required", "require-reapproval"}:
+                    _emit_claude_permission_request_passthrough(output_stream=output_stream)
+                    return 0
+                native_reason = _runtime_artifact_native_reason(runtime_artifact, reason_stub)
+            else:
                 _emit_claude_permission_request_passthrough(output_stream=output_stream)
                 return 0
-            _mark_claude_pending_permission_prompt_seen(store=store, payload=payload, notice=notice)
+            if native_reason is None or not native_reason.strip():
+                native_reason = "HOL Guard is reviewing this Claude approval prompt."
+            if not getattr(args, "json", False):
+                _emit_native_hook_notification_stderr(
+                    _claude_permission_request_terminal_notice(
+                        payload=payload,
+                        native_reason=native_reason,
+                    )
+                )
+            if policy_action in {"block", "sandbox-required"}:
+                _emit_native_hook_response(
+                    harness=args.harness,
+                    policy_action=policy_action,
+                    event_name="PermissionRequest",
+                    reason=native_reason,
+                    system_message=_claude_permission_request_system_message(
+                        payload=payload,
+                        native_reason=native_reason,
+                    ),
+                    additional_context=_claude_permission_request_additional_context(native_reason),
+                    output_stream=output_stream,
+                )
+                return 0
             _emit_native_hook_response(
                 harness=args.harness,
-                policy_action="block",
+                policy_action="require-reapproval",
                 event_name="PermissionRequest",
-                reason="HOL Guard is routing this approval through AskUserQuestion.",
-                system_message=_claude_permission_prompt_system_message(payload=payload, notice=notice),
-                additional_context=_claude_guard_approval_question_message(notice),
+                reason=native_reason,
+                system_message=_claude_permission_request_system_message(
+                    payload=payload,
+                    native_reason=native_reason,
+                ),
+                additional_context=_claude_permission_request_additional_context(native_reason),
                 output_stream=output_stream,
             )
             return 0
@@ -3337,6 +3433,7 @@ def run_guard_command(
                         args.harness,
                         managed_install=managed_install,
                     )
+                    _localize_pending_approval_copy(response_payload, harness=args.harness)
             if _should_emit_copilot_hook_response(args):
                 _record_harness_usage_for_hook(
                     store=store,
@@ -4552,6 +4649,86 @@ def _is_claude_permission_request(args: argparse.Namespace, payload: dict[str, o
     return _canonical_harness_name(args.harness) == "claude-code" and _hook_event_name(payload) == "PermissionRequest"
 
 
+def _claude_permission_notice_prefers_ask_user_question(notice: dict[str, object]) -> bool:
+    artifact_type = _optional_string(notice.get("artifact_type"))
+    return artifact_type != "package_request"
+
+
+def _resolve_claude_permission_request_policy_action(
+    *,
+    config: GuardConfig,
+    store: GuardStore,
+    args: argparse.Namespace,
+    runtime_artifact: GuardArtifact,
+    runtime_workspace: Path | None,
+) -> tuple[str, dict[str, object]]:
+    policy_action = _runtime_artifact_policy_action(config, runtime_artifact, args.harness)
+    package_evaluation = None
+    if runtime_artifact.artifact_type == "package_request":
+        package_evaluation = evaluate_package_request_artifact(
+            artifact=runtime_artifact,
+            store=store,
+            workspace_dir=runtime_workspace,
+        )
+        if guard_action_severity(package_evaluation.policy_action) > guard_action_severity(policy_action):
+            policy_action = package_evaluation.policy_action
+    stub: dict[str, object] = {
+        "harness": _canonical_harness_name(args.harness),
+        "policy_action": policy_action,
+        "risk_summary": (
+            package_evaluation.risk_summary
+            if package_evaluation is not None
+            else artifact_risk_summary(runtime_artifact)
+        ),
+    }
+    if package_evaluation is not None:
+        stub["decision_v2_json"] = {
+            "harness_message": package_evaluation.user_copy.harness_message,
+        }
+    return policy_action, stub
+
+
+def _claude_permission_request_terminal_notice(
+    *,
+    payload: dict[str, object],
+    native_reason: str,
+) -> str:
+    tool_name = _claude_notification_tool_display_name(payload)
+    if tool_name is not None:
+        return (
+            f"HOL Guard: reviewing Claude approval for {tool_name}. "
+            f"{_ensure_terminal_punctuation(native_reason)}"
+        )
+    return f"HOL Guard: reviewing this Claude approval prompt. {_ensure_terminal_punctuation(native_reason)}"
+
+
+def _claude_permission_request_system_message(
+    *,
+    payload: dict[str, object],
+    native_reason: str,
+) -> str:
+    tool_name = _claude_notification_tool_display_name(payload)
+    if tool_name is not None:
+        return (
+            f"HOL Guard is reviewing Claude's approval prompt for {tool_name}. "
+            "Claude's risk warnings above are separate from HOL Guard. "
+            f"{_ensure_terminal_punctuation(native_reason)}"
+        )
+    return (
+        "HOL Guard is reviewing this Claude approval prompt. "
+        "Claude's risk warnings above are separate from HOL Guard. "
+        f"{_ensure_terminal_punctuation(native_reason)}"
+    )
+
+
+def _claude_permission_request_additional_context(native_reason: str) -> str:
+    return (
+        "This review came from HOL Guard, not from Claude alone. "
+        f"{_ensure_terminal_punctuation(native_reason)} "
+        "Use Claude's normal Allow / deny controls unless HOL Guard opened a separate approval question."
+    )
+
+
 def _claude_permission_prompt_system_message(
     *,
     payload: dict[str, object],
@@ -4653,6 +4830,13 @@ def _claude_notification_tool_name(payload: dict[str, object]) -> str | None:
     return None
 
 
+def _claude_notification_tool_display_name(payload: dict[str, object]) -> str | None:
+    tool_name = _claude_notification_tool_name(payload)
+    if tool_name and tool_name.strip():
+        return tool_name.strip()
+    return None
+
+
 def _approval_delivery_payload(
     harness: str,
     *,
@@ -4708,6 +4892,97 @@ def _native_approval_center_context(response_payload: dict[str, object], *, harn
         f"Open HOL Guard to approve or keep this blocked: {review_url}. "
         f"After you choose, retry the same {harness_label} action."
     )
+
+
+def _localize_pending_approval_copy(response_payload: dict[str, object], *, harness: str) -> None:
+    review_context = _native_approval_center_context(response_payload, harness=harness)
+    if review_context is None:
+        return
+    queued = response_payload.get("approval_requests")
+    review_url = first_approval_url(queued) if isinstance(queued, list) else None
+    approval_center_url = response_payload.get("approval_center_url")
+    if review_url is None and isinstance(approval_center_url, str) and approval_center_url.strip():
+        review_url = approval_center_url.strip()
+    if review_url is None:
+        return
+    decision_v2 = response_payload.get("decision_v2_json")
+    if isinstance(decision_v2, dict):
+        _localize_decision_v2_review_copy(decision_v2, review_context)
+    supply_chain_evaluation = response_payload.get("supply_chain_evaluation")
+    if isinstance(supply_chain_evaluation, dict):
+        user_copy = supply_chain_evaluation.get("user_copy")
+        if isinstance(user_copy, dict):
+            harness_message = _optional_string(user_copy.get("harness_message"))
+            if harness_message is not None:
+                user_copy["harness_message"] = _approval_center_routed_message(harness_message, review_context)
+            user_copy["dashboard_url"] = review_url
+    if isinstance(queued, list):
+        for item in queued:
+            if not isinstance(item, dict):
+                continue
+            decision_v2 = item.get("decision_v2_json")
+            if isinstance(decision_v2, dict):
+                _localize_decision_v2_review_copy(decision_v2, review_context)
+
+
+def _localize_decision_v2_review_copy(decision_v2: dict[str, object], review_context: str) -> None:
+    harness_message = _optional_string(decision_v2.get("harness_message"))
+    if harness_message is not None:
+        decision_v2["harness_message"] = _approval_center_routed_message(harness_message, review_context)
+    action = _optional_string(decision_v2.get("action"))
+    if action in {"ask", "block"}:
+        decision_v2["retry_instruction"] = review_context
+
+
+def _approval_center_routed_message(message: str, review_context: str) -> str:
+    normalized = _strip_cloud_inbox_urls(message)
+    normalized = normalized.replace("Review this request in HOL Guard, then retry.", "").strip()
+    normalized = _strip_legacy_approval_center_sentence(normalized)
+    normalized = " ".join(normalized.split())
+    normalized = _strip_review_evidence_tail(normalized)
+    if not normalized:
+        return review_context
+    return f"{_ensure_terminal_punctuation(normalized)} {review_context}"
+
+
+def _strip_review_evidence_tail(message: str) -> str:
+    stripped = message.strip()
+    lower_stripped = stripped.lower()
+    for suffix in ("Review evidence: .", "Review evidence:.", "Review evidence:"):
+        if lower_stripped.endswith(suffix.lower()):
+            return stripped[: -len(suffix)].rstrip()
+    return stripped
+
+
+def _strip_legacy_approval_center_sentence(message: str) -> str:
+    lower_message = message.lower()
+    start = lower_message.find("open hol guard to approve or keep this blocked:")
+    if start == -1:
+        return message.strip()
+    retry_start = lower_message.find("after you choose, retry the same ", start)
+    if retry_start == -1:
+        return message[:start].strip()
+    end = lower_message.find(" action.", retry_start)
+    if end == -1:
+        return message[:start].strip()
+    end += len(" action.")
+    return f"{message[:start]} {message[end:]}".strip()
+
+
+def _strip_cloud_inbox_urls(message: str) -> str:
+    kept_tokens: list[str] = []
+    for token in message.split():
+        candidate = token.strip("([{<'\"")
+        candidate = candidate.rstrip(")]}>'\".,;:!?")
+        if _is_cloud_inbox_url(candidate):
+            continue
+        kept_tokens.append(token)
+    return " ".join(kept_tokens).strip()
+
+
+def _is_cloud_inbox_url(value: str) -> bool:
+    parsed = urllib.parse.urlparse(value)
+    return parsed.scheme in {"http", "https"} and parsed.path.rstrip("/") == "/guard/inbox"
 
 
 def _runtime_stored_policy_action(
@@ -5523,6 +5798,20 @@ def _emit_native_hook_response(
             if payload:
                 _write_json_line(payload, output_stream=output_stream)
             return
+        if event_name == "PermissionRequest" and _canonical_harness_name(harness) == "claude-code":
+            message = system_message or reason
+            if message:
+                payload["systemMessage"] = message
+            if additional_context:
+                payload["hookSpecificOutput"] = {
+                    "hookEventName": event_name,
+                    "additionalContext": additional_context,
+                }
+            elif message:
+                payload["hookSpecificOutput"] = {"hookEventName": event_name}
+            if payload:
+                _write_json_line(payload, output_stream=output_stream)
+            return
         if additional_context:
             payload["hookSpecificOutput"] = {
                 "hookEventName": event_name,
@@ -5608,6 +5897,7 @@ def _headless_approval_resolver(
                 queued=queued,
             )
             payload["approval_delivery"] = _approval_delivery_payload(args.harness, managed_install=managed_install)
+            _localize_pending_approval_copy(payload, harness=args.harness)
             if str(approval_flow["tier"]) != "native-or-center" or not should_wait_for_approvals:
                 payload["approval_wait"] = {
                     "resolved": False,
@@ -5674,6 +5964,7 @@ def _headless_approval_resolver(
             managed_install=managed_install,
         )
         payload["approval_delivery"] = _approval_delivery_payload(args.harness, managed_install=managed_install)
+        _localize_pending_approval_copy(payload, harness=args.harness)
         if str(approval_flow["tier"]) != "native-or-center" or not should_wait_for_approvals:
             payload["approval_wait"] = {
                 "resolved": False,
@@ -8799,6 +9090,49 @@ def _resolve_policy_expiry(args: argparse.Namespace) -> str | None:
     return (datetime.now(timezone.utc) + timedelta(hours=float(hours))).isoformat()
 
 
+def _guard_doctor_connect_health_payload(store: GuardStore) -> dict[str, object]:
+    latest_state = store.get_latest_guard_connect_state(now=_now())
+    payload: dict[str, object] = {
+        "oauth_storage_health": _guard_doctor_oauth_storage_health_payload(store),
+        "connect_recovery_command": connect_recovery_command(latest_state),
+    }
+    if isinstance(latest_state, dict):
+        payload["latest_connect_state"] = _guard_doctor_latest_connect_state_payload(latest_state)
+    return payload
+
+
+def _guard_doctor_oauth_storage_health_payload(store: GuardStore) -> dict[str, str]:
+    oauth_storage_health = store.get_oauth_local_credential_health()
+    state = "unknown"
+    if isinstance(oauth_storage_health, dict):
+        raw_state = oauth_storage_health.get("state")
+        if isinstance(raw_state, str) and raw_state.strip():
+            state = raw_state
+    return {"state": state}
+
+
+def _guard_doctor_latest_connect_state_payload(latest_state: dict[str, object]) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for key in (
+        "request_id",
+        "status",
+        "milestone",
+        "reason",
+        "created_at",
+        "updated_at",
+        "expires_at",
+        "completed_at",
+        "version",
+    ):
+        value = latest_state.get(key)
+        if isinstance(value, str) and value.strip():
+            payload[key] = value
+    poll_after_ms = latest_state.get("poll_after_ms")
+    if isinstance(poll_after_ms, int):
+        payload["poll_after_ms"] = poll_after_ms
+    return payload
+
+
 def _synced_policy_payload(store: GuardStore) -> dict[str, object] | None:
     payload = store.get_sync_payload("policy")
     return payload if isinstance(payload, dict) else None
@@ -8841,6 +9175,7 @@ def _run_guard_device_connect_flow(
     *,
     store: GuardStore,
     connect_url: str,
+    wait_timeout_seconds: int = 180,
     announce_copy=None,
     open_browser: Callable[[str], bool] | None = None,
     ci_safe: bool = False,
@@ -8849,6 +9184,7 @@ def _run_guard_device_connect_flow(
     return run_guard_device_connect_command(
         store=store,
         connect_url=connect_url,
+        wait_timeout_seconds=wait_timeout_seconds,
         announce_copy=announce_copy,
         open_browser=open_browser,
         ci_safe=ci_safe,
@@ -8891,6 +9227,7 @@ def _build_guard_device_connect_payload(
             payload = _run_guard_device_connect_flow(
                 store=store,
                 connect_url=connect_url,
+                wait_timeout_seconds=wait_timeout_seconds,
                 announce_copy=announce_copy,
                 open_browser=webbrowser.open,
                 ci_safe=ci_safe,
@@ -8900,6 +9237,7 @@ def _build_guard_device_connect_payload(
             payload = _run_guard_device_connect_flow(
                 store=store,
                 connect_url=connect_url,
+                wait_timeout_seconds=wait_timeout_seconds,
                 announce_copy=announce_copy,
                 ci_safe=ci_safe,
                 machine_label=machine_label,
@@ -8918,15 +9256,15 @@ def _build_guard_device_connect_payload(
 
 def _announce_guard_device_connect_copy(payload: dict[str, object]) -> None:
     user_code = _optional_string(payload.get("user_code")) or "unknown"
-    target = _optional_string(payload.get("verification_uri_complete")) or _optional_string(
-        payload.get("verification_uri")
+    target = _optional_string(payload.get("verification_uri")) or _optional_string(
+        payload.get("verification_uri_complete")
     )
     if target is None:
         return
-    print("HOL Guard headless approval")
-    print(f"1. Open {target}")
-    print(f"2. Enter code {user_code}")
-    print("3. Keep this terminal open while HOL Guard waits for approval.")
+    print("HOL Guard headless approval", file=sys.stderr)
+    print(f"1. Open {target}", file=sys.stderr)
+    print(f"2. Enter code {user_code}", file=sys.stderr)
+    print("3. Keep this terminal open while HOL Guard waits for approval.", file=sys.stderr)
 
 
 def _guard_ci_safe_connect_options(args: argparse.Namespace) -> tuple[bool, str | None]:

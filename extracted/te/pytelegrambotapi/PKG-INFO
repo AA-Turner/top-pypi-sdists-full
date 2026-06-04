@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyTelegramBotAPI
-Version: 4.33.0
+Version: 4.34.0
 Summary: Python Telegram bot API.
 Project-URL: Homepage, https://github.com/eternnoir/pyTelegramBotAPI
 Project-URL: Documentation, https://pytba.readthedocs.org
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
+Requires-Dist: aiohttp
 Requires-Dist: requests
 Provides-Extra: coloredlogs
 Requires-Dist: coloredlogs; extra == 'coloredlogs'
@@ -51,7 +52,7 @@ Description-Content-Type: text/markdown
 <p align="center">A simple, but extensible Python implementation for the <a href="https://core.telegram.org/bots/api">Telegram Bot API</a>.</p>
 <p align="center">Both synchronous and asynchronous.</p>
 
-## <p align="center">Supported Bot API version: <a href="https://core.telegram.org/bots/api-changelog#april-3-2026"><img src="https://img.shields.io/badge/Bot%20API-9.6-blue?logo=telegram" alt="Supported Bot API version"></a>
+## <p align="center">Supported Bot API version: <a href="https://core.telegram.org/bots/api#may-8-2026"><img src="https://img.shields.io/badge/Bot%20API-10.0-blue?logo=telegram" alt="Supported Bot API version"></a>
 
 <h2><a href='https://pytba.readthedocs.io/en/latest/index.html'>Official documentation</a></h2>
 <h2><a href='https://pytba.readthedocs.io/ru/latest/index.html'>Official ru documentation</a></h2>

@@ -1836,6 +1836,68 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Read an ad's click-URL tracking tags",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ads_get_ad_tracking_tags(ad_id: str) -> str:
+        """Read an ad's click-URL tracking tags
+
+        Args:
+            ad_id: Ad id (hex _id, platformAdId, or effective story/media id). (required)"""
+        client = _get_client()
+        try:
+            response = client.ads.get_ad_tracking_tags(ad_id=ad_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set/update an ad's click-URL tracking tags",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ads_update_ad_tracking_tags(
+        ad_id: str,
+        url_tags: list[dict[str, Any]] | None = None,
+        creative: dict[str, Any] | None = None,
+        tracking_url_template: str | None = None,
+        final_url_suffix: str | None = None,
+        dynamic_value_parameters: dict[str, Any] | None = None,
+        custom_value_parameters: dict[str, Any] | None = None,
+    ) -> str:
+        """Set/update an ad's click-URL tracking tags
+
+        Args:
+            ad_id: (required)
+            url_tags: Meta only. Click-URL params appended to a freshly-rebuilt creative.
+            creative: Meta only. Required to rebuild the immutable creative when setting urlTags.
+            tracking_url_template: Google only. Full tracking template (must contain {lpurl}).
+            final_url_suffix: Google only. Parse-only key=value params.
+            dynamic_value_parameters: LinkedIn only. key -> dynamic value enum (CAMPAIGN_ID, CAMPAIGN_NAME, CREATIVE_ID, ...).
+            custom_value_parameters: LinkedIn only. key -> static value."""
+        client = _get_client()
+        try:
+            response = client.ads.update_ad_tracking_tags(
+                ad_id=ad_id,
+                url_tags=url_tags,
+                creative=creative,
+                tracking_url_template=tracking_url_template,
+                final_url_suffix=final_url_suffix,
+                dynamic_value_parameters=dynamic_value_parameters,
+                custom_value_parameters=custom_value_parameters,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List comments on an ad",
             readOnlyHint=True,
             destructiveHint=False,
@@ -2172,16 +2234,20 @@ def register_generated_tools(mcp, _get_client):
         (`imageUrl`, `headline`, `body`, `linkUrl`, `callToAction`) are ignored. Mutually
         exclusive with the `creatives[]` multi-creative shape. Meta limits: ≤10 images,
         ≤5 bodies / titles / descriptions.
-                placement_assets: Meta only. Placement asset customization: pin a SPECIFIC image to each placement
-        group on a SINGLE ad (e.g. a 9:16 image on Stories/Reels and a 4:5 on Feed). This
-        is the same thing Meta Ads Manager produces with "different creative per placement",
-        mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. It is
-        deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (the two are
-        mutually exclusive, and it cannot be combined with `creatives[]` or `adSetId`). The
-        shared copy (headline, body, link, CTA) comes from the top-level single-creative
-        fields (`headline`, `body`, `linkUrl`, `callToAction`) since only the image varies by
+                placement_assets: Meta only. Placement asset customization: pin a SPECIFIC asset (image OR video) to
+        each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed).
+        The same thing Meta Ads Manager produces with "different creative per placement",
+        mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic
+        pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive, and it
+        cannot be combined with `creatives[]` or `adSetId`). Shared copy (headline, body, link,
+        CTA) comes from the top-level single-creative fields since only the asset varies by
         placement. Each rule's `placements` accepts the same fields as the top-level
         `placements` object; Meta enforces co-selection rules and returns an actionable error.
+
+        A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad
+        format). Image mode: `defaultImageUrl` + `rules[].imageUrl`. Video mode:
+        `defaultVideoUrl` + `rules[].videoUrl` (optional `thumbnailUrl`/`defaultThumbnailUrl`
+        posters; Meta auto-generates when omitted). Exactly one catch-all default is required.
                 audience_id: Custom audience ID for targeting
                 campaign_type: Google only
                 keywords: Google Search only
@@ -2620,13 +2686,15 @@ def register_generated_tools(mcp, _get_client):
     )
     def ads_estimate_ad_reach(
         account_id: str,
+        ad_account_id: str,
         spec: dict[str, Any] | None,
         optimization_goal: str | None = None,
     ) -> str:
         """Estimate audience reach
 
             Args:
-                account_id: Social account ID on the target ad platform. (required)
+                account_id: Zernio social account ID on the target ad platform (the estimate runs against its platform). (required)
+                ad_account_id: Required. The platform ad-account ID the reach call runs against (Meta act_..., LinkedIn numeric sponsoredAccount ID, Pinterest ad-account ID, X account ID) - every backing reach API is scoped to one ad account. Get it from GET /v1/ads/accounts. (required)
                 spec: The targeting spec to estimate. Same shape used by POST /v1/ads/create. (required)
                 optimization_goal: Optional. The optimization goal the estimate should assume (platform's
         own vocabulary, e.g. Meta `REACH`, `LINK_CLICKS`, `OFFSITE_CONVERSIONS`).
@@ -2634,7 +2702,33 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ads.estimate_ad_reach(
-                account_id=account_id, spec=spec, optimization_goal=optimization_goal
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                spec=spec,
+                optimization_goal=optimization_goal,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read Event Match Quality + coverage for a Meta pixel",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ads_get_conversions_quality(account_id: str, destination_id: str) -> str:
+        """Read Event Match Quality + coverage for a Meta pixel
+
+        Args:
+            account_id: SocialAccount _id (must be a metaads account). (required)
+            destination_id: Meta pixel/dataset ID. (required)"""
+        client = _get_client()
+        try:
+            response = client.ads.get_conversions_quality(
+                account_id=account_id, destination_id=destination_id
             )
             return _format_response(response)
         except Exception as e:
@@ -7609,8 +7703,22 @@ def register_generated_tools(mcp, _get_client):
     )
     def posts_update_post(
         post_id: str,
+        title: str | None = None,
         content: str | None = None,
+        media_items: list[dict[str, Any]] | None = None,
+        platforms: list[dict[str, Any]] | None = None,
         scheduled_for: str | None = None,
+        publish_now: bool = False,
+        is_draft: bool | None = None,
+        timezone: str | None = None,
+        visibility: str | None = None,
+        tags: list[str] | None = None,
+        hashtags: list[str] | None = None,
+        mentions: list[str] | None = None,
+        crossposting_enabled: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        queued_from_profile: str | None = None,
+        queue_id: str | None = None,
         tiktok_settings: dict[str, Any] | None = None,
         facebook_settings: dict[str, Any] | None = None,
         recycling: dict[str, Any] | None = None,
@@ -7619,8 +7727,22 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             post_id: (required)
+            title
             content
+            media_items
+            platforms: Target platforms and accounts for this post. Each item must include platform and accountId.
             scheduled_for
+            publish_now
+            is_draft
+            timezone
+            visibility
+            tags
+            hashtags
+            mentions
+            crossposting_enabled
+            metadata
+            queued_from_profile: Profile ID to schedule via queue.
+            queue_id: Specific queue ID to use when scheduling via queue.
             tiktok_settings: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
             facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
             recycling"""
@@ -7628,8 +7750,22 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.posts.update_post(
                 post_id=post_id,
+                title=title,
                 content=content,
+                media_items=media_items,
+                platforms=platforms,
                 scheduled_for=scheduled_for,
+                publish_now=publish_now,
+                is_draft=is_draft,
+                timezone=timezone,
+                visibility=visibility,
+                tags=tags,
+                hashtags=hashtags,
+                mentions=mentions,
+                crossposting_enabled=crossposting_enabled,
+                metadata=metadata,
+                queued_from_profile=queued_from_profile,
+                queue_id=queue_id,
                 tiktok_settings=tiktok_settings,
                 facebook_settings=facebook_settings,
                 recycling=recycling,

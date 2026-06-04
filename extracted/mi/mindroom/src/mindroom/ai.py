@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 from uuid import uuid4
 
 from agno.db.base import SessionType
@@ -250,6 +251,39 @@ def _extract_response_content(response: RunOutput, *, show_tool_calls: bool = Tr
             response_parts.append("\n\n".join(tool_sections))
 
     return "\n".join(response_parts) if response_parts else ""
+
+
+def _run_error_event_text(event: RunErrorEvent) -> str:
+    """Return the best available error text for an Agno streaming error event."""
+    if event.content:
+        return event.content
+
+    additional_message = _run_error_additional_message(event.additional_data or {})
+    if additional_message:
+        return additional_message
+
+    details = []
+    if event.error_type:
+        details.append(f"type={event.error_type}")
+    if event.error_id:
+        details.append(f"id={event.error_id}")
+    if details:
+        return f"Agent run failed ({', '.join(details)})"
+
+    return "Agent run failed without provider error details"
+
+
+def _run_error_additional_message(data: object) -> str | None:
+    if isinstance(data, str):
+        stripped = data.strip()
+        return stripped or None
+    if isinstance(data, Mapping):
+        mapping = cast("Mapping[object, object]", data)
+        for key in ("message", "error", "detail"):
+            message = _run_error_additional_message(mapping.get(key))
+            if message:
+                return message
+    return None
 
 
 def _extract_replayable_response_text(response: RunOutput) -> str:
@@ -1288,7 +1322,7 @@ async def _process_stream_events(  # noqa: C901, PLR0912, PLR0915
                 return
 
             if isinstance(event, RunErrorEvent):
-                error_text = event.content or "Unknown agent error"
+                error_text = _run_error_event_text(event)
                 if _request_stream_retry(
                     state,
                     retried_after_media_fallback=retried_after_media_fallback,
@@ -1615,12 +1649,31 @@ async def stream_agent_response(  # noqa: C901, PLR0912, PLR0915
                         attempt_run_id = ai_runtime.next_retry_run_id(run_id)
                         continue
 
-                    if state.user_error is not None:
-                        yield get_user_friendly_error_message(state.user_error, agent_name)
-                        return
-
-                    if state.stream_exception is not None:
-                        yield get_user_friendly_error_message(state.stream_exception, agent_name)
+                    run_error = state.user_error or state.stream_exception
+                    if run_error is not None:
+                        if state.assistant_text or state.completed_tools or state.pending_tools:
+                            interrupted_tools = [pending.trace_entry for pending in state.pending_tools]
+                            if turn_recorder is not None:
+                                turn_recorder.record_interrupted(
+                                    run_metadata=metadata,
+                                    assistant_text=state.assistant_text,
+                                    completed_tools=state.completed_tools,
+                                    interrupted_tools=interrupted_tools,
+                                )
+                            elif not standalone_interrupted_replay_persisted:
+                                persist_interrupted_replay(
+                                    scope_context=scope_context,
+                                    session_id=session_id,
+                                    run_id=attempt_run_id or str(uuid4()),
+                                    user_message=prompt,
+                                    partial_text=state.assistant_text,
+                                    completed_tools=state.completed_tools,
+                                    interrupted_tools=interrupted_tools,
+                                    run_metadata=metadata,
+                                    is_team=False,
+                                )
+                                standalone_interrupted_replay_persisted = True
+                        yield get_user_friendly_error_message(run_error, agent_name)
                         return
 
                     if state.cancelled_run_event is not None:

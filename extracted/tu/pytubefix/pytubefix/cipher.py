@@ -722,6 +722,15 @@ class Cipher:
             if func_name:
                 n_func = func_name.group("funcname")
                 logger.debug(f"Nfunc name (strategy 2): {n_func}")
+                if global_obj and varname:
+                    xor_params = self._extract_xor_branch_nsig_params(
+                        js, n_func, varname, global_obj
+                    )
+                    if xor_params is not None:
+                        logger.debug(f"Using XOR-branch params for {n_func}: {xor_params}")
+                        self._nsig_param_val = xor_params
+                    else:
+                        self._nsig_param_val = self._extract_nsig_param_val(js, n_func)
                 return n_func
 
             # Strategy 2.5: Multi-branch XOR nsig function (2025+ obfuscation)
@@ -835,7 +844,17 @@ class Cipher:
 
                 if 'try{' in func_body or 'try {' in func_body or 'catch(' in func_body:
                     logger.debug(f"Nfunc name (strategy 3): {candidate}")
-                    self._nsig_param_val = self._extract_nsig_param_val(js, candidate)
+                    if global_obj and varname:
+                        xor_params = self._extract_xor_branch_nsig_params(
+                            js, candidate, varname, global_obj, func_body
+                        )
+                        if xor_params is not None:
+                            logger.debug(f"Using XOR-branch params for {candidate}: {xor_params}")
+                            self._nsig_param_val = xor_params
+                        else:
+                            self._nsig_param_val = self._extract_nsig_param_val(js, candidate)
+                    else:
+                        self._nsig_param_val = self._extract_nsig_param_val(js, candidate)
                     return candidate
 
             raise RegexMatchError(
@@ -862,12 +881,19 @@ class Cipher:
         Returns a list [[X, F]] on success, or None if this is not an XOR-branch function.
         """
         if body is None:
-            func_def = re.search(
-                r'(?:function\s+%s|(?:var\s+)?%s\s*=\s*function)\s*\(' % (
-                    re.escape(func_name), re.escape(func_name)), js)
-            if not func_def:
+            func_defs = list(re.finditer(
+                r'(?<![A-Za-z0-9_$.])(?:function\s+%s(?![A-Za-z0-9_$])|'
+                r'(?:var\s+)?%s(?![A-Za-z0-9_$])\s*=\s*function)\s*\(' % (
+                    re.escape(func_name), re.escape(func_name)
+                ),
+                js,
+            ))
+            if not func_defs:
                 return None
 
+            # Later assignments override earlier ones in player bundles, and
+            # this avoids property methods such as g.C.NAME=function.
+            func_def = func_defs[-1]
             func_start = func_def.start()
             depth = 0
             func_end = func_start
@@ -907,18 +933,18 @@ class Cipher:
         split_patterns = [
             # Both k1 and k2 are XOR'd: arg[G[xor^k1]](G[xor^k2])
             re.compile(
-                arg_pat + r'\[' + gv + r'\[' + xv + r'\^(\d+)\]\]\(' +
-                gv + r'\[' + xv + r'\^(\d+)\]\)'
+                arg_pat + r'\[' + gv + r'\[' + xv + r'\^\s*(\d+)\]\]\(' +
+                gv + r'\[' + xv + r'\^\s*(\d+)\]\)'
             ),
             # Only k1 is XOR'd, k2 is direct: arg[G[xor^k1]](G[k2])
             re.compile(
-                arg_pat + r'\[' + gv + r'\[' + xv + r'\^(\d+)\]\]\(' +
+                arg_pat + r'\[' + gv + r'\[' + xv + r'\^\s*(\d+)\]\]\(' +
                 gv + r'\[(\d+)\]\)'
             ),
             # k1 is direct, k2 is XOR'd: arg[G[k1]](G[xor^k2])
             re.compile(
                 arg_pat + r'\[' + gv + r'\[(\d+)\]\]\(' +
-                gv + r'\[' + xv + r'\^(\d+)\]\)'
+                gv + r'\[' + xv + r'\^\s*(\d+)\]\)'
             ),
             # Both k1 and k2 are direct: arg[G[k1]](G[k2])
             re.compile(
@@ -1281,6 +1307,59 @@ class Cipher:
                     f"X={X}, extra_hits={len(triggered)}"
                 )
                 break
+
+        # Pattern 7: Plain if-block guard before split - e.g.
+        # if((e-1&11)>=5&&e+7>>4<2){...w[GLOBAL[I^k1]](GLOBAL[I^k2])...}
+        # Some TCE players do not use labeled blocks for the nsig branch.
+        if X is None:
+            all_conds = []
+            all_if_conds = _extract_if_conditions(body)
+            for if_match in re.finditer(r'if\s*\(', pre_split):
+                open_idx = if_match.end() - 1
+                depth = 1
+                cond_end = None
+                for i in range(open_idx + 1, len(pre_split)):
+                    if pre_split[i] == '(':
+                        depth += 1
+                    elif pre_split[i] == ')':
+                        depth -= 1
+                        if depth == 0:
+                            cond_end = i
+                            break
+                if cond_end is None:
+                    continue
+                all_conds.append((if_match.start(), pre_split[open_idx + 1:cond_end]))
+
+            for _, nsig_cond in reversed(all_conds):
+                for pname in param_names:
+                    if pname not in nsig_cond:
+                        continue
+                    target_norm = _normalize_js_cond(nsig_cond)
+                    extra_conds = []
+                    for other_cond in all_if_conds:
+                        if pname not in other_cond:
+                            continue
+                        if _normalize_js_cond(other_cond) == target_norm:
+                            continue
+                        extra_conds.append(other_cond)
+
+                    picked = _pick_branch_candidate(
+                        pname,
+                        lambda x_candidate, cond=nsig_cond, pname=pname: _eval_js_branch(
+                            cond, pname, x_candidate
+                        ),
+                        extra_conds
+                    )
+                    if picked is None:
+                        continue
+                    X, _ = picked
+                    F = I ^ X
+                    logger.debug(
+                        f"Plain if-guard branch matched: {nsig_cond}, X={X}"
+                    )
+                    break
+                if X is not None:
+                    break
 
         if X is None:
             # Collect ALL if(COND)label:{ conditions before the split,

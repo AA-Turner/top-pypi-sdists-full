@@ -24,8 +24,8 @@ import numpy as np
 from ._coords import _BAND_DIM_NAMES
 from ._errors import (ConflictingCRSError, ConflictingNodataError, InconsistentGeoKeysError,
                       InvalidIntegerNodataError, MixedBandMetadataError, NonUniformCoordsError,
-                      RotatedTransformError, UnparseableCRSError, VRTStableSourcesOnlyError,
-                      _distinct_per_band_nodatavals_msg)
+                      RemoteStableSourcesOnlyError, RotatedTransformError, UnparseableCRSError,
+                      VRTStableSourcesOnlyError, _distinct_per_band_nodatavals_msg)
 from ._runtime import (_MISSING_SOURCES_SENTINEL, _ON_GPU_FAILURE_SENTINEL, _TIME_DIM_NAMES,
                        _X_DIM_NAMES, _Y_DIM_NAMES)
 
@@ -360,6 +360,34 @@ def _validate_overview_level_arg(overview_level) -> None:
         )
 
 
+def _validate_gpu_arg(gpu, *, allow_none: bool = False) -> None:
+    """Validate the ``gpu`` dispatch flag type.
+
+    ``gpu`` selects the GPU backend by truthiness on both the read
+    (``open_geotiff`` / ``_validate_dispatch_kwargs``) and write
+    (``to_geotiff``) paths. Without a type check, a non-bool such as
+    ``gpu="False"`` is truthy and silently routes to the GPU path
+    instead of raising. ``bool`` is also a subclass of ``int``, so
+    ``gpu=1`` / ``gpu=0`` would otherwise sneak through any
+    ``isinstance(gpu, int)`` style guard; reject them as non-bool.
+
+    ``np.bool_`` is accepted alongside Python ``bool`` (it is not a
+    ``bool`` subclass but is the obvious numpy equivalent, matching how
+    ``nodata`` validation treats ``(bool, np.bool_)``).
+
+    ``allow_none=True`` keeps the writer's ``gpu=None`` "auto-detect
+    from the data" sentinel valid; the read path leaves it False so
+    only a ``bool`` is accepted.
+    """
+    if allow_none and gpu is None:
+        return
+    if not isinstance(gpu, (bool, np.bool_)):
+        suffix = " or None" if allow_none else ""
+        raise TypeError(
+            f"gpu must be a bool{suffix}, got "
+            f"{type(gpu).__name__}: {gpu!r}")
+
+
 def _validate_dispatch_kwargs(
     *,
     source,
@@ -412,6 +440,12 @@ def _validate_dispatch_kwargs(
     gpu : bool
         True when the call routes through the GPU pipeline (either
         ``open_geotiff(gpu=True)`` or a direct ``read_geotiff_gpu``).
+        This is the dispatch bool, type-checked via
+        ``_validate_gpu_arg``. Not to be confused with
+        ``read_geotiff_gpu``'s own deprecated ``gpu='strict'/'auto'/
+        'loose'`` string parameter (the legacy ``on_gpu_failure``
+        alias), which never reaches this helper -- ``read_geotiff_gpu``
+        passes a literal ``True`` here.
     chunks : int, tuple, or None
         Caller's ``chunks=`` value. ``None`` means eager.
     overview_level
@@ -444,6 +478,7 @@ def _validate_dispatch_kwargs(
     from ._reader import _MAX_CLOUD_BYTES_SENTINEL
 
     _validate_overview_level_arg(overview_level)
+    _validate_gpu_arg(gpu)
 
     if on_gpu_failure is not _ON_GPU_FAILURE_SENTINEL and not gpu:
         raise ValueError(
@@ -737,6 +772,72 @@ def _validate_stable_only_vrt(
         f"allow_experimental_codecs=True to opt in to the advanced / "
         f"experimental tiers, or drop stable_only=True to keep the "
         f"default behaviour. See "
+        f"docs/source/reference/release_gate_geotiff.rst for the "
+        f"release contract and epic #2342 for the tracking issue."
+    )
+
+
+def _validate_stable_only_remote(
+    source,
+    *,
+    stable_only: bool,
+    allow_experimental_codecs: bool = False,
+) -> None:
+    """Reject an HTTP / fsspec source when stable-only sources are asked.
+
+    Companion to :func:`_validate_stable_only_vrt` for the non-VRT read
+    paths. ``reader.http`` and ``reader.fsspec`` sit at the ``advanced``
+    tier in :data:`xrspatial.geotiff.SUPPORTED_FEATURES`, so a caller who
+    asks for stable-only sources via ``stable_only=True`` must not be
+    served from a remote source. The VRT dispatcher already gates this at
+    graph-build / eager-read setup; the eager and dask non-VRT paths route
+    around that gate (the VRT validator only fires for ``.vrt`` paths), so
+    HTTP / fsspec sources used to slip through ``stable_only=True``.
+    Reject up front, before any range GET or decode work.
+
+    Parameters
+    ----------
+    source : str or path-like or file-like
+        The read source. Only ``http(s)://`` URLs and fsspec URIs raise;
+        local-file paths and eager file-like buffers pass through, since
+        ``reader.local_file`` is a stable-tier reader.
+    stable_only : bool
+        Caller's opt-in for stable-only sources. ``False`` is a no-op;
+        ``True`` raises :class:`RemoteStableSourcesOnlyError` for a remote
+        source unless ``allow_experimental_codecs=True``.
+    allow_experimental_codecs : bool, default False
+        Documented unlock. When set, the gate becomes a no-op so the
+        caller can opt into the advanced / experimental tiers explicitly,
+        mirroring :func:`_validate_stable_only_vrt`.
+
+    Raises
+    ------
+    RemoteStableSourcesOnlyError
+        When ``stable_only=True``, the caller did not pass
+        ``allow_experimental_codecs=True``, and ``source`` is an HTTP(S)
+        URL or an fsspec URI. The message names the offending source,
+        both flags, and cites the release-contract document.
+    """
+    if not stable_only:
+        return
+    if allow_experimental_codecs:
+        return
+    # Local imports: the validation layer avoids eager-importing the
+    # sources / reader scheme helpers at module load, matching the dask
+    # backend so the package imports without the cloud-read deps in
+    # environments that only consume local-file reads.
+    from ._reader import _is_fsspec_uri
+    from ._sources import _is_http_source
+    if not (_is_http_source(source) or _is_fsspec_uri(source)):
+        return
+    raise RemoteStableSourcesOnlyError(
+        f"Remote source '{source}' cannot be opened under "
+        f"stable_only=True. The HTTP and fsspec readers (``reader.http`` "
+        f"/ ``reader.fsspec``) sit at the advanced tier in "
+        f"SUPPORTED_FEATURES, so the stable-only request cannot be served "
+        f"from a remote source. Pass allow_experimental_codecs=True to "
+        f"opt in to the advanced / experimental tiers, or drop "
+        f"stable_only=True to keep the default behaviour. See "
         f"docs/source/reference/release_gate_geotiff.rst for the "
         f"release contract and epic #2342 for the tracking issue."
     )

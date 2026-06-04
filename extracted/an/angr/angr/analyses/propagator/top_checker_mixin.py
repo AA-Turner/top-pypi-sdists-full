@@ -1,18 +1,17 @@
 from __future__ import annotations
-from typing import TypeVar
-from collections.abc import Callable
-import claripy
-from pyvex.expr import IRExpr, Unop, get_op_retty, Binop
-from pyvex.const import get_type_size
 
-from angr.utils.bits import zeroextend_on_demand
+from collections.abc import Callable
+
+import claripy
+from pyvex.const import get_type_size
+from pyvex.expr import Binop, IRExpr, Unop, get_op_retty
+
 from angr.block import Block
 from angr.engines.engine import DataType_co
 from angr.engines.light.engine import SimEngineLight, SimEngineLightVEX
+from angr.utils.bits import zeroextend_on_demand
 
 TOPS: dict[int, claripy.ast.BV] = {}
-
-T = TypeVar("T")
 
 
 class ClaripyDataEngineMixin[StateType, DataType_co, BlockType, ResultType](

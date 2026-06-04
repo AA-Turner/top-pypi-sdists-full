@@ -9,6 +9,7 @@ __all__ = ("device_attribute_init",)
 
 __docformat__ = "restructuredtext"
 
+import contextlib
 import copy
 
 from tango import DeviceAttribute, ExtractAs
@@ -23,18 +24,12 @@ def __DeviceAttribute__init(self, da=None):
         DeviceAttribute.__init_orig(self)
     else:
         DeviceAttribute.__init_orig(self, da)
-        try:
+        with contextlib.suppress(Exception):
             self.value = copy.deepcopy(da.value)
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             self.w_value = copy.deepcopy(da.w_value)
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             self.scalar_w_value = da.scalar_w_value
-        except Exception:
-            pass
         self.type = da.type
         self.is_empty = da.is_empty
         self.has_failed = da.has_failed

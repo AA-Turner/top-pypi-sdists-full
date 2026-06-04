@@ -1,7 +1,7 @@
 """Tests for connection_resolver module."""
 
 import sys
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
 
@@ -63,6 +63,7 @@ with patch("sagemaker_studio.Project"):
     from sagemaker_studio.utils.spark.connection_resolver import (
         _create_session_manager,
         _identify_service_from_props,
+        _resolve_connection_and_create_session_manager,
     )
 
 
@@ -285,3 +286,141 @@ def test_create_session_manager_non_spark_connect_default_falls_back():
     assert isinstance(mgr, AthenaSparkSessionManager)
     assert len(w) == 1
     assert "not a recognized Spark Connect type" in str(w[0].message)
+
+
+# ---------------------------------------------------------------------------
+# _resolve_connection_and_create_session_manager tests
+# ---------------------------------------------------------------------------
+
+
+@patch("sagemaker_studio.utils.spark.connection_resolver._create_session_manager")
+@patch("sagemaker_studio.utils.spark.connection_resolver._ensure_project")
+@patch("sagemaker_studio.utils.spark.connection_resolver._resolve_connection_id_from_notebook")
+def test_resolve_with_explicit_connection_name(mock_notebook, mock_project, mock_create):
+    """Ensure explicit connection_name resolves via project.connection(name) with is_explicit_choice=True."""
+    mock_conn = MagicMock()
+    mock_project.return_value.connection.return_value = mock_conn
+    mock_create.return_value = "manager"
+
+    result = _resolve_connection_and_create_session_manager(connection_name="my-conn")
+
+    mock_project.return_value.connection.assert_called_once_with("my-conn")
+    mock_create.assert_called_once_with(mock_conn, "my-conn", None, ANY, True, spark_conf=None)
+    assert result == "manager"
+    mock_notebook.assert_not_called()
+
+
+@patch("sagemaker_studio.utils.spark.connection_resolver._create_session_manager")
+@patch("sagemaker_studio.utils.spark.connection_resolver._ensure_project")
+@patch("sagemaker_studio.utils.spark.connection_resolver._resolve_connection_id_from_notebook")
+def test_resolve_with_notebook_metadata_connection_id(mock_notebook, mock_project, mock_create):
+    """Ensure notebook metadata connection ID resolves via project.connection(id=...) with is_explicit_choice=True."""
+    mock_notebook.return_value = "conn-id-from-notebook"
+    mock_conn = MagicMock()
+    mock_project.return_value.connection.return_value = mock_conn
+    mock_create.return_value = "manager"
+
+    result = _resolve_connection_and_create_session_manager()
+
+    mock_project.return_value.connection.assert_called_once_with(id="conn-id-from-notebook")
+    mock_create.assert_called_once_with(
+        mock_conn, None, "conn-id-from-notebook", ANY, True, spark_conf=None
+    )
+    assert result == "manager"
+
+
+@patch("sagemaker_studio.utils.spark.connection_resolver._create_session_manager")
+@patch("sagemaker_studio.utils.spark.connection_resolver._ensure_project")
+@patch("sagemaker_studio.utils.spark.connection_resolver._resolve_connection_id_from_notebook")
+def test_resolve_default_spark_connect_connection(mock_notebook, mock_project, mock_create):
+    """Ensure default path resolves via project.connection(type='SPARK_CONNECT') with is_explicit_choice=False."""
+    mock_notebook.return_value = None
+    mock_conn = MagicMock()
+    mock_project.return_value.connection.return_value = mock_conn
+    mock_create.return_value = "manager"
+
+    result = _resolve_connection_and_create_session_manager()
+
+    mock_project.return_value.connection.assert_called_once_with(type="SPARK_CONNECT")
+    mock_create.assert_called_once_with(mock_conn, None, None, ANY, False, spark_conf=None)
+    assert result == "manager"
+
+
+@patch("sagemaker_studio.utils.spark.connection_resolver._create_session_manager")
+@patch("sagemaker_studio.utils.spark.connection_resolver._ensure_project")
+@patch("sagemaker_studio.utils.spark.connection_resolver._resolve_connection_id_from_notebook")
+def test_resolve_falls_back_to_default_when_notebook_lookup_fails(
+    mock_notebook, mock_project, mock_create
+):
+    """Ensure notebook metadata lookup failure falls back to default SPARK_CONNECT with is_explicit_choice=False."""
+    mock_notebook.side_effect = Exception("notebook API error")
+    mock_conn = MagicMock()
+    mock_project.return_value.connection.return_value = mock_conn
+    mock_create.return_value = "manager"
+
+    result = _resolve_connection_and_create_session_manager()
+
+    mock_project.return_value.connection.assert_called_once_with(type="SPARK_CONNECT")
+    mock_create.assert_called_once_with(mock_conn, None, None, ANY, False, spark_conf=None)
+    assert result == "manager"
+
+
+# ---------------------------------------------------------------------------
+# spark_conf passthrough tests
+# ---------------------------------------------------------------------------
+
+
+@patch("sagemaker_studio.utils.spark.connection_resolver._create_session_manager")
+@patch("sagemaker_studio.utils.spark.connection_resolver._ensure_project")
+@patch("sagemaker_studio.utils.spark.connection_resolver._resolve_connection_id_from_notebook")
+def test_resolve_passes_spark_conf_to_create_session_manager(
+    mock_notebook, mock_project, mock_create
+):
+    """Ensure spark_conf is passed through to _create_session_manager."""
+    mock_conn = MagicMock()
+    mock_project.return_value.connection.return_value = mock_conn
+    mock_create.return_value = "manager"
+    user_conf = {"spark.sql.catalog.spark_catalog.warehouse": "s3://bucket/wh"}
+
+    result = _resolve_connection_and_create_session_manager(
+        connection_name="my-conn", spark_conf=user_conf
+    )
+
+    mock_create.assert_called_once_with(mock_conn, "my-conn", None, ANY, True, spark_conf=user_conf)
+    assert result == "manager"
+
+
+def test_create_session_manager_emr_serverless_receives_spark_conf():
+    """Ensure spark_conf is passed to EMRServerlessSparkSessionManager."""
+    from sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager import (
+        EMRServerlessSparkSessionManager,
+    )
+
+    conn = _make_connection(
+        {
+            "sparkEmrProperties": {
+                "computeArn": "arn:aws:emr-serverless:us-west-2:123:/applications/app-1"
+            }
+        }
+    )
+    conn.type = "SPARK_CONNECT"
+    user_conf = {"spark.executor.memory": "4g"}
+
+    mgr = _create_session_manager(conn, "my-conn", None, MagicMock(), spark_conf=user_conf)
+    assert isinstance(mgr, EMRServerlessSparkSessionManager)
+    assert mgr.spark_conf == user_conf
+
+
+def test_create_session_manager_athena_receives_spark_conf():
+    """Ensure spark_conf is passed to AthenaSparkSessionManager."""
+    from sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager import (
+        AthenaSparkSessionManager,
+    )
+
+    conn = _make_connection({"athenaProperties": {"workgroupName": "wg-1"}})
+    conn.type = "SPARK_CONNECT"
+    user_conf = {"spark.sql.catalogImplementation": "in-memory"}
+
+    mgr = _create_session_manager(conn, "my-conn", "conn-id", MagicMock(), spark_conf=user_conf)
+    assert isinstance(mgr, AthenaSparkSessionManager)
+    assert mgr.spark_conf == user_conf

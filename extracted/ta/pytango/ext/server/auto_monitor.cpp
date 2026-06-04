@@ -138,7 +138,7 @@ void export_auto_tango_monitor(py::module &m) {
         with AutoTangoAllowThreads(dev):
             # code here is not under the tango device monitor
             do something
-)doc")
+    )doc")
         .def(py::init<Tango::DeviceImpl *>(), py::arg("device"))
         .def("_acquire", &PyTango::AutoTangoAllowThreads::acquire);
 }

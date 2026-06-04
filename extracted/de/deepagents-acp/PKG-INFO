@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: deepagents-acp
-Version: 0.0.6
+Version: 0.0.8
 Summary: Agent Client Protocol integration for Deep Agents
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
 Project-URL: Issues, https://github.com/langchain-ai/deepagents/issues
-Project-URL: Twitter, https://x.com/LangChain
+Project-URL: Twitter, https://x.com/langchain_oss
 License: MIT
 Keywords: acp,agent,agent-client-protocol,ai-agents,deepagents
 Classifier: Development Status :: 3 - Alpha
@@ -16,9 +16,9 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
-Requires-Dist: agent-client-protocol>=0.8.0
+Requires-Dist: agent-client-protocol>=0.9.0
 Requires-Dist: deepagents
-Requires-Dist: python-dotenv>=1.2.1
+Requires-Dist: python-dotenv>=1.2.2
 Description-Content-Type: text/markdown
 
 # Deep Agents ACP integration

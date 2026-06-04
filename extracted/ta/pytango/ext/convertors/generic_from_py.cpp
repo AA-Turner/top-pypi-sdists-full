@@ -96,26 +96,26 @@ void python_seq_to_tango(const py::object &py_value, Tango::DevVarStringArray &r
 
 void python_seq_to_tango(const py::object &py_value, Tango::DevVarDoubleStringArray &result) {
     py::object py_double, py_str;
-
+    // clang-format off
     __long_double_string_array_helper(py_value,
                                       DevVarNumericStringArray::DOUBLE_STRING,
                                       "python_seq_to_tango()",
                                       py_double,
                                       py_str);
-
+    // clang-format on
     python_seq_to_tango(py_double, result.dvalue);
     python_seq_to_tango(py_str, result.svalue);
 }
 
 void python_seq_to_tango(const py::object &py_value, Tango::DevVarLongStringArray &result) {
     py::object py_long, py_str;
-
+    // clang-format off
     __long_double_string_array_helper(py_value,
                                       DevVarNumericStringArray::LONG_STRING,
                                       "python_seq_to_tango()",
                                       py_long,
                                       py_str);
-
+    // clang-format on
     python_seq_to_tango(py_long, result.lvalue);
     python_seq_to_tango(py_str, result.svalue);
 }

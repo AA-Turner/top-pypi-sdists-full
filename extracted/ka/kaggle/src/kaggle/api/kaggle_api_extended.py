@@ -40,6 +40,7 @@ from os.path import expanduser
 from random import random
 
 import bleach
+import dotenv
 import mimetypes
 import requests
 import urllib3.exceptions as urllib3_exceptions
@@ -80,6 +81,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiCreateSubmissionRequest,
     ApiSubmission,
     ApiListSubmissionsRequest,
+    ApiListTeamPublicSubmissionsRequest,
     ApiListDataFilesResponse,
     ApiListDataFilesRequest,
     ApiDownloadDataFileRequest,
@@ -167,6 +169,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiSaveKernelResponse,
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
+    ApiGetAcceleratorQuotaStatisticsRequest,
 )
 from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus, KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
@@ -1197,6 +1200,7 @@ class KaggleApi:
             None:
         """
 
+        old_file = os.path.exists(self.config)
         config_data = self._read_config_file()
 
         if value is not None:
@@ -1209,6 +1213,8 @@ class KaggleApi:
 
             # If defined by client, set and save!
             self._write_config_file(config_data)
+            if not old_file:
+                os.chmod(self.config, 0o600)
 
             if not quiet:
                 self.print_config_value(name, separator=" is now set to: ")
@@ -2032,6 +2038,46 @@ class KaggleApi:
                     self.print_table(results, self.competition_leaderboard_fields)
             else:
                 print("No results found")
+
+    team_public_submission_fields = ["id", "dateSubmitted", "publicScore"]
+
+    def competition_team_submissions(self, team_id: int):
+        """List the public-safe submissions for a team.
+
+        For simulation competitions this returns every active
+        (leaderboard-eligible) submission for the team. For regular competitions
+        it returns the single submission currently on the public leaderboard
+        (or an empty list if the team has none).
+
+        Args:
+            team_id (int): The team ID (find these with
+                "kaggle competitions leaderboard <competition> --show").
+
+        Returns:
+            list: A list of ApiPublicSubmission objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListTeamPublicSubmissionsRequest()
+            request.team_id = team_id
+            response = kaggle.competitions.competition_api_client.list_team_public_submissions(request)
+            return response.submissions
+
+    def competition_team_submissions_cli(self, team_id, csv_display=False, quiet=False):
+        """CLI wrapper for competition_team_submissions.
+
+        Args:
+            team_id (int): The team ID.
+            csv_display (bool): If True, print CSV instead of table.
+            quiet (bool): Suppress verbose output.
+        """
+        submissions = self.competition_team_submissions(team_id)
+        if not submissions:
+            print("No submissions found")
+            return
+        if csv_display:
+            self.print_csv(submissions, self.team_public_submission_fields)
+        else:
+            self.print_table(submissions, self.team_public_submission_fields)
 
     def competition_list_episodes(self, submission_id: int):
         """List episodes for a submission in a simulation competition.
@@ -4099,6 +4145,50 @@ class KaggleApi:
         else:
             print("Not found")
 
+    def quota_view(self):
+        """Fetches the current user's weekly GPU and TPU accelerator quota.
+
+        Returns:
+            An ApiGetAcceleratorQuotaStatisticsResponse with quota_refresh_time,
+            gpu_quota, and tpu_quota fields.
+        """
+        with self.build_kaggle_client() as kaggle:
+            return kaggle.kernels.kernels_api_client.get_accelerator_quota_statistics(
+                ApiGetAcceleratorQuotaStatisticsRequest()
+            )
+
+    def quota_view_cli(self, csv_display=False):
+        """A client wrapper for quota_view.
+
+        Args:
+            csv_display: If True, print comma-separated values instead of a table.
+        """
+        response = self.quota_view()
+        refresh = response.quota_refresh_time.isoformat() if response.quota_refresh_time else ""
+        rows = []
+        for name, quota in (("GPU", response.gpu_quota), ("TPU", response.tpu_quota)):
+            if quota is None:
+                continue
+            used_hours = quota.time_used.total_seconds() / 3600
+            total_hours = quota.total_time_allowed.total_seconds() / 3600
+            rows.append(
+                SimpleNamespace(
+                    resource=name,
+                    used=f"{used_hours:.2f}h",
+                    remaining=f"{max(0.0, total_hours - used_hours):.2f}h",
+                    total=f"{total_hours:.2f}h",
+                    refresh_at=refresh,
+                )
+            )
+        if not rows:
+            print("No quota information available")
+            return
+        fields = ["resource", "used", "remaining", "total", "refreshAt"]
+        if csv_display:
+            self.print_csv(rows, fields)
+        else:
+            self.print_table(rows, fields)
+
     def kernels_list_files(self, kernel, page_token=None, page_size=20):
         """Lists files for a kernel.
 
@@ -4109,7 +4199,7 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        user_name, kernel_slug, kernel_version_number = self.split_dataset_string(kernel)
+        user_name, kernel_slug, kernel_version_number = self.parse_kernel_string(kernel)
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelFilesRequest()
@@ -4242,11 +4332,10 @@ class KaggleApi:
         if not slug and not id_no:
             raise ValueError("ID or slug must be specified in the metadata")
         if slug:
-            self.validate_kernel_string(slug)
-            if "/" in slug:
-                kernel_slug = slug.split("/")[1]
-            else:
-                kernel_slug = slug
+            owner, kernel_slug, version = self.parse_kernel_string(slug)
+            if version is not None:
+                raise ValueError("Kernel metadata 'id' (slug) cannot contain a version")
+
             if title:
                 as_slug = slugify(cast(str, title))
                 if kernel_slug.lower() != as_slug:
@@ -4408,14 +4497,7 @@ class KaggleApi:
                     else:
                         print("Using kernel " + kernel)
 
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
 
         if path is None:
             effective_path = self.get_default_download_dir("kernels", owner_slug, kernel_slug)
@@ -4428,7 +4510,8 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiGetKernelRequest()
             request.user_name = owner_slug
-            request.kernel_slug = kernel_slug
+            request.kernel_slug = f"{kernel_slug}/{version}" if version else kernel_slug
+
             response = kaggle.kernels.kernels_api_client.get_kernel(request)
 
         blob = response.blob
@@ -4540,14 +4623,7 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = cast(str, self.get_config_value(self.CONFIG_NAME_USER))
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
 
         if path is None:
             target_dir = self.get_default_download_dir("kernels", owner_slug, kernel_slug, "output")
@@ -4643,14 +4719,8 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
+
         with self.build_kaggle_client() as kaggle:
             request = ApiGetKernelSessionStatusRequest()
             request.user_name = owner_slug
@@ -4696,14 +4766,7 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelSessionOutputRequest()
@@ -5874,7 +5937,7 @@ class KaggleApi:
         return upload_file, file_or_folder_name
 
     def print_obj(self, obj, indent=2):
-        pretty = json.dumps(obj, indent=indent)
+        pretty = json.dumps(obj.to_dict(), indent=indent)
         print(pretty)
 
     def download_needed(self, response: Response, outfile: str, quiet: bool = True) -> bool:
@@ -6462,7 +6525,8 @@ class KaggleApi:
     def validate_kernel_string(self, kernel: Optional[str]) -> None:
         """Validates a kernel string.
 
-        A kernel string is valid if it is in the format {username}/{kernel-slug}.
+        A kernel string is valid if it is in the format {username}/{kernel-slug}
+        or {username}/{kernel-slug}/{version}.
 
         Args:
             kernel (Optional[str]): The kernel name to validate.
@@ -6472,14 +6536,53 @@ class KaggleApi:
         """
         if kernel:
             if "/" not in kernel:
-                raise ValueError("Kernel must be specified in the form of " "'{username}/{kernel-slug}'")
+                raise ValueError(
+                    "Kernel must be specified in the form of "
+                    "'{username}/{kernel-slug}' or '{username}/{kernel-slug}/{version}'"
+                )
 
             split = kernel.split("/")
+            if len(split) > 3:
+                raise ValueError(
+                    "Kernel must be specified in the form of "
+                    "'{username}/{kernel-slug}' or '{username}/{kernel-slug}/{version}'"
+                )
+
             if not split[0] or not split[1]:
-                raise ValueError("Kernel must be specified in the form of " "'{username}/{kernel-slug}'")
+                raise ValueError(
+                    "Kernel must be specified in the form of "
+                    "'{username}/{kernel-slug}' or '{username}/{kernel-slug}/{version}'"
+                )
 
             if len(split[1]) < 5:
                 raise ValueError("Kernel slug must be at least five characters")
+
+            if len(split) == 3:
+                if not split[2]:
+                    raise ValueError("Kernel version cannot be empty if specified")
+
+    def parse_kernel_string(self, kernel: str) -> Tuple[str, str, Optional[str]]:
+        """Parses a kernel string.
+
+        Args:
+            kernel: The kernel string to parse. Can be 'slug', 'owner/slug', or 'owner/slug/version'.
+
+        Returns:
+            A tuple of (owner, slug, version).
+        """
+        if not kernel:
+            raise ValueError("A kernel must be specified")
+
+        if "/" in kernel:
+            self.validate_kernel_string(kernel)
+            parts = kernel.split("/")
+            owner = parts[0]
+            slug = parts[1]
+            version = parts[2] if len(parts) > 2 else None
+            return owner, slug, version
+        else:
+            owner = self.get_config_value(self.CONFIG_NAME_USER) or ""
+            return owner, kernel, None
 
     def validate_resources(
         self, folder: str, resources: List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]
@@ -6837,11 +6940,13 @@ class KaggleApi:
         """
         task_names = KaggleApi._get_task_names_from_file(file_content)
         if not task_names:
-            raise ValueError(f"No @task decorators found in file {file}. The file must define at least one task.")
+            raise ValueError(
+                f"No @task decorators found in '{file}'. Add at least one @task decorator to define a task."
+            )
         task_slug = slugify(task)
         slugified_names = {slugify(n): n for n in task_names}
         if task_slug not in slugified_names:
-            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(slugified_names)}")
+            raise ValueError(f"Task '{task}' not found in '{file}'. Available tasks: {', '.join(slugified_names)}")
 
     @staticmethod
     def _convert_py_to_notebook(source: str) -> str:
@@ -6880,8 +6985,7 @@ class KaggleApi:
                 if allow_not_found:
                     return None
                 raise ValueError(
-                    f"Task '{task}' not found. Check the task name and try again. "
-                    f"Use 'kaggle b t list' to see your tasks."
+                    f"Task '{task}' not found. Verify the name or run 'kaggle benchmarks tasks list' to see available tasks."
                 ) from None
             raise
 
@@ -6964,7 +7068,7 @@ class KaggleApi:
                 raise ValueError(
                     "No model specified and no input received. "
                     "Pass one or more models with -m/--model, or use "
-                    "'kaggle b t models' to list available models."
+                    "'kaggle benchmarks tasks models' to list available models."
                 ) from None
 
             if selection == "n" and current_page < total_pages - 1:
@@ -6976,7 +7080,7 @@ class KaggleApi:
                     indices = [int(s) for s in selection.split(",")]
                     return [available[i - 1].version.slug for i in indices]
                 except (ValueError, IndexError):
-                    raise ValueError(f"Invalid selection: {selection}")
+                    raise ValueError(f"'{selection}' is not a valid choice. Enter a list of numbers (e.g., 1,3,4).")
 
     @staticmethod
     def _truncate(s: str, max_len: int) -> str:
@@ -7030,16 +7134,19 @@ class KaggleApi:
             if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
                 return True
             elif state not in self._PENDING_CREATION_STATES:
-                error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
+                error_msg = f"Task '{task}' creation failed (status: {self._clean_enum_str(state)})."
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
                 if error:
-                    error_msg += f" Error: {error}"
+                    error_msg += f"\n  Error: {error}"
                 raise ValueError(error_msg)
 
             print(f"   Task status: {self._clean_enum_str(state)}...")
 
             if wait > 0 and (time.time() - start_time) > wait:
-                print(f"Timed out waiting for task creation after {wait} seconds.")
+                print(
+                    f"Timed out after {wait}s waiting for task creation.\n"
+                    f"Check status with: kaggle b t status {task}"
+                )
                 return False
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
@@ -7064,14 +7171,14 @@ class KaggleApi:
                         slug = self._normalize_model_slug(r.model_version_slug)
                         msg = (getattr(r, "error_message", None) or "").strip() or "No error message"
                         details.append(f"  [{slug}]\n    {msg}")
-                    raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
+                    raise ValueError(f"{len(errored)} run(s) failed. Details below:\n" + "\n".join(details))
                 return
 
             pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
             print(f"  {pending} run(s) still in progress...")
 
             if wait > 0 and (time.time() - start_time) > wait:
-                print(f"Timed out waiting for runs after {wait} seconds.")
+                print(f"Timed out after {wait}s waiting for runs.\nCheck status with: kaggle b t status {task}")
                 return
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
@@ -7081,7 +7188,27 @@ class KaggleApi:
     def _fetch_model_proxy_env(self):
         with self.build_kaggle_client() as kaggle:
             request = ApiCreateDefaultModelProxyTokenRequest()
-            response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
+            try:
+                response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
+            except HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                if status == 404:
+                    raise ValueError(
+                        "Endpoint not found (404). Possible causes:\n"
+                        "  1. Kaggle Benchmarks is currently in beta and isn't enabled on your account.\n"
+                        "     Request access from the Kaggle Benchmarks team and try again once enabled.\n"
+                        "  2. Your Kaggle CLI may be out of date.\n"
+                        "     Upgrade with `pip install --upgrade kaggle` and re-run this command."
+                    ) from None
+                if status == 403:
+                    raise ValueError(
+                        "Authentication failed (403). Possible causes:\n"
+                        "  1. Your account is missing phone or identity verification.\n"
+                        "     Verify at https://www.kaggle.com/settings.\n"
+                        "  2. Your Kaggle API credentials are stale or invalid.\n"
+                        "     Regenerate at https://www.kaggle.com/settings/api and replace ~/.kaggle/access_token (or kaggle.json)."
+                    ) from None
+                raise
         return {
             "MODEL_PROXY_URL": response.base_uri,
             "MODEL_PROXY_API_KEY": response.token,
@@ -7128,10 +7255,10 @@ class KaggleApi:
             if not self.confirmation(f"write these settings to {os.path.basename(env_file_abs)}", default_to_yes=True):
                 return False
 
-        with open(env_file_abs, "a") as f:
-            f.write("\n")
-            for key, value in env_vars.items():
-                f.write(f"{key}={value}\n")
+        # Upsert in place rather than append so reruns don't stack duplicates
+        # in the user's .env and don't silently shadow any hand-edited values.
+        for key, value in env_vars.items():
+            dotenv.set_key(env_file_abs, key, value, quote_mode="never")
 
         if not quiet:
             print(f"Environment variables have been written to {env_file_abs}.")
@@ -7159,7 +7286,7 @@ class KaggleApi:
         example_file = os.path.abspath(example_file)
         if os.path.exists(example_file):
             if not quiet:
-                print(f"Example file already exists at {example_file}, skipping.")
+                print(f"Example file already exists at '{example_file}', skipping.", file=sys.stderr)
             return
 
         with open(example_file, "w") as f:
@@ -7172,7 +7299,7 @@ class KaggleApi:
         ref_file = os.path.join(os.path.abspath(directory), "kaggle_benchmarks_reference.md")
         if os.path.exists(ref_file):
             if not quiet:
-                print(f"Reference file already exists at {ref_file}, skipping.")
+                print(f"Reference file already exists at '{ref_file}', skipping.", file=sys.stderr)
             return
 
         with open(ref_file, "w") as f:
@@ -7219,9 +7346,9 @@ class KaggleApi:
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
-            raise ValueError(f"File {file} does not exist")
+            raise ValueError(f"File '{file}' does not exist.")
         if not file.endswith(".py"):
-            raise ValueError(f"File {file} must be a .py file")
+            raise ValueError(f"File '{file}' must be a Python (.py) file.")
 
         with open(file) as f:
             content = f.read()
@@ -7242,8 +7369,8 @@ class KaggleApi:
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
                 if wait is None:
                     raise ValueError(
-                        f"Task '{task_slug}' is currently being created (pending). Cannot push now. "
-                        f"Use --wait to monitor the existing creation."
+                        f"Task '{task_slug}' creation is still pending. "
+                        f"Run again with the --wait flag to wait for completion."
                     )
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
@@ -7276,7 +7403,7 @@ class KaggleApi:
             response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task)(request)
             error = getattr(response, "error", None)
             if error:
-                raise ValueError(f"Failed to push task: {error}")
+                raise ValueError(f"Failed to push task. Error: {error}")
 
             url = self._full_task_url(response.url)
             model_output_url = re.sub(r"/\d+/?$", "", url) + "?compare=true"
@@ -7284,20 +7411,9 @@ class KaggleApi:
             print(f"\nPushed {banner_subject}")
             print(f"   Task Details:  {url}")
 
-            # Report datasource attachment results
-            if kaggle_datasets:
-                attached = getattr(response, "options", None)
-                if attached and attached.dataset_data_sources:
-                    print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
-                invalid = getattr(response, "invalid_dataset_sources", None)
-                if invalid:
-                    msg = self._warn(
-                        f"⚠ Warning: The following Kaggle datasets could not be resolved: " f"{', '.join(invalid)}"
-                    )
-                    print(msg, file=sys.stderr)
-
             if wait is None:
                 print(f"   Model Output:  {model_output_url}")
+                self._print_attach_result(response, kaggle_datasets)
                 print("\nNext steps:")
                 print("   Check creation status:")
                 print(f"   $ kaggle b t status {task_slug}\n")
@@ -7309,9 +7425,22 @@ class KaggleApi:
                 if completed:
                     print("\nCompleted")
                     print(f"   Model Output:  {model_output_url}")
+                self._print_attach_result(response, kaggle_datasets)
+                if completed:
                     print("\nNext step:")
                     print("   Select models to run (or use -m to skip the menu):")
                     print(f"   $ kaggle b t run {task_slug}")
+
+    def _print_attach_result(self, response, kaggle_datasets):
+        if not kaggle_datasets:
+            return
+        attached = getattr(response, "options", None)
+        if attached and attached.dataset_data_sources:
+            print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
+        invalid = getattr(response, "invalid_dataset_sources", None)
+        if invalid:
+            msg = self._warn(f"⚠ Warning: The following Kaggle datasets could not be resolved: {', '.join(invalid)}")
+            print(msg, file=sys.stderr)
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
@@ -7324,10 +7453,12 @@ class KaggleApi:
             task_info = self._get_benchmark_task(task, kaggle)
             state = task_info.creation_state
             if state != self._TASK_CREATION_COMPLETED:
-                error_msg = f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)})."
+                error_msg = (
+                    f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)}). "
+                    f"Only completed tasks can be run."
+                )
                 if state == self._TASK_CREATION_ERRORED:
-                    error_msg += f" Task Info: {task_info}."
-                error_msg += " Only completed tasks can be run."
+                    error_msg += f"\n  Task Info: {task_info}"
                 raise ValueError(error_msg)
 
             if not models:
@@ -7345,8 +7476,8 @@ class KaggleApi:
             except HTTPError as e:
                 if e.response.status_code == 404:
                     raise ValueError(
-                        f"Failed to schedule runs. One or more model names may be invalid: {models}. "
-                        f"Use 'kaggle b t run {task}' (without -m) to select from available models."
+                        f"Failed to schedule runs. Some model names may be invalid: {models}. "
+                        f"Run 'kaggle benchmarks tasks run {task}' without -m to select from available models."
                     ) from None
                 raise
             print(f"Submitted run(s) for task '{task}'.")
@@ -7377,16 +7508,25 @@ class KaggleApi:
                 return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
-            if show_all:
-                self._paginated_task_display(all_tasks, page_size=max(len(all_tasks), 1), interactive=False)
+            if name_regex or status:
+                empty_message = "No tasks found matching the given filters."
             else:
-                self._paginated_task_display(all_tasks, page_size=page_size or 20)
+                empty_message = "No tasks found. Use 'kaggle b t push' to create one."
+            if show_all:
+                self._paginated_task_display(
+                    all_tasks,
+                    page_size=max(len(all_tasks), 1),
+                    interactive=False,
+                    empty_message=empty_message,
+                )
+            else:
+                self._paginated_task_display(all_tasks, page_size=page_size or 20, empty_message=empty_message)
 
-    def _paginated_task_display(self, tasks, page_size=20, interactive=True):
+    def _paginated_task_display(self, tasks, page_size=20, interactive=True, empty_message="No tasks found."):
         """Display *tasks* one page at a time with an interactive n/p/q prompt."""
         total = len(tasks)
         if total == 0:
-            print("No tasks found.")
+            print(empty_message)
             return
 
         # Extract owner username from a task URL of the form /benchmarks/tasks/{user}/{slug}/{ver}.
@@ -7486,9 +7626,7 @@ class KaggleApi:
             print(f"Downloading output runs for {task}")
             print(f"Target directory:  {target_dir}/\n")
 
-            display_files = [
-                f"{self._normalize_model_slug(r.model_version_slug)}/{r.id}/{r.id}.zip" for r in downloadable
-            ]
+            display_files = [f"{self._normalize_model_slug(r.model_version_slug)}/{r.id}/" for r in downloadable]
             model_col = max((len(self._normalize_model_slug(r.model_version_slug)) for r in downloadable), default=20)
             model_col = max(model_col, 20)
             file_col = max((len(f) for f in display_files), default=40)
@@ -7499,17 +7637,25 @@ class KaggleApi:
             print(f"{'Model':<{model_col}} {'File':<{file_col}} {'Size':<{size_col}} {'Progress':<{prog_col}}")
             print(f"{'─' * model_col} {'─' * file_col} {'─' * size_col} {'─' * prog_col}")
 
-            downloaded, skipped = 0, 0
+            downloaded, cached, cached_without_source = 0, 0, 0
             for r, display_file in zip(downloadable, display_files):
                 slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
                 outdir = os.path.join(output, task, version, slug, str(r.id))
                 row_prefix = f"{slug:<{model_col}} {display_file:<{file_col}}"
 
-                if os.path.isdir(outdir) and not force:
+                if os.path.isdir(outdir) and os.listdir(outdir) and not force:
                     size_str = self._format_size(self._dir_size(outdir))
-                    print(f"{row_prefix} {size_str:<{size_col}} {'Skipped':<{prog_col}}")
-                    skipped += 1
+                    print(f"{row_prefix} {size_str:<{size_col}} {'Cached':<{prog_col}}")
+                    cached += 1
+                    # If the caller asked for source notebooks with -s but the cached dir
+                    # was built without them, count it so we can emit a tip at the end.
+                    # Skip detection requires --force to re-download.
+                    if include_source and not any(
+                        os.path.exists(os.path.join(outdir, n))
+                        for n in ("__notebook__.ipynb", "__notebook_source__.ipynb")
+                    ):
+                        cached_without_source += 1
                     continue
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
@@ -7529,7 +7675,6 @@ class KaggleApi:
                 try:
                     # quiet=True: intermediate zip, extracted and removed below
                     self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
-                    size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
                     # Note: extractall() is safe here because the zip originates from
                     # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
@@ -7551,12 +7696,22 @@ class KaggleApi:
                 if os.path.isdir(outdir):
                     shutil.rmtree(outdir)
                 os.rename(tmp_outdir, outdir)
+                # Report extracted on-disk size, matching the cached branch above.
+                size_str = self._format_size(self._dir_size(outdir))
                 downloaded += 1
                 print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
 
-            # Summary
-            parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (skipped, "skipped")) if n]
+            parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (cached, "cached")) if n]
             print(f"\nDone: {', '.join(parts) or '0 runs downloaded'}.")
+
+            # Tip: -s alone won't backfill source notebooks into already-cached dirs.
+            # The check that gates re-download (os.path.isdir(outdir)) doesn't peek inside,
+            # so the cached row stays untouched even though it lacks the requested files.
+            if cached_without_source:
+                print(
+                    f"\nTip: {cached_without_source} cached run(s) lack source notebooks. "
+                    f"Re-run with -f -s to fetch them."
+                )
 
     @staticmethod
     def _format_size(n) -> str:
@@ -7634,7 +7789,7 @@ class KaggleApi:
                     )(request)
                 except HTTPError as e:
                     status = getattr(e.response, "status_code", None)
-                    print(f"  (No logs available — server returned {status})")
+                    print(f"  (No logs available — server returned {status})", file=sys.stderr)
                     print(f"═══ (0 lines) ═══")
                     continue
 
@@ -7691,7 +7846,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             models = self._fetch_all_benchmark_models(kaggle)
             if not models:
-                print("No benchmark models available.")
+                print("No benchmark models available. This may be a temporary issue — try again later.")
                 return
 
             col_slug = 30
@@ -7704,7 +7859,7 @@ class KaggleApi:
 
     def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
         # TODO: Normalize task name via slugify(task) when server supports delete.
-        print("Delete is not supported by the server yet.")
+        print("Delete is not supported by the server yet.", file=sys.stderr)
 
     def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=True):
         """Publish a benchmark task, making it public."""
@@ -7739,7 +7894,7 @@ class KaggleApi:
                 if getattr(response, "is_backing_notebook_published", False):
                     print("Backing notebook also published.")
                 else:
-                    print("Note: No backing notebook is associated with this task.")
+                    print("Note: No backing notebook is associated with this task.", file=sys.stderr)
 
 
 class TqdmBufferedReader(io.BufferedReader):
@@ -7776,7 +7931,7 @@ class TqdmBufferedReader(io.BufferedReader):
 
 from pprint import pprint
 from inspect import getmembers
-from types import FunctionType
+from types import FunctionType, SimpleNamespace
 
 
 def attributes(obj):

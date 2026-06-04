@@ -33,15 +33,12 @@ pub struct TelemetryRecord {
     pub cli_version: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
     pub huggingface_version: ::prost::alloc::string::String,
-    /// string  framework = 7;
     #[prost(message, optional, tag = "8")]
     pub env: ::core::option::Option<Env>,
     #[prost(message, optional, tag = "9")]
     pub label: ::core::option::Option<Labels>,
     #[prost(message, optional, tag = "10")]
     pub deprecated: ::core::option::Option<Deprecated>,
-    #[prost(message, optional, tag = "11")]
-    pub issues: ::core::option::Option<Issues>,
     #[prost(string, tag = "12")]
     pub core_version: ::prost::alloc::string::String,
     #[prost(string, tag = "13")]
@@ -402,9 +399,6 @@ pub struct Feature {
     /// Ultralytics YOLOv8 integration callbacks used
     #[prost(bool, tag = "47")]
     pub ultralytics_yolov8: bool,
-    /// Using Import API for MLFlow
-    #[prost(bool, tag = "48")]
-    pub importer_mlflow: bool,
     /// Using wandb sync for tfevent files
     #[prost(bool, tag = "49")]
     pub sync_tfevents: bool,
@@ -525,9 +519,6 @@ pub struct Labels {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Deprecated {
-    /// wandb.integration.keras.WandbCallback(data_type=...) called
-    #[prost(bool, tag = "1")]
-    pub keras_callback_data_type: bool,
     /// wandb.plots.\* called
     #[prost(bool, tag = "5")]
     pub plots: bool,
@@ -537,12 +528,6 @@ pub struct Deprecated {
     /// wandb.init(config_exclude_keys=...) called
     #[prost(bool, tag = "8")]
     pub init_config_exclude_keys: bool,
-    /// wandb.integration.keras.WandbCallback(save_model=True) called
-    #[prost(bool, tag = "9")]
-    pub keras_callback_save_model: bool,
-    /// wandb.integration.langchain.WandbTracer called
-    #[prost(bool, tag = "10")]
-    pub langchain_tracer: bool,
     /// wandb.sdk.artifacts.artifact.Artifact.get_path(...) called
     #[prost(bool, tag = "11")]
     pub artifact_get_path: bool,
@@ -561,9 +546,6 @@ pub struct Deprecated {
     /// wandb.sdk.lib.disabled.RunDisabled used
     #[prost(bool, tag = "16")]
     pub run_disabled: bool,
-    /// wandb.integration.keras.WandbCallback used
-    #[prost(bool, tag = "17")]
-    pub keras_callback: bool,
     /// wandb.run.define_metric() called with summary="best" and goal="maximize/minimize"
     #[prost(bool, tag = "18")]
     pub run_define_metric_best_goal: bool,
@@ -594,32 +576,20 @@ pub struct Deprecated {
     /// wandb.sdk.artifacts.artifact.Artifact(use_as=...) called
     #[prost(bool, tag = "27")]
     pub artifact_init_use_as: bool,
-    /// wandb.beta.workflows.log_model() called
-    #[prost(bool, tag = "28")]
-    pub beta_workflows_log_model: bool,
-    /// wandb.beta.workflows.use_model() called
-    #[prost(bool, tag = "29")]
-    pub beta_workflows_use_model: bool,
-    /// wandb.beta.workflows.link_model() called
-    #[prost(bool, tag = "30")]
-    pub beta_workflows_link_model: bool,
     /// wandb.integration.kfp.wandb_log used with kfp\<2.0.0
     #[prost(bool, tag = "31")]
     pub kfp_v1_wandb_log: bool,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Issues {
-    /// validation warnings for settings
-    #[prost(bool, tag = "1")]
-    pub settings_validation_warnings: bool,
-    /// unexpected settings init args
-    #[prost(bool, tag = "2")]
-    pub settings_unexpected_args: bool,
-    /// settings preprocessing warnings
-    #[prost(bool, tag = "3")]
-    pub settings_preprocessing_warnings: bool,
-}
-/// Record: joined record for message passing and persistence
+/// A sequence of Records fully defines a run.
+///
+/// Records make up a run's transaction log, which can be replayed to reupload
+/// the run or upload it for the first time in offline mode.
+///
+/// Since Records are persistent, and a new `wandb` version can be used to
+/// sync an older transaction log, it is important to follow proper protobuf
+/// versioning practices: <https://protobuf.dev/best-practices/>
+///
+/// Next ID: 28
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Record {
     #[prost(int64, tag = "1")]
@@ -1633,7 +1603,16 @@ pub struct AlertRecord {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AlertResult {}
-/// Request: all non persistent messages
+/// Runtime communication that's not part of a run's transaction log.
+///
+/// Unlike Records, Requests are not necessary to recreate a run and are not
+/// stored in its transaction log. They are generally used to either get
+/// information about a run (like whether it stopped, or if there are
+/// warnings) or to control the logging process (like to add to the current
+/// step with a PartialHistoryRequest, which produces artificial Records
+/// when a step is committed).
+///
+/// Next ID: 84
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Request {
     #[prost(
@@ -1977,6 +1956,13 @@ pub struct HttpResponse {
 /// InternalMessagesRequest:
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InternalMessagesRequest {
+    /// If true, block until there are messages or the run ends.
+    ///
+    /// The response is empty if and only if the run is over.
+    /// The request can be cancelled via the usual ServerCancelRequest
+    /// mechanism.
+    #[prost(bool, tag = "1")]
+    pub wait: bool,
     #[prost(message, optional, tag = "200")]
     pub info: ::core::option::Option<RequestInfo>,
 }

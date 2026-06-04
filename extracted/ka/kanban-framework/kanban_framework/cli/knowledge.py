@@ -14,7 +14,7 @@ from kanban_framework.domain.knowledge import KnowledgeManager
 
 from kanban_framework.cli.knowledge_ingest import (
     handle_add, handle_import, handle_learn, handle_teach,
-    handle_benchmark,
+    handle_benchmark, handle_export,
 )
 from kanban_framework.cli.knowledge_share import handle_share
 from kanban_framework.cli.knowledge_help import handle_help
@@ -89,6 +89,8 @@ def dispatch(args: list[str]) -> dict:
         return {"migrated": km.migrate_legacy_log()}
     if sub == "import":
         return handle_import(km, args[1:])
+    if sub == "export":
+        return handle_export(km, args[1:])
     if sub == "learn":
         return handle_learn(km, args[1:])
     if sub == "similar":
@@ -338,6 +340,19 @@ def _handle_categories() -> dict:
     }
 
 
+def _scan_stale_candidates(km) -> list[str]:
+    """Read-only scan for entries that would be marked stale. Does NOT modify DB."""
+    from kanban_framework.domain.knowledge_lazy import STALE_DAYS
+    from datetime import datetime, timezone, timedelta
+    threshold = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
+    rows = km._conn.execute(
+        """SELECT id FROM entries WHERE status='active'
+           AND COALESCE(last_referenced_at, created_at) < ?""",
+        (threshold,),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def _handle_health(km: KnowledgeManager) -> dict:
     from collections import Counter
     from datetime import datetime, timezone, timedelta
@@ -402,7 +417,7 @@ def _handle_health(km: KnowledgeManager) -> dict:
             "avg_refs": round(grp["refs"] / grp["total"], 1) if grp["total"] else 0,
         }
 
-    stale_ids = km.mark_stale_entries()
+    stale_candidates = _scan_stale_candidates(km)
     gaps = km.get_knowledge_gap_report()
 
     benchmark_count = sum(1 for e in entries if e.get("benchmark"))
@@ -432,7 +447,7 @@ def _handle_health(km: KnowledgeManager) -> dict:
         "by_type": by_type,
         "expired": expired, "expiring_soon": expiring_soon,
         "duplicates": duplicates, "low_quality": low_quality,
-        "stale_count": len(stale_ids), "knowledge_gaps": gaps,
+        "stale_candidates": len(stale_candidates), "knowledge_gaps": gaps,
         "benchmark": {"total": benchmark_count, "coverage": benchmark_coverage},
         "effectiveness": {
             "tracked": len(eff_entries),

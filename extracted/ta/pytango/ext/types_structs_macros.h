@@ -32,43 +32,34 @@ static const int FAKED_ENUMARRAY = 102;
 } // namespace Tango
 
 template <int N>
-struct tango_name2type {
-};
+struct tango_name2type { };
 
 template <typename T>
 struct tango_type2name {
-    enum e_tango_type2name {
-    };
+    enum e_tango_type2name { };
 };
 
 template <int N>
-struct tango_name2arraytype {
-};
+struct tango_name2arraytype { };
 
 template <int N>
 struct tango_name2arrayname {
-    enum e_tango_name2arrayname {
-    };
+    enum e_tango_name2arrayname { };
 };
 
 template <int N>
 struct tango_name2scalarname {
-    enum e_tango_name2scalarname {
-    };
+    enum e_tango_name2scalarname { };
 };
 
-#define DEF_TANGO_SCALAR_ARRAY_NAMES(scalarname, arrayname) \
-    template <>                                             \
-    struct tango_name2arrayname<Tango::scalarname> {        \
-        enum e_tango_name2arrayname {                       \
-            value = Tango::arrayname                        \
-        };                                                  \
-    };                                                      \
-    template <>                                             \
-    struct tango_name2scalarname<Tango::arrayname> {        \
-        enum e_tango_name2scalarname {                      \
-            value = Tango::scalarname                       \
-        };                                                  \
+#define DEF_TANGO_SCALAR_ARRAY_NAMES(scalarname, arrayname)         \
+    template <>                                                     \
+    struct tango_name2arrayname<Tango::scalarname> {                \
+        enum e_tango_name2arrayname { value = Tango::arrayname };   \
+    };                                                              \
+    template <>                                                     \
+    struct tango_name2scalarname<Tango::arrayname> {                \
+        enum e_tango_name2scalarname { value = Tango::scalarname }; \
     };
 
 #define DEF_TANGO_NAME2TYPE__(tangoname, tangotype) \
@@ -77,12 +68,10 @@ struct tango_name2scalarname {
         typedef tangotype Type;                     \
     };
 
-#define DEF_TANGO_TYPE2NAME__(tangotype, tangoname) \
-    template <>                                     \
-    struct tango_type2name<tangotype> {             \
-        enum e_tango_type2name {                    \
-            value = Tango::tangoname                \
-        };                                          \
+#define DEF_TANGO_TYPE2NAME__(tangotype, tangoname)          \
+    template <>                                              \
+    struct tango_type2name<tangotype> {                      \
+        enum e_tango_type2name { value = Tango::tangoname }; \
     };
 
 #define DEF_TANGO_NAME2TYPE(tangoname, tangotype) \
@@ -188,16 +177,13 @@ DEF_TANGO_SCALAR_ARRAY_NAMES(DEV_ENUM, FAKED_ENUMARRAY)
 
 template <int N>
 struct tango_name2numpy {
-    enum e_tango_name2numpy {
-    };
+    enum e_tango_name2numpy { };
 };
 
-#define DEF_TANGO2NUMPY(tangoid, numpyid) \
-    template <>                           \
-    struct tango_name2numpy<tangoid> {    \
-        enum e_tango_name2numpy {         \
-            value = numpyid               \
-        };                                \
+#define DEF_TANGO2NUMPY(tangoid, numpyid)            \
+    template <>                                      \
+    struct tango_name2numpy<tangoid> {               \
+        enum e_tango_name2numpy { value = numpyid }; \
     };
 
 DEF_TANGO2NUMPY(Tango::DEV_STATE, NPY_UINT32)
@@ -227,16 +213,12 @@ DEF_TANGO2NUMPY(Tango::DEV_ENUM, NPY_INT16)
 // equivalent.
 template <int N>
 struct tango_name2scalarnumpy {
-    enum {
-        value = TANGO_const2numpy(TANGO_const2scalarconst(N))
-    };
+    enum { value = TANGO_const2numpy(TANGO_const2scalarconst(N)) };
 };
 
 template <>
 struct tango_name2scalarnumpy<Tango::DEVVAR_CHARARRAY> {
-    enum {
-        value = NPY_UBYTE
-    };
+    enum { value = NPY_UBYTE };
 };
 
 /// @}

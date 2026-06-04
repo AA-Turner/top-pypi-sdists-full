@@ -242,6 +242,46 @@ impl LatentManifold {
         }
     }
 
+    /// Per-ambient-axis periodicity: `Some(period)` for an axis that wraps
+    /// modulo a finite period (a `Circle` factor, including the longitude of
+    /// the lat/lon sphere chart), `None` for a non-periodic axis (Euclidean,
+    /// Interval, or an embedded `Sphere` axis whose retraction is smooth and
+    /// has no cut).
+    ///
+    /// Used by the SAE-manifold ARD prior to switch from the cut-discontinuous
+    /// Euclidean `½α t²` to a smooth von-Mises energy on periodic axes. The
+    /// embedded `Sphere` is deliberately reported as non-periodic: its
+    /// retraction `(t+ξ)/‖t+ξ‖` is globally smooth, so the ambient `½α‖t‖²`
+    /// prior has no discontinuity there.
+    pub fn axis_periods(&self) -> Vec<Option<f64>> {
+        match self {
+            Self::Euclidean => vec![None],
+            Self::Circle { period } => {
+                assert!(
+                    period.is_finite() && *period > 0.0,
+                    "LatentManifold::Circle requires a finite positive period; got {period}"
+                );
+                vec![Some(*period)]
+            }
+            Self::Sphere { dim } => vec![None; *dim],
+            Self::Interval { .. } => vec![None],
+            Self::Product(parts) => {
+                let mut out = Vec::with_capacity(self.ambient_dim(1));
+                for part in parts {
+                    out.extend(part.axis_periods());
+                }
+                out
+            }
+            Self::ProductWithMetric { manifolds, .. } => {
+                let mut out = Vec::with_capacity(self.ambient_dim(1));
+                for part in manifolds {
+                    out.extend(part.axis_periods());
+                }
+                out
+            }
+        }
+    }
+
     /// Project an arbitrary ambient point back to the manifold.
     pub fn project_point(&self, t: ArrayView1<'_, f64>) -> Array1<f64> {
         match self {
@@ -380,6 +420,127 @@ impl LatentManifold {
         }
     }
 
+    /// Project an objective gradient onto the linearized feasible update space.
+    ///
+    /// For smooth manifolds this is the usual tangent projection. For interval
+    /// endpoints the sign test is applied to the descent direction `-g`: at the
+    /// upper endpoint, a negative gradient would step outward, so the coordinate
+    /// is held fixed; at the lower endpoint, a positive gradient would step
+    /// outward. This is distinct from [`Self::project_to_tangent`], whose
+    /// interval branch projects update velocities.
+    pub fn project_gradient_to_tangent(
+        &self,
+        t: ArrayView1<'_, f64>,
+        g: ArrayView1<'_, f64>,
+    ) -> Array1<f64> {
+        assert_eq!(t.len(), g.len());
+        match self {
+            Self::Euclidean | Self::Circle { .. } | Self::Sphere { .. } => {
+                self.project_to_tangent(t, g)
+            }
+            Self::Interval { lo, hi } => {
+                let mut out = Array1::<f64>::zeros(1);
+                let descent_exits_lo = t[0] <= *lo && g[0] > 0.0;
+                let descent_exits_hi = t[0] >= *hi && g[0] < 0.0;
+                out[0] = if descent_exits_lo || descent_exits_hi {
+                    0.0
+                } else {
+                    g[0]
+                };
+                out
+            }
+            Self::Product(parts)
+            | Self::ProductWithMetric {
+                manifolds: parts, ..
+            } => {
+                let mut out = Array1::<f64>::zeros(g.len());
+                let mut offset = 0_usize;
+                for part in parts {
+                    let dim = part.ambient_dim(1);
+                    let projected = part.project_gradient_to_tangent(
+                        t.slice(ndarray::s![offset..offset + dim]),
+                        g.slice(ndarray::s![offset..offset + dim]),
+                    );
+                    for a in 0..dim {
+                        out[offset + a] = projected[a];
+                    }
+                    offset += dim;
+                }
+                assert_eq!(offset, g.len());
+                out
+            }
+        }
+    }
+
+    /// Project a coordinate-space Jacobian/cross-block column with the same
+    /// active interval coordinates selected by
+    /// [`Self::project_gradient_to_tangent`].
+    pub fn project_vector_to_gradient_tangent(
+        &self,
+        t: ArrayView1<'_, f64>,
+        g: ArrayView1<'_, f64>,
+        v: ArrayView1<'_, f64>,
+    ) -> Array1<f64> {
+        assert_eq!(t.len(), g.len());
+        assert_eq!(t.len(), v.len());
+        match self {
+            Self::Euclidean | Self::Circle { .. } | Self::Sphere { .. } => {
+                self.project_to_tangent(t, v)
+            }
+            Self::Interval { lo, hi } => {
+                let mut out = Array1::<f64>::zeros(1);
+                let descent_exits_lo = t[0] <= *lo && g[0] > 0.0;
+                let descent_exits_hi = t[0] >= *hi && g[0] < 0.0;
+                out[0] = if descent_exits_lo || descent_exits_hi {
+                    0.0
+                } else {
+                    v[0]
+                };
+                out
+            }
+            Self::Product(parts)
+            | Self::ProductWithMetric {
+                manifolds: parts, ..
+            } => {
+                let mut out = Array1::<f64>::zeros(v.len());
+                let mut offset = 0_usize;
+                for part in parts {
+                    let dim = part.ambient_dim(1);
+                    let projected = part.project_vector_to_gradient_tangent(
+                        t.slice(ndarray::s![offset..offset + dim]),
+                        g.slice(ndarray::s![offset..offset + dim]),
+                        v.slice(ndarray::s![offset..offset + dim]),
+                    );
+                    for a in 0..dim {
+                        out[offset + a] = projected[a];
+                    }
+                    offset += dim;
+                }
+                assert_eq!(offset, v.len());
+                out
+            }
+        }
+    }
+
+    /// Project every column of `matrix` with
+    /// [`Self::project_vector_to_gradient_tangent`].
+    pub fn project_matrix_columns_to_gradient_tangent(
+        &self,
+        t: ArrayView1<'_, f64>,
+        g: ArrayView1<'_, f64>,
+        matrix: ArrayView2<'_, f64>,
+    ) -> Array2<f64> {
+        let mut out = Array2::<f64>::zeros(matrix.dim());
+        assert_eq!(matrix.nrows(), t.len());
+        for col_idx in 0..matrix.ncols() {
+            let col = self.project_vector_to_gradient_tangent(t, g, matrix.column(col_idx));
+            for row_idx in 0..matrix.nrows() {
+                out[[row_idx, col_idx]] = col[row_idx];
+            }
+        }
+        out
+    }
+
     /// Convert Euclidean Hessian action `eh · xi` to Riemannian Hessian action.
     ///
     /// For the sphere this is the Absil/Mahony/Sepulchre embedded-sphere
@@ -413,9 +574,8 @@ impl LatentManifold {
         assert_eq!(t.len(), xi.len());
         assert_eq!(t.len(), eh_xi.len());
         match self {
-            Self::Euclidean | Self::Circle { .. } | Self::Interval { .. } => {
-                self.project_to_tangent(t, eh_xi)
-            }
+            Self::Euclidean | Self::Circle { .. } => self.project_to_tangent(t, eh_xi),
+            Self::Interval { .. } => self.project_vector_to_gradient_tangent(t, eg, eh_xi),
             Self::Sphere { dim } => {
                 assert_eq!(t.len(), *dim);
                 let grad_r = self.project_to_tangent(t, eg);
@@ -470,7 +630,7 @@ impl LatentManifold {
         for a in 0..d {
             xi.fill(0.0);
             xi[a] = 1.0;
-            let tangent_xi = self.project_to_tangent(t, xi.view());
+            let tangent_xi = self.project_vector_to_gradient_tangent(t, eg, xi.view());
             let col = self.euclidean_to_riemannian_hessian(t, eg, eh, tangent_xi.view());
             for b in 0..d {
                 out[[b, a]] = col[b];
@@ -811,6 +971,26 @@ impl LatentCoordValues {
         } else {
             self.manifold.metric_weights()
         }
+    }
+
+    /// Effective per-axis periodicity (`Some(period)` on wrapped axes). When
+    /// the declared manifold is non-Euclidean it is authoritative; when it is
+    /// Euclidean, an explicit override retraction (if any) decides. Returns a
+    /// `Vec` of length `latent_dim`.
+    pub(crate) fn effective_axis_periods(&self) -> Vec<Option<f64>> {
+        let periods = if self.manifold.is_euclidean() {
+            self.retraction_registry.axis_periods(self.latent_dim)
+        } else {
+            self.manifold.axis_periods()
+        };
+        assert_eq!(
+            periods.len(),
+            self.latent_dim,
+            "effective_axis_periods length {} != latent_dim {}",
+            periods.len(),
+            self.latent_dim
+        );
+        periods
     }
 
     pub fn with_manifold(&self, manifold: LatentManifold) -> Self {

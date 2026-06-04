@@ -11,53 +11,51 @@ __docformat__ = "restructuredtext"
 
 
 import collections.abc
+import contextlib
+from typing import Any
 
+from tango._instrumentation import _trace_client
 from tango._tango import (
     Connection,
     DeviceData,
     ExtractAs,
 )
-from tango.utils import _trace_client, _get_command_inout_param
-from tango.utils import _get_new_CallbackAutoDie
 from tango.green import green
+from tango.utils import _get_command_inout_param, _get_new_CallbackAutoDie
 
 
 def __CallBack__cmd_ended_aux(self, fn):
     def __new_fn(cmd_done_event):
-        try:
-            cmd_done_event.argout = cmd_done_event.argout_raw.extract(
-                self.defaultCommandExtractAs
-            )
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            cmd_done_event.argout = cmd_done_event.argout_raw.extract(self.defaultCommandExtractAs)
         return fn(cmd_done_event)
 
     return __new_fn
 
 
-def __Connection__command_inout(self, name, cmd_param=None):
+def __Connection__command_inout(self, name: str, cmd_param: Any = None) -> Any:
     """
-    command_inout( self, cmd_name, cmd_param=None, __GREEN_KWARGS__) -> any
-
-        Execute a command on a device.
+    Execute a command on a device.
 
     :param cmd_name: Command name
     :type value: str
 
-    :param cmd_param: It should be a value of the type expected by the command or a DeviceData object with this value inserted.
+    :param cmd_param: It should be a value of the type expected by the command or a DeviceData object with this
+                      value inserted.
                       It can be omitted if the command should not get any argument.
-    :type cmd_param: Any
+    :type cmd_param: :py:obj:`typing.Any`
 
     __GREEN_KWARGS_DESCRIPTION__
 
     :returns: The result of the command. The type depends on the command. It may be None
-    :rtype: Any
+    :rtype: :py:obj:`typing.Any`
 
-    :throws: TypeError: if cmd_param's type is not compatible with the command
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-    :throws: :obj:`tango.DeviceUnlocked`: Raised in case of a device failure.
+    :throws: :obj:`TypeError`: if cmd_param's type is not compatible with the command \n
+             :obj:`~tango.ConnectionFailed`: Raised in case of a connection failure \n
+             :obj:`~tango.CommunicationFailed`: Raised in case of a communication failure \n
+             :obj:`~tango.DevFailed`: Raised in case of a device failure \n
+             :obj:`~tango.DeviceUnlocked`: Raised in case of a device failure.
+
     __GREEN_RAISES__
 
     .. versionadded:: 8.1.0
@@ -82,27 +80,26 @@ def __Connection__command_inout(self, name, cmd_param=None):
 __Connection__command_inout.__name__ = "command_inout"
 
 
-def __Connection__command_inout_raw(self, cmd_name, cmd_param=None):
+def __Connection__command_inout_raw(self, cmd_name: str, cmd_param: Any = None) -> DeviceData:
     """
-    command_inout_raw( self, cmd_name, cmd_param=None) -> DeviceData
-
-        Execute a command on a device. Does not convert result.
+    Execute a command on a device. Does not convert result.
 
     :param cmd_name: Command name
     :type value: str
 
-    :param cmd_param: It should be a value of the type expected by the command or a DeviceData object with this value inserted.
+    :param cmd_param: It should be a value of the type expected by the command or a DeviceData object with
+                      this value inserted.
                       It can be omitted if the command should not get any argument.
-    :type cmd_param: Any
+    :type cmd_param: :py:obj:`typing.Any`
 
-    :returns: The result of the command. The type depends on the command. It may be None
-    :rtype: Any
+    :returns: The result of the command
+    :rtype: :obj:`tango.DeviceData`
 
-    :throws: TypeError: if cmd_param's type is not compatible with the command
-    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
-    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
-    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
-    :throws: :obj:`tango.DeviceUnlocked`: Raised in case of a device failure.
+    :throws: :obj:`TypeError`: if cmd_param's type is not compatible with the command \n
+             :obj:`~tango.ConnectionFailed`: Raised in case of a connection failure \n
+             :obj:`~tango.CommunicationFailed`: Raised in case of a communication failure \n
+             :obj:`~tango.DevFailed`: Raised in case of a device failuren \n
+             :obj:`~tango.DeviceUnlocked`: Raised in case of a device failure.
 
     .. versionchanged:: 10.0.0
         TypeError's for invalid command input arguments are now more detailed.
@@ -114,46 +111,42 @@ def __Connection__command_inout_raw(self, cmd_name, cmd_param=None):
 
 def __Connection__command_inout_asynch(self, cmd_name, *args):
     """
-    command_inout_asynch(self, cmd_name) -> id
-    command_inout_asynch(self, cmd_name, cmd_param) -> id
-    command_inout_asynch(self, cmd_name, cmd_param, forget) -> id
+    command_inout_asynch(self, cmd_name: str) -> int
+    command_inout_asynch(self, cmd_name: str, cmd_param: typing.Any) -> int
+    command_inout_asynch(self, cmd_name: str, cmd_param: typing.Any, forget: bool) -> int
+    command_inout_asynch( self, cmd_name: str, callback: typing.Callable) -> None
+    command_inout_asynch( self, cmd_name: str, cmd_param: typing.Any, callback: typing.Callable) -> None
 
-            Execute asynchronously (polling model) a command on a device
+    Execute asynchronously (polling model) a command on a device
 
-        Parameters :
-                - cmd_name  : (str) Command name.
-                - cmd_param : (any) It should be a value of the type expected by the
-                              command or a DeviceData object with this value inserted.
-                              It can be omitted if the command should not get any argument.
-                              If the command should get no argument and you want
-                              to set the 'forget' param, use None for cmd_param.
-                - forget    : (bool) If this flag is set to true, this means that the client
-                              does not care at all about the server answer and will even
-                              not try to get it. Default value is False. Please,
-                              note that device re-connection will not take place (in case
-                              it is needed) if the fire and forget mode is used. Therefore,
-                              an application using only fire and forget requests is not able
-                              to automatically re-connnect to device.
-        Return     : (int) This call returns an asynchronous call identifier which is
-                     needed to get the command result (see command_inout_reply)
+    :param cmd_name: Command name
+    :type value: str
 
-        Throws     : ConnectionFailed, TypeError, anything thrown by command_query
+    :param cmd_param: It should be a value of the type expected by the
+                      command or a DeviceData object with this value inserted.
+                      It can be omitted if the command should not get any argument.
+                      If the command should get no argument and you want
+                      to set the 'forget' param, use None for cmd_param.
+    :type cmd_param: :py:obj:`typing.Any`
 
-    command_inout_asynch( self, cmd_name, callback) -> None
-    command_inout_asynch( self, cmd_name, cmd_param, callback) -> None
+    :param callback: Any callable object (function, lambda...) or any oject
+                     with a method named "cmd_ended".
+    :type callback: :py:obj:`typing.Callable`
 
-            Execute asynchronously (callback model) a command on a device.
+    :param forget: If this flag is set to true, this means that the client
+                   does not care at all about the server answer and will even
+                   not try to get it. Default value is False. Please,
+                   note that device re-connection will not take place (in case
+                   it is needed) if the fire and forget mode is used. Therefore,
+                   an application using only fire and forget requests is not able
+                   to automatically re-connnect to device.
+    :type forget: bool
 
-        Parameters :
-                - cmd_name  : (str) Command name.
-                - cmd_param : (any)It should be a value of the type expected by the
-                              command or a DeviceData object with this value inserted.
-                              It can be omitted if the command should not get any argument.
-                - callback  : Any callable object (function, lambda...) or any oject
-                              with a method named "cmd_ended".
-        Return     : None
+    :returns: This call returns an asynchronous call identifier which is
+              needed to get the command result (see command_inout_reply)
 
-        Throws     : ConnectionFailed, TypeError, anything thrown by command_query
+    :throws: :obj:`TypeError`: if cmd_param's type is not compatible with the command \n
+             :obj:`~tango.ConnectionFailed`: Raised in case of a connection failure.
 
     .. important::
         by default, TANGO is initialized with the **polling** model. If you want
@@ -177,9 +170,7 @@ def __Connection__command_inout_asynch(self, cmd_name, *args):
         forget = False
         return self.__command_inout_asynch_id(cmd_name, argin, forget)
     elif len(args) == 1:
-        if isinstance(
-            args[0], collections.abc.Callable
-        ):  # command_inout_asynch(lambda)
+        if isinstance(args[0], collections.abc.Callable):  # command_inout_asynch(lambda)
             cb = _get_new_CallbackAutoDie()
             cb.cmd_ended = args[0]
             argin = _get_command_inout_param(self, cmd_name)
@@ -194,9 +185,7 @@ def __Connection__command_inout_asynch(self, cmd_name, *args):
             forget = False
             return self.__command_inout_asynch_id(cmd_name, argin, forget)
     elif len(args) == 2:
-        if isinstance(
-            args[1], collections.abc.Callable
-        ):  # command_inout_asynch( value, lambda)
+        if isinstance(args[1], collections.abc.Callable):  # command_inout_asynch( value, lambda)
             cb = _get_new_CallbackAutoDie()
             cb.cmd_ended = args[1]
             argin = _get_command_inout_param(self, cmd_name, args[0])
@@ -217,31 +206,29 @@ def __Connection__command_inout_asynch(self, cmd_name, *args):
 __Connection__command_inout_asynch.__name__ = "command_inout_asynch"
 
 
-def __Connection__command_inout_reply(self, idx, timeout=None):
+def __Connection__command_inout_reply(self, idx: int, timeout: int | None = None) -> Any:
     """
-    command_inout_reply(self, idx, timeout=None) -> DeviceData
+    Check if the answer of an asynchronous command_inout is arrived
+    (polling model). If the reply is arrived and if it is a valid
+    reply, it is returned to the caller in a DeviceData object. If
+    the reply is an exception, it is re-thrown by this call. If optional
+    `timeout` parameter is not provided an exception is also thrown in case
+    of the reply is not yet arrived. If `timeout` is provided, the call will
+    wait (blocking the process) for the time specified
+    in timeout. If after timeout milliseconds, the reply is still
+    not there, an exception is thrown. If timeout is set to 0, the
+    call waits until the reply arrived.
 
-            Check if the answer of an asynchronous command_inout is arrived
-            (polling model). If the reply is arrived and if it is a valid
-            reply, it is returned to the caller in a DeviceData object. If
-            the reply is an exception, it is re-thrown by this call. If optional
-            `timeout` parameter is not provided an exception is also thrown in case
-            of the reply is not yet arrived. If `timeout` is provided, the call will
-            wait (blocking the process) for the time specified
-            in timeout. If after timeout milliseconds, the reply is still
-            not there, an exception is thrown. If timeout is set to 0, the
-            call waits until the reply arrived.
+    :param idx: Asynchronous call identifier
+    :type idx: int
 
-        Parameters :
-            - idx      : (int) Asynchronous call identifier.
-            - timeout  : (int) (optional) Milliseconds to wait for the reply.
-        Return     : (DeviceData)
-        Throws     : AsynCall, AsynReplyNotArrived, CommunicationFailed, DevFailed from device
+    :param timeout: (optional) Milliseconds to wait for the reply.
+    :type timeout: int
+
+    :throws: :obj:`~tango.AsynCall`, :obj:`~tango.AsynReplyNotArrived`,
+             :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`,
     """
-    if timeout is None:
-        r = self.command_inout_reply_raw(idx)
-    else:
-        r = self.command_inout_reply_raw(idx, timeout)
+    r = self.command_inout_reply_raw(idx) if timeout is None else self.command_inout_reply_raw(idx, timeout)
 
     if isinstance(r, DeviceData):
         try:
@@ -258,8 +245,6 @@ __Connection__command_inout_reply.__name__ = "command_inout_reply"
 def connection_init():
     Connection.defaultCommandExtractAs = ExtractAs.Numpy
     Connection.command_inout_raw = __Connection__command_inout_raw
-    Connection.command_inout = green(
-        _trace_client(__Connection__command_inout), update_signature_and_docstring=True
-    )
+    Connection.command_inout = green(_trace_client(__Connection__command_inout), update_signature_and_docstring=True)
     Connection.command_inout_asynch = _trace_client(__Connection__command_inout_asynch)
     Connection.command_inout_reply = _trace_client(__Connection__command_inout_reply)

@@ -234,6 +234,23 @@ class GPUInstanceProfile(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """MIG 7g GPU instance profile."""
 
 
+class IdentityBindingProvisioningState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The provisioning state of the last accepted operation."""
+
+    SUCCEEDED = "Succeeded"
+    """Resource has been created."""
+    FAILED = "Failed"
+    """Resource creation failed."""
+    CANCELED = "Canceled"
+    """Resource creation was canceled."""
+    CREATING = "Creating"
+    """The identity binding is being created."""
+    UPDATING = "Updating"
+    """The identity binding is being updated."""
+    DELETING = "Deleting"
+    """The identity binding is being deleted."""
+
+
 class IPFamily(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """To determine if address belongs IPv4 or IPv6 family."""
 

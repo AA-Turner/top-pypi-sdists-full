@@ -208,7 +208,7 @@ class TestPush:
         "task, filename, content, expected_error",
         [
             ("my-task", None, None, "does not exist"),
-            ("my-task", "task.txt", "hello", "must be a .py"),
+            ("my-task", "task.txt", "hello", "must be a Python"),
             ("any-task", "task.py", "def f(): pass\n", "No @task decorators"),
             ("wrong", "task.py", '@task(name="real")\ndef f(llm): pass\n', "not found"),
             ("any-task", "task.py", "def broken(\n", "No @task decorators"),
@@ -292,7 +292,7 @@ class TestPush:
         """Push without --wait rejects when task is pending, with a --wait hint."""
         filepath = _write_task_file(tmp_path)
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=state)
-        with pytest.raises(ValueError, match="currently being created") as exc_info:
+        with pytest.raises(ValueError, match="creation is still pending") as exc_info:
             _push(api, "my-task", filepath)
         assert "--wait" in str(exc_info.value)
 
@@ -336,7 +336,7 @@ class TestPush:
         resp.error = "Some backend error"
         api._mock_benchmarks.create_benchmark_task.return_value = resp
 
-        with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
+        with pytest.raises(ValueError, match=r"Failed to push task\. Error: Some backend error"):
             _push(api, "my-task", filepath)
 
     def test_push_wait_polls_until_completion(self, api, capsys, tmp_path):
@@ -439,7 +439,7 @@ class TestPush:
             api.benchmarks_tasks_push_cli("my-task", filepath, wait=30)
 
         output = capsys.readouterr().out
-        assert "Timed out waiting for task creation after 30 seconds" in output
+        assert "Timed out after 30s waiting for task creation." in output
 
     @pytest.mark.parametrize("interval", [0, -1], ids=["zero", "negative"])
     def test_push_rejects_non_positive_poll_interval(self, api, tmp_path, interval):
@@ -468,6 +468,11 @@ class TestPush:
         assert request.options.dataset_data_sources == ["user/dataset-one", "user/dataset-two"]
         output = capsys.readouterr().out
         assert "Attached Kaggle dataset(s)" in output
+        # Attach message must appear below both Task Details and Model Output (compare URL)
+        task_idx = output.index("Task Details:")
+        model_idx = output.index("Model Output:")
+        attach_idx = output.index("Attached Kaggle dataset(s)")
+        assert task_idx < model_idx < attach_idx
 
     def test_push_with_invalid_kaggle_dataset_warns(self, api, tmp_path, capsys):
         """Push warns about invalid/unresolvable Kaggle datasets."""
@@ -594,12 +599,22 @@ class TestRun:
             assert f"{m}: Scheduled" in output
 
     def test_run_reports_skipped_with_reason(self, api, capsys):
+        """Skipped runs print the backend-provided reason."""
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason="Already running")])
         api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         output = capsys.readouterr().out
         assert "gemini-pro: Skipped" in output
         assert "Already running" in output
+
+    @pytest.mark.parametrize("reason", [None, ""], ids=["none", "empty"])
+    def test_run_skipped_empty_reason_does_not_crash(self, api, capsys, reason):
+        """Empty/None skip reason renders without crashing."""
+        _setup_completed_task(api)
+        _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason=reason)])
+        api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
+        output = capsys.readouterr().out
+        assert "gemini-pro: Skipped" in output
 
     def test_run_no_status_hint_when_waiting(self, api, capsys):
         """When --wait is used, the status hint should not appear."""
@@ -647,7 +662,7 @@ class TestRun:
         _setup_completed_task(api)
         _setup_available_models(api, ["gemini-pro"])
         with patch("builtins.input", return_value="abc"):
-            with pytest.raises(ValueError, match="Invalid selection"):
+            with pytest.raises(ValueError, match="is not a valid choice"):
                 api.benchmarks_tasks_run_cli("my-task")
 
     def test_run_eof_without_models_raises(self, api):
@@ -786,7 +801,7 @@ class TestRun:
         with patch("time.sleep"), patch("time.time", side_effect=[1000, 1060]):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=30)
         output = capsys.readouterr().out
-        assert "Timed out waiting for runs after 30 seconds" in output
+        assert "Timed out after 30s waiting for runs." in output
 
     def test_run_wait_shows_errored_runs(self, api, capsys):
         """ERRORED runs display with ERRORED label and raise ValueError."""
@@ -872,12 +887,25 @@ class TestList:
 
     @pytest.mark.parametrize("tasks", [[], None], ids=["empty_list", "none"])
     def test_list_empty(self, api, capsys, tasks):
-        """Empty/None task list prints a friendly message instead of an empty table."""
+        """Unfiltered empty list prints the actionable push hint, not an empty table."""
         _setup_list_response(api, tasks)
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        assert "No tasks found." in output
+        assert "No tasks found. Use 'kaggle b t push' to create one." in output
         assert "my-task" not in output
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [{"name_regex": "no-match.*"}, {"status": "completed"}, {"name_regex": "x", "status": "completed"}],
+        ids=["regex", "status", "both"],
+    )
+    def test_list_empty_with_filter(self, api, capsys, kwargs):
+        """Filtered empty list says 'matching the given filters' rather than the push hint."""
+        _setup_list_response(api, [])
+        api.benchmarks_tasks_list_cli(**kwargs)
+        output = capsys.readouterr().out
+        assert "No tasks found matching the given filters." in output
+        assert "kaggle b t push" not in output
 
     def test_list_table_format(self, api, capsys):
         """Table uses per-column unicode-line underlines spanning each column's full width."""
@@ -1157,41 +1185,103 @@ class TestDownload:
         assert "kaggle b t status my-task" in output
 
     def test_download_skips_existing_output(self, api, capsys, tmp_path):
-        """Already-downloaded runs are skipped without making API calls."""
+        """Already-downloaded runs render as Cached without making API calls."""
         _setup_runs_response(api, [_make_run(run_id=42)])
         self._mock_download(api)
         outdir = str(tmp_path / "out")
-        # Pre-create the output directory to simulate a previous download
+        # Pre-create the output directory with a file to simulate a previous download
         existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
         os.makedirs(existing)
+        with open(os.path.join(existing, "result.run.json"), "w") as f:
+            f.write("{}")
 
         api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
         output = capsys.readouterr().out
         assert "gemini-pro" in output
-        assert "Skipped" in output
-        assert "1 run(s) skipped" in output
+        assert "Cached" in output
+        assert "1 run(s) cached" in output
+        # The File column shows the output directory, not a .zip path
+        assert "gemini-pro/42/" in output
+        assert "/42/42.zip" not in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
 
-    def test_download_summary_counts(self, api, capsys, tmp_path):
-        """Download summary shows correct downloaded and skipped counts."""
-        _setup_runs_response(
-            api,
-            [_make_run(model="new-model", run_id=1), _make_run(model="old-model", run_id=2)],
-        )
+    def test_download_re_fetches_empty_existing_dir(self, api, capsys, tmp_path):
+        """An empty leftover output directory should not count as cached; re-download instead."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
         self._mock_download(api)
         outdir = str(tmp_path / "out")
-        # Pre-create only run 2 to simulate a previous download
-        existing = os.path.join(outdir, "my-task", "1", "old-model", "2")
+        # Empty leftover dir from a prior interrupted run
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
         os.makedirs(existing)
 
         with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
         output = capsys.readouterr().out
+        assert "Cached" not in output
+        # The empty dir triggers a fresh download
+        api._mock_benchmarks.download_benchmark_task_run_output.assert_called_once()
+
+    def test_download_cached_dir_without_source_prints_tip_when_s_passed(self, api, capsys, tmp_path):
+        """When -s is passed but the cached dir lacks source notebooks, hint that -f -s is needed."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        # Cached dir exists but has no __notebook__.ipynb / __notebook_source__.ipynb
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
+        os.makedirs(existing)
+        # Drop a placeholder file so the dir isn't empty, but not a source notebook
+        with open(os.path.join(existing, "result.run.json"), "w") as f:
+            f.write("{}")
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir, include_source=True)
+        output = capsys.readouterr().out
+
+        assert "Cached" in output
+        assert "1 cached run(s) lack source notebooks" in output
+        assert "-f -s" in output
+        # Without -f, the cached dir was not touched: no download API call
+        api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
+
+    def test_download_cached_dir_with_source_does_not_print_tip(self, api, capsys, tmp_path):
+        """When the cached dir already contains source notebooks, no tip is shown."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
+        os.makedirs(existing)
+        # Simulate a previous -s download by dropping the source notebook
+        with open(os.path.join(existing, "__notebook__.ipynb"), "w") as f:
+            f.write("{}")
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir, include_source=True)
+        output = capsys.readouterr().out
+
+        assert "Cached" in output
+        assert "lack source notebooks" not in output
+
+    def test_download_summary_counts(self, api, capsys, tmp_path):
+        """Download summary shows correct downloaded and cached counts."""
+        _setup_runs_response(
+            api,
+            [_make_run(model="new-model", run_id=1), _make_run(model="old-model", run_id=2)],
+        )
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        # Pre-create only run 2 with a file to simulate a previous download
+        existing = os.path.join(outdir, "my-task", "1", "old-model", "2")
+        os.makedirs(existing)
+        with open(os.path.join(existing, "result.run.json"), "w") as f:
+            f.write("{}")
+
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
+            api.benchmarks_tasks_download_cli("my-task", output=outdir)
+
+        output = capsys.readouterr().out
         assert "1 run(s) downloaded" in output
-        assert "1 run(s) skipped" in output
+        assert "1 run(s) cached" in output
 
     def test_download_force_overwrites_existing_output(self, api, capsys, tmp_path):
         """Using force=True re-downloads and overwrites existing output."""
@@ -1994,6 +2084,55 @@ class TestBenchmarksAuth:
         out = capsys.readouterr().out
         assert "custom.env" in out
 
+    def test_friendly_error_on_404_lists_both_causes(self, api, tmp_path):
+        """404 maps to a message listing both beta-access and stale-CLI as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=404)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+        msg = str(excinfo.value)
+        assert "currently in beta" in msg
+        assert "pip install --upgrade kaggle" in msg
+
+    def test_friendly_error_on_403_lists_both_causes(self, api, tmp_path):
+        """403 maps to a message listing both verification and stale-credentials as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=403)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+        msg = str(excinfo.value)
+        assert "phone or identity verification" in msg
+        assert "https://www.kaggle.com/settings" in msg
+        assert "stale or invalid" in msg
+        assert "https://www.kaggle.com/settings/api" in msg
+
+    @pytest.mark.parametrize("status_code", [401, 429, 500, 503])
+    def test_other_http_errors_propagate_unchanged(self, api, tmp_path, status_code):
+        """Status codes outside 403/404 propagate as HTTPError (no misleading verification text)."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
+        with pytest.raises(HTTPError):
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+
+    def test_http_error_without_response_propagates(self, api, tmp_path):
+        """An HTTPError with no response object (e.g. network error) propagates raw."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=None
+        )
+        with pytest.raises(HTTPError):
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+
+    def test_non_http_errors_propagate_unchanged(self, api, tmp_path):
+        """Non-HTTP exceptions (e.g. connection errors) propagate as-is, no error wrapping."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = ConnectionError(
+            "DNS lookup failed"
+        )
+        with pytest.raises(ConnectionError, match="DNS lookup failed"):
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+
 
 # ============================================================
 # Benchmarks Init
@@ -2086,6 +2225,122 @@ class TestBenchmarksInit:
         content = env_file.read_text()
         assert content.startswith("EXISTING_VAR=hello\n")
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
+
+    def test_friendly_error_on_404_lists_both_causes(self, api, tmp_path):
+        """404 maps to a message listing both beta-access and stale-CLI as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=404)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_init_cli(
+                no_confirm=True,
+                env_file=str(tmp_path / ".env"),
+                example_file=str(tmp_path / "example_task.py"),
+            )
+        msg = str(excinfo.value)
+        assert "currently in beta" in msg
+        assert "pip install --upgrade kaggle" in msg
+
+    def test_friendly_error_on_403_lists_both_causes(self, api, tmp_path):
+        """403 maps to a message listing both verification and stale-credentials as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=403)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_init_cli(
+                no_confirm=True,
+                env_file=str(tmp_path / ".env"),
+                example_file=str(tmp_path / "example_task.py"),
+            )
+        msg = str(excinfo.value)
+        assert "phone or identity verification" in msg
+        assert "https://www.kaggle.com/settings" in msg
+        assert "stale or invalid" in msg
+        assert "https://www.kaggle.com/settings/api" in msg
+
+
+# ============================================================
+# Upsert behavior (auth/init reruns)
+# ============================================================
+
+
+class TestBenchmarksUpsert:
+    """End-to-end checks that ``kaggle benchmarks auth/init`` upserts the
+    managed keys rather than appending duplicates. The line-by-line upsert
+    semantics are owned by ``python-dotenv``; these tests only verify wiring
+    and the user-facing contract."""
+
+    def test_rerun_with_new_token_replaces_stale_value(self, api, tmp_path):
+        # First run: original token.
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response(token="kaggle-benchmarks:first")
+        )
+        env_file = tmp_path / ".env"
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
+
+        # Second run: refreshed token.
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response(token="kaggle-benchmarks:second")
+        )
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
+
+        content = env_file.read_text()
+        assert "MODEL_PROXY_API_KEY=kaggle-benchmarks:second\n" in content
+        assert "kaggle-benchmarks:first" not in content
+        assert content.count("MODEL_PROXY_API_KEY=") == 1
+
+    def test_preserves_user_added_keys_and_comments(self, api, mock_token, tmp_path):
+        env_file = tmp_path / ".env"
+        env_file.write_text("# my notes\nMY_SECRET=hunter2\nMODEL_PROXY_URL=https://stale.example.com\n")
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
+        content = env_file.read_text()
+        assert "# my notes\n" in content
+        assert "MY_SECRET=hunter2\n" in content
+        assert "stale.example.com" not in content
+        assert content.count("MODEL_PROXY_URL=") == 1
+
+    def test_first_rerun_after_upgrade_refreshes_stale_duplicates(self, api, tmp_path):
+        """Migration scenario: a user who ran the old append-based CLI ends up
+        with several stacked ``MODEL_PROXY_API_KEY=`` lines in their ``.env``.
+        The first rerun on the new code must rewrite every duplicate to the
+        fresh value so no stale token lingers in the file."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "MODEL_PROXY_API_KEY=stale-1\n"
+            "OTHER=keep\n"
+            "MODEL_PROXY_API_KEY=stale-2\n"
+            "MODEL_PROXY_API_KEY=stale-3\n"
+        )
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response(token="kaggle-benchmarks:fresh")
+        )
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
+
+        content = env_file.read_text()
+        for stale in ("stale-1", "stale-2", "stale-3"):
+            assert stale not in content
+        from dotenv import dotenv_values
+
+        assert dotenv_values(str(env_file))["MODEL_PROXY_API_KEY"] == "kaggle-benchmarks:fresh"
+        assert "OTHER=keep\n" in content
+
+    def test_init_rerun_is_idempotent(self, api, mock_token, tmp_path):
+        env_file = str(tmp_path / ".env")
+        example_file = str(tmp_path / "example_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
+        first = (tmp_path / ".env").read_text()
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
+        second = (tmp_path / ".env").read_text()
+        assert first == second
+        for key in (
+            "MODEL_PROXY_URL=",
+            "MODEL_PROXY_API_KEY=",
+            "MODEL_PROXY_EXPIRY_TIME=",
+            "LLM_DEFAULT=",
+            "LLM_DEFAULT_EVAL=",
+            "LLMS_AVAILABLE=",
+        ):
+            assert second.count(key) == 1
 
 
 # ============================================================

@@ -19,6 +19,7 @@ except ImportError:
     pyarrow = None
 
 from databricks.sql import OperationalError
+from databricks.sql.exc import ProgrammingError
 from databricks.sql.cloudfetch.download_manager import ResultFileDownloadManager
 from databricks.sql.thrift_api.TCLIService.ttypes import (
     TRowSet,
@@ -548,9 +549,7 @@ class ParamEscaper:
         elif isinstance(parameters, (list, tuple)):
             return tuple(self.escape_item(x) for x in parameters)
         else:
-            raise exc.ProgrammingError(
-                "Unsupported param format: {}".format(parameters)
-            )
+            raise ProgrammingError("Unsupported param format: {}".format(parameters))
 
     def escape_number(self, item):
         return item
@@ -606,7 +605,7 @@ class ParamEscaper:
         elif isinstance(item, Mapping):
             return self.escape_mapping(item)
         else:
-            raise exc.ProgrammingError("Unsupported object {}".format(item))
+            raise ProgrammingError("Unsupported object {}".format(item))
 
 
 def inject_parameters(operation: str, parameters: Dict[str, str]):
@@ -983,6 +982,9 @@ def build_client_context(server_hostname: str, version: str, **kwargs):
         ),
         retry_delay_default=kwargs.get("_retry_delay_default"),
         retry_dangerous_codes=kwargs.get("_retry_dangerous_codes"),
+        respect_server_retry_after_header=kwargs.get(
+            "_respect_server_retry_after_header"
+        ),
         proxy_auth_method=kwargs.get("_proxy_auth_method"),
         pool_connections=kwargs.get("_pool_connections"),
         pool_maxsize=kwargs.get("_pool_maxsize"),

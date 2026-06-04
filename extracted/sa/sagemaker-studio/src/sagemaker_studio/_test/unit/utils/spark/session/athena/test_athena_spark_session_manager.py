@@ -144,13 +144,20 @@ def test_create_starts_session(
     # Mock _start_athena_session to return fake session ID and endpoint URL
     manager._start_athena_session = MagicMock(return_value=("fake-session", "sc://endpoint"))
 
+    # Mock build_spark_configs and _get_user_id_account_id (called before _start_athena_session)
+    manager._get_user_id_account_id = MagicMock(return_value=("user-1", "1234567890"))
+
     # Mock builder chain
     builder = MagicMock()
     mock_spark_session.builder.channelBuilder.return_value = builder
     builder.appName.return_value = builder
     builder.getOrCreate.return_value = "mock_spark_session"
 
-    session = manager.create()
+    with patch(
+        "sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager.build_spark_configs",
+        return_value={"spark.key": "val"},
+    ):
+        session = manager.create()
 
     assert session == "mock_spark_session"
     assert manager.athena_session_id == "fake-session"
@@ -379,3 +386,103 @@ def test_terminate_session_raises_on_error(manager, mock_boto3_clients):
 
     with pytest.raises(Exception, match="terminate failed"):
         manager._terminate_athena_session("sess-err")
+
+
+def test_lazy_init_extracts_connection_spark_configs(mock_boto3_clients, mock_internal_utils):
+    """Ensure _lazy_init extracts SparkConfiguration from connection."""
+    _, mock_project = mock_internal_utils
+    mock_conn = MagicMock()
+    mock_conn.data.workgroup_name = "wg-with-configs"
+    mock_conn._Connection__connection_data = {
+        "configurations": [
+            {
+                "classification": "SparkConfiguration",
+                "properties": {"spark.custom": "value", "spark.executor.memory": "8g"},
+            }
+        ]
+    }
+
+    mgr = AthenaSparkSessionManager(connection=mock_conn)
+    mgr._lazy_init()
+
+    assert mgr.connection_spark_configs == {"spark.custom": "value", "spark.executor.memory": "8g"}
+
+
+def test_lazy_init_empty_connection_configs(mock_boto3_clients, mock_internal_utils):
+    """Ensure _lazy_init handles connection with no SparkConfiguration gracefully."""
+    _, mock_project = mock_internal_utils
+    mock_conn = MagicMock()
+    mock_conn.data.workgroup_name = "wg-no-configs"
+    mock_conn._Connection__connection_data = {"configurations": []}
+
+    mgr = AthenaSparkSessionManager(connection=mock_conn)
+    mgr._lazy_init()
+
+    assert mgr.connection_spark_configs == {}
+
+
+def test_start_session_uses_build_spark_configs(manager, mock_boto3_clients, mock_internal_utils):
+    """Ensure _start_athena_session passes spark_properties to start_session."""
+    athena_client, sts_client = mock_boto3_clients
+    manager.athena_client = athena_client
+    manager.sts_client = sts_client
+    manager.workgroup_name = "test-wg"
+    manager.project = MagicMock()
+    manager.project.id = "proj-1"
+    manager.connection_spark_configs = {"spark.conn.key": "conn_val"}
+    manager.spark_conf = {"spark.user.key": "user_val"}
+
+    athena_client.start_session.return_value = {"SessionId": "sess-cfg"}
+    athena_client.get_session.return_value = {"Status": {"State": "CREATED"}}
+    athena_client.get_session_endpoint.return_value = {
+        "EndpointUrl": "https://athena.endpoint",
+        "AuthToken": "tok",
+    }
+
+    # Build spark_properties the same way create() does, then pass to _start_athena_session
+    spark_properties = {
+        "spark.base.key": "base_val",
+        "spark.conn.key": "conn_val",
+        "spark.user.key": "user_val",
+    }
+
+    manager._start_athena_session("test-wg", "user-1", spark_properties)
+
+    call_kwargs = athena_client.start_session.call_args
+    spark_props = call_kwargs[1]["EngineConfiguration"]["Classifications"][0]["Properties"]
+    # Base config present
+    assert spark_props["spark.base.key"] == "base_val"
+    # Connection config applied
+    assert spark_props["spark.conn.key"] == "conn_val"
+    # User config applied
+    assert spark_props["spark.user.key"] == "user_val"
+
+
+def test_start_session_user_config_overrides_connection(
+    manager, mock_boto3_clients, mock_internal_utils
+):
+    """Ensure user spark_conf overrides connection-level configs."""
+    athena_client, sts_client = mock_boto3_clients
+    manager.athena_client = athena_client
+    manager.sts_client = sts_client
+    manager.workgroup_name = "test-wg"
+    manager.project = MagicMock()
+    manager.project.id = "proj-1"
+    manager.connection_spark_configs = {"spark.shared.key": "from_connection"}
+    manager.spark_conf = {"spark.shared.key": "from_user"}
+
+    athena_client.start_session.return_value = {"SessionId": "sess-override"}
+    athena_client.get_session.return_value = {"Status": {"State": "CREATED"}}
+    athena_client.get_session_endpoint.return_value = {
+        "EndpointUrl": "https://athena.endpoint",
+        "AuthToken": "tok",
+    }
+
+    # User config wins over connection config in the merged properties
+    spark_properties = {"spark.shared.key": "from_user"}
+
+    manager._start_athena_session("test-wg", "user-1", spark_properties)
+
+    call_kwargs = athena_client.start_session.call_args
+    spark_props = call_kwargs[1]["EngineConfiguration"]["Classifications"][0]["Properties"]
+    assert spark_props["spark.shared.key"] == "from_user"

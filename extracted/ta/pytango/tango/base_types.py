@@ -10,18 +10,18 @@ __all__ = ("base_types_init",)
 __docformat__ = "restructuredtext"
 
 from tango import (
-    StdStringVector,
-    StdLongVector,
-    StdDoubleVector,
-    CommandInfoList,
     AttributeInfoList,
     AttributeInfoListEx,
+    CommandInfoList,
     DbData,
-    DbDevInfos,
     DbDevExportInfos,
     DbDevImportInfos,
+    DbDevInfos,
     DbHistoryList,
     DeviceDataHistoryList,
+    StdDoubleVector,
+    StdLongVector,
+    StdStringVector,
 )
 
 

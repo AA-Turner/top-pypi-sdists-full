@@ -167,13 +167,25 @@ def test_create_starts_session(mock_channel_builder, mock_spark_session, manager
             {"authToken": "tok", "authTokenExpiresAt": None},
         )
     )
+    # Mock the methods called before _start_emr_serverless_session
+    manager._ensure_application_started = MagicMock(
+        return_value={"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+    )
+    manager._get_user_id_account_id = MagicMock(return_value=("test-user", "1234567890"))
+    manager._get_service_specific_configs = MagicMock(return_value={})
+    manager.connection_spark_configs = {}
+    manager.application_id = "app-1"
 
     builder = MagicMock()
     mock_spark_session.builder.channelBuilder.return_value = builder
     builder.appName.return_value = builder
     builder.getOrCreate.return_value = "mock_spark"
 
-    session = manager.create()
+    with patch(
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.build_spark_configs",
+        return_value={"spark.key": "val"},
+    ):
+        session = manager.create()
 
     assert session == "mock_spark"
     assert manager.emr_serverless_session_id == "sess-1"
@@ -298,21 +310,13 @@ def test_start_session_assigns_id_early(manager, mock_boto3_clients):
     manager.resolved_connection_name = "test_connection"
 
     emr_client.start_session.return_value = {"sessionId": "sess-early"}
-    emr_client.get_application.return_value = {
-        "application": {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
-    }
 
     # Make _wait raise to simulate timeout — session_id should already be assigned
     with patch.object(
-        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
-    ), patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
-        return_value={},
-    ), patch.object(
         manager, "_wait_for_emr_serverless_session", side_effect=RuntimeError("timeout")
     ):
         with pytest.raises(RuntimeError, match="timeout"):
-            manager._start_emr_serverless_session("app-1")
+            manager._start_emr_serverless_session("app-1", "test-user", {"spark.key": "val"})
 
     assert manager.emr_serverless_session_id == "sess-early"
 
@@ -480,6 +484,65 @@ def test_is_fta_supported_false_no_release_label():
         ],
     }
     assert EMRServerlessSparkSessionManager._is_fta_supported(app) is False
+
+
+def test_is_fta_supported_true_emr_spark_release():
+    """Ensure _is_fta_supported returns True for emr-spark releases with compat mode."""
+    app = {
+        "releaseLabel": "emr-spark-7.5.0",
+        "runtimeConfiguration": [
+            {
+                "classification": "spark-defaults",
+                "properties": {"spark.emr-serverless.lakeformation.enabled": "false"},
+            }
+        ],
+    }
+    assert EMRServerlessSparkSessionManager._is_fta_supported(app) is True
+
+
+def test_is_fta_supported_true_emr_spark_release_newer():
+    """Ensure _is_fta_supported returns True for newer emr-spark releases with compat mode."""
+    app = {
+        "releaseLabel": "emr-spark-7.8.0",
+        "runtimeConfiguration": [
+            {
+                "classification": "spark-defaults",
+                "properties": {"spark.emr-serverless.lakeformation.enabled": "false"},
+            }
+        ],
+    }
+    assert EMRServerlessSparkSessionManager._is_fta_supported(app) is True
+
+
+def test_is_fta_supported_false_emr_spark_no_compat():
+    """Ensure _is_fta_supported returns False for emr-spark releases without compat mode."""
+    app = {
+        "releaseLabel": "emr-spark-7.8.0",
+        "runtimeConfiguration": [
+            {
+                "classification": "spark-defaults",
+                "properties": {"spark.emr-serverless.lakeformation.enabled": "true"},
+            }
+        ],
+    }
+    assert EMRServerlessSparkSessionManager._is_fta_supported(app) is False
+
+
+# --- Tests for _is_emr_spark_release ---
+
+
+def test_is_emr_spark_release_true():
+    """Ensure _is_emr_spark_release returns True for emr-spark labels."""
+    assert EMRServerlessSparkSessionManager._is_emr_spark_release("emr-spark-7.5.0") is True
+    assert EMRServerlessSparkSessionManager._is_emr_spark_release("emr-spark-7.8.0") is True
+    assert EMRServerlessSparkSessionManager._is_emr_spark_release("emr-spark-8.0.0") is True
+
+
+def test_is_emr_spark_release_false():
+    """Ensure _is_emr_spark_release returns False for standard emr labels."""
+    assert EMRServerlessSparkSessionManager._is_emr_spark_release("emr-7.8.0") is False
+    assert EMRServerlessSparkSessionManager._is_emr_spark_release("emr-7.5.0") is False
+    assert EMRServerlessSparkSessionManager._is_emr_spark_release("") is False
 
 
 def test_get_compatibility_mode_configs():
@@ -779,17 +842,6 @@ def test_start_session_full_flow_fta_supported(manager, mock_boto3_clients):
     manager.connection_spark_configs = {}
     manager.resolved_connection_name = "test_connection"
 
-    fta_app = {
-        "state": "STARTED",
-        "releaseLabel": "emr-7.8.0",
-        "runtimeConfiguration": [
-            {
-                "classification": "spark-defaults",
-                "properties": {"spark.emr-serverless.lakeformation.enabled": "false"},
-            }
-        ],
-    }
-
     emr_client.start_session.return_value = {"sessionId": "sess-fta"}
     emr_client.get_session.return_value = {"session": {"state": "STARTED"}}
     emr_client.get_session_endpoint.return_value = {
@@ -798,15 +850,15 @@ def test_start_session_full_flow_fta_supported(manager, mock_boto3_clients):
         "authTokenExpiresAt": None,
     }
 
-    with patch.object(
-        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
-    ), patch.object(manager, "_ensure_application_started", return_value=fta_app), patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
-        return_value={},
-    ), patch.object(
-        manager, "_get_s3_access_grants_configs", return_value={}
-    ):
-        session_id, url, resp = manager._start_emr_serverless_session("app-1")
+    # FTA configs are now computed by the caller and passed in as spark_configs
+    fta_spark_configs = {
+        "spark.hadoop.fs.s3.credentialsResolverClass": "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver",
+        "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled": "true",
+    }
+
+    session_id, url, resp = manager._start_emr_serverless_session(
+        "app-1", "test-user", fta_spark_configs
+    )
 
     assert session_id == "sess-fta"
     assert url.startswith("sc://")
@@ -817,7 +869,7 @@ def test_start_session_full_flow_fta_supported(manager, mock_boto3_clients):
 
 
 def test_start_session_full_flow_fta_not_supported(manager, mock_boto3_clients):
-    """Ensure _start_emr_serverless_session removes compat configs when FTA not supported."""
+    """Ensure _start_emr_serverless_session does not include compat configs when FTA not supported."""
     emr_client, _ = mock_boto3_clients
     manager.emr_serverless_client = emr_client
     manager.application_id = "app-1"
@@ -827,8 +879,6 @@ def test_start_session_full_flow_fta_not_supported(manager, mock_boto3_clients):
     manager.connection_spark_configs = {}
     manager.resolved_connection_name = "test_connection"
 
-    non_fta_app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
-
     emr_client.start_session.return_value = {"sessionId": "sess-nofta"}
     emr_client.get_session.return_value = {"session": {"state": "STARTED"}}
     emr_client.get_session_endpoint.return_value = {
@@ -837,25 +887,20 @@ def test_start_session_full_flow_fta_not_supported(manager, mock_boto3_clients):
         "authTokenExpiresAt": None,
     }
 
-    # generate_spark_configs returns compat keys that should be removed
-    compat_keys = EMRServerlessSparkSessionManager._get_compatibility_mode_configs()
-    initial_configs = dict(compat_keys)  # copy
+    # No FTA configs — just base configs
+    spark_configs = {"spark.sql.catalogImplementation": "hive"}
 
-    with patch.object(
-        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
-    ), patch.object(manager, "_ensure_application_started", return_value=non_fta_app), patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
-        return_value=initial_configs,
-    ), patch.object(
-        manager, "_get_s3_access_grants_configs", return_value={}
-    ):
-        session_id, url, resp = manager._start_emr_serverless_session("app-1")
+    session_id, url, resp = manager._start_emr_serverless_session(
+        "app-1", "test-user", spark_configs
+    )
 
     assert session_id == "sess-nofta"
     call_kwargs = emr_client.start_session.call_args
     spark_props = call_kwargs[1]["configurationOverrides"]["runtimeConfiguration"][0]["properties"]
-    # Compat keys should have been removed
+    # Compat keys should NOT be present when FTA is not supported
     assert "spark.hadoop.fs.s3.credentialsResolverClass" not in spark_props
+    # Base config should still be there
+    assert spark_props["spark.sql.catalogImplementation"] == "hive"
 
 
 def test_stop_no_sessions(manager):
@@ -901,17 +946,13 @@ def test_executor_idle_timeout_default(manager, mock_boto3_clients):
     """Ensure executorIdleTimeout is set to 120s by default."""
     emr_client = _setup_manager_for_session_start(manager, mock_boto3_clients)
 
-    app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+    # spark_configs with the default executorIdleTimeout (as build_spark_configs would produce)
+    spark_configs = {
+        "spark.sql.catalogImplementation": "hive",
+        "spark.dynamicAllocation.executorIdleTimeout": "120s",
+    }
 
-    with patch.object(
-        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
-    ), patch.object(manager, "_ensure_application_started", return_value=app), patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
-        return_value={"spark.sql.catalogImplementation": "hive"},
-    ), patch.object(
-        manager, "_get_s3_access_grants_configs", return_value={}
-    ):
-        manager._start_emr_serverless_session("app-1")
+    manager._start_emr_serverless_session("app-1", "test-user", spark_configs)
 
     spark_props = _get_spark_props_from_start_session(emr_client)
     assert spark_props["spark.dynamicAllocation.executorIdleTimeout"] == "120s"
@@ -926,17 +967,10 @@ def test_executor_idle_timeout_overridden_by_connection_config(manager, mock_bot
         manager, mock_boto3_clients, connection_spark_configs=connection_configs
     )
 
-    app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+    # Connection config overrides default — build_spark_configs would merge this
+    spark_configs = {"spark.dynamicAllocation.executorIdleTimeout": "300s"}
 
-    with patch.object(
-        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
-    ), patch.object(manager, "_ensure_application_started", return_value=app), patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
-        return_value={},
-    ), patch.object(
-        manager, "_get_s3_access_grants_configs", return_value={}
-    ):
-        manager._start_emr_serverless_session("app-1")
+    manager._start_emr_serverless_session("app-1", "test-user", spark_configs)
 
     spark_props = _get_spark_props_from_start_session(emr_client)
     assert spark_props["spark.dynamicAllocation.executorIdleTimeout"] == "300s"
@@ -953,17 +987,14 @@ def test_executor_idle_timeout_spark_conf_wins_over_all(manager, mock_boto3_clie
         "spark.executor.memory": "4g",
     }
 
-    app = {"state": "STARTED", "releaseLabel": "emr-7.5.0"}
+    # User spark_conf wins over everything — build_spark_configs would produce this
+    spark_configs = {
+        "spark.sql.catalogImplementation": "hive",
+        "spark.dynamicAllocation.executorIdleTimeout": "45s",
+        "spark.executor.memory": "4g",
+    }
 
-    with patch.object(
-        manager, "_get_user_id_account_id", return_value=("test-user", "1234567890")
-    ), patch.object(manager, "_ensure_application_started", return_value=app), patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.generate_spark_configs",
-        return_value={"spark.sql.catalogImplementation": "hive"},
-    ), patch.object(
-        manager, "_get_s3_access_grants_configs", return_value={}
-    ):
-        manager._start_emr_serverless_session("app-1")
+    manager._start_emr_serverless_session("app-1", "test-user", spark_configs)
 
     spark_props = _get_spark_props_from_start_session(emr_client)
     # spark_conf wins over connection config and SDK default
@@ -972,3 +1003,66 @@ def test_executor_idle_timeout_spark_conf_wins_over_all(manager, mock_boto3_clie
     assert spark_props["spark.executor.memory"] == "4g"
     # Base defaults preserved
     assert spark_props["spark.sql.catalogImplementation"] == "hive"
+
+
+# --- Tests for _get_service_specific_configs ---
+
+
+def test_get_service_specific_configs_fta_supported(manager):
+    """Ensure _get_service_specific_configs returns compat configs when FTA is supported."""
+    fta_app = {
+        "releaseLabel": "emr-7.8.0",
+        "runtimeConfiguration": [
+            {
+                "classification": "spark-defaults",
+                "properties": {"spark.emr-serverless.lakeformation.enabled": "false"},
+            }
+        ],
+    }
+
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+        configs = manager._get_service_specific_configs(fta_app)
+
+    assert isinstance(configs, dict)
+    assert "spark.hadoop.fs.s3.credentialsResolverClass" in configs
+    assert "spark.dynamicAllocation.executorIdleTimeout" in configs
+    assert configs["spark.dynamicAllocation.executorIdleTimeout"] == "120s"
+
+
+def test_get_service_specific_configs_fta_not_supported(manager):
+    """Ensure _get_service_specific_configs does not include compat configs when FTA not supported."""
+    non_fta_app = {"releaseLabel": "emr-7.5.0"}
+
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+        configs = manager._get_service_specific_configs(non_fta_app)
+
+    assert isinstance(configs, dict)
+    assert "spark.hadoop.fs.s3.credentialsResolverClass" not in configs
+    # Executor idle timeout should still be present
+    assert configs["spark.dynamicAllocation.executorIdleTimeout"] == "120s"
+
+
+def test_get_service_specific_configs_includes_s3ag(manager):
+    """Ensure _get_service_specific_configs includes S3 Access Grants configs."""
+    app = {"releaseLabel": "emr-7.5.0"}
+    s3ag_configs = {
+        "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
+        "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
+    }
+
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value=s3ag_configs):
+        configs = manager._get_service_specific_configs(app)
+
+    assert configs["spark.hadoop.fs.s3.s3AccessGrants.enabled"] == "true"
+    assert configs["spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM"] == "true"
+
+
+def test_get_service_specific_configs_returns_dict_not_tuple(manager):
+    """Ensure _get_service_specific_configs returns a plain dict (not a tuple)."""
+    app = {"releaseLabel": "emr-7.5.0"}
+
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+        result = manager._get_service_specific_configs(app)
+
+    assert isinstance(result, dict)
+    assert not isinstance(result, tuple)

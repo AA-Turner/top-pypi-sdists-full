@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import time
 from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.infra.config import Config
@@ -41,11 +42,14 @@ from kanban_framework.cli.workflow_cmd import GuardError    # noqa: F401
 # ── run ──────────────────────────────────────────────────────────
 
 def cmd_run(args: list[str]) -> dict:
+    _log = logging.getLogger("kanban")
     if not args:
         return {"error": "task_id required"}
     task_id = args[0]
     fs, cfg, tm, we = _resolve()
     task = tm.show(task_id)
+    _log.info("run: task=%s phase=%s mode=%s lightweight=%s",
+              task_id, task.phase_id, getattr(task, 'mode', 'full'), task.lightweight)
     # FSM state validation (skip for --lightweight override, which changes mode)
     lightweight_requested = "--lightweight" in args
     if not lightweight_requested:
@@ -92,9 +96,18 @@ def cmd_run(args: list[str]) -> dict:
                 ),
             }
 
+    # Record knowledge usage before phase transition (#478)
+    try:
+        from kanban_framework.domain.context import _load_knowledge_summary
+        _load_knowledge_summary(fs, task)
+    except Exception:
+        pass
+
     try:
         new_phase = we.transition(task, target)
+        _log.info("transition: task=%s %s -> %s", task_id, task.phase_id, new_phase)
     except TransitionError as e:
+        _log.warning("transition blocked: task=%s %s -> %s: %s", task_id, task.phase_id, target_str, e)
         from kanban_framework.infra.issue_capture import capture_issue
         capture_issue(fs, task, e, {"action": "transition", "target": target_str})
         return {
@@ -123,7 +136,7 @@ def cmd_run(args: list[str]) -> dict:
     }
     # Include step info for the new phase
     from kanban_framework.domain.steps import _get_steps
-    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else ("lightweight" if lw else "full"))
+    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else "lightweight")
     steps_map = _get_steps(mode)
     phase_steps = steps_map.get(new_phase_str, [])
     if not phase_steps:

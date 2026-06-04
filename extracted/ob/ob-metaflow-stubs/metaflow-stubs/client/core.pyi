@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.29.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-21T21:10:55.258414                                                            #
+# MF version: 2.19.32.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-06-03T22:23:58.315745                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.client.core
-    import metaflow.events
-    import datetime
-    import tarfile
     import typing
+    import tarfile
+    import metaflow.events
+    import metaflow.client.core
     import tempfile
+    import datetime
 
 from ..metaflow_current import current as current
 from ..events import Trigger as Trigger
@@ -627,6 +627,8 @@ class MetaflowData(object, metaclass=type):
     def __getattr__(self, name: str):
         ...
     def __contains__(self, var):
+        ...
+    def __dir__(self):
         ...
     def __str__(self):
         ...

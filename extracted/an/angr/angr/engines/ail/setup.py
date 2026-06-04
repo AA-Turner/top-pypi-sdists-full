@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
+
 # pylint: disable=import-outside-toplevel
 from typing import TYPE_CHECKING
-from collections.abc import Callable, Iterable
 
 import claripy
 
@@ -11,9 +12,9 @@ from angr.sim_state import SimState
 from angr.storage.memory_mixins.memory_mixin import MemoryMixin
 
 if TYPE_CHECKING:
+    from angr.ailment import Address
     from angr.analyses.decompiler.clinic import Clinic
     from angr.project import Project
-    from angr.ailment import Address
 
 
 def ail_call_state(
@@ -27,6 +28,7 @@ def ail_call_state(
     remove_options: set[str] | None = None,
     plugin_preset: str = "default",
     memory_cls: type[MemoryMixin] | None = None,
+    callstack_cls: type[AILCallStack] | None = None,
 ):
     state = SimState(
         project,
@@ -46,10 +48,16 @@ def ail_call_state(
 
     if isinstance(start_addr, str):
         start_addr = project.kb.functions[start_addr].addr
-    state.addr = (start_addr, None) if isinstance(start_addr, int) else start_addr
+    if isinstance(start_addr, int):
+        state.addr = start_addr
+        state.scratch.ail_block_idx = None
+    else:
+        state.addr = start_addr[0]
+        state.scratch.ail_block_idx = start_addr[1]
 
-    bottom_frame = AILCallStack()
-    top_frame = AILCallStack(func_addr=start_addr)
+    callstack_cls = callstack_cls or AILCallStack
+    bottom_frame = callstack_cls()
+    top_frame = callstack_cls(func_addr=start_addr)
     top_frame.passed_args = tuple(args)
     state.register_plugin("callstack", bottom_frame)
     state.callstack.push(top_frame)

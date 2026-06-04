@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gamfit
-Version: 0.1.149
+Version: 0.1.155
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: MacOS
@@ -71,7 +71,7 @@ Author: SauersML
 License-Expression: AGPL-3.0-or-later
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Changelog, https://github.com/SauersML/gam/releases
+Project-URL: Changelog, https://gamfit.readthedocs.io/en/latest/changelog/
 Project-URL: Homepage, https://github.com/SauersML/gam
 Project-URL: Issues, https://github.com/SauersML/gam/issues
 Project-URL: Repository, https://github.com/SauersML/gam

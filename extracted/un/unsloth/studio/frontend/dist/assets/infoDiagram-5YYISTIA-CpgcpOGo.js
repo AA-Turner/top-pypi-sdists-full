@@ -1,0 +1,2 @@
+import{Cr as e,Un as t,ni as n,ti as r}from"./index-D76q75Ef.js";import{t as i}from"./mermaid-parser.core-B4VncPAp.js";var a={parse:r(async e=>{let t=await i(`info`,e);n.debug(t)},`parse`)},o={version:`11.15.0`},s={parser:a,db:{getVersion:r(()=>o.version,`getVersion`)},renderer:{draw:r((r,i,a)=>{n.debug(`rendering info diagram
+`+r);let o=t(i);e(o,100,400,!0),o.append(`g`).append(`text`).attr(`x`,100).attr(`y`,40).attr(`class`,`version`).attr(`font-size`,32).style(`text-anchor`,`middle`).text(`v${a}`)},`draw`)}};export{s as diagram};

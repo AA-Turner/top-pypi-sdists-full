@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipdeptree
-Version: 2.35.3
+Version: 3.1.0
 Summary: Command line utility to show dependency tree of packages.
 Project-URL: Changelog, https://github.com/tox-dev/pipdeptree/releases
 Project-URL: Documentation, https://pipdeptree.readthedocs.io
@@ -24,13 +24,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: packaging>=26
+Requires-Dist: tomli>=2; python_version < '3.11'
 Provides-Extra: graphviz
 Requires-Dist: graphviz>=0.21; extra == 'graphviz'
+Provides-Extra: index
+Requires-Dist: nab-index>=0.0.4; extra == 'index'
+Requires-Dist: nab-python>=0.0.4; extra == 'index'
+Requires-Dist: pip-requirements-parser>=32; extra == 'index'
 Provides-Extra: rich
 Requires-Dist: rich>=14.3.3; extra == 'rich'
 Provides-Extra: test
 Requires-Dist: covdefaults>=2.3; extra == 'test'
 Requires-Dist: diff-cover>=9.7.1; extra == 'test'
+Requires-Dist: nab-index>=0.0.4; extra == 'test'
+Requires-Dist: nab-python>=0.0.4; extra == 'test'
+Requires-Dist: pip-requirements-parser>=32; extra == 'test'
 Requires-Dist: pytest-cov>=7; extra == 'test'
 Requires-Dist: pytest-mock>=3.15.1; extra == 'test'
 Requires-Dist: pytest-subprocess>=1.5; extra == 'test'
@@ -79,6 +87,26 @@ pipdeptree -o json
 pipdeptree -o mermaid
 pipdeptree -o graphviz-svg > deps.svg
 ```
+
+Get a one-block environment health report (counts, depth, conflicts, cycles, licenses, size):
+
+```bash
+pipdeptree --summary           # aligned text
+pipdeptree --summary -o rich   # styled table
+pipdeptree --summary -o json   # machine-readable
+```
+
+Inspect a tree without installing it. Resolve requirements against a package index (needs the `index` extra), or read an
+already-resolved [PEP 751](https://peps.python.org/pep-0751/) lock offline:
+
+```bash
+pip install pipdeptree[index]
+pipdeptree from-index "flask"          # i is a shorthand alias
+pipdeptree from-index --requirements requirements.txt
+pipdeptree from-lock pylock.toml       # l is a shorthand alias
+```
+
+Every render flag above, including `--summary`, works with both subcommands.
 
 For the full documentation, visit [pipdeptree.readthedocs.io](https://pipdeptree.readthedocs.io).
 

@@ -13,9 +13,9 @@ void export_time_val(py::module &m) {
                                R"doc(
     Time value structure with the following members:
 
-        - tv_sec : seconds
-        - tv_usec : microseconds
-        - tv_nsec : nanoseconds
+    - tv_sec : seconds
+    - tv_usec : microseconds
+    - tv_nsec : nanoseconds
 )doc")
         .def(py::init<>())
         .def_readwrite("tv_sec", &Tango::TimeVal::tv_sec)

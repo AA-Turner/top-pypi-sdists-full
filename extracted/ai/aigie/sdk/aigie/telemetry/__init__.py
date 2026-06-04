@@ -28,20 +28,34 @@ __all__ = [
 
 _log = logging.getLogger(__name__)
 _PROVIDER: Any = _NoOpProvider()
+_INITIALIZED = False
 _LOCK = threading.Lock()
 
 
 def initialize(config: TelemetryConfig) -> None:
     """Initialize the SDK telemetry provider. Idempotent — second call is a no-op with warning."""
-    global _PROVIDER
+    global _PROVIDER, _INITIALIZED
     with _LOCK:
-        if not isinstance(_PROVIDER, _NoOpProvider):
-            _log.warning("aigie telemetry already initialized; ignoring duplicate initialize() call")
+        if _INITIALIZED or not isinstance(_PROVIDER, _NoOpProvider):
+            _log.warning(
+                "aigie telemetry already initialized; ignoring duplicate initialize() call"
+            )
             return
         if not config.enabled:
             return
+        if not config.endpoint:
+            # Without a base URL the OTLP exporters would be built with
+            # scheme-less endpoints like "/v1/metrics" and fail loudly on
+            # every export interval. Stay no-op instead.
+            from aigie.diagnostics import C004, format_diagnostic
+
+            _log.warning(format_diagnostic(C004))
+            _INITIALIZED = True
+            return
         from aigie.telemetry._provider import SdkTelemetryProvider
+
         _PROVIDER = SdkTelemetryProvider(config)
+        _INITIALIZED = True
 
 
 def get_provider() -> Any:

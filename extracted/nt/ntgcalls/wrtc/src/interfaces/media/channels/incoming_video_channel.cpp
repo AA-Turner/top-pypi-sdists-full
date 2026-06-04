@@ -13,10 +13,10 @@ namespace wrtc {
         ChannelManager* channelManager,
         webrtc::RtpTransport* rtpTransport,
         std::vector<SsrcGroup> ssrcGroups,
-        webrtc::UniqueRandomIdGenerator *randomIdGenerator,
+        webrtc::UniqueRandomIdGenerator* randomIdGenerator,
         const std::vector<webrtc::Codec>& codecs,
-        webrtc::Thread* workerThread,
-        webrtc::Thread* networkThread,
+        SafeThread& workerThread,
+        SafeThread& networkThread,
         std::weak_ptr<RemoteVideoSink> remoteVideoSink
     ) : workerThread(workerThread), networkThread(networkThread) {
         sink = std::make_unique<RawVideoSink>();
@@ -34,7 +34,7 @@ namespace wrtc {
             videoBitrateAllocatorFactory.get()
         );
 
-        networkThread->BlockingCall([&] {
+        networkThread.BlockingCall([&] {
             channel->SetRtpTransport(rtpTransport);
         });
 
@@ -87,13 +87,12 @@ namespace wrtc {
 
         incomingVideoDescription->AddStream(videoRecvStreamParams);
 
-        workerThread->BlockingCall([&] {
-            channel->SetPayloadTypeDemuxingEnabled(false);
-            std::string errorDesc;
-            channel->SetLocalContent(outgoingVideoDescription.get(), webrtc::SdpType::kOffer, errorDesc);
-            channel->SetRemoteContent(incomingVideoDescription.get(), webrtc::SdpType::kAnswer, errorDesc);
+        workerThread.BlockingCall([&] {
+            channel->rtp_transport()->SetActivePayloadTypeDemuxing(false);
+            channel->SetLocalContent(outgoingVideoDescription.get(), webrtc::SdpType::kOffer);
+            channel->SetRemoteContent(incomingVideoDescription.get(), webrtc::SdpType::kAnswer);
 
-            channel->receive_channel()->SetSink(_ssrc, sink.get());
+            channel->video_media_receive_channel()->SetSink(_ssrc, sink.get());
 
             sink->setRemoteVideoSink(_ssrc, [remoteVideoSink](const uint32_t ssrc, std::unique_ptr<webrtc::VideoFrame> frame) {
                 if (const auto sink = remoteVideoSink.lock()) {
@@ -106,10 +105,10 @@ namespace wrtc {
 
     IncomingVideoChannel::~IncomingVideoChannel() {
         channel->Enable(false);
-        networkThread->BlockingCall([&] {
+        networkThread.BlockingCall([&] {
            channel->SetRtpTransport(nullptr);
         });
-        workerThread->BlockingCall([&] {
+        workerThread.BlockingCall([&] {
             channel = nullptr;
         });
         sink = nullptr;

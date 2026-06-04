@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kernels-data
-Version: 0.15.1
+Version: 0.15.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Summary: Kernels data structures (Python bindings)

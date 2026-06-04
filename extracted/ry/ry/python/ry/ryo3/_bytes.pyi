@@ -134,7 +134,7 @@ class Bytes(Buffer):
     def decode(self, encoding: str = "utf-8", errors: str = "strict") -> str:
         """Decode the binary data using the given encoding."""
 
-    def hex(self, sep: str | None = None, bytes_per_sep: int | None = None) -> str:
+    def hex(self, sep: str | None = None, *, bytes_per_sep: int = 1) -> str:
         """Return a hexadecimal representation of the binary data."""
 
     @classmethod
@@ -182,11 +182,43 @@ class Bytes(Buffer):
         Return a copy of the sequence with all uppercase ASCII characters converted to
         their corresponding lowercase counterpart and vice versa.
         """
-    def replace(self, old: Buffer, new: Buffer, count: int = -1) -> Bytes:
+    def replace(self, old: Buffer, new: Buffer, count: int = -1, /) -> Bytes:
         """
         Return a copy of the sequence with all occurrences of `old` replaced by `new`.
         If `count` is given and not negative, only the first `count` occurrences are
         replaced.
         """
+    def find(
+        self,
+        sub: Buffer | int,
+        start: int | None = None,
+        end: int | None = None,
+        /,
+    ) -> int:
+        """Return the lowest index where `sub` is found, or `-1`."""
+    def rfind(
+        self,
+        sub: Buffer | int,
+        start: int | None = None,
+        end: int | None = None,
+        /,
+    ) -> int:
+        """Return the highest index where `sub` is found, or `-1`."""
+    def index(
+        self,
+        sub: Buffer | int,
+        start: int | None = None,
+        end: int | None = None,
+        /,
+    ) -> int:
+        """Return the lowest index where `sub` is found or raise `ValueError`."""
+    def rindex(
+        self,
+        sub: Buffer | int,
+        start: int | None = None,
+        end: int | None = None,
+        /,
+    ) -> int:
+        """Return the highest index where `sub` is found or raise `ValueError`."""
 
 ReadableBuffer: t.TypeAlias = Buffer | bytes | bytearray | memoryview | Bytes

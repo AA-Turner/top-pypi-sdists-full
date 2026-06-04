@@ -2,26 +2,35 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 
+import functools
 import os
+import threading
 
 # Concurrent imports
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
+
+from tango._instrumentation import _get_non_tango_source_location
+from tango._telemetry import _telemetry_runtime
 
 # Tango imports
-from tango.green import AbstractExecutor, get_ident
-from tango.utils import _get_current_otel_context, _get_non_tango_source_location
+from tango.green import AbstractExecutor, get_ident, get_thread_pool_executor
 
 __all__ = (
     "FuturesExecutor",
+    "_switch_global_executor_to_thread",
     "get_global_executor",
     "set_global_executor",
-    "_switch_global_executor_to_thread",
 )
 
 # Global executor
 
 _MAIN_EXECUTOR = None
 _THREAD_EXECUTORS = {}
+
+# Thread-local storage to track which FuturesExecutor owns the current thread's work.
+# Set by FuturesExecutor.delegate() so that nested Tango calls from pool threads
+# (which have a different ident than the asyncio loop thread) can find the right executor.
+_delegate_thread_local = threading.local()
 
 
 def _switch_global_executor_to_thread():
@@ -49,6 +58,11 @@ def get_global_executor():
         ident = get_ident(), os.getpid()
         if ident in _THREAD_EXECUTORS:
             return _THREAD_EXECUTORS[ident]
+        # If running in a pool thread spawned by an FuturesExecutor's delegate(),
+        # recover the owning executor from the thread-local set by that delegate().
+        thread_executor = getattr(_delegate_thread_local, "executor", None)
+        if thread_executor is not None:
+            return thread_executor
 
     return _MAIN_EXECUTOR
 
@@ -69,15 +83,25 @@ class FuturesExecutor(AbstractExecutor):
 
     def __init__(self, process=False, max_workers=20):
         super().__init__()
-        cls = ProcessPoolExecutor if process else ThreadPoolExecutor
-        self.subexecutor = cls(max_workers=max_workers)
+        if process:
+            self.subexecutor = ProcessPoolExecutor(max_workers=max_workers)
+        else:
+            self.subexecutor = get_thread_pool_executor(max_workers=max_workers)
 
     def delegate(self, fn, *args, **kwargs):
         """Return the given operation as a concurrent future."""
         if hasattr(fn, "__trace_kwargs__"):
             kwargs["trace_location"] = _get_non_tango_source_location()
-            kwargs["trace_context"] = _get_current_otel_context()
-        return self.subexecutor.submit(fn, *args, **kwargs)
+            kwargs["trace_context"] = _telemetry_runtime.get_current_otel_context()
+
+        callback = functools.partial(fn, *args, **kwargs)
+        executor_ref = self
+
+        def _callback_with_executor():
+            _delegate_thread_local.executor = executor_ref
+            return callback()
+
+        return self.subexecutor.submit(_callback_with_executor)
 
     def access(self, accessor, timeout=None):
         """Return a result from a single callable."""

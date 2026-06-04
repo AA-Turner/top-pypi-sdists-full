@@ -13,17 +13,21 @@ void export_command_info(py::module &m) {
                                                           R"doc(
     A device command info (inheriting from :class:`DevCommandInfo`) with the following members:
 
-        - disp_level : (DispLevel) command display level
+    - disp_level : (DispLevel) command display level
 
-        Inherited members are (from :class:`DevCommandInfo`):
+    Inherited members are (from :class:`DevCommandInfo`):
 
-            - cmd_name : (str) command name
-            - cmd_tag : (str) command as binary value (for TACO)
-            - in_type : (CmdArgType) input type
-            - out_type : (CmdArgType) output type
-            - in_type_desc : (str) description of input type
-            - out_type_desc : (str) description of output type
-)doc")
+    - cmd_name : (str) command name
+    - cmd_tag : (str) command as binary value (for TACO)
+    - in_type : (CmdArgType) input type
+    - out_type : (CmdArgType) output type
+    - in_type_desc : (str) description of input type
+    - out_type_desc : (str) description of output type
+        )doc")
         .def(py::init<>())
-        .def_readonly("disp_level", &Tango::CommandInfo::disp_level);
+        .def_readonly("disp_level", &Tango::CommandInfo::disp_level)
+        .def(
+            "__eq__",
+            [](Tango::CommandInfo &self, Tango::CommandInfo &other) { return self == other; },
+            py::is_operator());
 }

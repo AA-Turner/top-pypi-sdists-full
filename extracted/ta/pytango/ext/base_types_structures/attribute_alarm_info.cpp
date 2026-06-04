@@ -14,13 +14,13 @@ void export_attribute_alarm_info(py::module &m) {
     A structure containing available alarm information for an attribute
     with the following members:
 
-        - min_alarm : (str) low alarm level
-        - max_alarm : (str) high alarm level
-        - min_warning : (str) low warning level
-        - max_warning : (str) high warning level
-        - delta_t : (str) time delta
-        - delta_val : (str) value delta
-        - extensions : (StdStringVector) extensions (currently not used)
+    - min_alarm : (str) low alarm level
+    - max_alarm : (str) high alarm level
+    - min_warning : (str) low warning level
+    - max_warning : (str) high warning level
+    - delta_t : (str) time delta
+    - delta_val : (str) value delta
+    - extensions : (list[str]) extensions (currently not used)
 )doc")
         .def(py::init<>())
 
@@ -57,5 +57,9 @@ void export_attribute_alarm_info(py::module &m) {
         .def_readwrite("max_warning", &Tango::AttributeAlarmInfo::max_warning)
         .def_readwrite("delta_t", &Tango::AttributeAlarmInfo::delta_t)
         .def_readwrite("delta_val", &Tango::AttributeAlarmInfo::delta_val)
-        .def_readwrite("extensions", &Tango::AttributeAlarmInfo::extensions);
+        .def_readwrite("extensions", &Tango::AttributeAlarmInfo::extensions)
+        .def(
+            "__eq__",
+            [](Tango::AttributeAlarmInfo &self, Tango::AttributeAlarmInfo &other) { return self == other; },
+            py::is_operator());
 }

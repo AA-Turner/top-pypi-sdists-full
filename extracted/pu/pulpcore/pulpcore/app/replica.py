@@ -194,7 +194,7 @@ class Replicator:
                 name=upstream_distribution["name"], pulp_domain=self.domain
             )
             if not self._is_managed(distro):
-                return None
+                return
             needs_update = self.needs_update(distribution_data, distro)
             if needs_update:
                 dispatch(
@@ -208,17 +208,55 @@ class Replicator:
                         "partial": True,
                     },
                 )
+            return
         except self.distribution_model_cls.DoesNotExist:
-            create_data = dict(distribution_data)
-            create_data["name"] = upstream_distribution["name"]
-            dispatch(
-                general_create,
-                task_group=self.task_group,
-                shared_resources=[repository, self.server],
-                exclusive_resources=self.distros_uris,
-                args=(self.app_label, self.distribution_serializer_name),
-                kwargs={"data": create_data},
-            )
+            pass
+
+        # Not found by name — check if a managed distribution with the same base_path
+        # already exists (e.g. the distribution was renamed upstream). If so, rename it
+        # synchronously and then dispatch an update for the remaining fields (labels, etc.).
+        # The synchronous rename ensures remove_missing sees the new name in the DB and
+        # won't try to delete the distribution we're reusing.
+        base_path = distribution_data.get("base_path")
+        if base_path:
+            try:
+                distro = self.distribution_model_cls.objects.get(
+                    base_path=base_path, pulp_domain=self.domain
+                )
+                if self._is_managed(distro):
+                    distro.name = upstream_distribution["name"]
+                    distro.save(update_fields=["name"])
+                    needs_update = self.needs_update(distribution_data, distro)
+                    if needs_update:
+                        dispatch(
+                            ageneral_update,
+                            task_group=self.task_group,
+                            shared_resources=[repository, self.server],
+                            exclusive_resources=self.distros_uris,
+                            args=(
+                                distro.pk,
+                                self.app_label,
+                                self.distribution_serializer_name,
+                            ),
+                            kwargs={
+                                "data": distribution_data,
+                                "partial": True,
+                            },
+                        )
+                    return
+            except self.distribution_model_cls.DoesNotExist:
+                pass
+
+        create_data = dict(distribution_data)
+        create_data["name"] = upstream_distribution["name"]
+        dispatch(
+            general_create,
+            task_group=self.task_group,
+            shared_resources=[repository, self.server],
+            exclusive_resources=self.distros_uris,
+            args=(self.app_label, self.distribution_serializer_name),
+            kwargs={"data": create_data},
+        )
 
     def sync_params(self, repository, remote):
         """This method returns a dict that will be passed as kwargs to the sync task."""

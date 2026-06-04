@@ -182,20 +182,16 @@ class Workstep(Item):
                                                             worksheet_id=pushed_worksheet_id,
                                                             no_workstep_message=no_workstep_message,
                                                             body=workstep_input)  # type: WorkstepOutputV1
+            pushed_workstep_id = workstep_output.id
+            item_map[self.id] = pushed_workstep_id
             context.status.log(
                 f'Pushed Workstep {self.id} to Worksheet {pushed_worksheet_id} as Workstep'
-                f' {workstep_output.id}')
+                f' {pushed_workstep_id}')
         else:
-            if pushed_worksheet_id is not None:
-                context.status.log(f'[Dry Run] Would push Workstep {self.id} to Worksheet'
-                                   f' {pushed_worksheet_id}')
-            else:
-                context.status.log(f'[Dry Run] Would push Workstep {self.id} to new Worksheet')
-            return None
+            context.status.log(f'[Dry Run] Would push Workstep {self.id} to Worksheet {pushed_worksheet_id}')
+            pushed_workstep_id = item_map.add_dry_run_placeholder_id(self.id)
 
-        item_map[self.id] = workstep_output.id
-
-        return workstep_output.id
+        return pushed_workstep_id
 
     @property
     def data(self):

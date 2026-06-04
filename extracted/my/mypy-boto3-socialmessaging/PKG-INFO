@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-socialmessaging
-Version: 1.43.7
-Summary: Type annotations for boto3 EndUserMessagingSocial 1.43.7 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.22
+Summary: Type annotations for boto3 EndUserMessagingSocial 1.43.22 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 EndUserMessagingSocial 1.43.7](https://pypi.org/project/boto3/)
+[boto3 EndUserMessagingSocial 1.43.22](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.7' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.22' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `EndUserMessagingSocial` service.
 4. Use provided commands to install generated packages.
@@ -342,6 +342,8 @@ from boto3.session import Session
 from mypy_boto3_socialmessaging import EndUserMessagingSocialClient
 from mypy_boto3_socialmessaging.paginator import (
     ListLinkedWhatsAppBusinessAccountsPaginator,
+    ListWhatsAppFlowAssetsPaginator,
+    ListWhatsAppFlowsPaginator,
     ListWhatsAppMessageTemplatesPaginator,
     ListWhatsAppTemplateLibraryPaginator,
 )
@@ -352,6 +354,12 @@ client: EndUserMessagingSocialClient = Session().client("socialmessaging")
 # Types should be correctly discovered by mypy and IDEs
 list_linked_whatsapp_business_accounts_paginator: ListLinkedWhatsAppBusinessAccountsPaginator = (
     client.get_paginator("list_linked_whatsapp_business_accounts")
+)
+list_whatsapp_flow_assets_paginator: ListWhatsAppFlowAssetsPaginator = client.get_paginator(
+    "list_whatsapp_flow_assets"
+)
+list_whatsapp_flows_paginator: ListWhatsAppFlowsPaginator = client.get_paginator(
+    "list_whatsapp_flows"
 )
 list_whatsapp_message_templates_paginator: ListWhatsAppMessageTemplatesPaginator = (
     client.get_paginator("list_whatsapp_message_templates")

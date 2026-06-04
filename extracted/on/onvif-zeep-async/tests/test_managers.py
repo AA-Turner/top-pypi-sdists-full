@@ -61,6 +61,11 @@ def _make_device(host: str = "1.2.3.4") -> Mock:
     device.xaddrs = {}
     device.get_next_termination_time = Mock(return_value="PT60S")
     device.has_broken_relative_time = Mock(return_value=False)
+    # Managers run subscription addresses through device.rewrite_url so that
+    # nat_override can swap the device-advertised host for the externally
+    # routable one. The default mock is a no-op pass-through so existing tests
+    # observe the original URL (matching nat_override=False).
+    device.rewrite_url = Mock(side_effect=lambda url: url)
     return device
 
 
@@ -472,6 +477,27 @@ async def test_renew_or_restart_restarts_when_renew_fails() -> None:
 
 
 @pytest.mark.asyncio
+async def test_renew_or_restart_handles_restart_failure() -> None:
+    """A failing restart must not escape the fire-and-forget task.
+
+    `_renew_or_restart_subscription` runs as an unawaited asyncio.Task, so any
+    exception escaping the body surfaces as "Task exception was never
+    retrieved" in production logs. Renew already swallows RENEW_ERRORS; restart
+    must do the same and let the finally branch schedule the error retry.
+    """
+    mgr = await _make_base_manager()
+    mgr._loop = _mock_loop(now=1000.0)
+    mgr._renew_subscription = AsyncMock(return_value=None)
+    mgr._restart_subscription = AsyncMock(side_effect=aiohttp.ClientError())
+    mgr._schedule_subscription_renew = Mock()
+
+    await mgr._renew_or_restart_subscription()  # must not raise
+
+    expected = 1000.0 + SUBSCRIPTION_RESTART_INTERVAL_ON_ERROR.total_seconds()
+    mgr._schedule_subscription_renew.assert_called_once_with(expected)
+
+
+@pytest.mark.asyncio
 async def test_renew_or_restart_uses_error_interval_on_total_failure() -> None:
     mgr = await _make_base_manager()
     mgr._loop = _mock_loop(now=1000.0)
@@ -675,6 +701,47 @@ async def test_pullpoint_manager_start_renews_on_broken_relative_time() -> None:
     await mgr._start()
 
     subscription.Renew.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_pullpoint_manager_start_rewrites_subscription_address_on_nat_override() -> (
+    None
+):
+    """Subscription addresses flow through device.rewrite_url for NAT support.
+
+    When the device runs behind NAT it advertises the LAN address of the
+    subscription endpoint; nat_override on ONVIFCamera replaces that with the
+    external host:port the caller connected on. PullPointManager must defer
+    that rewrite to the device so the stored xaddr is externally reachable.
+    """
+    device = _make_device()
+    device.rewrite_url = Mock(return_value="http://wan.example.com:9000/rewritten")
+    mgr, _subscription, _pullpoint_service = _make_pullpoint_manager(device)
+
+    await mgr._start()
+
+    pullpoint_key = "http://www.onvif.org/ver10/events/wsdl/PullPointSubscription"
+    # The manager handed the normalized address to rewrite_url and stored the
+    # rewritten value; if the rewrite hook were bypassed, the original NAT'd
+    # LAN address would remain and subsequent requests would fail to route.
+    device.rewrite_url.assert_called_once_with(NORMALIZED_ADDRESS)
+    assert device.xaddrs[pullpoint_key] == "http://wan.example.com:9000/rewritten"
+
+
+@pytest.mark.asyncio
+async def test_notification_manager_start_rewrites_subscription_address_on_nat_override() -> (
+    None
+):
+    """NotificationManager also routes consumer addresses through rewrite_url."""
+    device = _make_device()
+    device.rewrite_url = Mock(return_value="http://wan.example.com:9000/consumer")
+    mgr, _notify_service, _subscription, _operation = _make_notification_manager(device)
+
+    await mgr._start()
+
+    consumer_key = "http://www.onvif.org/ver10/events/wsdl/NotificationConsumer"
+    device.rewrite_url.assert_called_once_with(NORMALIZED_ADDRESS)
+    assert device.xaddrs[consumer_key] == "http://wan.example.com:9000/consumer"
 
 
 @pytest.mark.asyncio

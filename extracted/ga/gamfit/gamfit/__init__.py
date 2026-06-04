@@ -5,8 +5,14 @@ effects, location-scale extensions, survival likelihoods, and learnable
 links. Smoothing parameters are selected by REML or LAML; posterior
 sampling uses NUTS. Geometric / manifold smooths (cyclic 1-D, cylinder
 / torus tensor, intrinsic sphere, boundary-conditioned B-splines) make
-predictor spaces that wrap or close first-class — no seams, no pole
-artefacts.
+predictor spaces that wrap or close first-class.
+
+The public surface also includes latent-coordinate and SAE-manifold tools:
+analytic penalties such as ``ScadMcpPenalty`` and ``NuclearNormPenalty``;
+assignment-family descriptors for softmax / finite-IBP / top-k / JumpReLU
+SAE gates; topology selection helpers; and manifold-SAE result objects with
+per-row ``assignments`` plus per-atom decoder covariance / posterior shape
+bands when produced by the Rust fit.
 
 Quick start::
 
@@ -32,6 +38,7 @@ See https://github.com/SauersML/gam for the full guide.
 # - sae_manifold_assignment_summary
 # - topology_dispatch_key
 # - assemble_candidate_formula
+# - rank_topology_candidates
 # Rebuild or reinstall the local extension if importing from a source tree with
 # an older compiled .so.
 
@@ -280,10 +287,21 @@ from ._sae_manifold import (
     ManifoldSAE,
     SaeManifoldAtomFit,
     SaeManifoldFitResult,
+    align,
+    featurize,
+    fit as sae_fit,
     gumbel_geometric_schedule,
     gumbel_linear_schedule,
     gumbel_reciprocal_iter_schedule,
+    plot,
     sae_manifold_fit,
+)
+from ._sae_viz import plot_atom, plot_fit
+from ._sae_trust import atom_trust_scores, sae_trust_diagnostics
+from ._sae_benchmark import (
+    format_markdown as format_sae_benchmark_markdown,
+    run_benchmark as sae_benchmark,
+    sweep as sweep_sae_benchmark,
 )
 from ._schema import SchemaCheck, SchemaIssue
 from .sindy import SINDyAtoms

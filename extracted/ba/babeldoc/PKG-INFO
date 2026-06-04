@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BabelDOC
-Version: 0.6.2
+Version: 0.6.3
 Summary: Yet Another Document Translator
 Project-URL: Homepage, https://github.com/funstory-ai/BabelDOC
 Project-URL: Issues, https://github.com/funstory-ai/BabelDOC/issues
@@ -16,7 +16,7 @@ Requires-Dist: bitstring>=4.3.0
 Requires-Dist: chardet>=5.2.0
 Requires-Dist: charset-normalizer>=2.0.0
 Requires-Dist: configargparse>=1.7
-Requires-Dist: cryptography>=36.0.0
+Requires-Dist: cryptography>=46.0.7
 Requires-Dist: freetype-py>=2.5.1
 Requires-Dist: httpx[socks]>=0.27.0
 Requires-Dist: huggingface-hub>=0.27.0
@@ -24,7 +24,7 @@ Requires-Dist: hyperscan>=0.7.13
 Requires-Dist: levenshtein>=0.27.1
 Requires-Dist: msgpack>=1.1.0
 Requires-Dist: numpy>=2.0.2
-Requires-Dist: onnx>=1.18.0
+Requires-Dist: onnx>=1.21.0
 Requires-Dist: onnxruntime<1.24,>=1.16.1; python_version < '3.11'
 Requires-Dist: onnxruntime>=1.16.1; python_version >= '3.11'
 Requires-Dist: openai>=1.59.3
@@ -33,7 +33,7 @@ Requires-Dist: orjson>=3.10.14
 Requires-Dist: peewee>=3.17.8
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pydantic>=2.10.6
-Requires-Dist: pymupdf>=1.25.1
+Requires-Dist: pymupdf>=1.26.7
 Requires-Dist: pyzstd>=0.17.0
 Requires-Dist: rich>=13.9.4
 Requires-Dist: rtree>=1.4.0

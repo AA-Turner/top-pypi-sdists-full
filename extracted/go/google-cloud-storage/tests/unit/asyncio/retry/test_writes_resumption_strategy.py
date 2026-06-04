@@ -16,17 +16,17 @@ import io
 import unittest.mock as mock
 from datetime import datetime
 
-import pytest
 import google_crc32c
-from google.rpc import status_pb2
+import pytest
 from google.api_core import exceptions
+from google.rpc import status_pb2
 
 from google.cloud._storage_v2.types import storage as storage_type
-from google.cloud.storage.asyncio.retry.writes_resumption_strategy import (
-    _WriteState,
-    _WriteResumptionStrategy,
-)
 from google.cloud._storage_v2.types.storage import BidiWriteObjectRedirectedError
+from google.cloud.storage.asyncio.retry.writes_resumption_strategy import (
+    _WriteResumptionStrategy,
+    _WriteState,
+)
 
 
 @pytest.fixture
@@ -125,8 +125,7 @@ class TestWriteResumptionStrategy:
 
         requests = strategy.generate_requests(state)
 
-        expected_crc = google_crc32c.Checksum(chunk_data).digest()
-        expected_int = int.from_bytes(expected_crc, "big")
+        expected_int = google_crc32c.value(chunk_data)
         assert requests[0].checksummed_data.crc32c == expected_int
 
     def test_generate_requests_flush_logic_exact_interval(self, strategy):

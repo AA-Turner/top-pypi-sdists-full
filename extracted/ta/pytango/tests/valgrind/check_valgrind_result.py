@@ -3,8 +3,8 @@
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from argparse import ArgumentParser
+from dataclasses import dataclass
 
 
 @dataclass
@@ -125,9 +125,8 @@ def get_leaks(root: ET.Element, kind: str) -> list[LeakError]:
 def get_pytango_leaks(leaks: list[LeakError], max_blocks: int) -> list[LeakError]:
     pytango_leaks = []
     for leak in leaks:
-        if leak.xwhat.leaked_blocks > max_blocks:
-            if is_pytango_in_stack(leak):
-                pytango_leaks.append(leak)
+        if leak.xwhat.leaked_blocks > max_blocks and is_pytango_in_stack(leak):
+            pytango_leaks.append(leak)
     return pytango_leaks
 
 
@@ -170,16 +169,14 @@ def get_header(root: ET.Element) -> str:
 
 def report_pytango_leaks(label, leaks, max_blocks):
     pytango_leaks = get_pytango_leaks(leaks, max_blocks)
-    print(
-        f"PyTango {label} leaks larger than {max_blocks} block(s): {len(pytango_leaks)}"
-    )
+    print(f"PyTango {label} leaks larger than {max_blocks} block(s): {len(pytango_leaks)}")
     print_leaks(pytango_leaks)
     return len(pytango_leaks)
 
 
 def print_leaks(leaks: list[LeakError]):
     for count, leak in enumerate(sorted(leaks, reverse=True)):
-        print(f"\n  Leak {count+1}:  {leak.xwhat.text}")
+        print(f"\n  Leak {count + 1}:  {leak.xwhat.text}")
         for frame in leak.stack.frames:
             print(f"    {frame}")
 
@@ -193,9 +190,7 @@ def parse_args():
         type=int,
         default=1,
     )
-    parser.add_argument(
-        "--no-error", action="store_true", help="Exit code 0, even if leaks found"
-    )
+    parser.add_argument("--no-error", action="store_true", help="Exit code 0, even if leaks found")
     args = parser.parse_args()
     return args
 
@@ -205,9 +200,7 @@ def main():
 
     header, definite_leaks, possible_leaks = parse_input_file(args.file)
     print(
-        f"Valgrind {header}:\n"
-        f"\tfound {len(possible_leaks)} possible leaks, "
-        f"and {len(definite_leaks)} definite leaks.\n"
+        f"Valgrind {header}:\n\tfound {len(possible_leaks)} possible leaks, and {len(definite_leaks)} definite leaks.\n"
     )
 
     max_blocks = args.max_blocks

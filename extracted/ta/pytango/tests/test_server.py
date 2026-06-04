@@ -16,51 +16,49 @@ try:
 except ImportError:
     npt = None
 
-import pytest
-
 from collections.abc import Callable
+
+import pytest
 
 import tango.asyncio
 import tango.constants
 from tango import (
-    AttrData,
     Attr,
+    AttrData,
     AttrDataFormat,
     AttReqType,
     AttrWriteType,
     CmdArgType,
     DevFailed,
-    DevState,
     DeviceClass,
     DeviceProxy,
+    DevState,
+    EnsureOmniThread,
     EventType,
     GreenMode,
     LatestDeviceImpl,
-    EnsureOmniThread,
     LockerLanguage,
 )
-from tango.server import __to_callback, BaseDevice, Device
 from tango.pyutil import parse_args
-from tango.server import command, attribute, class_property, device_property
+from tango.server import BaseDevice, Device, __to_callback, attribute, class_property, command, device_property
 from tango.test_utils import (
-    DeviceTestContext,
-    MultiDeviceTestContext,
-    GoodEnum,
+    DEVICE_SERVER_ARGUMENTS,
+    BadEnumDuplicates,
     BadEnumNonZero,
     BadEnumSkipValues,
-    BadEnumDuplicates,
-    DEVICE_SERVER_ARGUMENTS,
+    DeviceTestContext,
+    GoodEnum,
+    MultiDeviceTestContext,
     wait_for_proxy,
 )
 from tango.utils import (
     EnumTypeError,
     get_enum_labels,
     get_latest_device_class,
-    is_pure_str,
     get_tango_type_format,
+    is_pure_str,
     parse_type_hint,
 )
-
 
 # Constants
 TIMEOUT = 10.0
@@ -93,7 +91,7 @@ WRONG_HINTS = (  # hint_caller, type_hint, error_reason
 @pytest.mark.parametrize("hint_caller, type_hint, error_reason", WRONG_HINTS)
 def test_uncorrect_typing_hints(hint_caller, type_hint, error_reason):
     with pytest.raises(RuntimeError, match=error_reason):
-        dtype, dformat, max_x, max_y = parse_type_hint(type_hint, caller=hint_caller)
+        dtype, dformat, _, _ = parse_type_hint(type_hint, caller=hint_caller)
         get_tango_type_format(dtype, dformat, hint_caller)
 
 
@@ -171,9 +169,7 @@ def test_set_desc_status_state_at_init(description_source):
         ]:
             assert proxy.state() == DevState.ON
             assert proxy.status() == "Test status"
-            if (
-                description_source == "description"
-            ):  # note, that docsrting is not inherited!
+            if description_source == "description":  # note, that docsrting is not inherited!
                 assert proxy.description() == "Test name"
 
         proxy = context.get_device("test/dev/child2")
@@ -257,20 +253,14 @@ def test_attr_quality_checked_with_state(server_green_mode):
         class BaseTestDevice(Device):
             @command(dtype_out=bool)
             async def check_sub_function_was_called(self):
-                return (
-                    self.read_attr_hardware_was_called
-                    and self.always_executed_hook_was_called
-                )
+                return self.read_attr_hardware_was_called and self.always_executed_hook_was_called
 
     else:
 
         class BaseTestDevice(Device):
             @command(dtype_out=bool)
             def check_sub_function_was_called(self):
-                return (
-                    self.read_attr_hardware_was_called
-                    and self.always_executed_hook_was_called
-                )
+                return self.read_attr_hardware_was_called and self.always_executed_hook_was_called
 
     class TestDevice(BaseTestDevice):
         green_mode = server_green_mode
@@ -298,9 +288,7 @@ def test_attr_quality_checked_with_state(server_green_mode):
         )
 
         if server_green_mode == GreenMode.Asyncio:
-            exec(
-                sync_code.replace("def", "async def").replace("Device", "await Device")
-            )
+            exec(sync_code.replace("def", "async def").replace("Device", "await Device"))
         else:
             exec(sync_code)
 
@@ -397,7 +385,6 @@ def test_default_units():
     # testing that, by default tango.constants.UnitNotSpec is set
     # when no unit is specified. For bool, int, float and str dtypes
     class TestDevice(Device):
-
         @attribute(dtype=bool)
         def attr_bool_ok(self):
             return True
@@ -439,7 +426,6 @@ def test_default_units():
 
 def test_custom_units():
     class TestDevice(Device):
-
         @attribute(dtype=bool, unit="mA")
         def custom_unit_ok(self):
             return True
@@ -458,7 +444,6 @@ def test_custom_units():
 def test_inheritance_overrides_a_property():
 
     class A(Device):
-
         dev_prop1 = device_property(dtype=str, default_value="hello_dev1")
         dev_prop2 = device_property(dtype=str, default_value="hello_dev2")
         class_prop1 = class_property(dtype=str, default_value="hello_class1")
@@ -506,7 +491,6 @@ def test_inheritance_overrides_a_property():
 
 def test_inheritance_override_dev_status():
     class A(Device):
-
         def dev_status(self):
             return ")`'-.,_"
 
@@ -551,7 +535,6 @@ def test_inheritance_with_decorated_attributes():
     is_allowed = True
 
     class A(Device):
-
         @attribute(access=AttrWriteType.READ_WRITE)
         def decorated_a(self):
             return self.decorated_a_value
@@ -602,7 +585,6 @@ def test_inheritance_with_undecorated_attributes():
     is_allowed = True
 
     class A(Device):
-
         attr_a = attribute(access=AttrWriteType.READ_WRITE)
 
         def _check_is_allowed(self):
@@ -653,7 +635,6 @@ def test_inheritance_with_undecorated_attributes():
 def test_inheritance_with_undecorated_attribute_and_bound_methods():
 
     class A(Device):
-
         is_allowed = True
 
         attr_a = attribute(
@@ -730,7 +711,6 @@ def test_inheritance_with_undecorated_attributes_and_unbound_functions():
         return is_allowed
 
     class A(Device):
-
         attr_a = attribute(
             access=AttrWriteType.READ_WRITE,
             fget=read_attr_a,
@@ -781,7 +761,6 @@ def test_inheritance_with_undecorated_attributes_and_unbound_functions():
 def test_inheritance_command_is_allowed_by_naming_convention():
 
     class A(Device):
-
         @command(dtype_out=str)
         def cmd(self):
             return "ok"
@@ -803,7 +782,6 @@ def test_inheritance_command_is_allowed_by_naming_convention():
 def test_inheritance_command_is_allowed_by_kwarg_method():
 
     class A(Device):
-
         @command(dtype_out=str, fisallowed="fisallowed_kwarg_method")
         def cmd(self):
             return "ok 1"
@@ -853,11 +831,11 @@ def test_exception_propagation(server_green_mode):
 
             @attribute
             async def attr(self):
-                1 / 0  # pylint: disable=pointless-statement
+                raise ZeroDivisionError
 
             @command
             async def cmd(self):
-                1 / 0  # pylint: disable=pointless-statement
+                raise ZeroDivisionError
 
     else:
 
@@ -866,15 +844,15 @@ def test_exception_propagation(server_green_mode):
 
             @attribute
             def attr(self):
-                1 / 0  # pylint: disable=pointless-statement
+                raise ZeroDivisionError
 
             @command
             def cmd(self):
-                1 / 0  # pylint: disable=pointless-statement
+                raise ZeroDivisionError
 
     with DeviceTestContext(TestDevice) as proxy:
         with pytest.raises(DevFailed) as record:
-            proxy.attr  # pylint: disable=pointless-statement
+            _ = proxy.attr
         assert "ZeroDivisionError" in record.value.args[0].desc
 
         with pytest.raises(DevFailed) as record:
@@ -992,7 +970,6 @@ def test_async_server_init_hook_called_after_init():
 
 def test_server_init_hook_exception():
     class TestDevice(Device):
-
         def server_init_hook(self):
             self.set_state(DevState.ON)
             raise RuntimeError("Force exception for test")
@@ -1030,16 +1007,13 @@ def test_server_init_hook_with_low_level_api_called():
 
 def test_server_init_hook_with_low_level_api_change_state():
     class ClassicAPISimpleDeviceImpl(LatestDeviceImpl):
-
         def server_init_hook(self):
             self.set_state(DevState.ON)
 
     class ClassicAPISimpleDeviceClass(DeviceClass):
         pass
 
-    with DeviceTestContext(
-        ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass
-    ) as proxy:
+    with DeviceTestContext(ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass) as proxy:
         assert proxy.state() == DevState.ON
 
 
@@ -1054,15 +1028,12 @@ def test_server_init_hook_with_low_level_api_called_after_init():
     class ClassicAPISimpleDeviceClass(DeviceClass):
         pass
 
-    with DeviceTestContext(
-        ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass
-    ) as proxy:
+    with DeviceTestContext(ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass) as proxy:
         assert proxy.state() == DevState.ON
 
 
 def test_server_init_hook_with_low_level_api_exception():
     class ClassicAPISimpleDeviceImpl(LatestDeviceImpl):
-
         def server_init_hook(self):
             self.set_state(DevState.ON)
             raise RuntimeError("Force exception for test")
@@ -1070,9 +1041,7 @@ def test_server_init_hook_with_low_level_api_exception():
     class ClassicAPISimpleDeviceClass(DeviceClass):
         pass
 
-    with DeviceTestContext(
-        ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass
-    ) as proxy:
+    with DeviceTestContext(ClassicAPISimpleDeviceImpl, ClassicAPISimpleDeviceClass) as proxy:
         assert proxy.state() == DevState.FAULT
 
 
@@ -1125,9 +1094,7 @@ def test_server_init_hook_subscribe_event_multiple_devices():
 
         def server_init_hook(self):
             self.dev1_proxy = DeviceProxy("test/device1/1")
-            self.dev1_proxy.subscribe_event(
-                "some_attribute", EventType.CHANGE_EVENT, self.event_handler
-            )
+            self.dev1_proxy.subscribe_event("some_attribute", EventType.CHANGE_EVENT, self.event_handler)
 
     devices_info = (
         {"class": DeviceOne, "devices": [{"name": "test/device1/1"}]},
@@ -1141,14 +1108,14 @@ def test_server_init_hook_subscribe_event_multiple_devices():
         proxy = context.get_device("test/device1/1")
 
         # synchronous event
-        assert 42 == event_queue.get(timeout=TIMEOUT)
-        assert 42 == event_queue.get(timeout=TIMEOUT)
+        assert event_queue.get(timeout=TIMEOUT) == 42
+        assert event_queue.get(timeout=TIMEOUT) == 42
         assert event_queue.empty()
 
         # asynchronous event pushed from user code
         proxy.push_event_cmd()
-        assert 43 == event_queue.get(timeout=TIMEOUT)
-        assert 43 == event_queue.get(timeout=TIMEOUT)
+        assert event_queue.get(timeout=TIMEOUT) == 43
+        assert event_queue.get(timeout=TIMEOUT) == 43
         assert event_queue.empty()
 
 
@@ -1372,11 +1339,10 @@ def test_deprecation_warning_for_standard_methods_in_asyncio_device(method):
 
         exec(async_code.replace(f"async def {method}", f"def {method}"))
 
-    with pytest.warns(DeprecationWarning, match=method):
-        with DeviceTestContext(TestDevice) as proxy:
-            _ = proxy.state()
-            _ = proxy.status()
-            _ = proxy.attr
+    with pytest.warns(DeprecationWarning, match=method), DeviceTestContext(TestDevice) as proxy:
+        _ = proxy.state()
+        _ = proxy.status()
+        _ = proxy.attr
 
 
 @pytest.mark.skip(
@@ -1393,9 +1359,7 @@ def test_no_sync_attribute_locks(server_green_mode):
         def __init__(self, *args):
             super().__init__(*args)
             self._last_data = 0.0
-            self._publisher = threading.Thread(
-                target=self._publisher_thread, name="publisher"
-            )
+            self._publisher = threading.Thread(target=self._publisher_thread, name="publisher")
             self._publisher.daemon = True
             self._running = False
             self.set_change_event("H22", implemented=True, detect=False)
@@ -1447,7 +1411,7 @@ def test_no_sync_attribute_locks(server_green_mode):
         # This loop should be enough to crash the device
         # with previous unpatched code in 99% of the cases
         for _ in range(15):
-            proxy.H22
+            _ = proxy.H22
         proxy.Stop()
 
 
@@ -1491,7 +1455,7 @@ def test_read_slow_and_fast_attributes_with_asyncio():
 
 
 def test_get_version_info_classic_api():
-    version_info = dict()
+    version_info = {}
 
     class ClassicAPIDeviceImpl(LatestDeviceImpl):
         def __init__(self, cl, name):
@@ -1511,7 +1475,7 @@ def test_get_version_info_classic_api():
 
 
 def test_get_version_info_high_level_api():
-    version_info = dict()
+    version_info = {}
 
     class TestDevice(Device):
         def init_device(self):
@@ -1601,7 +1565,6 @@ def test_attr_data_default_fwd_properties():
     }
     AttrData.from_dict(d)
     # can't query "label" as that is in a private section in cppTango's UserDefaultFwdAttrProp
-    pass
 
 
 def test_attr_data_default_properties():
@@ -1835,15 +1798,13 @@ def TestFixtureDevice(mocked_driver):
 
 
 def test_device_repr_does_not_segfault_with_pytest(mocked_driver, TestFixtureDevice):
-    with DeviceTestContext(TestFixtureDevice) as dp:
-        with pytest.raises(DevFailed):
-            dp.cmd()
+    with DeviceTestContext(TestFixtureDevice) as dp, pytest.raises(DevFailed):
+        dp.cmd()
 
 
 def test_client_ident(server_green_mode):
 
     class MyDevice(Device):
-
         green_mode = server_green_mode
 
         if server_green_mode == GreenMode.Asyncio:
@@ -1951,7 +1912,6 @@ def test_no_crash_when_error_in_delete_device(capfd):
 
 def test_polling_configuration():
     class TestDevice(Device):
-
         def init_device(self):
             # check polling from attribute/command definition
             assert self.is_attribute_polled("attr")

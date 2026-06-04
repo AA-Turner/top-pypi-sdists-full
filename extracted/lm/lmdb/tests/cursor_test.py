@@ -22,8 +22,6 @@
 
 # test delete(dupdata)
 
-from __future__ import absolute_import
-from __future__ import with_statement
 import os
 import sys
 import unittest
@@ -164,7 +162,8 @@ class CursorTest2(unittest.TestCase):
         self.txn.delete(b'\x00\x01', b'hehe', db=self.db)
         self.assertRaises(StopIteration, next, it)
 
-    @unittest.skipIf(os.getenv('LMDB_PURE'), 'requires patched LMDB')
+    @unittest.skipIf(os.getenv('LMDB_PURE') or os.getenv('LMDB_FORCE_SYSTEM'),
+                     'requires patched LMDB')
     def testNextNodupAfterDeletePutSingleKey(self):
         '''Issue #388: next_nodup infinite loop after delete+put on sole key'''
         self.c.put(b'key', b'val1')
@@ -176,7 +175,8 @@ class CursorTest2(unittest.TestCase):
         # Should not find the re-inserted key as "next"
         self.assertFalse(self.c.next_nodup())
 
-    @unittest.skipIf(os.getenv('LMDB_PURE'), 'requires patched LMDB')
+    @unittest.skipIf(os.getenv('LMDB_PURE') or os.getenv('LMDB_FORCE_SYSTEM'),
+                     'requires patched LMDB')
     def testPrevNodupAfterDeletePutSingleKey(self):
         '''Issue #388: prev_nodup variant'''
         self.c.put(b'key', b'val1')

@@ -2,38 +2,37 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # Imports
 
-import time
-import sys
 import gc
 import inspect
-
+import sys
+import time
 from dataclasses import dataclass
+from io import StringIO
 from threading import Thread
 
 import pytest
-from io import StringIO
 
 from tango import (
-    EventType,
-    DeviceProxy,
-    DevEncoded,
-    GreenMode,
     AttrQuality,
+    DevEncoded,
     DevFailed,
+    DeviceProxy,
     EnsureOmniThread,
-    is_omni_thread,
-    EventSubMode,
-    EventReason,
     EventData,
+    EventReason,
+    EventSubMode,
+    EventType,
+    Except,
     ExtractAs,
+    GreenMode,
+    PyTangoUserWarning,
+    _warnings,
+    get_device_proxy,
+    is_omni_thread,
 )
-
-from tango import Except
-from tango.server import Device
-from tango.server import command, attribute
+from tango.server import Device, attribute, command
 from tango.test_utils import DeviceTestContext, assert_close
-from tango.utils import EventCallback, PyTangoUserWarning
-
+from tango.utils import EventCallback
 
 MAX_RETRIES = 200
 DELAY_PER_RETRY = 0.05
@@ -146,28 +145,18 @@ class EventDevice(Device):
 
         if event_type == EventType.USER_EVENT:
             self.push_event(attr_name, [], [], self._base + 1)
-            self.push_event(
-                attr_name, [], [], self._base + 2, 3.0, AttrQuality.ATTR_WARNING
-            )
-            self.push_event(
-                attr_name, [], [], Exception(f"test exception {self._base}")
-            )
+            self.push_event(attr_name, [], [], self._base + 2, 3.0, AttrQuality.ATTR_WARNING)
+            self.push_event(attr_name, [], [], Exception(f"test exception {self._base}"))
 
         elif event_type == EventType.ARCHIVE_EVENT:
             self.push_archive_event(attr_name, self._base + 1)
-            self.push_archive_event(
-                attr_name, self._base + 2, 3.0, AttrQuality.ATTR_WARNING
-            )
-            self.push_archive_event(
-                attr_name, Exception(f"test exception {self._base}")
-            )
+            self.push_archive_event(attr_name, self._base + 2, 3.0, AttrQuality.ATTR_WARNING)
+            self.push_archive_event(attr_name, Exception(f"test exception {self._base}"))
 
         elif event_type == EventType.CHANGE_EVENT:
             self.push_change_event(attr_name, self._base + 1)
 
-            self.push_change_event(
-                attr_name, self._base + 2, 3.0, AttrQuality.ATTR_WARNING
-            )
+            self.push_change_event(attr_name, self._base + 2, 3.0, AttrQuality.ATTR_WARNING)
 
             attr.set_value(self._base + 3)
             attr.fire_change_event()
@@ -179,9 +168,7 @@ class EventDevice(Device):
         elif event_type == EventType.ALARM_EVENT:
             self.push_alarm_event(attr_name, self._base + 1)
 
-            self.push_alarm_event(
-                attr_name, self._base + 2, 3.0, AttrQuality.ATTR_WARNING
-            )
+            self.push_alarm_event(attr_name, self._base + 2, 3.0, AttrQuality.ATTR_WARNING)
 
             attr.set_value(self._base + 3)
             attr.fire_alarm_event()
@@ -254,9 +241,7 @@ class EventDevice(Device):
 
         # check some valid dev encoded events work
         self.push_change_event("dev_encoded_attr", "a", "b")
-        self.push_change_event(
-            "dev_encoded_attr", "a", "b", now, AttrQuality.ATTR_VALID
-        )
+        self.push_change_event("dev_encoded_attr", "a", "b", now, AttrQuality.ATTR_VALID)
 
     @command(dtype_in=str)
     def add_dyn_attr(self, name):
@@ -305,9 +290,7 @@ DEVICE_NAME = "test/nodb/eventdevice"
 # Device fixture
 @pytest.fixture(scope="module")
 def event_device_context():
-    context = DeviceTestContext(
-        EventDevice, device_name=DEVICE_NAME, host="127.0.0.1", process=True
-    )
+    context = DeviceTestContext(EventDevice, device_name=DEVICE_NAME, host="127.0.0.1", process=True)
     with context:
         yield context
 
@@ -324,7 +307,7 @@ def event_device(event_device_context):
 
 # Tests
 def assert_events_received(proxy, expected_res):
-    for retry_count in range(MAX_RETRIES):
+    for _ in range(MAX_RETRIES):
         proxy.read_attribute("state", wait=True)
         if len(event_results) >= len(expected_res):
             assert_close(event_results, expected_res)
@@ -362,21 +345,16 @@ def run_event_test(proxy, event_type, cb, expected_res):
 def test_attribute_with_no_events_cannot_be_subscribed(event_device):
     with pytest.raises(
         DevFailed,
-        match=r"Event properties \(abs_change or rel_change\) "
-        r"for attribute attr_no_events are not set",
+        match=r"Event properties \(abs_change or rel_change\) for attribute attr_no_events are not set",
     ):
-        _ = event_device.subscribe_event(
-            "attr_no_events", EventType.CHANGE_EVENT, EventCallback()
-        )
+        _ = event_device.subscribe_event("attr_no_events", EventType.CHANGE_EVENT, EventCallback())
 
     with pytest.raises(
         DevFailed,
         match=r"Archive event properties \(archive_abs_change or archive_rel_change or archive_period\) "
         r"for attribute attr_no_events are not set",
     ):
-        _ = event_device.subscribe_event(
-            "attr_no_events", EventType.ARCHIVE_EVENT, EventCallback()
-        )
+        _ = event_device.subscribe_event("attr_no_events", EventType.ARCHIVE_EVENT, EventCallback())
 
 
 def test_old_push_event_signatures_no_longer_supported(event_device):
@@ -410,6 +388,7 @@ def test_change_event(event_device_with_green_modes):
             async_callback,
             expected_res,
         )
+        _warnings._already_warned_keys.clear()
         with pytest.warns(DeprecationWarning):
             run_event_test(
                 event_device_with_green_modes,
@@ -549,7 +528,7 @@ def test_push_event_with_event_callback(event_device):
     # trigger an event
     event_device.command_inout("send_events", EventType.CHANGE_EVENT, wait=True)
     # wait for tango event
-    for retry_count in range(MAX_RETRIES):
+    for retry_count in range(MAX_RETRIES):  # noqa: B007
         event_device.read_attribute("state", wait=True)
         if len(cb.get_events()) > 5:
             break
@@ -623,7 +602,7 @@ def test_ensure_omni_thread_main_thread_is_omni_thread():
 
 
 def test_user_thread_is_not_omni_thread():
-    thread_is_omni = dict(result=None)  # use a dict so thread can modify it
+    thread_is_omni = {"result": None}  # use a dict so thread can modify it
 
     def thread_func():
         thread_is_omni["result"] = is_omni_thread()
@@ -635,7 +614,7 @@ def test_user_thread_is_not_omni_thread():
 
 
 def test_ensure_omni_thread_user_thread_is_omni_thread():
-    thread_is_omni = dict(result=None)  # use a dict so thread can modify it
+    thread_is_omni = {"result": None}  # use a dict so thread can modify it
 
     def thread_func():
         with EnsureOmniThread():
@@ -652,9 +631,7 @@ def test_subscribe_change_event_from_user_thread(event_device):
 
     def thread_func():
         with EnsureOmniThread():
-            eid = event_device.subscribe_event(
-                "attr", EventType.CHANGE_EVENT, event_callback, wait=True
-            )
+            eid = event_device.subscribe_event("attr", EventType.CHANGE_EVENT, event_callback, wait=True)
             while running:
                 time.sleep(DELAY_PER_RETRY)
             event_device.unsubscribe_event(eid)
@@ -664,7 +641,7 @@ def test_subscribe_change_event_from_user_thread(event_device):
     running = True
     thread.start()
     # Wait for tango events
-    for retry_count in range(MAX_RETRIES):
+    for retry_count in range(MAX_RETRIES):  # noqa: B007
         event_device.read_attribute("state", wait=True)
         if len(event_results) == 1:
             # Trigger an event (1 result means thread has completed subscription,
@@ -708,7 +685,7 @@ def test_get_events(event_device):
             if event_type == EventType.DATA_READY_EVENT:
                 event_device.send_events(event_type, wait=True)
 
-            for retry_count in range(MAX_RETRIES):
+            for retry_count in range(MAX_RETRIES):  # noqa: B007
                 if receiver == "no":
                     if len(event_device.get_events(eid)):
                         break
@@ -734,10 +711,7 @@ def test_callback_was_dereferenced(event_device):
         pass
 
     initial_refs = len(gc.get_referrers(fcb))
-    ids = [
-        event_device.subscribe_event("attr", EventType.CHANGE_EVENT, fcb, wait=True)
-        for _ in range(10)
-    ]
+    ids = [event_device.subscribe_event("attr", EventType.CHANGE_EVENT, fcb, wait=True) for _ in range(10)]
     assert initial_refs < len(gc.get_referrers(fcb))
 
     for id in ids:
@@ -749,17 +723,13 @@ def test_callback_was_dereferenced(event_device):
 def test_event_after_unsubscription_crash(event_device):
 
     class DummyCallback:
-
         def push_event(self, event):
             pass
 
     class MainCallback:
-
         def __init__(self):
             self.device = DeviceProxy(DEVICE_NAME)
-            self.eid = self.device.subscribe_event(
-                "attr", EventType.CHANGE_EVENT, DummyCallback()
-            )
+            self.eid = self.device.subscribe_event("attr", EventType.CHANGE_EVENT, DummyCallback())
             self.is_first_time = True
 
         def push_event(self, _event):
@@ -790,9 +760,7 @@ def test_events_enabled_by_kwords(event_device):
 
     for attr_name in ["attr_decorator_with_kwords", "attr_class_with_kwords"]:
         eids = [
-            event_device.subscribe_event(
-                attr_name, event_type, event_callback, wait=True
-            )
+            event_device.subscribe_event(attr_name, event_type, event_callback, wait=True)
             for event_type in events_to_check
         ]
         for eid in eids:
@@ -965,7 +933,7 @@ def test_subscribe_event_signatures():
         return len(last_called_method_and_args)
 
     def check_last_called_method(*method_and_args):
-        for called, expected in zip(last_called_method_and_args[-1], method_and_args):
+        for called, expected in zip(last_called_method_and_args[-1], method_and_args, strict=True):
             if callable(expected):
                 callback = inspect.unwrap(called.push_event)
                 assert callback == expected
@@ -978,30 +946,20 @@ def test_subscribe_event_signatures():
     with pytest.warns(PyTangoUserWarning):
         event_device.unfreeze_dynamic_interface()
 
-    event_device.__subscribe_event_global_with_stateless_flag = (
-        lambda *args: subscription_call_mock(
-            "__subscribe_event_global_with_stateless_flag", *args
-        )
+    event_device.__subscribe_event_global_with_stateless_flag = lambda *args: subscription_call_mock(
+        "__subscribe_event_global_with_stateless_flag", *args
     )
-    event_device.__subscribe_event_global_with_sub_mode = (
-        lambda *args: subscription_call_mock(
-            "__subscribe_event_global_with_sub_mode", *args
-        )
+    event_device.__subscribe_event_global_with_sub_mode = lambda *args: subscription_call_mock(
+        "__subscribe_event_global_with_sub_mode", *args
     )
-    event_device.__subscribe_event_attrib_with_stateless_flag = (
-        lambda *args: subscription_call_mock(
-            "__subscribe_event_attrib_with_stateless_flag", *args
-        )
+    event_device.__subscribe_event_attrib_with_stateless_flag = lambda *args: subscription_call_mock(
+        "__subscribe_event_attrib_with_stateless_flag", *args
     )
-    event_device.__subscribe_event_attrib_with_sub_mode = (
-        lambda *args: subscription_call_mock(
-            "__subscribe_event_attrib_with_sub_mode", *args
-        )
+    event_device.__subscribe_event_attrib_with_sub_mode = lambda *args: subscription_call_mock(
+        "__subscribe_event_attrib_with_sub_mode", *args
     )
 
-    with pytest.raises(
-        TypeError, match="This method is only for Interface Change Events"
-    ):
+    with pytest.raises(TypeError, match="This method is only for Interface Change Events"):
         event_device.subscribe_event(EventType.CHANGE_EVENT)
 
     with pytest.raises(IndexError, match="Expected parameter 'cb'"):
@@ -1028,9 +986,7 @@ def test_subscribe_event_signatures():
         cb_with_push_event.push_event,
         EventSubMode.SyncRead,
     )
-    event_device.subscribe_event(
-        EventType.INTERFACE_CHANGE_EVENT, cb=cb_with_push_event
-    )
+    event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb=cb_with_push_event)
     check_last_called_method(
         "__subscribe_event_global_with_sub_mode",
         EventType.INTERFACE_CHANGE_EVENT,
@@ -1050,18 +1006,14 @@ def test_subscribe_event_signatures():
     ):
         event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT)
 
-    event_device.subscribe_event(
-        EventType.INTERFACE_CHANGE_EVENT, cb, EventSubMode.AsyncRead
-    )
+    event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, EventSubMode.AsyncRead)
     check_last_called_method(
         "__subscribe_event_global_with_sub_mode",
         EventType.INTERFACE_CHANGE_EVENT,
         cb,
         EventSubMode.AsyncRead,
     )
-    event_device.subscribe_event(
-        EventType.INTERFACE_CHANGE_EVENT, cb, sub_mode=EventSubMode.AsyncRead
-    )
+    event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, sub_mode=EventSubMode.AsyncRead)
     check_last_called_method(
         "__subscribe_event_global_with_sub_mode",
         EventType.INTERFACE_CHANGE_EVENT,
@@ -1069,9 +1021,8 @@ def test_subscribe_event_signatures():
         EventSubMode.AsyncRead,
     )
 
-    with pytest.warns(
-        DeprecationWarning, match="The 'stateless' parameter is deprecated"
-    ):
+    _warnings._already_warned_keys.clear()
+    with pytest.warns(DeprecationWarning, match="The 'stateless' parameter is deprecated"):
         event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, False)
 
     check_last_called_method(
@@ -1080,12 +1031,9 @@ def test_subscribe_event_signatures():
         cb,
         False,
     )
-    with pytest.warns(
-        DeprecationWarning, match="The 'stateless' parameter is deprecated"
-    ):
-        event_device.subscribe_event(
-            EventType.INTERFACE_CHANGE_EVENT, cb, stateless=False
-        )
+    _warnings._already_warned_keys.clear()
+    with pytest.warns(DeprecationWarning, match="The 'stateless' parameter is deprecated"):
+        event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, stateless=False)
     check_last_called_method(
         "__subscribe_event_global_with_stateless_flag",
         EventType.INTERFACE_CHANGE_EVENT,
@@ -1097,14 +1045,10 @@ def test_subscribe_event_signatures():
         event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, None)
 
     with pytest.raises(TypeError, match="Invalid type for parameter"):
-        event_device.subscribe_event(
-            EventType.INTERFACE_CHANGE_EVENT, cb, sub_mode=None
-        )
+        event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, sub_mode=None)
 
     with pytest.raises(TypeError, match="Invalid type for parameter"):
-        event_device.subscribe_event(
-            EventType.INTERFACE_CHANGE_EVENT, cb, stateless=None
-        )
+        event_device.subscribe_event(EventType.INTERFACE_CHANGE_EVENT, cb, stateless=None)
 
     with pytest.raises(IndexError, match="Expected parameter 'event_type'"):
         event_device.subscribe_event("attr")
@@ -1115,9 +1059,7 @@ def test_subscribe_event_signatures():
     with pytest.raises(TypeError, match="Invalid type for parameter"):
         event_device.subscribe_event("attr", event_type=None)
 
-    with pytest.raises(
-        TypeError, match="Either parameter 'queuesize' .* or parameter 'cb'"
-    ):
+    with pytest.raises(TypeError, match=r"Either parameter 'queuesize' .* or parameter 'cb'"):
         event_device.subscribe_event("attr", EventType.CHANGE_EVENT)
 
     event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb)
@@ -1176,9 +1118,7 @@ def test_subscribe_event_signatures():
         ExtractAs.Numpy,
     )
 
-    with pytest.raises(
-        TypeError, match="Either parameter 'queuesize' .* or parameter 'cb'"
-    ):
+    with pytest.raises(TypeError, match=r"Either parameter 'queuesize' .* or parameter 'cb'"):
         event_device.subscribe_event("attr", EventType.CHANGE_EVENT, None)
 
     with pytest.raises(TypeError, match="'cb' and 'queuesize' cannot be used together"):
@@ -1195,6 +1135,7 @@ def test_subscribe_event_signatures():
     with pytest.raises(TypeError, match="Invalid type for parameter 'queuesize="):
         event_device.subscribe_event("attr", EventType.CHANGE_EVENT, queuesize=None)
 
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
@@ -1209,6 +1150,7 @@ def test_subscribe_event_signatures():
         ExtractAs.Numpy,
         [],
     )
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
@@ -1227,9 +1169,7 @@ def test_subscribe_event_signatures():
     with pytest.raises(TypeError, match="Invalid type for parameter 'filters="):
         event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, filters=None)
 
-    event_device.subscribe_event(
-        "attr", EventType.CHANGE_EVENT, cb, EventSubMode.AsyncRead
-    )
+    event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, EventSubMode.AsyncRead)
     check_last_called_method(
         "__subscribe_event_attrib_with_sub_mode",
         "attr",
@@ -1238,9 +1178,7 @@ def test_subscribe_event_signatures():
         EventSubMode.AsyncRead,
         ExtractAs.Numpy,
     )
-    event_device.subscribe_event(
-        "attr", EventType.CHANGE_EVENT, cb, sub_mode=EventSubMode.AsyncRead
-    )
+    event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, sub_mode=EventSubMode.AsyncRead)
     check_last_called_method(
         "__subscribe_event_attrib_with_sub_mode",
         "attr",
@@ -1252,12 +1190,8 @@ def test_subscribe_event_signatures():
     with pytest.raises(TypeError, match="Invalid type for parameter 'sub_mode"):
         event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, sub_mode=None)
     with pytest.raises(TypeError, match="Invalid type for parameter 'stateless"):
-        event_device.subscribe_event(
-            "attr", EventType.CHANGE_EVENT, cb, [], EventSubMode.SyncRead
-        )
-    with pytest.raises(
-        TypeError, match="'sub_mode' and 'filters' cannot be used together"
-    ):
+        event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, [], EventSubMode.SyncRead)
+    with pytest.raises(TypeError, match="'sub_mode' and 'filters' cannot be used together"):
         event_device.subscribe_event(
             "attr",
             EventType.CHANGE_EVENT,
@@ -1265,9 +1199,7 @@ def test_subscribe_event_signatures():
             filters=[],
             sub_mode=EventSubMode.SyncRead,
         )
-    with pytest.raises(
-        TypeError, match="'sub_mode' and 'stateless' cannot be used together"
-    ):
+    with pytest.raises(TypeError, match="'sub_mode' and 'stateless' cannot be used together"):
         event_device.subscribe_event(
             "attr",
             EventType.CHANGE_EVENT,
@@ -1276,6 +1208,7 @@ def test_subscribe_event_signatures():
             sub_mode=EventSubMode.SyncRead,
         )
 
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
@@ -1290,13 +1223,12 @@ def test_subscribe_event_signatures():
         ExtractAs.Numpy,
         [],
     )
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
     ):
-        event_device.subscribe_event(
-            "attr", EventType.CHANGE_EVENT, cb, [], stateless=True
-        )
+        event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, [], stateless=True)
     check_last_called_method(
         "__subscribe_event_attrib_with_stateless_flag",
         "attr",
@@ -1306,13 +1238,12 @@ def test_subscribe_event_signatures():
         ExtractAs.Numpy,
         [],
     )
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
     ):
-        event_device.subscribe_event(
-            "attr", EventType.CHANGE_EVENT, cb, filters=["a", "b"], stateless=True
-        )
+        event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, filters=["a", "b"], stateless=True)
     check_last_called_method(
         "__subscribe_event_attrib_with_stateless_flag",
         "attr",
@@ -1322,6 +1253,7 @@ def test_subscribe_event_signatures():
         ExtractAs.Numpy,
         ["a", "b"],
     )
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
@@ -1339,13 +1271,9 @@ def test_subscribe_event_signatures():
     with pytest.raises(TypeError, match="Invalid type for parameter 'sub_mode"):
         event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, False)
     with pytest.raises(TypeError, match="Invalid type for parameter 'stateless"):
-        event_device.subscribe_event(
-            "attr", EventType.CHANGE_EVENT, cb, [], stateless=None
-        )
+        event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, [], stateless=None)
 
-    event_device.subscribe_event(
-        "attr", EventType.CHANGE_EVENT, cb, EventSubMode.AsyncRead, ExtractAs.Tuple
-    )
+    event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, EventSubMode.AsyncRead, ExtractAs.Tuple)
     check_last_called_method(
         "__subscribe_event_attrib_with_sub_mode",
         "attr",
@@ -1369,6 +1297,7 @@ def test_subscribe_event_signatures():
         EventSubMode.AsyncRead,
         ExtractAs.Tuple,
     )
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
@@ -1390,6 +1319,7 @@ def test_subscribe_event_signatures():
         ExtractAs.Tuple,
         [],
     )
+    _warnings._already_warned_keys.clear()
     with pytest.warns(
         DeprecationWarning,
         match="The 'stateless' and 'filters' parameters are deprecated",
@@ -1412,12 +1342,8 @@ def test_subscribe_event_signatures():
         [],
     )
 
-    with pytest.raises(
-        TypeError, match="Invalid type for parameter 'extract_as' at position 4"
-    ):
-        event_device.subscribe_event(
-            "attr", EventType.CHANGE_EVENT, cb, EventSubMode.SyncRead, None
-        )
+    with pytest.raises(TypeError, match="Invalid type for parameter 'extract_as' at position 4"):
+        event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, EventSubMode.SyncRead, None)
 
     with pytest.raises(TypeError, match="Invalid type for parameter 'extract_as"):
         event_device.subscribe_event(
@@ -1447,7 +1373,7 @@ def test_subscribe_event_signatures():
 
     with pytest.raises(
         TypeError,
-        match="Got unexpected keyword argument.*submode.*\nAllowed.*sub_mode.*",
+        match=r"Got unexpected keyword argument.*submode.*\nAllowed.*sub_mode.*",
     ):
         event_device.subscribe_event(
             "attr",
@@ -1456,3 +1382,106 @@ def test_subscribe_event_signatures():
             submode=EventSubMode.SyncRead,
             extract_as=None,
         )
+
+
+_event_type_to_method_name = {
+    EventType.ALARM_EVENT: "alarm_event_subscribed",
+    EventType.PERIODIC_EVENT: "periodic_event_subscribed",
+    EventType.ARCHIVE_EVENT: "archive_event_subscribed",
+    EventType.CHANGE_EVENT: "change_event_subscribed",
+    EventType.USER_EVENT: "user_event_subscribed",
+}
+
+
+class SimpleEventDevice(Device):
+    @attribute(
+        alarm_event_implemented=True,
+        alarm_event_detect=False,
+        archive_event_implemented=True,
+        archive_event_detect=False,
+        change_event_implemented=True,
+        change_event_detect=False,
+        data_ready_event_implemented=True,
+        polling_period=1000,
+    )
+    def attr(self) -> tuple[int, int]:
+        return [0, 0]
+
+    @command
+    def check_is_event_subscribed(self, event_type: int):
+        attr = self.get_device_attr().get_attr_by_name("attr")
+        assert getattr(attr, _event_type_to_method_name[EventType(event_type)])()
+        assert attr.is_event_subscribed(EventType(event_type))
+
+    @command
+    def check_is_event_not_subscribed(self, event_type: int):
+        attr = self.get_device_attr().get_attr_by_name("attr")
+        assert not getattr(attr, _event_type_to_method_name[EventType(event_type)])()
+        assert not attr.is_event_subscribed(EventType(event_type))
+
+
+@pytest.mark.parametrize("event_type_to_test", _event_type_to_method_name.keys())
+def test_is_event_subscribed(event_type_to_test):
+    with DeviceTestContext(SimpleEventDevice, process=True) as event_device:
+        for event_type in _event_type_to_method_name:
+            event_device.check_is_event_not_subscribed(event_type)
+
+        eid = event_device.subscribe_event("attr", event_type_to_test, EventCallback())
+        for event_type in _event_type_to_method_name:
+            if event_type == event_type_to_test:
+                event_device.check_is_event_subscribed(event_type)
+            else:
+                event_device.check_is_event_not_subscribed(event_type)
+
+        event_device.unsubscribe_event(eid)
+
+
+def test_callback_extract_as(extract_as):
+    requested_type, expected_type = extract_as
+
+    events = []
+
+    def cb(event):
+        assert isinstance(event.attr_value.value, expected_type)
+        events.append(event)
+
+    with DeviceTestContext(SimpleEventDevice, process=True) as event_device:
+        eid = event_device.subscribe_event("attr", EventType.CHANGE_EVENT, cb, extract_as=requested_type)
+        wait_for_single_event(event_device, events, timeout=1.0)
+        event_device.unsubscribe_event(eid)
+
+
+def test_device_proxy_in_server_receives_events(server_green_mode):
+    if server_green_mode == GreenMode.Asyncio:
+
+        class SelfSubscribeDevice(Device):
+            green_mode = GreenMode.Asyncio
+
+            @attribute(change_event_implemented=True, change_event_detect=False)
+            async def attr(self) -> int:
+                return 1
+
+            @command
+            async def subscribe(self) -> None:
+                proxy = await get_device_proxy("test/nodb/1", green_mode=GreenMode.Asyncio)
+                sub_id = await proxy.subscribe_event("attr", EventType.CHANGE_EVENT, async_callback)
+                await proxy.unsubscribe_event(sub_id)
+
+    else:
+
+        class SelfSubscribeDevice(Device):
+            green_mode = server_green_mode
+
+            @attribute(change_event_implemented=True, change_event_detect=False)
+            def attr(self) -> int:
+                return 1
+
+            @command
+            def subscribe(self) -> None:
+                proxy = get_device_proxy("test/nodb/1", green_mode=server_green_mode)
+                sub_id = proxy.subscribe_event("attr", EventType.CHANGE_EVENT, event_callback)
+                proxy.unsubscribe_event(sub_id)
+
+    with DeviceTestContext(SelfSubscribeDevice, device_name="test/nodb/1") as device:
+        device.subscribe()
+        wait_for_single_event(device, event_results, timeout=1.0)

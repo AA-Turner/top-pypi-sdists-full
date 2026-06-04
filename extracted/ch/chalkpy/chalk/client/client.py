@@ -1485,6 +1485,57 @@ class ChalkClient:
         """
         ...
 
+    def get_online_query_input_values(
+        self,
+        query: Union[OnlineQueryResult, str],
+        query_timestamp: datetime | None = None,
+    ) -> List[Dict[str, Any]]:
+        """Fetch the inputs that were sent to a past online query.
+
+        Retrieves the stored input feature values for an online query run from the
+        offline store and returns them as a list of row dicts (one dict per input row,
+        keyed by feature fqn). This is the same data shown in the inputs pane of a
+        query run's detail page in the dashboard.
+
+        Inputs are only available when online-query value persistence is enabled for the
+        environment:
+
+        - ``CHALK_PLANNER_PERSIST_VALUES_OFFLINE_STORE=1`` is required for online queries to
+          persist their inputs/outputs to the value tables. It is off by default; without it
+          this returns an empty list.
+        - ``CHALK_PERSIST_TO_OFFLINE_STORE_QUERY_LOG`` controls whether the run is written to
+          the query log at all; without it the query run cannot be found.
+
+        (Offline queries always persist their inputs; this method is for online queries.)
+
+        Parameters
+        ----------
+        query
+            Either the operation id of the online query (a string), or the ``OnlineQueryResult``
+            returned by a prior ``query(...)`` call. When a result is passed, both the operation
+            id and the query timestamp are read from ``result.meta``, so the query must have been
+            run with ``include_meta=True``.
+        query_timestamp
+            The approximate time the query ran. Without it the query run is only looked up within
+            the last 24 hours; pass it to fetch inputs for older queries. It is taken automatically
+            from ``result.meta.query_timestamp`` when an ``OnlineQueryResult`` is passed.
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            The query's inputs, one dict per row keyed by feature fqn. Returns an empty
+            list if the query did not persist its values (see the env vars above).
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> result = client.query(input={User.id: 1}, output=[User.name], include_meta=True)
+        >>> client.get_online_query_input_values(result)
+        [{"user.id": 1}]
+        """
+        ...
+
     def get_named_query_metadata(
         self,
         name: str,

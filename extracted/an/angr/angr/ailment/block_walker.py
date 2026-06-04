@@ -1,54 +1,51 @@
 # pylint:disable=unused-argument,no-self-use
 from __future__ import annotations
+
+from abc import abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable
-from abc import abstractmethod
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from . import Block
+from .expression import (
+    ITE,
+    Array,
+    Atom,
+    BinaryOp,
+    Call,
+    ComboRegister,
+    Const,
+    Convert,
+    DirtyExpression,
+    Expression,
+    Extract,
+    FunctionLikeMacro,
+    Insert,
+    Load,
+    MultiStatementExpression,
+    Phi,
+    Register,
+    Reinterpret,
+    RustEnum,
+    StringLiteral,
+    Struct,
+    Tmp,
+    UnaryOp,
+    VEXCCallExpression,
+    VirtualVariable,
+)
 from .statement import (
     CAS,
-    Statement,
-    SideEffectStatement,
-    ConditionalJump,
     Assignment,
-    Store,
-    Return,
-    Jump,
+    ConditionalJump,
     DirtyStatement,
+    Jump,
+    Return,
+    SideEffectStatement,
+    Statement,
+    Store,
     WeakAssignment,
 )
-from .expression import (
-    Call,
-    Load,
-    Expression,
-    BinaryOp,
-    UnaryOp,
-    Convert,
-    ITE,
-    DirtyExpression,
-    VEXCCallExpression,
-    Tmp,
-    Register,
-    Const,
-    Reinterpret,
-    MultiStatementExpression,
-    VirtualVariable,
-    Phi,
-    RustEnum,
-    Struct,
-    Array,
-    StringLiteral,
-    ComboRegister,
-    Atom,
-    Extract,
-    Insert,
-    FunctionLikeMacro,
-)
-
-ExprType = TypeVar("ExprType")
-StmtType = TypeVar("StmtType")
-BlockType = TypeVar("BlockType")
 
 
 class AILBlockWalker[ExprType, StmtType, BlockType]:
@@ -372,7 +369,7 @@ class AILBlockViewer(AILBlockWalker[None, None, None]):
     def _stmt_top(self, stmt_idx: int, stmt: Statement, block: Block | None):
         return None
 
-    def _handle_block_end(self, stmt_results: list[StmtType], block: Block):
+    def _handle_block_end(self, stmt_results: list[None], block: Block):
         return None
 
     # Duplicate all handlers for performance...

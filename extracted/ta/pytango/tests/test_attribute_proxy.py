@@ -3,28 +3,26 @@
 import sys
 import time
 from functools import partial
+from typing import ClassVar
 
 import numpy as np
 import pytest
 
 from tango import (
-    DevState,
     AttributeProxy,
-    GreenMode,
-    DevFailed,
-    EventType,
     AttrWriteType,
+    DevFailed,
+    DevState,
+    EventType,
+    GreenMode,
 )
-from tango.constants import DefaultPollRingDepth
 from tango.asyncio import AttributeProxy as asyncio_AttributeProxy
-from tango.gevent import AttributeProxy as gevent_AttributeProxy
+from tango.constants import DefaultPollRingDepth
 from tango.futures import AttributeProxy as futures_AttributeProxy
-
+from tango.gevent import AttributeProxy as gevent_AttributeProxy
 from tango.server import Device, attribute, command
-
-from tango.test_utils import assert_close, DeviceTestContext, MultiDeviceTestContext
-from tango.utils import EventCallback, AsyncEventCallback
-
+from tango.test_utils import DeviceTestContext, MultiDeviceTestContext, assert_close
+from tango.utils import AsyncEventCallback, EventCallback
 
 TEST_VALUES = {
     "scalar_int": (2, 3, 4, 5, 6),
@@ -51,10 +49,9 @@ attribute_proxy_map = {
 
 
 class EasyEchoDevice(Device):
-
     scalar_int_value = 1
-    spectrum_str_value = ["a", "b"]
-    image_float_value = [[1.0, 2.0], [3.0, 4.0]]
+    spectrum_str_value: ClassVar[list[str]] = ["a", "b"]
+    image_float_value: ClassVar[list[list[float]]] = [[1.0, 2.0], [3.0, 4.0]]
 
     def init_device(self):
         self.set_state(DevState.ON)
@@ -161,7 +158,7 @@ def _assert_reading_times_increase_monotonically(history, t_start):
 
 
 def _assert_reading_values_valid(history, initial_value, written_values):
-    valid_values = _get_comparable_values([initial_value] + list(written_values))
+    valid_values = _get_comparable_values([initial_value, *written_values])
     history_values = _get_comparable_values([reading.value for reading in history])
     last_index = -1
     for history_value in history_values:
@@ -200,8 +197,8 @@ def test_read_write_attribute_async(attribute_proxy):
             attempt += 1
             if attempt >= max_reply_attempts:
                 raise RuntimeError(
-                    f"Test failed: cannot get write reply within {max_reply_attempts*delay} sec"
-                )
+                    f"Test failed: cannot get write reply within {max_reply_attempts * delay} sec"
+                ) from None
             time.sleep(delay)
 
     r_id = attribute_proxy.read_asynch(wait=True)
@@ -214,8 +211,8 @@ def test_read_write_attribute_async(attribute_proxy):
             attempt += 1
             if attempt >= max_reply_attempts:
                 raise RuntimeError(
-                    f"Test failed: cannot get read reply within {max_reply_attempts*delay} sec"
-                )
+                    f"Test failed: cannot get read reply within {max_reply_attempts * delay} sec"
+                ) from None
             time.sleep(delay)
 
     assert_close(ret.value, value)
@@ -239,9 +236,7 @@ def test_event(green_mode):
     with DeviceTestContext(EasyEventDevice, device_name="test/device/1", process=True):
         attr_proxy = attribute_proxy_map[green_mode]("test/device/1/attr")
         dev_proxy = attr_proxy.get_device_proxy()
-        cb = (
-            AsyncEventCallback() if green_mode == GreenMode.Asyncio else EventCallback()
-        )
+        cb = AsyncEventCallback() if green_mode == GreenMode.Asyncio else EventCallback()
         eid = attr_proxy.subscribe_event(EventType.CHANGE_EVENT, cb, wait=True)
         dev_proxy.command_inout("send_event", wait=True)
         evts = cb.get_events()
@@ -278,9 +273,12 @@ def uninitialized_attr_proxy():
         AttributeProxy("not/existing/device/attr")
     except DevFailed:
         traceback = sys.exc_info()[2]
-        for v in traceback.tb_next.tb_frame.f_locals.values():
-            if isinstance(v, AttributeProxy):
-                proxy_instance = v
+        while traceback is not None and proxy_instance is None:
+            for v in traceback.tb_frame.f_locals.values():
+                if isinstance(v, AttributeProxy):
+                    proxy_instance = v
+                    break
+            traceback = traceback.tb_next
 
     assert proxy_instance is not None
     yield proxy_instance

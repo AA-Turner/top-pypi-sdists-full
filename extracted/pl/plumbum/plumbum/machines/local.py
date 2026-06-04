@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    "platform",
+    "plumbum.commands.daemons",
+    "plumbum.commands.processes",
+    "plumbum.machines._windows",
+    "plumbum.machines.session",
+    "plumbum.path",
+    "plumbum.path.remote",
+    "re",
+    "subprocess",
+    "tempfile",
+}
+
 import contextlib
 import logging
 import os
@@ -7,39 +21,71 @@ import platform
 import re
 import subprocess
 import sys
+import threading
 import time
-from contextlib import contextmanager
+import typing
+from contextlib import AbstractContextManager, contextmanager
 from subprocess import PIPE, Popen
 from tempfile import mkdtemp
+from typing import Any, ClassVar
 
 from plumbum.commands import CommandNotFound, ConcreteCommand
 from plumbum.commands.daemons import posix_daemonize, win32_daemonize
 from plumbum.commands.processes import iter_lines
 from plumbum.lib import IS_WIN32, ProcInfo, StaticProperty
-from plumbum.machines.base import BaseMachine, PopenAddons
+from plumbum.machines.base import BaseMachine, PopenAddons, PopenWithAddons
 from plumbum.machines.env import BaseEnv
 from plumbum.machines.session import ShellSession
 from plumbum.path.local import LocalPath, LocalWorkdir
 from plumbum.path.remote import RemotePath
 
+if typing.TYPE_CHECKING:
+    from collections.abc import Generator, Iterator, Sequence
+    from types import TracebackType
+
+    from plumbum.commands.async_ import AsyncLocalCommand
+    from plumbum.commands.base import BaseCommand
+
 
 class PlumbumLocalPopen(PopenAddons):
     iter_lines = iter_lines
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._proc = Popen(*args, **kwargs)  # pylint: disable=consider-using-with
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[int, str]]:
         return self.iter_lines()
 
-    def __enter__(self):
+    def __enter__(self) -> Popen[bytes]:
         return self._proc.__enter__()
 
-    def __exit__(self, *args, **kwargs):
-        return self._proc.__exit__(*args, **kwargs)
+    def __exit__(
+        self,
+        t: type[BaseException] | None,
+        v: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        return self._proc.__exit__(t, v, tb)
 
-    def __getattr__(self, name):
-        return getattr(self._proc, name)
+    def __getattr__(self, name: str) -> Any:
+        try:
+            proc = object.__getattribute__(self, "_proc")
+        except AttributeError:
+            raise AttributeError(name) from None
+        return getattr(proc, name)
+
+    def __del__(self) -> None:
+        with contextlib.suppress(AttributeError):
+            proc = object.__getattribute__(self, "_proc")
+            with contextlib.suppress(Exception):
+                proc.poll()
+            if proc.returncode is None:
+                with contextlib.suppress(subprocess.TimeoutExpired, Exception):
+                    proc.wait(timeout=0.2)
+            for stream in (proc.stdin, proc.stdout, proc.stderr):
+                if stream is not None:
+                    with contextlib.suppress(Exception):
+                        stream.close()
 
 
 if IS_WIN32:
@@ -47,23 +93,30 @@ if IS_WIN32:
 
 logger = logging.getLogger("plumbum.local")
 
+# ``expand``/``expanduser`` below temporarily swap out the global ``os.environ``
+# while expanding. Without serialization, two threads interleaving their
+# save/restore can permanently leave ``os.environ`` pointing at a throwaway
+# dict. This matters now that the async layer runs sync commands in executor
+# threads. The lock keeps the swap/restore atomic with respect to each other.
+_environ_lock = threading.RLock()
+
 
 # ===================================================================================================
 # Environment
 # ===================================================================================================
-class LocalEnv(BaseEnv):
+class LocalEnv(BaseEnv[LocalPath]):
     """The local machine's environment; exposes a dict-like interface"""
 
     __slots__ = ()
     CASE_SENSITIVE = not IS_WIN32
 
-    def __init__(self):
+    def __init__(self) -> None:
         # os.environ already takes care of upper'ing on windows
         super().__init__(LocalPath, os.path.pathsep, _curr=os.environ.copy())
         if IS_WIN32 and "HOME" not in self and self.home is not None:
             self["HOME"] = self.home
 
-    def expand(self, expr):
+    def expand(self, expr: str) -> str:
         """Expands any environment variables and home shortcuts found in ``expr``
         (like ``os.path.expanduser`` combined with ``os.path.expandvars``)
 
@@ -71,26 +124,28 @@ class LocalEnv(BaseEnv):
                      home shortcuts (as ``~/.bashrc``)
 
         :returns: The expanded string"""
-        prev = os.environ
-        os.environ = self.getdict()  # noqa: B003
-        try:
-            output = os.path.expanduser(os.path.expandvars(expr))
-        finally:
-            os.environ = prev  # noqa: B003
+        with _environ_lock:
+            prev = os.environ
+            os.environ = self.getdict()  # type: ignore[assignment] # noqa: B003
+            try:
+                output = os.path.expanduser(os.path.expandvars(expr))
+            finally:
+                os.environ = prev  # noqa: B003
         return output
 
-    def expanduser(self, expr):
+    def expanduser(self, expr: str) -> str:
         """Expand home shortcuts (e.g., ``~/foo/bar`` or ``~john/foo/bar``)
 
         :param expr: An expression containing home shortcuts
 
         :returns: The expanded string"""
-        prev = os.environ
-        os.environ = self.getdict()  # noqa: B003
-        try:
-            output = os.path.expanduser(expr)
-        finally:
-            os.environ = prev  # noqa: B003
+        with _environ_lock:
+            prev = os.environ
+            os.environ = self.getdict()  # type: ignore[assignment] # noqa: B003
+            try:
+                output = os.path.expanduser(expr)
+            finally:
+                os.environ = prev  # noqa: B003
         return output
 
 
@@ -101,16 +156,22 @@ class LocalCommand(ConcreteCommand):
     __slots__ = ()
     QUOTE_LEVEL = 2
 
-    def __init__(self, executable, encoding="auto"):
+    def __init__(self, executable: LocalPath | str, encoding: str = "auto") -> None:
         ConcreteCommand.__init__(
             self, executable, local.custom_encoding if encoding == "auto" else encoding
         )
 
     @property
-    def machine(self):
+    def machine(self) -> LocalMachine:
         return local
 
-    def popen(self, args=(), cwd=None, env=None, **kwargs):
+    def popen(
+        self,
+        args: Sequence[Any] = (),
+        cwd: str | LocalPath | None = None,
+        env: dict[str, str] | BaseEnv[LocalPath] | None = None,
+        **kwargs: Any,
+    ) -> PopenWithAddons[str]:
         if isinstance(args, str):
             args = (args,)
         return self.machine._popen(
@@ -139,24 +200,30 @@ class LocalMachine(BaseMachine):
     * ``custom_encoding`` - the local machine's default encoding (``sys.getfilesystemencoding()``)
     """
 
+    __slots__ = ("_as_user_stack", "_start_time")
+
     cwd = StaticProperty(LocalWorkdir)
     env = LocalEnv()
 
     custom_encoding = sys.getfilesystemencoding()
     uname = platform.uname()[0]
-    _program_cache: dict[tuple[str, str], LocalPath] = {}
+    _program_cache: ClassVar[dict[tuple[str, str], LocalPath]] = {}
 
-    def __init__(self):
-        self._as_user_stack = []
+    def __init__(self) -> None:
+        self._as_user_stack: list[Any] = []
+
+    @classmethod
+    def clear_program_cache(cls) -> None:
+        cls._program_cache.clear()
 
     if IS_WIN32:
-        _EXTENSIONS = [
+        _EXTENSIONS: list[str] = [
             "",
             *env.get("PATHEXT", ":.exe:.bat").lower().split(os.path.pathsep),
         ]
 
         @classmethod
-        def _which(cls, progname):
+        def _which(cls, progname: str) -> LocalPath | None:
             progname = progname.lower()
             for p in cls.env.path:
                 for ext in cls._EXTENSIONS:
@@ -168,24 +235,25 @@ class LocalMachine(BaseMachine):
     else:
 
         @classmethod
-        def _which(cls, progname):
+        def _which(cls, progname: str) -> LocalPath | None:
             for p in cls.env.path:
+                assert isinstance(p, LocalPath)
                 fn = p / progname
                 if fn.access("x") and not fn.is_dir():
                     return fn
             return None
 
     @classmethod
-    def which(cls, progname):
+    def which(cls, progname: str) -> LocalPath:
         """Looks up a program in the ``PATH``. If the program is not found, raises
-        :class:`CommandNotFound <plumbum.commands.CommandNotFound>`
+        :class:`CommandNotFound <plumbum.commands.processes.CommandNotFound>`
 
         :param progname: The program's name. Note that if underscores (``_``) are present
                          in the name, and the exact name is not found, they will be replaced
                          in turn by hyphens (``-``) then periods (``.``), and the name will
                          be looked up again for each alternative
 
-        :returns: A :class:`LocalPath <plumbum.machines.local.LocalPath>`
+        :returns: A :class:`LocalPath <plumbum.path.local.LocalPath>`
         """
 
         key = (progname, cls.env.get("PATH", ""))
@@ -203,7 +271,7 @@ class LocalMachine(BaseMachine):
                 return path
         raise CommandNotFound(progname, list(cls.env.path))
 
-    def path(self, *parts):
+    def path(self, *parts: str) -> LocalPath:
         """A factory for :class:`LocalPaths <plumbum.path.local.LocalPath>`.
         Usage: ``p = local.path("/usr", "lib", "python2.7")``
         """
@@ -214,14 +282,7 @@ class LocalMachine(BaseMachine):
             parts2.append(self.env.expanduser(str(p)))
         return LocalPath(os.path.join(*parts2))
 
-    def __contains__(self, cmd):
-        try:
-            self[cmd]
-        except CommandNotFound:
-            return False
-        return True
-
-    def __getitem__(self, cmd):
+    def __getitem__(self, cmd: str | LocalPath) -> LocalCommand:
         """Returns a `Command` object representing the given program. ``cmd`` can be a string or
         a :class:`LocalPath <plumbum.path.local.LocalPath>`; if it is a path, a command
         representing this path will be returned; otherwise, the program name will be looked up
@@ -246,16 +307,16 @@ class LocalMachine(BaseMachine):
 
     def _popen(
         self,
-        executable,
-        argv,
-        stdin=PIPE,
-        stdout=PIPE,
-        stderr=PIPE,
-        cwd=None,
-        env=None,
-        new_session=False,
-        **kwargs,
-    ):
+        executable: LocalPath,
+        argv: list[str],
+        stdin: Any = PIPE,
+        stdout: Any = PIPE,
+        stderr: Any = PIPE,
+        cwd: str | LocalPath | None = None,
+        env: dict[str, str] | BaseEnv[LocalPath] | None = None,
+        new_session: bool = False,
+        **kwargs: Any,
+    ) -> PlumbumLocalPopen:
         if new_session:
             kwargs["start_new_session"] = True
 
@@ -266,18 +327,14 @@ class LocalMachine(BaseMachine):
             # pylint: disable-next=used-before-assignment
             if subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI:
                 # don't open a new console
-                sui = subprocess.STARTUPINFO()
+                sui = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
                 kwargs["startupinfo"] = sui
                 if hasattr(subprocess, "_subprocess"):
-                    sui.dwFlags |= (
-                        subprocess._subprocess.STARTF_USESHOWWINDOW
-                    )  # @UndefinedVariable
-                    sui.wShowWindow = (
-                        subprocess._subprocess.SW_HIDE
-                    )  # @UndefinedVariable
+                    sui.dwFlags |= subprocess._subprocess.STARTF_USESHOWWINDOW
+                    sui.wShowWindow = subprocess._subprocess.SW_HIDE
                 else:
-                    sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # @UndefinedVariable
-                    sui.wShowWindow = subprocess.SW_HIDE  # @UndefinedVariable
+                    sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
+                    sui.wShowWindow = subprocess.SW_HIDE  # type: ignore[attr-defined]
 
         if cwd is None:
             cwd = self.cwd
@@ -305,12 +362,19 @@ class LocalMachine(BaseMachine):
             env=env,
             **kwargs,
         )  # bufsize = 4096
-        proc._start_time = time.time()
+        proc._start_time = time.time()  # type: ignore[attr-defined]
         proc.custom_encoding = self.custom_encoding
-        proc.argv = argv
+        proc.argv = argv  # type: ignore[attr-defined]
         return proc
 
-    def daemonic_popen(self, command, cwd="/", stdout=None, stderr=None, append=True):
+    def daemonic_popen(
+        self,
+        command: BaseCommand,
+        cwd: str = "/",
+        stdout: str | None = None,
+        stderr: str | None = None,
+        append: bool = True,
+    ) -> PopenWithAddons[str]:
         """
         On POSIX systems:
 
@@ -335,7 +399,7 @@ class LocalMachine(BaseMachine):
 
     if IS_WIN32:
 
-        def list_processes(self):  # pylint: disable=no-self-use
+        def list_processes(self) -> Generator[ProcInfo, None, None]:  # pylint: disable=no-self-use
             """
             Returns information about all running processes (on Windows: using ``tasklist``)
 
@@ -362,7 +426,7 @@ class LocalMachine(BaseMachine):
 
     else:
 
-        def list_processes(self):
+        def list_processes(self) -> Generator[ProcInfo, None, None]:
             """
             Returns information about all running processes (on POSIX systems: using ``ps``)
 
@@ -377,7 +441,7 @@ class LocalMachine(BaseMachine):
                     int(parts[0]), int(parts[1]), parts[2], " ".join(parts[3:])
                 )
 
-    def pgrep(self, pattern):
+    def pgrep(self, pattern: str) -> Generator[ProcInfo, None, None]:
         """
         Process grep: return information about all processes whose command-line args match the given regex pattern
         """
@@ -386,13 +450,13 @@ class LocalMachine(BaseMachine):
             if pat.search(procinfo.args):
                 yield procinfo
 
-    def session(self, new_session=False):
-        """Creates a new :class:`ShellSession <plumbum.session.ShellSession>` object; this
+    def session(self, new_session: bool = False) -> ShellSession:
+        """Creates a new :class:`ShellSession <plumbum.machines.session.ShellSession>` object; this
         invokes ``/bin/sh`` and executes commands on it over stdin/stdout/stderr"""
         return ShellSession(self["sh"].popen(new_session=new_session))
 
     @contextmanager
-    def tempdir(self):
+    def tempdir(self) -> Generator[LocalPath, None, None]:
         """A context manager that creates a temporary directory, which is removed when the context
         exits"""
         new_dir = self.path(mkdtemp())
@@ -402,7 +466,7 @@ class LocalMachine(BaseMachine):
             new_dir.delete()
 
     @contextmanager
-    def as_user(self, username=None):
+    def as_user(self, username: str | None = None) -> Generator[None, None, None]:
         """Run nested commands as the given user. For example::
 
             head = local["head"]
@@ -426,29 +490,30 @@ class LocalMachine(BaseMachine):
                     self.which("runas"),
                 )
             )
+        elif username is None:
+            self._as_user_stack.append(
+                lambda argv: (["sudo", *list(argv)], self.which("sudo"))
+            )
         else:
-            if username is None:
-                self._as_user_stack.append(
-                    lambda argv: (["sudo", *list(argv)], self.which("sudo"))
+            self._as_user_stack.append(
+                lambda argv: (
+                    ["sudo", "-u", username, *list(argv)],
+                    self.which("sudo"),
                 )
-            else:
-                self._as_user_stack.append(
-                    lambda argv: (
-                        ["sudo", "-u", username, *list(argv)],
-                        self.which("sudo"),
-                    )
-                )
+            )
         try:
             yield
         finally:
             self._as_user_stack.pop(-1)
 
-    def as_root(self):
+    def as_root(self) -> AbstractContextManager[None]:
         """A shorthand for :func:`as_user("root") <plumbum.machines.local.LocalMachine.as_user>`"""
         return self.as_user()
 
-    python = LocalCommand(sys.executable, custom_encoding)
-    """A command that represents the current python interpreter (``sys.executable``)"""
+    @property
+    def python(self) -> LocalCommand:
+        """A command that represents the current python interpreter (``sys.executable``)."""
+        return LocalCommand(sys.executable, self.custom_encoding)
 
 
 local = LocalMachine()
@@ -462,3 +527,95 @@ Attributes:
 * ``env`` - the local environment
 * ``custom_encoding`` - the local machine's default encoding (``sys.getfilesystemencoding()``)
 """
+
+
+class AsyncLocalMachine:
+    """Async version of LocalMachine.
+
+    This class provides async access to local commands and utilities.
+    It delegates to the sync LocalMachine for command lookup and wraps
+    the results in AsyncLocalCommand.
+
+    Example::
+
+        from plumbum.machines.local import async_local
+
+        # Command lookup delegates to sync local machine
+        ls = async_local["ls"]
+
+        # Execution is async
+        result = await ls("-la")
+
+    .. versionadded:: 2.0
+    """
+
+    def __getitem__(self, cmd: str | LocalPath) -> AsyncLocalCommand:
+        """Get an async command by name or path.
+
+        This delegates to local[cmd] to get the sync command, then wraps it.
+
+        Args:
+            cmd: Command name (will be looked up in PATH) or LocalPath
+
+        Returns:
+            AsyncLocalCommand instance
+
+        Raises:
+            CommandNotFound: If command is not found in PATH
+        """
+        from plumbum.commands.async_ import AsyncLocalCommand
+
+        # Delegate to sync local machine for command lookup
+        sync_cmd = local[cmd]
+        return AsyncLocalCommand(sync_cmd)
+
+    def __contains__(self, cmd: str) -> bool:
+        """Check if a command exists in PATH."""
+        # Delegate to sync local machine
+        return cmd in local
+
+    @property
+    def cwd(self) -> LocalPath:
+        """Current working directory."""
+        return local.cwd  # type: ignore[no-any-return]
+
+    @property
+    def env(self) -> LocalEnv:
+        """Environment variables."""
+        return local.env
+
+    @staticmethod
+    def path(*parts: str) -> LocalPath:
+        """Create a LocalPath from parts."""
+        return local.path(*parts)
+
+
+async_local = AsyncLocalMachine()
+"""Async version of the local machine singleton.
+
+Use this to access async commands::
+
+    from plumbum import async_local
+    # or
+    from plumbum.machines.local import async_local
+
+    async def main():
+        result = await async_local["ls"]("-la")
+        print(result)
+
+.. versionadded:: 2.0
+"""
+
+__all__ = [
+    "AsyncLocalMachine",
+    "LocalCommand",
+    "LocalEnv",
+    "LocalMachine",
+    "PlumbumLocalPopen",
+    "async_local",
+    "local",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

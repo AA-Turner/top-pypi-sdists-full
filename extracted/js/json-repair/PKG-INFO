@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json_repair
-Version: 0.59.10
+Version: 0.60.1
 Summary: A package to repair broken json strings
 Author-email: Stefano Baccianella <4247706+mangiucugna@users.noreply.github.com>
 License-Expression: MIT
@@ -44,7 +44,7 @@ Repair malformed JSON from LLMs, APIs, logs, and user input in Python.
 ```python
 import json_repair
 
-bad_json = '{"users":[{"name":"Ada","role":"admin",}],"ok":tru'
+bad_json = '{"users":[{"name":"Ada","role":"admin",}],"ok":true'
 decoded_object = json_repair.loads(bad_json)
 
 # {'users': [{'name': 'Ada', 'role': 'admin'}], 'ok': True}

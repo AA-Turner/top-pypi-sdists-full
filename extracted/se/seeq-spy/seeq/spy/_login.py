@@ -362,7 +362,7 @@ def _client_login(
                 raise SPyValueError(f'credentials_file "{credentials_file}" not found')
 
             try:
-                with util.safe_open(credentials_file) as f:
+                with util.safe_open(credentials_file, encoding='utf-8') as f:
                     lines = f.readlines()
             except Exception as e:
                 raise SPyRuntimeError('Could not read credentials_file "%s": %s' % (credentials_file, e))

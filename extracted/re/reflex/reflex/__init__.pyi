@@ -11,7 +11,8 @@ import reflex_components_recharts as recharts
 from reflex_base.components.component import Component as Component
 from reflex_base.components.component import ComponentNamespace as ComponentNamespace
 from reflex_base.components.component import NoSSRComponent as NoSSRComponent
-from reflex_base.components.component import memo as memo
+from reflex_base.components.memo import EMPTY_VAR_COMPONENT as EMPTY_VAR_COMPONENT
+from reflex_base.components.memo import memo as memo
 from reflex_base.components.props import PropsBase as PropsBase
 from reflex_components_code.code import code_block as code_block
 from reflex_components_core import el as el
@@ -219,7 +220,7 @@ from .style import Style, toggle_color_mode
 from .utils.imports import ImportDict, ImportVar
 from .utils.misc import run_in_thread
 from .utils.serializers import serializer
-from .vars import Field, RestProp, Var, field
+from .vars import EMPTY_VAR_INT, EMPTY_VAR_STR, Field, RestProp, Var, field
 
 if sys.version_info < (3, 11):
     from reflex_base.utils import console
@@ -231,6 +232,9 @@ if sys.version_info < (3, 11):
 del sys
 
 __all__ = [
+    "EMPTY_VAR_COMPONENT",
+    "EMPTY_VAR_INT",
+    "EMPTY_VAR_STR",
     "AdminDash",
     "App",
     "BaseStateToken",

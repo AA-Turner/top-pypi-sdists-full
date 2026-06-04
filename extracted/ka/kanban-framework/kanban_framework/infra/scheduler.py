@@ -40,12 +40,8 @@ class Scheduler:
     # Deprecated since v0.84 — kept for backward compat.
     PHASE_ORDER = [
         Phase.PLAN,
-        Phase.PLAN_REVIEW,
-        Phase.QA_SPEC,
-        Phase.SPEC_REVIEW,
         Phase.EXECUTE,
         Phase.EVALUATE,
-        Phase.RETROSPECTIVE,
         Phase.USER_DECISION,
         Phase.ARCHIVE,
     ]
@@ -69,12 +65,11 @@ class Scheduler:
     ]
 
     _BUILTIN_MODES: dict[str, list[Phase]] = {
-        "full":        [Phase.PLAN, Phase.PLAN_REVIEW, Phase.QA_SPEC, Phase.SPEC_REVIEW, Phase.EXECUTE, Phase.EVALUATE, Phase.RETROSPECTIVE, Phase.USER_DECISION, Phase.ARCHIVE],
         "lightweight": [Phase.PLAN, Phase.EXECUTE, Phase.EVALUATE, Phase.USER_DECISION, Phase.ARCHIVE],
         "quick":       [Phase.EXECUTE, Phase.USER_DECISION, Phase.ARCHIVE],
     }
 
-    BUILTIN_MODE_NAMES = frozenset(("full", "lightweight", "quick"))
+    BUILTIN_MODE_NAMES = frozenset(("lightweight", "quick"))
 
     @classmethod
     def get_modes(cls, workflow: dict | None = None,
@@ -129,9 +124,9 @@ class Scheduler:
             return []  # quick mode has no evaluate phase
         if mode == "lightweight":
             return list(cls.LIGHTWEIGHT_EVAL_ROLES)
-        if mode and mode != "full":
+        if mode and mode not in cls.BUILTIN_MODE_NAMES:
             return cls._derive_eval_roles(mode, kanban_dir)
-        return list(cls.EVAL_ROLES)
+        return list(cls.LIGHTWEIGHT_EVAL_ROLES)
 
     @classmethod
     def _derive_eval_roles(cls, mode: str, kanban_dir: Path | None = None) -> list[dict]:
@@ -186,7 +181,7 @@ class Scheduler:
             modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
             if mode in modes:
                 return list(modes[mode])
-        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else ("lightweight" if lightweight else "full"))
+        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else "lightweight")
         modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
         if mode in modes:
             order = list(modes[mode])
@@ -235,7 +230,7 @@ class Scheduler:
             modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
             if mode in modes:
                 return list(modes[mode])
-        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else ("lightweight" if lightweight else "full"))
+        mode = mode if mode in Scheduler.BUILTIN_MODE_NAMES else ("quick" if quick else "lightweight")
         modes = cls.get_modes(workflow, kanban_dir=kanban_dir)
         if mode in modes:
             order = list(modes[mode])

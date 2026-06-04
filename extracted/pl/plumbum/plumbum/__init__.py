@@ -37,6 +37,10 @@ See https://plumbum.readthedocs.io for full details
 
 from __future__ import annotations
 
+__lazy_modules__ = {"plumbum.colorlib", "plumbum.commands", "plumbum.machines.local"}
+
+import typing
+
 # Avoids a circular import error later
 import plumbum.path  # noqa: F401
 from plumbum.commands import (
@@ -52,14 +56,20 @@ from plumbum.commands import (
     ProcessLineTimedOut,
     ProcessTimedOut,
 )
-from plumbum.machines import BaseRemoteMachine, PuttyMachine, SshMachine, local
+from plumbum.machines import (
+    BaseRemoteMachine,
+    PuttyMachine,
+    SshMachine,
+    local,
+)
+from plumbum.machines.local import async_local
 from plumbum.path import LocalPath, Path, RemotePath
 from plumbum.version import version
 
 __author__ = "Tomer Filiba (tomerfiliba@gmail.com)"
 __version__ = version
 
-__all__ = (
+__all__ = [
     "BG",
     "ERROUT",
     "FG",
@@ -79,13 +89,20 @@ __all__ = (
     "SshMachine",
     "__author__",
     "__version__",
+    "async_cmd",
+    "async_local",
     "cmd",
     "local",
-)
+]
 
-from . import cmd
+from plumbum.colorlib import ansicolors as colors
+
+from . import async_cmd, cmd
+
+if typing.TYPE_CHECKING:
+    __all__ += ["colors"]
 
 
-def __dir__():
+def __dir__() -> list[str]:
     "Support nice tab completion"
-    return __all__
+    return list(__all__)

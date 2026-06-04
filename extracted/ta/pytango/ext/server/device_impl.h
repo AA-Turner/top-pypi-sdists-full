@@ -18,10 +18,7 @@ class DeviceImplTrampoline : public Tango::DeviceImpl {
     using Tango::DeviceImpl::DeviceImpl;
 
     void init_device() override {
-        PYBIND11_OVERRIDE_PURE(
-            void,
-            Tango::DeviceImpl,
-            init_device, ); // cppcheck-suppress syntaxError
+        PYBIND11_OVERRIDE_PURE(void, Tango::DeviceImpl, init_device, ); // cppcheck-suppress syntaxError
     }
 
     bool is_attribute_polled_public(const std::string &att_name) {
@@ -64,10 +61,7 @@ class Device_2ImplTrampoline : public Tango::Device_2Impl {
     using Tango::Device_2Impl::Device_2Impl;
 
     void init_device() override {
-        PYBIND11_OVERRIDE_PURE(
-            void,
-            Tango::Device_2Impl,
-            init_device, );
+        PYBIND11_OVERRIDE_PURE(void, Tango::Device_2Impl, init_device, );
     }
 };
 
@@ -78,16 +72,14 @@ template <typename TangoDeviceImpl>
 class Device_XImplTrampoline : public TangoDeviceImpl {
   public:
     Device_XImplTrampoline(Tango::DeviceClass *cl, std::string &st) :
-        TangoDeviceImpl(cl, st) {
-    }
+        TangoDeviceImpl(cl, st) { }
 
     Device_XImplTrampoline(Tango::DeviceClass *cl,
                            const char *name,
                            const char *_desc = "A Tango device",
                            Tango::DevState sta = Tango::UNKNOWN,
                            const char *status = Tango::StatusNotSet) :
-        TangoDeviceImpl(cl, name, _desc, sta, status) {
-    }
+        TangoDeviceImpl(cl, name, _desc, sta, status) { }
 
     std::string the_status;
 
@@ -105,53 +97,43 @@ class Device_XImplTrampoline : public TangoDeviceImpl {
     }
 
     void init_device() override {
-        PYBIND11_OVERRIDE_PURE(
-            void,            // Return type
-            TangoDeviceImpl, // Parent class
-            init_device      // Name of the method in C++
-            , );
+        PYBIND11_OVERRIDE_PURE(void,            // Return type
+                               TangoDeviceImpl, // Parent class
+                               init_device      // Name of the method in C++
+                               , );
     }
 
     void server_init_hook() override {
-        CALL_VOID_METHOD(server_init_hook,
-                         TangoDeviceImpl, )
+        CALL_VOID_METHOD_KEEP_GIL(server_init_hook, TangoDeviceImpl, )
     }
 
     void delete_device() override {
-        CALL_VOID_METHOD(delete_device,
-                         TangoDeviceImpl, )
+        CALL_VOID_METHOD_KEEP_GIL(delete_device, TangoDeviceImpl, )
     }
 
     void always_executed_hook() override {
-        CALL_VOID_METHOD(always_executed_hook,
-                         TangoDeviceImpl, )
+        CALL_VOID_METHOD_KEEP_GIL(always_executed_hook, TangoDeviceImpl, )
     }
 
     void read_attr_hardware(std::vector<long> &attr_list) override {
-        CALL_VOID_METHOD(read_attr_hardware,
-                         TangoDeviceImpl,
-                         attr_list)
+        CALL_VOID_METHOD_KEEP_GIL(read_attr_hardware, TangoDeviceImpl, attr_list)
     }
 
     void write_attr_hardware(std::vector<long> &attr_list) override{
-        CALL_VOID_METHOD(write_attr_hardware,
-                         TangoDeviceImpl,
-                         attr_list)}
+        CALL_VOID_METHOD_KEEP_GIL(write_attr_hardware, TangoDeviceImpl, attr_list)}
 
-    Tango::DevState dev_state() override{
-        CALL_RETURN_METHOD(Tango::DevState,
-                           dev_state,
-                           TangoDeviceImpl, )}
+    Tango::DevState dev_state() override{CALL_RETURN_METHOD(Tango::DevState, dev_state, TangoDeviceImpl, )}
 
     Tango::ConstDevString dev_status() override {
         //  cppTango layer the caller of dev_status does not own the returned memory, so it is our duty
-        GET_PYTHON_METHOD(dev_status)
+        GET_PYTHON_METHOD_KEEP_GIL(dev_status)
         if(py_method) {
             try {
                 this->the_status = py::cast<const std::string>(py_method());
             }
             CATCH_PY_EXCEPTION
         } else {
+            py::gil_scoped_release no_gil;
             this->the_status = TangoDeviceImpl::dev_status();
         };
         return this->the_status.c_str();
@@ -159,9 +141,7 @@ class Device_XImplTrampoline : public TangoDeviceImpl {
 
     void signal_handler(long signo) override {
         try {
-            CALL_VOID_METHOD(signal_handler,
-                             TangoDeviceImpl,
-                             signo)
+            CALL_VOID_METHOD_KEEP_GIL(signal_handler, TangoDeviceImpl, signo)
         } catch(Tango::DevFailed &df) {
             unsigned int nb_err = df.errors.length();
             df.errors.length(nb_err + 1);
@@ -179,6 +159,39 @@ class Device_XImplTrampoline : public TangoDeviceImpl {
             Tango::Except::print_exception(df);
         }
     }
+
+#if defined(PYTANGO_USE_TELEMETRY)
+
+    void enable_telemetry() noexcept override {
+        TangoDeviceImpl::enable_telemetry();
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_telemetry_reconfigured)
+    }
+
+    void disable_telemetry() noexcept override {
+        TangoDeviceImpl::disable_telemetry();
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_telemetry_reconfigured)
+    }
+
+    void set_telemetry_tracing(bool enable_flag) noexcept override {
+        TangoDeviceImpl::set_telemetry_tracing(enable_flag);
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_telemetry_reconfigured)
+    }
+
+    void set_telemetry_tracing_endpoints(std::vector<Tango::telemetry::Configuration::Collector> collectors) override {
+        TangoDeviceImpl::set_telemetry_tracing_endpoints(collectors);
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_telemetry_reconfigured)
+    }
+
+    void add_telemetry_tracing_endpoint(Tango::telemetry::Configuration::Collector collector) override {
+        TangoDeviceImpl::add_telemetry_tracing_endpoint(collector);
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_telemetry_reconfigured)
+    }
+
+    void remove_telemetry_tracing_endpoint(Tango::telemetry::Configuration::Collector collector) override {
+        TangoDeviceImpl::remove_telemetry_tracing_endpoint(collector);
+        CALL_PURE_VOID_METHOD_KEEP_GIL(_telemetry_reconfigured)
+    }
+#endif
 };
 
 #endif // _DEVICE_IMPL_H

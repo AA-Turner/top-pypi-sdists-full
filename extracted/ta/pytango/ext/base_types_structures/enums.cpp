@@ -8,6 +8,7 @@
 #include "convertors/type_casters.h"
 #include "pyutils.h"
 
+// clang-format off
 void export_enums(py::module_ &m) {
     py::native_enum<Tango::LockerLanguage>(m,
                                            "LockerLanguage",
@@ -15,7 +16,7 @@ void export_enums(py::module_ &m) {
                                            R"doc(
     An enumeration representing the programming language in which the client application who locked is written.
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("CPP", Tango::CPP, "C++/Python language")
         .value("JAVA", Tango::JAVA, "Java language")
         .value("CPP_6", Tango::CPP_6, "C++/Python language, IDL 6")
@@ -115,7 +116,7 @@ void export_enums(py::module_ &m) {
                                         R"doc(
     An enumeration representing the MessBoxType
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("STOP", Tango::STOP)
         .value("INFO", Tango::INFO)
         .finalize();
@@ -128,7 +129,7 @@ void export_enums(py::module_ &m) {
                                         R"doc(
     An enumeration representing the PollObjType
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("POLL_CMD", Tango::POLL_CMD)
         .value("POLL_ATTR", Tango::POLL_ATTR)
         .value("EVENT_HEARTBEAT", Tango::EVENT_HEARTBEAT)
@@ -143,7 +144,7 @@ void export_enums(py::module_ &m) {
                                         R"doc(
     An enumeration representing the PollCmdCode
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("POLL_ADD_OBJ", Tango::POLL_ADD_OBJ)
         .value("POLL_REM_OBJ", Tango::POLL_REM_OBJ)
         .value("POLL_START", Tango::POLL_START)
@@ -187,7 +188,7 @@ void export_enums(py::module_ &m) {
                                         R"doc(
     An enumeration representing the LockCmdCode
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("LOCK_ADD_DEV", Tango::LOCK_ADD_DEV)
         .value("LOCK_REM_DEV", Tango::LOCK_REM_DEV)
         .value("LOCK_UNLOCK_ALL_EXIT", Tango::LOCK_UNLOCK_ALL_EXIT)
@@ -202,7 +203,7 @@ void export_enums(py::module_ &m) {
                                      R"doc(
     An enumeration representing the LogLevel
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("LOG_OFF", Tango::LOG_OFF)
         .value("LOG_FATAL", Tango::LOG_FATAL)
         .value("LOG_ERROR", Tango::LOG_ERROR)
@@ -219,7 +220,7 @@ void export_enums(py::module_ &m) {
                                       R"doc(
     An enumeration representing the LogTarget
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("LOG_CONSOLE", Tango::LOG_CONSOLE)
         .value("LOG_FILE", Tango::LOG_FILE)
         .value("LOG_DEVICE", Tango::LOG_DEVICE)
@@ -257,7 +258,7 @@ void export_enums(py::module_ &m) {
                                             R"doc(
     An enumeration representing the AttrSerialModel
 
-    New in PyTango 7.1.0)doc")
+    .. versionadded:: 7.1.0)doc")
         .value("ATTR_NO_SYNC", Tango::ATTR_NO_SYNC)
         .value("ATTR_BY_KERNEL", Tango::ATTR_BY_KERNEL)
         .value("ATTR_BY_USER", Tango::ATTR_BY_USER)
@@ -271,7 +272,7 @@ void export_enums(py::module_ &m) {
                                              R"doc(
     An enumeration representing the KeepAliveCmdCode
 
-    New in PyTango 7.1.0)doc")
+    .. versionadded:: 7.1.0)doc")
         .value("EXIT_TH", Tango::EXIT_TH)
         .finalize();
     py::object keep_alive_cmd_code_class = m.attr("KeepAliveCmdCode");
@@ -283,7 +284,7 @@ void export_enums(py::module_ &m) {
                                               R"doc(
     An enumeration representing the AccessControlType
 
-    New in PyTango 7.0.0)doc")
+    .. versionadded:: 7.0.0)doc")
         .value("ACCESS_READ", Tango::ACCESS_READ)
         .value("ACCESS_WRITE", Tango::ACCESS_WRITE)
         .finalize();
@@ -561,3 +562,5 @@ void export_enums(py::module_ &m) {
     py::object image_format_class = m.attr("_ImageFormat");
     add_names_values_to_native_enum(image_format_class);
 }
+
+// clang-format on

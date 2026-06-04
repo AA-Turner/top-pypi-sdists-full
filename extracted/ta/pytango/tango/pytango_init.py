@@ -11,33 +11,32 @@ __docformat__ = "restructuredtext"
 
 import numpy
 
+from tango._tango import _get_tango_lib_release, constants
 from tango.attribute_proxy import attribute_proxy_init
+from tango.auto_monitor import auto_monitor_init
 from tango.base_types import base_types_init
-from tango.encoded_attribute import encoded_attribute_init
 from tango.connection import connection_init
 from tango.db import db_init
 from tango.device_attribute import device_attribute_init
 from tango.device_class import device_class_init
 from tango.device_proxy import device_proxy_init
 from tango.device_server import device_server_init
+from tango.encoded_attribute import encoded_attribute_init
 from tango.group import group_init
 from tango.group_reply import group_reply_init
 from tango.pytango_pprint import pytango_pprint_init
 from tango.pyutil import pyutil_init
 from tango.time_val import time_val_init
-from tango.auto_monitor import auto_monitor_init
-from tango._tango import constants
-from tango._tango import _get_tango_lib_release
 
 __INITIALIZED = False
 
 
 def init_constants():
-    import sys
     import platform
+    import sys
 
     tg_ver = tuple(map(int, constants.TgLibVers.split(".")))
-    tg_ver_str = "0x%02d%02d%02d00" % (tg_ver[0], tg_ver[1], tg_ver[2])
+    tg_ver_str = f"0x{tg_ver[0]:02d}{tg_ver[1]:02d}{tg_ver[2]:02d}00"
     constants.TANGO_VERSION_HEX = int(tg_ver_str, 16)
 
     PYBIND11_VERSION = ".".join(

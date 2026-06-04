@@ -2,8 +2,8 @@
 stages:
   - check
   - build
-  - image
   - test
+  - pre-release
   - release
 
 default:
@@ -17,10 +17,10 @@ include:
     file: 'ArchiveWithSubmodules.gitlab-ci.yml'
 
 variables:
-  CPP_TANGO_VERSION: "10.1.2"
-  CPP_TANGO_VERSION_TAG: "10.1.2"
-  LINUX_WHEEL_DOCKER_IMAGE_VERSION: "2.1.2"
-  TANGO_TEST_VERSION: "3.12"
+  CPP_TANGO_VERSION: "10.3.2"
+  CPP_TANGO_VERSION_TAG: "10.3.2"
+  LINUX_WHEEL_DOCKER_IMAGE_VERSION: "2.3.2"
+  TANGO_TEST_VERSION: "3.14"
   PYTHONUNBUFFERED: "1"
   FF_USE_WINDOWS_JOB_OBJECT: 1
 
@@ -83,26 +83,26 @@ run-triage:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
-run-pre-commit:
+run-prek:
   stage: check
-  image: registry.gitlab.com/tango-controls/docker/pre-commit
+  image: registry.gitlab.com/tango-controls/docker/prek:0.3.8
   tags:
     - linux
     - docker
     - amd64
   variables:
-    PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+    PREK_HOME: ${CI_PROJECT_DIR}/.cache/prek
   cache:
-    key: pre-commit-cache
+    key: prek-cache
     paths:
-      - ${PRE_COMMIT_HOME}
+      - ${PREK_HOME}
   script:
-    - pre-commit run --all-files
+    - prek run --all-files --show-diff-on-failure
 
 test-docs:
   # official build is on https://readthedocs.org/projects/pytango/ but we test doc generation
   stage: test
-  image: ghcr.io/prefix-dev/pixi:latest
+  image: ghcr.io/prefix-dev/pixi:0.70.0
   tags:
     - linux
     - docker
@@ -121,6 +121,30 @@ test-docs:
     auto_stop_in: 1 week
     url: "https://$CI_PROJECT_NAMESPACE.gitlab.io/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/build/sphinx/index.html"
 
+generate-pypi-attestations:
+  stage: pre-release
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm
+  needs:
+    - job: linux:build-sdist
+      artifacts: true
+    - job: linux:build-wheel
+      artifacts: true
+    - job: macos:build-wheel
+      artifacts: true
+    - job: win:build-wheel
+      artifacts: true
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    # See https://docs.pypi.org/attestations/producing-attestations/#gitlab-cicd
+    - uvx --with pypi-attestations python -m pypi_attestations sign dist/pytango-*
+  artifacts:
+    paths:
+      - dist/pytango-*.attestation
+  rules:
+    - !reference [.rules-wheel, rules]
+
 release-pypi-package:
   stage: release
   image: ghcr.io/astral-sh/uv:python3.13-bookworm
@@ -129,7 +153,7 @@ release-pypi-package:
       aud: pypi
   script:
     # See https://docs.pypi.org/trusted-publishers/using-a-publisher/#gitlab-cicd
-    - uvx twine upload --verbose dist/pytango-*
+    - uvx twine upload --verbose --attestations dist/pytango-*
   environment:
     name: release
   rules:

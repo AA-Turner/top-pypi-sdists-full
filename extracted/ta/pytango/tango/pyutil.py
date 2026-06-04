@@ -6,43 +6,43 @@ This is an internal PyTango module.
 """
 
 __all__ = (
-    "Util",
-    "pyutil_init",
+    "EnsureOmniThread",
     "TimedAttrData",
     "TimedCmdData",
-    "EnsureOmniThread",
+    "Util",
     "is_omni_thread",
+    "pyutil_init",
 )
 
 __docformat__ = "restructuredtext"
 
-import os
-import sys
-import re
+import collections.abc
 import copy
-
+import os
+import re
+import sys
 from argparse import ArgumentParser
+from collections.abc import Callable
+from typing import Any
 
-from tango import AttrQuality
+from tango import AttrQuality, DeviceImpl
 from tango._tango import (
-    Util,
-    Except,
-    DevFailed,
     DbDevInfo,
+    DevFailed,
     EnsureOmniThread,
-    is_omni_thread,
+    Except,
+    Util,
     _telemetry,
+    is_omni_thread,
 )
-
+from tango.device_class import DeviceClass
+from tango.globals import class_list, cpp_class_list, get_constructed_classes
 from tango.utils import (
     PyTangoHelpFormatter,
-    is_non_str_seq,
-    _InterfaceDefinedByIDL,
     _exception_converter,
+    _InterfaceDefinedByIDL,
+    is_non_str_seq,
 )
-from tango.globals import class_list, cpp_class_list, get_constructed_classes
-
-import collections.abc
 
 
 class TimedAttrData(_InterfaceDefinedByIDL):
@@ -55,23 +55,26 @@ class TimedAttrData(_InterfaceDefinedByIDL):
     :param quality: quality of value. `Default:` :obj:`tango.AttrQuality.ATTR_VALID`
     :type quality: :obj:`tango.AttrQuality`
 
-    :param w_value: corresponding written value. Note: should be present only for writable attributes `Default:` :obj:`None`
+    :param w_value: corresponding written value.
+                    Note: should be present only for writable attributes `Default:` :obj:`None`
     :type w_value: any type compatible with the Tango attribute's dtype
 
-    :param error: if the error reading should be inserted. Note: error has a priority over value! `Default:` :obj:`None`
+    :param error: if the error reading should be inserted.
+                  Note: error has a priority over value! `Default:` :obj:`None`
     :type error: :obj:`Exception` or :obj:`tango.DevFailed`
 
-    :param time_stamp: value time stamp in seconds passed since epoch. If not provided, the current system time will be used `Default:` :obj:`None`
+    :param time_stamp: value time stamp in seconds passed since epoch.
+                       If not provided, the current system time will be used `Default:` :obj:`None`
     :type time_stamp: :obj:`float`
     """
 
     def __init__(
         self,
-        value=None,
-        quality=AttrQuality.ATTR_VALID,
-        w_value=None,
-        error=None,
-        time_stamp=None,
+        value: Any = None,
+        quality: AttrQuality = AttrQuality.ATTR_VALID,
+        w_value: Any = None,
+        error: Exception | None = None,
+        time_stamp: float | None = None,
     ):
         self.value = value
         self.quality = quality
@@ -88,18 +91,20 @@ class TimedCmdData(_InterfaceDefinedByIDL):
     :param value: value to be inserted in polling history. `Default:` :obj:`None`
     :type value: any type compatible with the Tango commands's dtype
 
-    :param error: if the error reading should be inserted. Note: error has a priority over value! `Default:` :obj:`None`
+    :param error: if the error reading should be inserted.
+                  Note: error has a priority over value! `Default:` :obj:`None`
     :type error: :obj:`Exception` or :obj:`tango.DevFailed`
 
-    :param time_stamp: value time stamp in seconds passed since epoch. If not provided, the current system time will be used `Default:` :obj:`None`
+    :param time_stamp: value time stamp in seconds passed since epoch.
+                       If not provided, the current system time will be used `Default:` :obj:`None`
     :type time_stamp: :obj:`float`
     """
 
     def __init__(
         self,
-        value=None,
-        error=None,
-        time_stamp=None,
+        value: Any = None,
+        error: Exception | None = None,
+        time_stamp: float | None = None,
     ):
         self.value = value
         self.error = error
@@ -120,49 +125,51 @@ def __simplify_device_name(dev_name):
 #
 
 
-def __Util__get_class_list(self):
+def __Util__get_class_list(self) -> list[DeviceClass]:
     """
-    get_class_list(self) -> seq<DeviceClass>
-
-            Returns a list of objects of inheriting from DeviceClass
-
-        Parameters : None
-
-        Return     : (seq<DeviceClass>) a list of objects of inheriting from DeviceClass
+    Returns a list of objects of inheriting from DeviceClass
     """
     return get_constructed_classes()
 
 
-def __Util__create_device(self, klass_name, device_name, alias=None, cb=None):
+def __Util__create_device(
+    self, klass_name: str, device_name: str, alias: str | None = None, cb: Callable | None = None
+) -> None:
     """
     create_device(self, klass_name, device_name, alias=None, cb=None) -> None
 
-        Creates a new device of the given class in the database, creates a new
-        DeviceImpl for it and calls init_device (just like it is done for
-        existing devices when the DS starts up)
+    Creates a new device of the given class in the database, creates a new
+    DeviceImpl for it and calls init_device (just like it is done for
+    existing devices when the DS starts up)
 
-        An optional parameter callback is called AFTER the device is
-        registered in the database and BEFORE the init_device for the
-        newly created device is called
+    An optional parameter callback is called AFTER the device is
+    registered in the database and BEFORE the init_device for the
+    newly created device is called
 
-        Throws tango.DevFailed:
-            - the device name exists already or
-            - the given class is not registered for this DS.
-            - the cb is not a callable
+    :param klass_name: the device class name
+    :type klass_name: :obj:`str`
 
-    New in PyTango 7.1.2
+    :param device_name: the device name
+    :type device_name: :obj:`str`
 
-    Parameters :
-        - klass_name : (str) the device class name
-        - device_name : (str) the device name
-        - alias : (str) optional alias. Default value is None meaning do not create device alias
-        - cb : (callable) a callback that is called AFTER the device is registered
+    :param alias: optional alias. Default value is None meaning do not create device alias
+    :type alias: :obj:`str`
+
+    :param cb: a callback that is called AFTER the device is registered
                in the database and BEFORE the init_device for the newly created
                device is called. Typically you may want to put device and/or attribute
                properties in the database here. The callback must receive a parameter
                device_name (str). Default value is None meaning no callback
+    :type cb: :obj:`typing.Callable`
 
-    Return     : None"""
+    :throws: :py:obj:`~tango.DevFailed`: \n
+             - the device name exists already or \n
+             - the given class is not registered for this DS. \n
+             - the cb is not a callable
+
+    .. versionadded:: 7.1.2
+
+    """
     if cb is not None and not isinstance(cb, collections.abc.Callable):
         Except.throw_exception(
             "PyAPI_InvalidParameter",
@@ -178,7 +185,7 @@ def __Util__create_device(self, klass_name, device_name, alias=None, cb=None):
     try:
         db.import_device(device_name)
     except DevFailed as df:
-        device_exists = not df.args[0].reason == "DB_DeviceNotDefined"
+        device_exists = df.args[0].reason != "DB_DeviceNotDefined"
 
     # 1 - Make sure device name doesn't exist already in the database
     if device_exists:
@@ -232,24 +239,24 @@ def __Util__create_device(self, klass_name, device_name, alias=None, cb=None):
         db.delete_device(device_name)
 
 
-def __Util__delete_device(self, klass_name, device_name):
+def __Util__delete_device(self, klass_name: str, device_name: str) -> None:
     """
-    delete_device(self, klass_name, device_name) -> None
+    Deletes an existing device from the database and from this running
+    server
 
-        Deletes an existing device from the database and from this running
-        server
+    :param klass_name: the device class name
+    :type klass_name: :obj:`str`
 
-        Throws tango.DevFailed:
-            - the device name doesn't exist in the database
-            - the device name doesn't exist in this DS.
+    :param device_name: the device name
+    :type device_name: :obj:`str`
 
-    New in PyTango 7.1.2
+    :throws: :py:obj:`~tango.DevFailed`: \n
+             - the device name doesn't exist in the database \n
+             - the device name doesn't exist in this DS.
 
-    Parameters :
-        - klass_name : (str) the device class name
-        - device_name : (str) the device name
+    .. versionadded:: 7.1.2
 
-    Return     : None"""
+    """
 
     db = self.get_database()
     device_name = __simplify_device_name(device_name)
@@ -257,7 +264,7 @@ def __Util__delete_device(self, klass_name, device_name):
     try:
         db.import_device(device_name)
     except DevFailed as df:
-        device_exists = not df.args[0].reason == "DB_DeviceNotDefined"
+        device_exists = df.args[0].reason != "DB_DeviceNotDefined"
 
     # 1 - Make sure device name exists in the database
     if not device_exists:
@@ -313,43 +320,46 @@ def __check_arg_for_polling_buffer(history_stack, expected_type, parameter_name)
     return history_stack
 
 
-def __Util__fill_attr_polling_buffer(self, device, attribute_name, attr_history_stack):
+def __Util__fill_attr_polling_buffer(
+    self,
+    device: DeviceImpl,
+    attribute_name: str,
+    attr_history_stack: TimedAttrData | list[TimedAttrData],
+) -> None:
     """
-    fill_attr_polling_buffer(self, device, attribute_name, attr_history_stack) -> None
+    Fill attribute polling buffer with your own data. E.g.:
 
-        Fill attribute polling buffer with your own data. E.g.:
+    .. code-block:: python
 
-        .. code-block:: python
+        def fill_history():
+            util = Util.instance(False)
+            # note is such case quality will ATTR_VALID, and time_stamp will be time.time()
+            util.fill_attr_polling_buffer(device, attribute_name, TimedAttrData(my_new_value))
 
-            def fill_history():
-                util = Util.instance(False)
-                # note is such case quality will ATTR_VALID, and time_stamp will be time.time()
-                util.fill_attr_polling_buffer(device, attribute_name, TimedAttrData(my_new_value))
+    or:
 
-        or:
+    .. code-block:: python
 
-        .. code-block:: python
+        def fill_history():
+            util = Util.instance(False)
 
-            def fill_history():
-                util = Util.instance(False)
+            data = TimedAttrData(value=my_new_value,
+                                 quality=AttrQuality.ATTR_WARNING,
+                                 w_value=my_new_w_value,
+                                 time_stamp=my_time)
 
-                data = TimedAttrData(value=my_new_value,
-                                     quality=AttrQuality.ATTR_WARNING,
-                                     w_value=my_new_w_value,
-                                     time_stamp=my_time)
+            util.fill_attr_polling_buffer(device, attribute_name, data)
 
-                util.fill_attr_polling_buffer(device, attribute_name, data)
+    or:
 
-        or:
+    .. code-block:: python
 
-        .. code-block:: python
+        def fill_history():
+            util = Util.instance(False)
+            data = [TimedAttrData(my_new_value),
+                    TimedAttrData(error=RuntimeError("Cannot read value")]
 
-            def fill_history():
-                util = Util.instance(False)
-                data = [TimedAttrData(my_new_value),
-                        TimedAttrData(error=RuntimeError("Cannot read value")]
-
-                util.fill_attr_polling_buffer(device, attribute_name, data)
+            util.fill_attr_polling_buffer(device, attribute_name, data)
 
     :param device: the device to fill attribute polling buffer
     :type device: :obj:`tango.DeviceImpl`
@@ -360,56 +370,54 @@ def __Util__fill_attr_polling_buffer(self, device, attribute_name, attr_history_
     :param attr_history_stack: data to be inserted.
     :type attr_history_stack: :obj:`tango.TimedAttrData` or list[:obj:`tango.TimedAttrData`]
 
-    :return: None
-
     :raises: :obj:`tango.DevFailed`
 
     .. versionadded:: 10.1.0
     """
 
-    attr_history_stack = __check_arg_for_polling_buffer(
-        attr_history_stack, TimedAttrData, "attr_history_stack"
-    )
+    attr_history_stack = __check_arg_for_polling_buffer(attr_history_stack, TimedAttrData, "attr_history_stack")
 
     self._fill_attr_polling_buffer(device, attribute_name, attr_history_stack)
 
 
-def __Util__fill_cmd_polling_buffer(self, device, command_name, cmd_history_stack):
+def __Util__fill_cmd_polling_buffer(
+    self,
+    device: DeviceImpl,
+    command_name: str,
+    cmd_history_stack: TimedCmdData | list[TimedCmdData],
+) -> None:
     """
-    fill_cmd_polling_buffer(self, device, command_name, attr_history_stack) -> None
+    Fill attribute polling buffer with your own data. E.g.:
 
-        Fill attribute polling buffer with your own data. E.g.:
+    .. code-block:: python
 
+        def fill_history():
+            util = Util.instance(False)
+            # note is such time_stamp will be set to time.time()
+            util.fill_cmd_polling_buffer(device, command_name, TimedCmdData(my_new_value))
 
-        .. code-block:: python
+    or:
 
-            def fill_history():
-                util = Util.instance(False)
-                # note is such time_stamp will be set to time.time()
-                util.fill_cmd_polling_buffer(device, command_name, TimedCmdData(my_new_value))
+    .. code-block:: python
 
-        or:
+        def fill_history():
+            util = Util.instance(False)
 
-        .. code-block:: python
+            data = TimedCmdData(value=my_new_value,
+                                 time_stamp=my_time)
 
-            def fill_history():
-                util = Util.instance(False)
+            util.fill_cmd_polling_buffer(device, command_name, data)
 
-                data = TimedCmdData(value=my_new_value,
-                                     time_stamp=my_time)
+    or:
 
-                util.fill_cmd_polling_buffer(device, command_name, data)
+    .. code-block:: python
 
-        or:
+        def fill_history():
+            util = Util.instance(False)
+            data = [TimedCmdData(my_new_value),
+                    TimedCmdData(error=RuntimeError("Cannot read value")]
 
-        .. code-block:: python
-
-            def fill_history():
-                util = Util.instance(False)
-                data = [TimedCmdData(my_new_value),
-                        TimedCmdData(error=RuntimeError("Cannot read value")]
-
-                util.fill_cmd_polling_buffer(device, command_name, data)
+            util.fill_cmd_polling_buffer(device, command_name, data)
 
 
     :param device: the device to fill command polling buffer
@@ -421,16 +429,12 @@ def __Util__fill_cmd_polling_buffer(self, device, command_name, cmd_history_stac
     :param cmd_history_stack: data to be inserted
     :type cmd_history_stack: :obj:`tango.TimedCmdData` or list[:obj:`tango.TimedCmdData`]
 
-    :return: None
-
     :raises: :obj:`tango.DevFailed`
 
     .. versionadded:: 10.1.0
     """
 
-    cmd_history_stack = __check_arg_for_polling_buffer(
-        cmd_history_stack, TimedCmdData, "cmd_history_stack"
-    )
+    cmd_history_stack = __check_arg_for_polling_buffer(cmd_history_stack, TimedCmdData, "cmd_history_stack")
 
     self._fill_cmd_polling_buffer(device, command_name, cmd_history_stack)
 
@@ -438,24 +442,20 @@ def __Util__fill_cmd_polling_buffer(self, device, command_name, cmd_history_stac
 def parse_args(args):
     parser = ArgumentParser(
         prog=os.path.splitext(args[0])[0],
-        usage="%(prog)s instance_name [-v[trace level]] "
-        + "[-host] [-port] [-file=<file_name> | -nodb [-dlist]]",
+        usage="%(prog)s instance_name [-v[trace level]] [-host] [-port] [-file=<file_name> | -nodb [-dlist]]",
         add_help=False,
         formatter_class=PyTangoHelpFormatter,
     )
 
     parser.add_argument("instance_name", nargs="+", help="Device server instance name")
-    parser.add_argument(
-        "-h", "-?", "--help", action="help", help="show this help message and exit"
-    )
+    parser.add_argument("-h", "-?", "--help", action="help", help="show this help message and exit")
 
     parser.add_argument(
         "-v",
         "--verbose",
         dest="verbose",
         action="count",
-        help="set the trace level. "
-        + "Can be used in count way: -vv or --verbose --verbose",
+        help="set the trace level. Can be used in count way: -vv or --verbose --verbose",
     )
     # this option won't be used, since we manually pop all -vN and -v N arguments, but we have to display help about it
     parser.add_argument(
@@ -539,8 +539,7 @@ def parse_args(args):
     )
 
     group = parser.add_argument_group(
-        "ORB options (started with -ORBxxx):"
-        + "options directly passed to the underlying ORB. Should be rarely used"
+        "ORB options (started with -ORBxxx): options directly passed to the underlying ORB. Should be rarely used"
     )
 
     group.add_argument(
@@ -549,8 +548,7 @@ def parse_args(args):
         dest="ORBendPoint",
         action="store",
         metavar="giop:tcp:<host>:<port>",
-        help="Specifying the host from which server accept "
-        "requests and port on which the device server listens.",
+        help="Specifying the host from which server accept requests and port on which the device server listens.",
     )
 
     group.add_argument(
@@ -578,12 +576,16 @@ def parse_args(args):
             verbose = int(re.findall(r"\d+", arg)[0])
             args.remove(arg)
             break
-        if len(arg) == 2 and re.match(r"-[vV]", arg) is not None:
-            if ind + 1 < len(args) and re.match(r"\d+", args[ind + 1]) is not None:
-                verbose = int(args[ind + 1])
-                args.pop(ind + 1)
-                args.remove(arg)
-                break
+        if (
+            len(arg) == 2
+            and re.match(r"-[vV]", arg) is not None
+            and ind + 1 < len(args)
+            and re.match(r"\d+", args[ind + 1]) is not None
+        ):
+            verbose = int(args[ind + 1])
+            args.pop(ind + 1)
+            args.remove(arg)
+            break
 
     parsed_args = parser.parse_args(args[1:])
 
@@ -591,9 +593,7 @@ def parse_args(args):
         parsed_args.ORBendPoint = f"giop:tcp:{parsed_args.host:s}:{parsed_args.port:s}"
 
     if parsed_args.nodb and parsed_args.ORBendPoint is None:
-        raise SystemExit(
-            "-nodb option should used with [-host] -port or -ORBendPoint options"
-        )
+        raise SystemExit("-nodb option should used with [-host] -port or -ORBendPoint options")
 
     if parsed_args.dlist is not None and not parsed_args.nodb:
         raise SystemExit("-dlist should be used only with -nodb option")
@@ -639,13 +639,15 @@ def __Util__init(args):
 
 
 def __Util__add_TgClass(self, klass_device_class, klass_device, device_class_name=None):
-    """Register a new python tango class. Example::
+    """
+    Register a new python tango class. Example::
 
         util.add_TgClass(MotorClass, Motor)
         util.add_TgClass(MotorClass, Motor, 'Motor') # equivalent to previous line
 
     .. deprecated:: 7.1.2
-        Use :meth:`tango.Util.add_class` instead."""
+        Use :meth:`tango.Util.add_class` instead.
+    """
     if device_class_name is None:
         device_class_name = klass_device.__name__
     class_list.append((klass_device_class, klass_device, device_class_name))
@@ -671,16 +673,18 @@ def __Util__add_class(self, *args, **kwargs):
     """
     add_class(self, class<DeviceClass>, class<DeviceImpl>, language="python") -> None
 
-        Register a new tango class ('python' or 'c++').
+    Register a new tango class ('python' or 'c++').
 
-        If language is 'python' then args must be the same as
-        :meth:`tango.Util.add_TgClass`. Otherwise, args should be the ones
-        in :meth:`tango.Util.add_Cpp_TgClass`. Example::
+    If language is 'python' then args must be the same as
+    :meth:`tango.Util.add_TgClass`. Otherwise, args should be the ones
+    in :meth:`tango.Util.add_Cpp_TgClass`. Example::
 
-            util.add_class(MotorClass, Motor)
-            util.add_class('CounterClass', 'Counter', language='c++')
+        util.add_class(MotorClass, Motor)
+        util.add_class('CounterClass', 'Counter', language='c++')
 
-    New in PyTango 7.1.2"""
+    .. versionadded:: 7.1.2
+
+    """
     language = kwargs.get("language", "python")
     f = self.add_TgClass
     if language != "python":

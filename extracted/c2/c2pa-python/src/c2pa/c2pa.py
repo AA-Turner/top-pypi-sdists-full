@@ -1425,7 +1425,12 @@ class Settings(ManagedResource):
         super().__init__()
 
         ptr = _lib.c2pa_settings_new()
-        _check_ffi_operation_result(ptr, "Failed to create Settings")
+        try:
+            _check_ffi_operation_result(ptr, "Failed to create Settings")
+        except Exception:
+            if ptr:
+                ManagedResource._free_native_ptr(ptr)
+            raise
 
         self._handle = ptr
         self._lifecycle_state = LifecycleState.ACTIVE
@@ -1807,7 +1812,17 @@ class Stream:
                 if not data or length <= 0:
                     return -1
 
-                buffer = self._file_like_stream.read(length)
+                stream = self._file_like_stream
+                readinto = getattr(stream, "readinto", None)
+                if readinto is not None:
+                    # Most streams have readinto
+                    buf = (ctypes.c_char * length).from_address(
+                        ctypes.addressof(data.contents))
+                    n = readinto(buf)
+                    return n if n else 0
+
+                # Fallback for streams without readinto.
+                buffer = stream.read(length)
                 if not buffer:  # EOF
                     return 0
 
@@ -1841,8 +1856,10 @@ class Stream:
             if not self._initialized or self._closed:
                 return -1
             try:
-                file_stream.seek(offset, whence)
-                return file_stream.tell()
+                # Fall back to tell() only for stream objects that do not
+                # return the new absolute position and return None.
+                pos = file_stream.seek(offset, whence)
+                return pos if pos is not None else file_stream.tell()
             except Exception:
                 return -1
 
@@ -2403,11 +2420,16 @@ class Reader(ManagedResource):
             reader_ptr = _lib.c2pa_reader_from_context(
                 context.execution_context,
             )
-            _check_ffi_operation_result(reader_ptr,
-                Reader._ERROR_MESSAGES[
-                    'reader_error'
-                ].format("Unknown error")
-            )
+            try:
+                _check_ffi_operation_result(reader_ptr,
+                    Reader._ERROR_MESSAGES[
+                        'reader_error'
+                    ].format("Unknown error")
+                )
+            except Exception:
+                if reader_ptr:
+                    ManagedResource._free_native_ptr(reader_ptr)
+                raise
 
             if manifest_data is not None:
                 if not isinstance(manifest_data, bytes):
@@ -3176,11 +3198,16 @@ class Builder(ManagedResource):
         builder_ptr = _lib.c2pa_builder_from_context(
             context.execution_context,
         )
-        _check_ffi_operation_result(builder_ptr,
-            Builder._ERROR_MESSAGES[
-                'builder_error'
-            ].format("Unknown error")
-        )
+        try:
+            _check_ffi_operation_result(builder_ptr,
+                Builder._ERROR_MESSAGES[
+                    'builder_error'
+                ].format("Unknown error")
+            )
+        except Exception:
+            if builder_ptr:
+                ManagedResource._free_native_ptr(builder_ptr)
+            raise
 
         # Consume-and-return: builder_ptr is consumed,
         # new_ptr is the valid pointer going forward

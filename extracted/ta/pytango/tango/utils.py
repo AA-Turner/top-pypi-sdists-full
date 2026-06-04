@@ -5,128 +5,112 @@
 This is an internal PyTango module.
 """
 
-
-import atexit
 import collections.abc
 import contextlib
-import logging
-import os
-import re
-import socket
-import sys
-import types
-import numbers
-import inspect
 import enum
-import threading
-import warnings
 import functools
-import weakref
+import inspect
+import numbers
+import os
+import sys
+import threading
 import time
-
+import types
 import typing
-import numpy as np
-
+import weakref
 from argparse import HelpFormatter
-from collections import namedtuple
-from contextvars import ContextVar
 from urllib.parse import urlparse, urlunparse
 
+import numpy as np
 from packaging.version import Version
 
 from tango import (
-    __auto_die_callbacks_holder,
+    AttrConfEventData,
+    AttrDataFormat,
     AttrQuality,
-    StdStringVector,
-    StdDoubleVector,
+    CmdArgType,
+    Database,
+    DataReadyEventData,
     DbData,
     DbDatum,
-    DbDevInfos,
     DbDevExportInfos,
-    CmdArgType,
-    AttrDataFormat,
-    EventData,
-    EventReason,
-    AttrConfEventData,
-    DataReadyEventData,
+    DbDevInfos,
     DevFailed,
-    DevState,
-    DevIntrChangeEventData,
-    Database,
-    ApiUtil,
-    EnsureOmniThread,
     DeviceData,
     DeviceDataList,
     DeviceProxy,
-    Except,
+    DevIntrChangeEventData,
+    DevState,
+    EnsureOmniThread,
     ErrSeverity,
-    LockerLanguage,
-    is_omni_thread,
+    EventData,
+    EventReason,
+    Except,
+    StdDoubleVector,
+    StdStringVector,
+    __auto_die_callbacks_holder,
+    _tango,
 )
-
-from tango import _tango
-
-from tango._tango import _telemetry, __CallBackAutoDie, __Group
+from tango._tango import __CallBackAutoDie, __Group
+from tango._warnings import warn_once
 from tango.constants import (
     AlrmValueNotSpec,
     StatusNotSet,
     TgLibVers,
-    TELEMETRY_SUPPORTED,
 )
 from tango.release import Release
+from tango.telemetry import (
+    get_telemetry_tracer_provider_factory as _telemetry_get_tracer_provider_factory,
+)
+from tango.telemetry import (
+    set_telemetry_tracer_provider_factory as _telemetry_set_tracer_provider_factory,
+)
 
 __all__ = (
-    "requires_pytango",
-    "requires_tango",
-    "is_pure_str",
-    "is_seq",
-    "is_non_str_seq",
-    "is_integer",
-    "is_number",
-    "is_scalar_type",
-    "is_array_type",
-    "is_numerical_type",
-    "is_int_type",
-    "is_float_type",
-    "is_bool_type",
-    "is_binary_type",
-    "is_str_type",
-    "obj_2_str",
-    "seqStr_2_obj",
-    "scalar_to_array_type",
-    "document_method",
-    "document_static_method",
-    "CaselessList",
-    "CaselessDict",
-    "EventCallback",
-    "AsyncEventCallback",
-    "get_home",
-    "from_version_str_to_hex_str",
-    "from_version_str_to_int",
-    "seq_2_StdStringVector",
-    "StdStringVector_2_seq",
-    "dir2",
     "TO_TANGO_TYPE",
-    "ensure_binary",
+    "AsyncEventCallback",
+    "CaselessDict",
+    "CaselessList",
+    "EventCallback",
+    "InvalidTangoHostTrlError",
+    "PyTangoThread",
+    "PyTangoThreadPoolExecutor",
+    "StdStringVector_2_seq",
+    "_clear_test_context_tango_host_fqtrl",
+    "_get_command_inout_param",
     "_get_device_fqtrl_if_necessary",
     "_get_test_context_tango_host_fqtrl",
     "_set_test_context_tango_host_fqtrl",
-    "_clear_test_context_tango_host_fqtrl",
-    "InvalidTangoHostTrlError",
-    "PyTangoUserWarning",
-    "parse_type_hint",
-    "PyTangoThreadPoolExecutor",
-    "set_telemetry_tracer_provider_factory",
+    "dir2",
+    "document_method",
+    "document_static_method",
+    "ensure_binary",
+    "from_version_str_to_hex_str",
+    "from_version_str_to_int",
+    "get_home",
     "get_telemetry_tracer_provider_factory",
-    "_create_device_telemetry_tracer",
-    "_get_non_tango_source_location",
-    "_get_current_otel_context",
-    "_span_to_cpptango",
-    "_telemetry_active",
-    "_trace_client",
-    "_DummyTracer",
-    "_get_command_inout_param",
+    "is_array_type",
+    "is_binary_type",
+    "is_bool_type",
+    "is_float_type",
+    "is_int_type",
+    "is_integer",
+    "is_non_str_seq",
+    "is_number",
+    "is_numerical_type",
+    "is_pure_str",
+    "is_scalar_type",
+    "is_seq",
+    "is_str_type",
+    "obj_2_str",
     "parameter_2_dbdata",
+    "parse_type_hint",
+    "requires_pytango",
+    "requires_tango",
+    "scalar_to_array_type",
+    "seqStr_2_obj",
+    "seq_2_StdStringVector",
+    "set_telemetry_tracer_provider_factory",
 )
 
 __docformat__ = "restructuredtext"
@@ -292,7 +276,20 @@ __NO_STR_VALUE = AlrmValueNotSpec, StatusNotSet
 
 __device_classes = None
 
-bool_ = lambda value_str: value_str.lower() == "true"
+
+def strtobool(val):
+    """Convert a string representation of truth to True or False.
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return False
+    else:
+        raise ValueError(f"invalid truth value {val}")
 
 
 def __import(name):
@@ -312,10 +309,10 @@ def __requires(package_name, min_version=None, conflicts=(), software_name="Soft
             curr_version = Version(package.__version__)
         except ImportError:
             msg = f"Could not find package {package_name} required by {software_name}"
-            raise Exception(msg)
+            raise Exception(msg) from None
         except Exception:
             msg = f"Error importing package {package_name} required by {software_name}"
-            raise Exception(msg)
+            raise Exception(msg) from None
 
     if min_version is not None:
         min_version = Version(min_version)
@@ -358,7 +355,7 @@ def requires_pytango(min_version=None, conflicts=(), software_name="Software"):
 
     :raises Exception: if the required PyTango version is not met
 
-    New in PyTango 8.1.4
+    .. versionadded:: 8.1.4
     """
     return __requires(
         "pytango",
@@ -396,7 +393,7 @@ def requires_tango(min_version=None, conflicts=(), software_name="Software"):
 
     :raises Exception: if the required Tango version is not met
 
-    New in PyTango 8.1.4
+    .. versionadded:: 8.1.4
     """
     return __requires(
         "Tango",
@@ -431,9 +428,7 @@ def set_complex_value(attr, value):
     else:
         n_vals = len(value)
         if (n_vals > 2 and isinstance(value[2], AttrQuality)) or (
-            n_vals > 3
-            and attr.get_data_type() == CmdArgType.DevEncoded
-            and isinstance(value[3], AttrQuality)
+            n_vals > 3 and attr.get_data_type() == CmdArgType.DevEncoded and isinstance(value[3], AttrQuality)
         ):
             attr.set_value_date_quality(*value)
         else:
@@ -464,10 +459,7 @@ def get_tango_type(obj):
     try:
         ndim, dtype = obj.ndim, str(obj.dtype)
         if ndim > 2:
-            raise TypeError(
-                f"cannot translate numpy array with {obj.ndim} "
-                f"dimensions to tango type"
-            )
+            raise TypeError(f"cannot translate numpy array with {obj.ndim} dimensions to tango type")
         return TO_TANGO_TYPE[dtype], AttrDataFormat(ndim)
     except AttributeError:
         return __get_tango_type(obj)
@@ -511,13 +503,9 @@ def get_tango_type_format(dtype, dformat=None, caller=None):
                         dtype = dtype[0]
                         dformat = AttrDataFormat.IMAGE
                     elif caller == "attribute":
-                        raise TypeError(
-                            "Image attribute type must be specified as ((<dtype>,),)"
-                        )
+                        raise TypeError("Image attribute type must be specified as ((<dtype>,),)")
             elif caller == "attribute":
-                raise TypeError(
-                    "Spectrum attribute type must be specified as (<dtype>,)"
-                )
+                raise TypeError("Spectrum attribute type must be specified as (<dtype>,)")
 
     try:
         tango_type = TO_TANGO_TYPE[dtype]
@@ -527,11 +515,11 @@ def get_tango_type_format(dtype, dformat=None, caller=None):
                 f"Cannot translate {dtype!r} to TANGO type. See documentation for the allowed types. "
                 'If you are declaring type with type hints and using "from __future__ import annotations", '
                 "please read documentation to learn about limitations"
-            )
+            ) from None
         else:
             raise RuntimeError(
                 f"Cannot translate {dtype!r} to TANGO type. See documentation for the allowed types"
-            )
+            ) from None
 
     return tango_type, dformat
 
@@ -553,9 +541,8 @@ def __check_types_uniformity(dtype):
     if len(all_types) > 1:
         return False
     for sub_type in typing.get_args(dtype):
-        if typing.get_origin(sub_type) in [list, tuple]:
-            if not __check_types_uniformity(sub_type):
-                return False
+        if typing.get_origin(sub_type) in [list, tuple] and not __check_types_uniformity(sub_type):
+            return False
     return True
 
 
@@ -627,11 +614,7 @@ def parse_type_hint(annotation, caller):
             and typing.get_args(dtype)[1] in [tuple[str], list[str]]
         ):
             return "DevVarDoubleStringArray", dformat, max_x, max_y
-        if (
-            n_elements == 3
-            and typing.get_args(dtype)[1] is float
-            and typing.get_args(dtype)[2] == AttrQuality
-        ):
+        if n_elements == 3 and typing.get_args(dtype)[1] is float and typing.get_args(dtype)[2] == AttrQuality:
             dtype = typing.get_args(dtype)[0]
     if typing.get_origin(dtype) == np.ndarray:
         dtype = typing.get_args(typing.get_args(dtype)[1])[0]
@@ -643,38 +626,24 @@ def parse_type_hint(annotation, caller):
             max_x = len(typing.get_args(dtype))
         types_are_uniform = __check_types_uniformity(dtype)
         dtype = typing.get_args(dtype)[0]
-        dformat = (
-            AttrDataFormat.IMAGE
-            if typing.get_origin(dtype) in [list, tuple]
-            else AttrDataFormat.SPECTRUM
-        )
+        dformat = AttrDataFormat.IMAGE if typing.get_origin(dtype) in [list, tuple] else AttrDataFormat.SPECTRUM
 
         if caller in ["property", "command"] and dformat == AttrDataFormat.IMAGE:
             raise RuntimeError(f"{caller.capitalize()} does not support IMAGE type")
 
         if not types_are_uniform:
             if caller in ["property", "command"]:
-                raise RuntimeError(
-                    f"PyTango does not support mixed types in SPECTRUM {caller}"
-                )
+                raise RuntimeError(f"PyTango does not support mixed types in SPECTRUM {caller}")
             else:
                 if dformat == AttrDataFormat.IMAGE:
-                    raise RuntimeError(
-                        "PyTango does not support mixed types in IMAGE attributes"
-                    )
+                    raise RuntimeError("PyTango does not support mixed types in IMAGE attributes")
                 else:
-                    raise RuntimeError(
-                        "PyTango does not support mixed types in SPECTRUM attributes"
-                    )
+                    raise RuntimeError("PyTango does not support mixed types in SPECTRUM attributes")
 
-        if caller == "attribute":
-            if dformat == AttrDataFormat.IMAGE:
-                max_y = max_x
-                if not __has_ellipsis_in_types(dtype):
-                    max_x = len(typing.get_args(dtype))
-                else:
-                    max_x = None
-                dtype = typing.get_args(dtype)[0]
+        if caller == "attribute" and dformat == AttrDataFormat.IMAGE:
+            max_y = max_x
+            max_x = len(typing.get_args(dtype)) if not __has_ellipsis_in_types(dtype) else None
+            dtype = typing.get_args(dtype)[0]
         if caller == "property":
             dtype = (dtype,)
 
@@ -708,21 +677,16 @@ def get_enum_labels(enum_cls):
     try:
         enum.unique(enum_cls)
     except ValueError as exc:
-        raise EnumTypeError(f"Input class '{enum_cls}' must be unique - {exc}")
+        raise EnumTypeError(f"Input class '{enum_cls}' must be unique - {exc}") from None
 
     # Check the values start at 0, and increment by 1, since that is
     # assumed by tango's DEV_ENUM implementation.
     values = [member.value for member in enum_cls]
     if not values:
         raise EnumTypeError(f"Input class '{enum_cls}' has no members!")
-    expected_value = 0
-    for value in values:
+    for expected_value, value in enumerate(values):
         if value != expected_value:
-            raise EnumTypeError(
-                f"Enum values for '{enum_cls}' must start at 0 and "
-                f"increment by 1.  Values: {values}"
-            )
-        expected_value += 1
+            raise EnumTypeError(f"Enum values for '{enum_cls}' must start at 0 and increment by 1.  Values: {values}")
 
     return [member.name for member in enum_cls]
 
@@ -1160,9 +1124,7 @@ def DbData_2_dict(db_data, d=None):
     if d is None:
         d = {}
     if not isinstance(db_data, DbData):
-        raise TypeError(
-            f"db_data must be a tango.DbData. A {type(db_data)} found instead"
-        )
+        raise TypeError(f"db_data must be a tango.DbData. A {type(db_data)} found instead")
     for db_datum in db_data:
         d[db_datum.name] = db_datum.value_string
     return d
@@ -1203,7 +1165,7 @@ def _seqStr_2_obj_from_type(seq, tg_type):
         return seq[0]
 
     if tg_type == CmdArgType.DevBoolean:
-        return seq[0].lower() == "true"
+        return strtobool(seq[0])
 
     # sequence cases
     if tg_type in (CmdArgType.DevVarCharArray, CmdArgType.DevVarStringArray):
@@ -1211,23 +1173,14 @@ def _seqStr_2_obj_from_type(seq, tg_type):
 
     global _array_int_types
     if tg_type in _array_int_types:
-        argout = []
-        for x in seq:
-            argout.append(int(x))
-        return argout
+        return [int(x) for x in seq]
 
     global _array_float_types
     if tg_type in _array_float_types:
-        argout = []
-        for x in seq:
-            argout.append(float(x))
-        return argout
+        return [float(x) for x in seq]
 
     if tg_type == CmdArgType.DevVarBooleanArray:
-        argout = []
-        for x in seq:
-            argout.append(x.lower() == "true")
-        return argout
+        return [strtobool(x) for x in seq]
 
     return []
 
@@ -1243,23 +1196,11 @@ def _seqStr_2_obj_from_type_format(seq, tg_type, tg_format):
 
         global _scalar_int_types
         if tg_type in _scalar_int_types:
-            argout = []
-            for x in seq:
-                tmp = []
-                for y in x:
-                    tmp.append(int(y))
-                argout.append(tmp)
-            return argout
+            return [[int(y) for y in x] for x in seq]
 
         global _scalar_float_types
         if tg_type in _scalar_float_types:
-            argout = []
-            for x in seq:
-                tmp = []
-                for y in x:
-                    tmp.append(float(y))
-                argout.append(tmp)
-            return argout
+            return [[float(y) for y in x] for x in seq]
 
     # UNKNOWN_FORMAT
     return _seqStr_2_obj_from_type(tg_type, seq)
@@ -1281,7 +1222,7 @@ def scalar_to_array_type(tg_type):
     try:
         return _scalar_to_array_type[tg_type]
     except KeyError:
-        raise ValueError(f"Invalid tango scalar type: {tg_type}")
+        raise ValueError(f"Invalid tango scalar type: {tg_type}") from None
 
 
 def str_2_obj(obj_str, tg_type=None):
@@ -1298,15 +1239,14 @@ def str_2_obj(obj_str, tg_type=None):
         return obj_str
     f = str
     if is_scalar_type(tg_type):
-        if is_numerical_type(tg_type):
-            if obj_str in __NO_STR_VALUE:
-                return None
+        if is_numerical_type(tg_type) and obj_str in __NO_STR_VALUE:
+            return None
         if is_int_type(tg_type):
             f = int
         elif is_float_type(tg_type):
             f = float
         elif is_bool_type(tg_type):
-            f = bool_
+            f = strtobool
     return f(obj_str)
 
 
@@ -1370,7 +1310,7 @@ def parameter_2_dbdata(param, param_name):
         new_param = DbData()
         if len(param) > 0:
             # for attributes we have nested dict
-            first_dict_value = list(param.values())[0]
+            first_dict_value = next(iter(param.values()))
             if isinstance(first_dict_value, collections.abc.Mapping):
                 for k1, v1 in param.items():
                     attr = DbDatum(k1)
@@ -1382,8 +1322,7 @@ def parameter_2_dbdata(param, param_name):
         return new_param
 
     raise TypeError(
-        f"{param_name} must be a str, tango.DbDatum, tango.DbData, "
-        "a sequence<DbDatum>, a sequence<str> or a dictionary"
+        f"{param_name} must be a str, tango.DbDatum, tango.DbData, a sequence<DbDatum>, a sequence<str> or a dictionary"
     )
 
 
@@ -1425,8 +1364,8 @@ def __get_meth_func(klass, method_name):
 def copy_doc(klass, fnname):
     """Copies documentation string of a method from the super class into the
     rewritten method of the given class"""
-    base_meth, base_func = __get_meth_func(klass.__base__, fnname)
-    meth, func = __get_meth_func(klass, fnname)
+    _, base_func = __get_meth_func(klass.__base__, fnname)
+    _, func = __get_meth_func(klass, fnname)
     func.__doc__ = base_func.__doc__
 
 
@@ -1440,14 +1379,12 @@ def document_method(klass, method_name, d, add=True):
     func.__doc__ = d
 
     if func.__name__ != method_name:
-        try:
+        with contextlib.suppress(AttributeError):
             func.__name__ = method_name
-        except AttributeError:
-            pass
 
 
 def document_static_method(klass, method_name, d, add=True):
-    meth, func = __get_meth_func(klass, method_name)
+    meth, _ = __get_meth_func(klass, method_name)
     if add:
         cpp_doc = meth.__doc__
         if cpp_doc:
@@ -1470,13 +1407,14 @@ class CaselessList(list):
     __imul__, __len__, __iter__, pop, reverse, sort
     """
 
-    def __init__(self, inlist=[]):
+    def __init__(self, inlist=None):
         list.__init__(self)
+        if inlist is None:
+            inlist = []
         for entry in inlist:
             if not isinstance(entry, str):
                 raise TypeError(
-                    f"Members of this object must be strings. "
-                    f'You supplied "{entry}" which is "{type(entry)}"'
+                    f'Members of this object must be strings. You supplied "{entry}" which is "{type(entry)}"'
                 )
             self.append(entry)
 
@@ -1484,9 +1422,7 @@ class CaselessList(list):
         """A caseless way of checking if an item is in the list or not.
         It returns None or the entry."""
         if not isinstance(item, str):
-            raise TypeError(
-                f'Members of this object must be strings. You supplied "{type(item)}"'
-            )
+            raise TypeError(f'Members of this object must be strings. You supplied "{type(item)}"')
         for entry in self:
             if item.lower() == entry.lower():
                 return entry
@@ -1494,10 +1430,7 @@ class CaselessList(list):
 
     def __contains__(self, item):
         """A caseless way of checking if a list has a member in it or not."""
-        for entry in self:
-            if item.lower() == entry.lower():
-                return True
-        return False
+        return any(item.lower() == entry.lower() for entry in self)
 
     def remove(self, item):
         """Remove the first occurence of an item, the caseless way."""
@@ -1522,24 +1455,17 @@ class CaselessList(list):
     def append(self, item):
         """Adds an item to the list and checks it's a string."""
         if not isinstance(item, str):
-            raise TypeError(
-                f'Members of this object must be strings. You supplied "{type(item)}"'
-            )
+            raise TypeError(f'Members of this object must be strings. You supplied "{type(item)}"')
         list.append(self, item)
 
     def extend(self, item):
         """Extend the list with another list. Each member of the list must be
         a string."""
         if not isinstance(item, list):
-            raise TypeError(
-                f'You can only extend lists with lists. You supplied "{type(item)}"'
-            )
+            raise TypeError(f'You can only extend lists with lists. You supplied "{type(item)}"')
         for entry in item:
             if not isinstance(entry, str):
-                raise TypeError(
-                    f"Members of this object must be strings. "
-                    f'You supplied "{type(entry)}"'
-                )
+                raise TypeError(f'Members of this object must be strings. You supplied "{type(entry)}"')
             list.append(self, entry)
 
     def count(self, item):
@@ -1565,9 +1491,7 @@ class CaselessList(list):
         minindex = max(0, minindex) - 1
         maxindex = min(len(self), maxindex)
         if not isinstance(item, str):
-            raise TypeError(
-                f'Members of this object must be strings. You supplied "{type(item)}"'
-            )
+            raise TypeError(f'Members of this object must be strings. You supplied "{type(item)}"')
         index = minindex
         while index < maxindex:
             index += 1
@@ -1579,9 +1503,7 @@ class CaselessList(list):
         """s.insert(i, x) same as s[i:i] = [x]
         Raises TypeError if x isn't a string."""
         if not isinstance(x, str):
-            raise TypeError(
-                f'Members of this object must be strings. You supplied "{type(x)}"'
-            )
+            raise TypeError(f'Members of this object must be strings. You supplied "{type(x)}"')
         list.insert(self, i, x)
 
     def __setitem__(self, index, value):
@@ -1594,20 +1516,14 @@ class CaselessList(list):
         """
         if isinstance(index, int):
             if not isinstance(value, str):
-                raise TypeError(
-                    f"Members of this object must be strings. "
-                    f'You supplied "{type(value)}"'
-                )
+                raise TypeError(f'Members of this object must be strings. You supplied "{type(value)}"')
             list.__setitem__(self, index, value)
         elif isinstance(index, slice):
             if not hasattr(value, "__len__"):
                 raise TypeError("Value given to set slice is not a sequence object.")
             for entry in value:
                 if not isinstance(entry, str):
-                    raise TypeError(
-                        f"Members of this object must be strings. "
-                        f'You supplied "{type(entry)}"'
-                    )
+                    raise TypeError(f'Members of this object must be strings. You supplied "{type(entry)}"')
             list.__setitem__(self, index, value)
         else:
             raise TypeError("Indexes must be integers or slice objects.")
@@ -1616,10 +1532,7 @@ class CaselessList(list):
         """Called to implement assignment to self[i:j]."""
         for entry in sequence:
             if not isinstance(entry, str):
-                raise TypeError(
-                    f"Members of this object must be strings. "
-                    f'You supplied "{type(entry)}"'
-                )
+                raise TypeError(f'Members of this object must be strings. You supplied "{type(entry)}"')
         list.__setslice__(self, i, j, sequence)
 
     def __getslice__(self, i, j):
@@ -1725,15 +1638,15 @@ class EventCallback:
 
     Allowed format keys are:
 
-        - date (event timestamp)
-        - reception_date (event reception timestamp)
-        - type (event type)
-        - reason (event subscription reason)
-        - dev_name (device name)
-        - name (attribute name)
-        - value (event value)
+    - date (event timestamp)
+    - reception_date (event reception timestamp)
+    - type (event type)
+    - reason (event subscription reason)
+    - dev_name (device name)
+    - name (attribute name)
+    - value (event value)
 
-    New in PyTango 7.1.4
+    .. versionadded:: 7.1.4
     """
 
     def __init__(
@@ -1849,10 +1762,7 @@ class EventCallback:
         elif isinstance(evt, DataReadyEventData):
             return f"ctr={evt.ctr}"
         elif isinstance(evt, DevIntrChangeEventData):
-            return (
-                f"dev_started={evt.dev_started}; "
-                f"{len(evt.cmd_list)} commands; {len(evt.att_list)} attrs"
-            )
+            return f"dev_started={evt.dev_started}; {len(evt.cmd_list)} commands; {len(evt.att_list)} attrs"
 
 
 class AsyncEventCallback(EventCallback):
@@ -1871,13 +1781,11 @@ def get_home():
     :return: user's home directory
     :rtype: :py:obj:`str`
 
-    New in PyTango 7.1.4
+    .. versionadded:: 7.1.4
     """
     path = ""
-    try:
+    with contextlib.suppress(Exception):
         path = os.path.expanduser("~")
-    except Exception:
-        pass
     if not os.path.isdir(path):
         for evar in ("HOME", "USERPROFILE", "TMP"):
             try:
@@ -1907,20 +1815,22 @@ def _get_env_var(env_var_name):
     :return: the value for the given environment name
     :rtype: str
 
-    New in PyTango 7.1.4
+    .. versionadded:: 7.1.4
     """
 
     if env_var_name in os.environ:
         return os.environ[env_var_name]
 
     fname = os.path.join(get_home(), ".tangorc")
-    if not os.path.exists(fname):
-        if os.name == "posix":
-            fname = "/etc/tangorc"
+    if not os.path.exists(fname) and os.name == "posix":
+        fname = "/etc/tangorc"
     if not os.path.exists(fname):
         return None
 
-    for line in open(fname):
+    with open(fname) as fh:
+        lines = fh.readlines()
+
+    for line in lines:
         strippedline = line.split("#", 1)[0].strip()
 
         if not strippedline:
@@ -1938,8 +1848,8 @@ def _get_env_var(env_var_name):
 
 
 def from_version_str_to_hex_str(version_str):
-    v = map(int, version_str.split("."))
-    return "0x%02d%02d%02d00" % (v[0], v[1], v[2])
+    v = list(map(int, version_str.split(".")))
+    return f"0x{v[0]:02x}{v[1]:02x}{v[2]:02x}00"
 
 
 def from_version_str_to_int(version_str):
@@ -2029,9 +1939,7 @@ class PyTangoHelpFormatter(HelpFormatter):
             db = Database()
             servers_list = db.get_instance_name_list(self._prog)
             if servers_list.size():
-                usage += (
-                    f"Instance names defined in database for server {self._prog}:\n"
-                )
+                usage += f"Instance names defined in database for server {self._prog}:\n"
                 for server in servers_list:
                     usage += "\t" + str(server) + "\n"
             else:
@@ -2101,15 +2009,7 @@ def _is_valid_tango_trl(parsed_host):
     params_ok = parsed_host.params == ""
     query_ok = parsed_host.query == ""
     fragment_ok = parsed_host.fragment in ["", "dbase=no", "dbase=yes"]
-    return (
-        scheme_ok
-        and hostname_ok
-        and port_ok
-        and path_ok
-        and params_ok
-        and query_ok
-        and fragment_ok
-    )
+    return scheme_ok and hostname_ok and port_ok and path_ok and params_ok and query_ok and fragment_ok
 
 
 def _resolve_tango_trl(parsed_host, parsed_device):
@@ -2129,729 +2029,49 @@ class InvalidTangoHostTrlError(ValueError):
     """Invalid Tango Resource Locator format for TANGO_HOST-like variable."""
 
 
-class PyTangoUserWarning(UserWarning):
-    # a custom category for all PyTango's warnings to give users the option of filtering PyTango's warnings
-    pass
-
-
 def _is_coroutine_function(obj):
     while isinstance(obj, functools.partial):
         obj = obj.func
 
-    return inspect.iscoroutinefunction(obj) or (
-        callable(obj) and inspect.iscoroutinefunction(obj.__call__)
-    )
+    return inspect.iscoroutinefunction(obj) or (callable(obj) and inspect.iscoroutinefunction(obj.__call__))
 
 
-def _truthy_env_var(name) -> bool:
-    value = ApiUtil.get_env_var(name)
-    if value and value.lower() in {"on", "1", "true", "yes", "y"}:
-        return True
-    return False
-
-
-_traced_coverage_run_active = False
-
-try:
-    import coverage
-
-    _coverage = coverage.Coverage.current()
-    if _coverage:
-        _coverage_core = dict(_coverage.sys_info()).get("core", "").lower()
-        if _coverage_core in {"pytracer", "ctracer"}:
-            if _truthy_env_var("PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING"):
-                warnings.warn(
-                    "Coverage run detected, but PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING "
-                    "environment variable is set. Reported coverage may be inaccurate.",
-                    category=PyTangoUserWarning,
-                )
-            else:
-                if getattr(threading, "_trace_hook", None):
-                    _traced_coverage_run_active = True
-                    warnings.warn(
-                        "Coverage run detected: tango.server.Device methods "
-                        "will be patched for tracing.",
-                        category=PyTangoUserWarning,
-                    )
-                else:
-                    warnings.warn(
-                        "Coverage run detected, but unable to get threading._trace_hook. "
-                        "Reported coverage may be inaccurate.",
-                        category=PyTangoUserWarning,
-                    )
-        # (else, using sys.monitoring hooks or not tracing, so patching not required)
-
-except Exception:
-    pass
-
-_traced_debug_run_active = False
-pydevd = None
-
-try:
-    _disabled_via_env_var = _truthy_env_var("PYTANGO_DISABLE_DEBUG_TRACE_PATCHING")
-    if not _disabled_via_env_var:
-        _forced_via_env_var = _truthy_env_var("PYTANGO_FORCE_DEBUG_TRACE_PATCHING")
-        if sys.version_info < (3, 12) or _forced_via_env_var:
-            if "PYDEVD_DISABLE_FILE_VALIDATION" not in os.environ:
-                os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-            import pydevd
-
-            _debugger = pydevd.get_global_debugger()
-        else:
-            # we assume debugger using sys.monitoring hooks so it doesn't need patching
-            _debugger = None
-
-        if _debugger is not None:
-            if _traced_coverage_run_active:
-                warnings.warn(
-                    "Debugger detected, but coverage run also detected. "
-                    "Patching only for coverage, not for debugger.",
-                    category=PyTangoUserWarning,
-                )
-            else:
-                _traced_debug_run_active = True
-                warnings.warn(
-                    "Debugger detected: tango.server.Device methods "
-                    "will be patched for tracing.",
-                    category=PyTangoUserWarning,
-                )
-except Exception:
-    pass
-
-
-_telemetry_active = False
-try:
-    _globally_enabled_via_env_var = _truthy_env_var("TANGO_TELEMETRY_ENABLE")
-    _locally_disabled_via_env_var = _truthy_env_var(
-        "PYTANGO_DISABLE_TELEMETRY_PATCHING"
-    )
-    if (
-        _globally_enabled_via_env_var
-        and not _locally_disabled_via_env_var
-        and TELEMETRY_SUPPORTED
-    ):
-        from opentelemetry import trace as trace_api
-        from opentelemetry import context as context_api
-        from opentelemetry.trace.propagation.tracecontext import (
-            TraceContextTextMapPropagator,
-        )
-
-        _traces_exporter_type = ApiUtil.get_env_var("TANGO_TELEMETRY_TRACES_EXPORTER")
-        if not _traces_exporter_type:
-            _traces_exporter_type = "console"
-        _traces_exporter_endpoint = ApiUtil.get_env_var(
-            "TANGO_TELEMETRY_TRACES_ENDPOINT"
-        )
-
-        _telemetry_sdk_available = False
-        try:
-            _traces_exporter_kwargs = {}
-            if _traces_exporter_type.lower() == "grpc":
-                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-                    OTLPSpanExporter as SpanExporter,
-                )
-
-                if _traces_exporter_endpoint:
-                    _traces_exporter_endpoint = _traces_exporter_endpoint.lower()
-                    if _traces_exporter_endpoint.startswith("grpc://"):
-                        # cppTango requires endpoints starting "grpc://" for gRPC, even
-                        # though this is a non-standard scheme.  We convert to
-                        # the more standard http:// for the OTel exporter library.
-                        _traces_exporter_endpoint = _traces_exporter_endpoint.replace(
-                            "grpc://", "http://"
-                        )
-                    _traces_exporter_kwargs = {"endpoint": _traces_exporter_endpoint}
-            elif _traces_exporter_type.lower() == "http":
-                from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-                    OTLPSpanExporter as SpanExporter,
-                )
-
-                if _traces_exporter_endpoint:
-                    _traces_exporter_kwargs = {"endpoint": _traces_exporter_endpoint}
-            elif _traces_exporter_type.lower() == "none":
-                SpanExporter = None
-            else:
-                from opentelemetry.sdk.trace.export import (
-                    ConsoleSpanExporter as SpanExporter,
-                )
-
-                if _traces_exporter_endpoint:
-                    if _traces_exporter_endpoint.lower() == "cerr":
-                        _traces_exporter_kwargs = {"out": sys.stderr}
-                    else:
-                        _traces_exporter_kwargs = {"out": sys.stdout}
-
-                if _traces_exporter_type.lower() != "console":
-                    warnings.warn(
-                        f"Unknown value '{_traces_exporter_type}' for "
-                        f"TANGO_TELEMETRY_TRACES_EXPORTER. Options are: "
-                        f"'console', 'grpc', 'http' and 'none'. Defaulting to 'console'."
-                    )
-                    _traces_exporter_type = "console"
-
-            from opentelemetry.sdk.resources import (
-                HOST_NAME,
-                SERVICE_INSTANCE_ID,
-                SERVICE_NAME,
-                SERVICE_NAMESPACE,
-                Resource,
-            )
-            from opentelemetry.sdk.trace import TracerProvider
-            from opentelemetry.sdk.trace.export import (
-                BatchSpanProcessor,
-                SimpleSpanProcessor,
-            )
-
-            _telemetry_sdk_available = True
-        except ImportError:
-            warnings.warn(
-                "OpenTelemetry SDK packages not available: "
-                "no telemetry traces will be emitted from this device/client.\n"
-                "To emit telemetry, install the SDK packages: "
-                "opentelemetry-sdk and either:\n"
-                "  opentelemetry-exporter-otlp-proto-grpc (for traces via gRPC), or\n"
-                "  opentelemetry-exporter-otlp-proto-http (for traces via HTTP).\n"
-                "This warning can be disabled.\n"
-                "  Either set environment variable PYTANGO_DISABLE_TELEMETRY_PATCHING=on"
-                " to disable PyTango's usage of telemetry.\n"
-                "  Or, set the environment variable TANGO_TELEMETRY_ENABLE=off to "
-                "disable all telemetry in cppTango and PyTango.",
-                category=PyTangoUserWarning,
-            )
-
-        def _get_current_otel_context() -> context_api.Context:
-            return context_api.get_current()
-
-        @contextlib.contextmanager
-        def _span_from_cpptango(
-            device: "tango.server.Device", fn: callable  # noqa: F821
-        ) -> typing.Iterator[trace_api.Span]:
-            fn = inspect.unwrap(fn)
-            if not hasattr(fn, "__code__") and hasattr(fn, "__call__"):
-                fn = fn.__call__
-            name = getattr(fn, "__qualname__", getattr(fn, "__name__", "unknown"))
-            code = getattr(fn, "__code__", None)
-            filepath = getattr(code, "co_filename", "unknown")
-            lineno = getattr(code, "co_firstlineno", 0)
-
-            carrier = _telemetry.get_trace_context()
-            ctx = TraceContextTextMapPropagator().extract(carrier=carrier)
-            device_tracer = device.get_telemetry_tracer()
-            token = _current_telemetry_tracer.set(device_tracer)
-            try:
-                with device_tracer.start_as_current_span(
-                    name, context=ctx, kind=trace_api.SpanKind.SERVER
-                ) as span:
-                    span.set_attribute("code.filepath", filepath)
-                    span.set_attribute("code.lineno", lineno)
-                    current_thread = threading.current_thread()
-                    span.set_attribute("thread.id", hex(current_thread.ident))
-                    span.set_attribute("thread.name", current_thread.name)
-                    _add_client_ident_info(device, span)
-                    yield span
-            finally:
-                _current_telemetry_tracer.reset(token)
-
-        # get process ID from a string like "jive3.MainPanel - PID=43281"
-        _PID_PATTERN = re.compile(r"\bPID=(\d+)\b", re.IGNORECASE)
-
-        def _add_client_ident_info(device, span):
-            if not is_omni_thread():  # get_client_ident may crash
-                return
-            ident = device.get_client_ident()
-            if not ident:  # not from external or collocated client (could be polling)
-                return
-            if ident.client_lang in {LockerLanguage.JAVA, LockerLanguage.JAVA_6}:
-                span.set_attribute(
-                    "tango.client_ident.java_ident",
-                    f"{ident.java_ident[0]:x}{ident.java_ident[1]:x}",
-                )
-                span.set_attribute(
-                    "tango.client_ident.java_main_class", ident.java_main_class
-                )
-                match = _PID_PATTERN.search(ident.java_main_class)
-                client_pid = int(match.group(1)) if match else 0
-            else:
-                client_pid = ident.client_pid
-            span.set_attribute("tango.client_ident.location", ident.client_ip)
-            span.set_attribute("tango.client_ident.pid", client_pid)
-            span.set_attribute("tango.client_ident.lang", str(ident.client_lang))
-
-        @contextlib.contextmanager
-        def _span_to_cpptango(name: str):
-            # use propagator to get W3C strings from active Python OpenTelemetry context
-            carrier = {}
-            TraceContextTextMapPropagator().inject(carrier)
-            traceparent = carrier.get("traceparent", "")
-            tracestate = carrier.get("tracestate", "")
-            # create C++ TraceContextScope and set context from Python context
-            with _telemetry.TraceContextScope(name, traceparent, tracestate):
-                yield
-
-        def _default_telemetry_tracer_provider_factory(
-            service_name: str,
-            service_instance_id: typing.Union[None, str] = None,
-            extra_resource_attributes: typing.Union[None, dict[str, str]] = None,
-        ) -> trace_api.TracerProvider:
-            """Create default telemetry TracerProvider for a device.
-
-            A TraceProvider is not used directly, but rather used to create a Tracer.
-
-            See also OpenTelemetry's OTEL_EXPERIMENTAL_RESOURCE_DETECTORS environment
-            variable, and other resource detectors. It may be possible to add additional
-            information just using this environment variable.
-            """
-            if _telemetry_sdk_available and SpanExporter is not None:
-                resource_attributes = {
-                    HOST_NAME: socket.getfqdn(),
-                    SERVICE_NAMESPACE: "tango",
-                    SERVICE_NAME: service_name,
-                }
-                if service_instance_id:
-                    resource_attributes[SERVICE_INSTANCE_ID] = service_instance_id
-                if extra_resource_attributes:
-                    resource_attributes.update(extra_resource_attributes)
-                tracer_provider = TracerProvider(
-                    resource=Resource.create(resource_attributes)
-                )
-                exporter = SpanExporter(**_traces_exporter_kwargs)
-                processor = _create_span_processor(exporter)
-                tracer_provider.add_span_processor(processor)
-            else:
-                tracer_provider = trace_api.NoOpTracerProvider()
-            return tracer_provider
-
-        def _create_span_processor(exporter):
-            processor_type = ApiUtil.get_env_var(
-                "PYTANGO_TELEMETRY_SPAN_PROCESSOR_TYPE"
-            )
-            if processor_type and processor_type.lower() == "simple":
-                processor_class = SimpleSpanProcessor
-            elif processor_type and processor_type.lower() == "batch":
-                processor_class = BatchSpanProcessor
-            else:
-                if _traces_exporter_type.lower() == "console":
-                    processor_class = SimpleSpanProcessor
-                else:
-                    processor_class = BatchSpanProcessor
-            processor = processor_class(exporter)
-            return processor
-
-        def _create_device_telemetry_tracer(
-            tracer_provider: trace_api.TracerProvider,
-        ) -> trace_api.Tracer:
-            """Create a standard telemetry Tracer for a device."""
-            # See the following link for details on tracer naming:
-            #   https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/api.md#get-a-tracer
-            # cppTango uses "tango.cpp".  We use "tango.python.server"
-            device_tracer = trace_api.get_tracer(
-                instrumenting_module_name="tango.python.server",
-                instrumenting_library_version=Release.version,
-                tracer_provider=tracer_provider,
-            )
-            return device_tracer
-
-        def _create_client_telemetry_tracer() -> trace_api.Tracer:
-            service_name = ApiUtil.get_env_var("PYTANGO_TELEMETRY_CLIENT_SERVICE_NAME")
-            if not service_name:
-                service_name = "pytango.client"
-            tracer_provider_factory = get_telemetry_tracer_provider_factory()
-            tracer_provider = tracer_provider_factory(service_name)
-            # See comment in _create_device_telemetry_tracer about naming.
-            # We differentiate between client and server tracers.
-            tracer = trace_api.get_tracer(
-                instrumenting_module_name="tango.python.client",
-                instrumenting_library_version=Release.version,
-                tracer_provider=tracer_provider,
-            )
-            return tracer
-
-        @atexit.register
-        def _shutdown_telemetry():
-            _telemetry.cleanup_default_telemetry_interface()
-
-        def _set_telemetry_sdk_log_level():
-            level_str = ApiUtil.get_env_var("PYTANGO_TELEMETRY_SDK_LOG_LEVEL")
-            if level_str:
-                level_int = logging.getLevelNamesMapping()[level_str.upper()]
-                names_csv = ApiUtil.get_env_var("PYTANGO_TELEMETRY_SDK_LOGGER_NAMES")
-                if names_csv:
-                    names = names_csv.split(",")
-                else:
-                    names = [
-                        "opentelemetry.sdk.trace.export",
-                        "opentelemetry.sdk._shared_internal",
-                        "opentelemetry.exporter.otlp.proto.grpc.exporter",
-                        "opentelemetry.exporter.otlp.proto.http._log_exporter",
-                        "opentelemetry.exporter.otlp.proto.http.log_exporter",
-                        "opentelemetry.exporter.otlp.proto.http.metric_exporter",
-                        "opentelemetry.exporter.otlp.proto.http.trace_exporter",
-                    ]
-                for name in names:
-                    logging.getLogger(name).setLevel(level_int)
-                _telemetry.set_log_level(level_str)
-
-        _set_telemetry_sdk_log_level()
-
-        _telemetry_client_tracer: typing.Union[None, trace_api.Tracer] = None
-        _telemetry_active = True
-except ImportError:
-    _skip_warning_during_own_tests = os.environ.get("PYTANGO_TESTS_RUNNING") == "True"
-    if not _skip_warning_during_own_tests:
-        warnings.warn(
-            "\nOpenTelemetry packages not available: \n"
-            "telemetry context will not be passed to other Tango devices, "
-            "and no telemetry will be emitted from this device/client.\n"
-            "To pass through telemetry context, install the API packages: "
-            "opentelemetry-api\n"
-            "To emit telemetry, install the SDK packages: "
-            "opentelemetry-sdk and either:\n"
-            "  opentelemetry-exporter-otlp-proto-grpc (for traces via gRPC), or\n"
-            "  opentelemetry-exporter-otlp-proto-http (for traces via HTTP).\n"
-            "This warning can be disabled:\n"
-            "  Either set environment variable PYTANGO_DISABLE_TELEMETRY_PATCHING=on "
-            "to disable PyTango's usage of telemetry.\n"
-            "  Or, set the environment variable TANGO_TELEMETRY_ENABLE=off to disable "
-            "all telemetry in cppTango and PyTango.",
-            category=PyTangoUserWarning,
-        )
-except Exception as exc:
-    warnings.warn(
-        f"Error setting up telemetry. Telemetry context may not be passed on "
-        f"and traces may not be emitted. Possibly a PyTango bug.\n"
-        f"Error: {exc!r}"
-    )
-
-
-_DummySpanContext = namedtuple(
-    "_DummySpanContext",
-    ["trace_id", "span_id", "is_remote", "trace_flags", "trace_state", "is_valid"],
-)
-
-
-class _DummySpan:
-    def set_attributes(self, *args, **kwargs):
-        pass
-
-    def set_attribute(self, *args, **kwargs):
-        pass
-
-    def add_event(self, *args, **kwargs):
-        pass
-
-    def add_link(self, *args, **kwargs):
-        pass
-
-    def update_name(self, *args, **kwargs):
-        pass
-
-    def is_recording(self):
-        return False
-
-    def set_status(self, *args, **kwargs):
-        pass
-
-    def record_exception(self, *args, **kwargs):
-        pass
-
-    def end(self, *args, **kwargs):
-        pass
-
-    def get_span_context(self):
-        return _DummySpanContext(0, 0, False, 0, {}, False)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        self.end()
-
-
-class _DummyTracer:
-    def start_span(self, *args, **kwargs):
-        pass
-
-    @contextlib.contextmanager
-    def start_as_current_span(self, *args, **kwargs):
-        yield _DummySpan()
-
-
-class _DummyTracerProvider:
-    def get_tracer(self, *args, **kwargs):
-        return _DummyTracer()
-
-
-if not _telemetry_active:
-    # define dummy handlers
-
-    def _get_current_otel_context():
-        return {}
-
-    @contextlib.contextmanager
-    def _span_to_cpptango(name: str):
-        yield
-
-    def _default_telemetry_tracer_provider_factory(
-        service_name, service_instance_id=None, extra_resource_attributes=None
-    ):
-        return _DummyTracerProvider()
-
-    def _create_device_telemetry_tracer(tracer_provider) -> _DummyTracer:
-        return _DummyTracer()
-
-    _telemetry_client_tracer = None
-
-_current_telemetry_tracer = ContextVar("current_telemetry_tracer")
-
-_current_telemetry_tracer_provider_factory = _default_telemetry_tracer_provider_factory
-
-
-class _TracerProviderFactory(typing.Protocol):
-    def __call__(
-        self,
-        service_name: str,
-        service_instance_id: typing.Union[None, str] = None,
-        extra_resource_attributes: typing.Union[None, dict[str, str]] = None,
-    ) -> "opentelemetry.trace.TracerProvider":  # noqa: F821
-        ...
-
-
-def set_telemetry_tracer_provider_factory(provider_factory: _TracerProviderFactory):
-    """Change the factory that will be used to create tracer providers.
-
-    The factory is called when a tracer provider needs to be created.
-    I.e., once for client access, and once for each device.
+def set_telemetry_tracer_provider_factory(provider_factory):
     """
-    global _current_telemetry_tracer_provider_factory
-    _current_telemetry_tracer_provider_factory = provider_factory
+    Change the factory that will be used to create tracer providers.
 
+    Import this function from :mod:`tango.telemetry` instead.
 
-def get_telemetry_tracer_provider_factory() -> _TracerProviderFactory:
-    """Get the factory that will be used to create tracer providers."""
-    return _current_telemetry_tracer_provider_factory
-
-
-_force_tracing = (
-    _traced_debug_run_active or _traced_coverage_run_active or _telemetry_active
-)
-
-
-def _forcefully_traced_method(fn, is_kernel_method=False):
-    # late import to avoid circular reference
-    from tango.server import BaseDevice
-
-    unwrapped_fn = inspect.unwrap(fn)
-
-    def _get_device_telemetry_required(*args):
-        device = None
-        telemetry_required = False
-        if _telemetry_active and args:
-            first = args[0]
-            if isinstance(first, BaseDevice):
-                device = first
-            else:
-                fn_self = getattr(unwrapped_fn, "__self__", None)
-                if isinstance(fn_self, BaseDevice):
-                    device = fn_self
-            if device is not None:
-                telemetry_required = device.is_telemetry_enabled() and (
-                    not is_kernel_method or device.is_kernel_tracing_enabled()
-                )
-        return device, telemetry_required
-
-    def _set_sys_tracer_and_get_original():
-        original_sys_tracer = "EMPTY"
-
-        if _traced_coverage_run_active:
-            original_sys_tracer = sys.gettrace()
-            threading_trace_hook = getattr(threading, "_trace_hook", None)
-            if threading_trace_hook:
-                sys.settrace(threading_trace_hook)
-        elif _traced_debug_run_active and pydevd is not None:
-            pydevd.settrace(suspend=False, trace_only_current_thread=True)
-
-        return original_sys_tracer
-
-    @functools.wraps(fn)
-    def trace_wrapper(*args, **kwargs):
-        device, telemetry_required = _get_device_telemetry_required(*args)
-        original_sys_tracer = _set_sys_tracer_and_get_original()
-        try:
-            if telemetry_required and device is not None:
-                with _span_from_cpptango(device, fn):
-                    ret = fn(*args, **kwargs)
-            else:
-                ret = fn(*args, **kwargs)
-        finally:
-            if original_sys_tracer != "EMPTY":
-                sys.settrace(original_sys_tracer)
-        return ret
-
-    @functools.wraps(fn)
-    async def async_trace_wrapper(*args, **kwargs):
-        device, telemetry_required = _get_device_telemetry_required(*args)
-        original_sys_tracer = _set_sys_tracer_and_get_original()
-        try:
-            if telemetry_required and device is not None:
-                with _span_from_cpptango(device, fn):
-                    ret = await fn(*args, **kwargs)
-            else:
-                ret = await fn(*args, **kwargs)
-        finally:
-            if original_sys_tracer != "EMPTY":
-                sys.settrace(original_sys_tracer)
-        return ret
-
-    if _is_coroutine_function(fn):
-        return async_trace_wrapper
-    else:
-        return trace_wrapper
-
-
-def _trace_client(fn):
-    """Wrapper/decorator to trace a client function for telemetry."""
-
-    if _telemetry_active:
-        # Change function names like "__DeviceProxy__subscribe_event" to
-        # "DeviceProxy.subscribe_event" for better readability
-        fn_name = getattr(fn, "__qualname__", getattr(fn, "__name__", "unknown"))
-        match = re.match(r"__(?P<prefix>\w+?)__(?P<suffix>.*)", fn_name)
-        if match:
-            fn_name = f"{match.group('prefix')}.{match.group('suffix')}"
-
-        @functools.wraps(fn)
-        def client_trace_wrapper(*args, **kwargs):
-            global _telemetry_client_tracer
-            if _telemetry_client_tracer is None:
-                _telemetry_client_tracer = _create_client_telemetry_tracer()
-            tracer = _current_telemetry_tracer.get(_telemetry_client_tracer)
-            location = kwargs.pop("trace_location", None)
-            context = kwargs.pop("trace_context", None)
-            if location is None:
-                filename, lineno, qualname = _get_non_tango_source_location()
-            else:
-                filename, lineno, qualname = location
-            with tracer.start_as_current_span(
-                qualname, kind=trace_api.SpanKind.CLIENT, context=context
-            ) as span:
-                span.set_attribute("code.filepath", filename)
-                span.set_attribute("code.lineno", lineno)
-                current_thread = threading.current_thread()
-                span.set_attribute("thread.id", hex(current_thread.ident))
-                span.set_attribute("thread.name", current_thread.name)
-                with _span_to_cpptango(fn_name):
-                    return fn(*args, **kwargs)
-
-        client_trace_wrapper.__signature__ = inspect.signature(fn)
-        client_trace_wrapper.__trace_kwargs__ = True
-
-    else:
-        client_trace_wrapper = fn
-
-    return client_trace_wrapper
-
-
-_SourceLocation = namedtuple("_SourceLocation", ("filepath", "lineno", "qualname"))
-
-
-def _get_non_tango_source_location(
-    source: typing.Union[callable, None] = None
-) -> _SourceLocation:
-    """Provides non-PyTango source caller for logging and tracing functions.
-
-    :param source:
-        (optional) Method or function, which will be unwrapped of decorated wrappers
-        and inspected for location. If not provided - current stack will be used to
-        deduce the location.
-    :type source: Callable
-
-    :return:
-        Named tuple (filepath, lineno, qualname)
-    :rtype :_SourceLocation:
+    .. versionadded:: 10.0.0
+    .. deprecated:: 10.3.0
     """
-    try:
-        if source:
-            # If source is a wrapped function - unwrap it to inner function
-            source = inspect.unwrap(source)
-            # Find callable code location
-            code = getattr(source, "__code__", None)
-            if code:
-                filepath = code.co_filename
-                lineno = code.co_firstlineno
-                qualname = getattr(
-                    code, "co_qualname", getattr(code, "co_name", str(source))
-                )
-                return _SourceLocation(filepath, lineno, qualname)
-        else:
-            caller, module = _get_first_non_tango_caller_and_module()
-            if caller:
-                code = caller.f_code
-                filepath = code.co_filename
-                lineno = caller.f_lineno
-                qualname = getattr(
-                    code,
-                    "co_qualname",
-                    getattr(code, "co_name", "unknown"),
-                )
-                if qualname == "<module>" and module in ("__main__", "__mp_main__"):
-                    qualname = module
-                return _SourceLocation(filepath, lineno, qualname)
-        return _SourceLocation("(unknown)", 0, str(source))
-    except Exception:
-        return _SourceLocation("(unknown)", 0, str(source))
+
+    warn_once(
+        "tango.utils.set_telemetry_tracer_provider_factory is deprecated; import it from tango.telemetry instead.",
+        key="deprecated:tango.utils.set_telemetry_tracer_provider_factory",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+    return _telemetry_set_tracer_provider_factory(provider_factory)
 
 
-# Search the call stack until we are out of the 'tango' module. We cannot
-# have a fixed number here because loggers/streams/tracing is used in many places
-# inside pytango with varying call stack depth.
-#
-# There are different option below which trade compatibility for speed (fastest first).
-if hasattr(sys, "_getframemodulename") and hasattr(sys, "_getframe"):
+def get_telemetry_tracer_provider_factory():
+    """
+    Get the factory that will be used to create tracer providers.
 
-    def _get_first_non_tango_caller_and_module():
-        depth = 2
-        caller = None
-        while True:
-            module = sys._getframemodulename(depth)  # added in Python 3.12
-            if module != "tango" and not module.startswith("tango."):
-                caller = sys._getframe(depth)
-                break
-            elif module is None:
-                break  # stack exhausted
-            depth += 1
-        if caller:
-            return caller, module
-        else:
-            return None, ""
+    Import this function from :mod:`tango.telemetry` instead.
 
-elif hasattr(sys, "_getframe"):
+    .. versionadded:: 10.0.0
+    .. deprecated:: 10.3.0
+    """
 
-    def _get_first_non_tango_caller_and_module():
-        depth = 2
-        caller = None
-        module = ""
-        try:
-            while True:
-                caller = sys._getframe(depth)
-                module = caller.f_globals["__name__"]
-                if module != "tango" and not module.startswith("tango."):
-                    break
-                depth += 1
-        except ValueError:
-            pass  # stack exhausted
-        if caller:
-            return caller, module
-        else:
-            return None, ""
-
-else:
-    # use inspect (the slowest approach, most portable)
-    def _get_first_non_tango_caller_and_module():
-        for caller, _, _, _, _, _ in inspect.stack(0):
-            module = caller.f_globals["__name__"]
-            if module != "tango" and not module.startswith("tango."):
-                return caller, module
-        return None, ""
+    warn_once(
+        "tango.utils.get_telemetry_tracer_provider_factory is deprecated; import it from tango.telemetry instead.",
+        key="deprecated:tango.utils.get_telemetry_tracer_provider_factory",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+    return _telemetry_get_tracer_provider_factory()
 
 
 # Since cppTango based on omniThreads, we have to slightly modify ThreadPoolExecutor,
@@ -2865,12 +2085,18 @@ else:
 # Copyright (c) Python Software Foundation; All Rights Reserved
 
 from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures.thread import _worker, _threads_queues
+from concurrent.futures.thread import _threads_queues, _worker
 
 
 class PyTangoThreadPoolExecutor(ThreadPoolExecutor):
     """
-    Based on concurrent.futures.ThreadPoolExecutor, but additionally ensures dummy omniORB runs for every running thread.
+    Based on :class:`concurrent.futures.ThreadPoolExecutor`,
+    but additionally ensures every running thread is a dummy omniORB thread.
+
+    The :class:`tango.EnsureOmniThread` context handler is automatically active for
+    the lifetime of the all the thread pool's threads.
+
+    .. versionadded:: 10.0.0
     """
 
     def _adjust_thread_count(self):
@@ -2885,7 +2111,7 @@ class PyTangoThreadPoolExecutor(ThreadPoolExecutor):
 
         num_threads = len(self._threads)
         if num_threads < self._max_workers:
-            thread_name = "%s_%d" % (self._thread_name_prefix or self, num_threads)
+            thread_name = f"{self._thread_name_prefix or self}_{num_threads}"
             if hasattr(self, "_initializer"):
                 # Python < 3.14
                 t = threading.Thread(
@@ -2926,6 +2152,21 @@ def _thread_pool_executor_ctx_worker(executor_reference, ctx, work_queue):
         _worker(executor_reference, ctx, work_queue)
 
 
+class PyTangoThread(threading.Thread):
+    """
+    Based on :class:`threading.Thread`, but additionally ensures it is a dummy omniORB thread.
+
+    The :class:`tango.EnsureOmniThread` handler is automatically active for the lifetime of the
+    thread.
+
+    .. versionadded:: 10.3.0
+    """
+
+    def _bootstrap_inner(self):
+        with EnsureOmniThread():
+            super()._bootstrap_inner()
+
+
 def _get_new_CallbackAutoDie():
     id = time.time_ns()
     cb = __CallBackAutoDie(id)
@@ -2959,7 +2200,6 @@ def _get_command_inout_param(self, cmd_name, cmd_param=None):
             ) from err
         return param
     elif isinstance(self, __Group):
-
         if self.get_size() == 0:
             return DeviceData()
 
@@ -2992,10 +2232,7 @@ def _get_command_inout_param(self, cmd_name, cmd_param=None):
                         "Group.command_inout_asynch",
                     )
             elif len(types) > 1:
-                raise TypeError(
-                    "Cannot execute command with more than one type in group, types are:\n"
-                    f"{types}"
-                )
+                raise TypeError(f"Cannot execute command with more than one type in group, types are:\n{types}")
         finally:
             del last_cause
 
@@ -3004,8 +2241,7 @@ def _get_command_inout_param(self, cmd_name, cmd_param=None):
             param.insert(typ, cmd_param)
         except TypeError as err:
             raise TypeError(
-                f"Invalid input argument for command {cmd_name}: "
-                f"{cmd_param!r} cannot be converted to type {typ}"
+                f"Invalid input argument for command {cmd_name}: {cmd_param!r} cannot be converted to type {typ}"
             ) from err
         return param
 
@@ -3016,9 +2252,7 @@ def _get_command_inout_param(self, cmd_name, cmd_param=None):
         if isinstance(cmd_param, str):
             param.insert(CmdArgType.DevString, cmd_param)
             return param
-        elif isinstance(cmd_param, collections.abc.Sequence) and all(
-            [isinstance(x, str) for x in cmd_param]
-        ):
+        elif isinstance(cmd_param, collections.abc.Sequence) and all(isinstance(x, str) for x in cmd_param):
             param.insert(CmdArgType.DevVarStringArray, cmd_param)
             return param
         else:
@@ -3059,9 +2293,7 @@ def _exception_converter(exception):
                         )
                     except DevFailed as err:
                         return err
-        return Except.to_dev_failed(
-            exception.__class__, exception, exception.__traceback__
-        )
+        return Except.to_dev_failed(exception.__class__, exception, exception.__traceback__)
 
 
 class _InterfaceDefinedByIDL:
@@ -3069,10 +2301,7 @@ class _InterfaceDefinedByIDL:
 
     def __setattr__(self, name, value):
         if name not in self.__dict__ and self._initialized:
-            raise AttributeError(
-                f"tango._tango.{self.__class__.__name__} "
-                f"object has no attribute '{name}'"
-            )
+            raise AttributeError(f"tango._tango.{self.__class__.__name__} object has no attribute '{name}'")
 
         return super().__setattr__(name, value)
 

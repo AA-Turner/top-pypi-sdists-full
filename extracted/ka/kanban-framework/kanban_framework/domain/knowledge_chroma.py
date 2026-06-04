@@ -22,7 +22,13 @@ def ensure_chroma(km) -> bool:
         if not _get_chromadb():
             return False
     if km._chroma_collection is not None:
-        return True
+        # Health check: verify the collection handle is still valid
+        try:
+            km._chroma_collection.count()
+            return True
+        except Exception:
+            km._chroma_client = None
+            km._chroma_collection = None
     try:
         chroma_dir = str(km._fs.kanban_dir / "knowledge" / "chroma")
         km._chroma_client = _get_chromadb().PersistentClient(path=chroma_dir)

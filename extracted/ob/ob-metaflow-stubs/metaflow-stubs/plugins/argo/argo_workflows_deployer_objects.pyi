@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.29.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-21T21:10:55.401867                                                            #
+# MF version: 2.19.32.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-06-03T22:23:58.462417                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.runner.deployer
     import metaflow.plugins.argo.argo_workflows_deployer_objects
@@ -123,6 +123,15 @@ class ArgoWorkflowsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
     """
     A class representing a deployed Argo Workflow template.
     """
+    @property
+    def workflow_template(self) -> typing.Union[dict, None]:
+        """
+        Return the compiled Argo WorkflowTemplate from an ``only_json=True`` create.
+        
+        Normal deployments and objects reconstructed with ``from_deployment`` do not
+        retain the local compilation payload and return ``None``.
+        """
+        ...
     @classmethod
     def list_deployed_flows(cls, flow_name: typing.Union[str, None] = None):
         """

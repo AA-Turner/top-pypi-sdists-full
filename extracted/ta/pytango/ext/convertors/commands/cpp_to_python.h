@@ -13,8 +13,7 @@
 #include "convertors/generic_to_py.h"
 
 template <typename T, int tangoTypeConst>
-inline void scalar_cpp_data_to_python(T &self,
-                                      py::object &py_value) {
+inline void scalar_cpp_data_to_python(T &self, py::object &py_value) {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
     TangoScalarType data;
@@ -36,8 +35,7 @@ inline void scalar_cpp_data_to_python(T &self,
 }
 
 template <>
-inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_STRING>(CORBA::Any &self,
-                                                                     py::object &py_value) {
+inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_STRING>(CORBA::Any &self, py::object &py_value) {
     Tango::ConstDevString data;
 
     if(!(self >>= data)) {
@@ -58,8 +56,7 @@ inline void scalar_cpp_data_to_python<Tango::DeviceData, Tango::DEV_STRING>(Tang
 }
 
 template <>
-inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_ENCODED>(CORBA::Any &any,
-                                                                      py::object &py_value) {
+inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_ENCODED>(CORBA::Any &any, py::object &py_value) {
     Tango::DevEncoded *data;
 
     if(!(any >>= data)) {
@@ -108,32 +105,34 @@ py::object cpp_to_python_buffer_no_copy(const typename TANGO_const2type(tangoArr
     std::size_t length = static_cast<std::size_t>(tg_array->length());
 
     // Create a NumPy array that wraps the existing data
-    py::array array(
-        pybind11::dtype::of<T>(), // Data type
-        {length},                 // Shape
-        {sizeof(T)},              // Strides
-        data_ptr,                 // Data pointer
-        parent                    // Base object to manage memory
+    py::array array(pybind11::dtype::of<T>(), // Data type
+                    {length},                 // Shape
+                    {sizeof(T)},              // Strides
+                    data_ptr,                 // Data pointer
+                    parent                    // Base object to manage memory
     );
 
     return array;
 }
 
 template <>
-inline py::object cpp_to_python_buffer_no_copy<Tango::DEVVAR_STRINGARRAY>([[maybe_unused]] const Tango::DevVarStringArray *tg_array,
-                                                                          [[maybe_unused]] py::object parent) {
+inline py::object
+    cpp_to_python_buffer_no_copy<Tango::DEVVAR_STRINGARRAY>([[maybe_unused]] const Tango::DevVarStringArray *tg_array,
+                                                            [[maybe_unused]] py::object parent) {
     return to_py_list(tg_array);
 }
 
 template <>
-inline py::object cpp_to_python_buffer_no_copy<Tango::DEVVAR_STATEARRAY>([[maybe_unused]] const Tango::DevVarStateArray *tg_array,
-                                                                         [[maybe_unused]] py::object parent) {
+inline py::object
+    cpp_to_python_buffer_no_copy<Tango::DEVVAR_STATEARRAY>([[maybe_unused]] const Tango::DevVarStateArray *tg_array,
+                                                           [[maybe_unused]] py::object parent) {
     return to_py_list(tg_array);
 }
 
 template <>
-inline py::object cpp_to_python_buffer_no_copy<Tango::DEVVAR_LONGSTRINGARRAY>(const Tango::DevVarLongStringArray *tg_array,
-                                                                              py::object parent) {
+inline py::object
+    cpp_to_python_buffer_no_copy<Tango::DEVVAR_LONGSTRINGARRAY>(const Tango::DevVarLongStringArray *tg_array,
+                                                                py::object parent) {
     py::list result;
 
     result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_LONGARRAY>(&tg_array->lvalue, parent));
@@ -143,8 +142,9 @@ inline py::object cpp_to_python_buffer_no_copy<Tango::DEVVAR_LONGSTRINGARRAY>(co
 }
 
 template <>
-inline py::object cpp_to_python_buffer_no_copy<Tango::DEVVAR_DOUBLESTRINGARRAY>(const Tango::DevVarDoubleStringArray *tg_array,
-                                                                                py::object parent) {
+inline py::object
+    cpp_to_python_buffer_no_copy<Tango::DEVVAR_DOUBLESTRINGARRAY>(const Tango::DevVarDoubleStringArray *tg_array,
+                                                                  py::object parent) {
     py::list result;
 
     result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_DOUBLEARRAY>(&tg_array->dvalue, parent));
@@ -154,8 +154,7 @@ inline py::object cpp_to_python_buffer_no_copy<Tango::DEVVAR_DOUBLESTRINGARRAY>(
 }
 
 template <int tangoTypeConst>
-inline void array_cpp_data_to_python(CORBA::Any &self,
-                                     py::object &py_result) {
+inline void array_cpp_data_to_python(CORBA::Any &self, py::object &py_result) {
     using TangoArrayType = typename TANGO_const2type(tangoTypeConst);
 
     TangoArrayType *data;

@@ -36,7 +36,7 @@ impl RyTimeZone {
     }
 
     #[classattr]
-    #[expect(non_snake_case)]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn UTC() -> Self {
         Self::from(TimeZone::UTC)
     }
@@ -296,9 +296,9 @@ impl RyTimeZone {
     }
 
     #[staticmethod]
-    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
-        use ryo3_core::PyParse;
-        Self::py_parse(s)
+    #[pyo3(signature = (value, /))]
+    fn parse(value: ryo3_core::PyParseArg<Self>) -> Self {
+        value.into_inner()
     }
     // </STD-METHODS>
 

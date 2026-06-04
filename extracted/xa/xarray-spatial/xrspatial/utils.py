@@ -109,6 +109,45 @@ def _validate_raster(
                 )
 
 
+def _validate_matching_shape(
+    agg,
+    expected_shape,
+    *,
+    func_name: str,
+    name: str = 'raster',
+    expected_name: str = 'the primary raster',
+):
+    """Validate that *agg* has spatial shape ``expected_shape``.
+
+    Used to confirm a companion raster (e.g. start points, pour points,
+    flow accumulation) covers the same (H, W) grid as the primary input
+    before any kernel indexes into it.
+
+    Parameters
+    ----------
+    agg : xarray.DataArray
+        Companion raster to validate.
+    expected_shape : tuple of int
+        Required ``(H, W)`` shape.
+    func_name : str
+        Name of the calling function (for error messages).
+    name : str
+        Parameter name (for error messages).
+    expected_name : str
+        Description of the raster whose shape is the reference.
+
+    Raises
+    ------
+    ValueError
+        If ``agg.shape`` does not equal ``expected_shape``.
+    """
+    if tuple(agg.shape) != tuple(expected_shape):
+        raise ValueError(
+            f"{func_name}(): `{name}` shape {tuple(agg.shape)} does not "
+            f"match {expected_name} shape {tuple(expected_shape)}"
+        )
+
+
 def _validate_scalar(
     value,
     *,
@@ -181,6 +220,86 @@ def _validate_scalar(
                 f"{func_name}(): `{name}` must be <= {max_val}, "
                 f"got {value}"
             )
+
+
+def _validate_mfd_fractions(data, *, func_name: str, name: str = 'fractions',
+                            atol: float = 1e-6):
+    """Validate the VALUES of a (8, H, W) MFD fraction grid.
+
+    The public MFD functions document that each cell's 8 fraction
+    bands lie in ``[0, 1]`` and sum to either 1.0 (flow) or 0.0
+    (pit/flat/sink), with all-NaN bands at edges and nodata cells.
+    This checks those value invariants and raises a clear error when
+    the input violates them, before any hydrology math runs.
+
+    Three checks per cell:
+
+    * No negative fractions.
+    * The band sum is 1.0 or 0.0 within *atol*.
+    * NaN bands are all-or-nothing: either all 8 directions are NaN
+      (edge/nodata) or none are.  A partially-NaN cell is rejected.
+
+    Only numpy and cupy (in-memory) arrays are validated.  Dask arrays
+    are skipped so validation does not force computation; lazy
+    validation is handled separately.  The shape is assumed to already
+    be ``(8, H, W)`` (callers check that first).
+
+    Parameters
+    ----------
+    data : numpy.ndarray, cupy.ndarray, or dask.array.Array
+        The fraction grid (``DataArray.data``).
+    func_name : str
+        Name of the calling function (for error messages).
+    name : str
+        Parameter name (for error messages).
+    atol : float
+        Absolute tolerance for the band-sum check.
+
+    Raises
+    ------
+    ValueError
+        If any cell has a negative fraction, a band sum that is
+        neither ~1.0 nor ~0.0, or a partial-NaN band pattern.
+    """
+    if is_cupy_array(data):
+        xp = cupy
+    elif isinstance(data, np.ndarray):
+        xp = np
+    else:
+        # Dask (numpy- or cupy-backed) or other lazy types: skip value
+        # validation so we do not trigger computation.
+        return
+
+    prefix = f"{func_name}(): `{name}`"
+
+    nan_count = xp.isnan(data).sum(axis=0)
+    # Partial NaN: some but not all of the 8 bands are NaN.
+    if bool(((nan_count > 0) & (nan_count < 8)).any()):
+        raise ValueError(
+            f"{prefix} has cells with a partial-NaN band pattern.  Each "
+            f"cell must have all 8 direction bands NaN (edge/nodata) or "
+            f"none of them NaN."
+        )
+
+    # NaN < 0 is False, so NaN cells never trip this (no copy needed).
+    if bool((data < 0).any()):
+        raise ValueError(
+            f"{prefix} contains negative flow fractions.  Fractions must "
+            f"be in [0, 1]."
+        )
+
+    # Per-cell band sums, treating NaN bands as 0 so all-NaN cells sum
+    # to 0.0 and pass the sink check.
+    sums = xp.nansum(data, axis=0)
+    valid_cell = nan_count == 0
+    bad_sum = valid_cell & ~(
+        (xp.abs(sums - 1.0) <= atol) | (xp.abs(sums) <= atol)
+    )
+    if bool(bad_sum.any()):
+        raise ValueError(
+            f"{prefix} has cells whose flow fractions do not sum to 1.0 "
+            f"(flow) or 0.0 (pit/flat/sink) within tolerance {atol}."
+        )
 
 
 def _boundary_to_dask(boundary, is_cupy=False):
@@ -446,11 +565,63 @@ def calc_res(raster, xdim=None, ydim=None):
         Tuple of (x-resolution, y-resolution).
     """
 
+    if ydim is None:
+        ydim = raster.dims[-2]
+    if xdim is None:
+        xdim = raster.dims[-1]
+
     h, w = raster.shape[-2:]
     xrange, yrange = get_xy_range(raster, xdim, ydim)
     xres = (xrange[-1] - xrange[0]) / (w - 1)
     yres = (yrange[-1] - yrange[0]) / (h - 1)
+
+    _warn_if_irregular_spacing(raster, xdim, xres, "x")
+    _warn_if_irregular_spacing(raster, ydim, yres, "y")
+
     return xres, yres
+
+
+def _warn_if_irregular_spacing(raster, dim, res, axis_label):
+    """Warn when a 1-D coordinate on `dim` is not evenly spaced.
+
+    `calc_res` reduces the coordinate to a single average cell size
+    (full span divided by ``n - 1``). On an irregular grid that average
+    misrepresents every cell, and the caller gets no signal. Emit a
+    ``UserWarning`` so the averaging is visible and point at
+    ``attrs['res']`` for an explicit override (which
+    ``get_dataarray_resolution`` honors before it reaches `calc_res`).
+    """
+    coord = raster.coords.get(dim, None)
+    # A 2-point axis has a single step that always equals the averaged
+    # step, so it cannot be "irregular"; only check axes with >= 3 points.
+    if coord is None or coord.ndim != 1 or coord.size < 3:
+        return
+
+    values = np.asarray(coord.values)
+    if not np.issubdtype(values.dtype, np.number):
+        return
+
+    diffs = np.diff(values)
+    if not np.all(np.isfinite(diffs)):
+        return
+
+    # Compare each step magnitude against the averaged step. `res` comes
+    # from min/max span so it is non-negative regardless of axis
+    # direction; a descending (north-up) axis has negative diffs but is
+    # still regular, so compare absolute values. The relative tolerance
+    # keeps floating-point jitter from tripping the warning.
+    if np.allclose(np.abs(diffs), abs(res), rtol=1e-5, atol=0):
+        return
+
+    warnings.warn(
+        f"xrspatial: '{dim}' coordinate is not evenly spaced; "
+        f"using an averaged {axis_label}-resolution of {res}. "
+        "Per-cell spacing varies, so distance-based results may be "
+        "inaccurate. Set attrs['res'] to an explicit resolution to "
+        "silence this warning.",
+        UserWarning,
+        stacklevel=3,
+    )
 
 
 def get_dataarray_resolution(
@@ -844,6 +1015,11 @@ Z_UNITS = {
 # Known dimension / coordinate names (lower-cased for matching)
 _LAT_NAMES = {'lat', 'latitude', 'y'}
 _LON_NAMES = {'lon', 'longitude', 'x'}
+# Names that unambiguously mean geographic lat/lon. These take precedence
+# over a numeric dimension coord so a curvilinear raster with numeric y/x
+# index coords plus real lat/lon coords resolves to the lat/lon coords.
+_EXPLICIT_LAT_NAMES = {'lat', 'latitude'}
+_EXPLICIT_LON_NAMES = {'lon', 'longitude'}
 
 
 def _extract_latlon_coords(agg: xr.DataArray):
@@ -874,9 +1050,11 @@ def _extract_latlon_coords(agg: xr.DataArray):
     dim_y, dim_x = agg.dims[-2], agg.dims[-1]
 
     # --- locate lat coordinate ---
-    lat_coord = _find_coord(agg, dim_y, _LAT_NAMES, 'latitude')
+    lat_coord = _find_coord(agg, dim_y, _LAT_NAMES, _EXPLICIT_LAT_NAMES,
+                            'latitude')
     # --- locate lon coordinate ---
-    lon_coord = _find_coord(agg, dim_x, _LON_NAMES, 'longitude')
+    lon_coord = _find_coord(agg, dim_x, _LON_NAMES, _EXPLICIT_LON_NAMES,
+                            'longitude')
 
     lat_vals = np.asarray(lat_coord.values, dtype=np.float64)
     lon_vals = np.asarray(lon_coord.values, dtype=np.float64)
@@ -903,15 +1081,30 @@ def _extract_latlon_coords(agg: xr.DataArray):
     return lat_2d, lon_2d
 
 
-def _find_coord(agg, dim_name, known_names, label):
-    """Find a coordinate matching *dim_name* or one of *known_names*."""
-    # 1) Try the dimension name directly
+def _find_coord(agg, dim_name, known_names, explicit_names, label):
+    """Find a coordinate matching *dim_name* or one of *known_names*.
+
+    A coordinate whose name is unambiguously geographic (*explicit_names*,
+    e.g. ``lat``/``longitude``) is preferred over the dimension coord. This
+    keeps a curvilinear raster with numeric ``y``/``x`` index coords plus
+    real lat/lon coords from silently using the pixel indices as lat/lon.
+    If several explicit names are present (e.g. both ``lat`` and
+    ``latitude``), the first one in coord order wins.
+    """
+    # 1) Prefer an explicitly named geographic coordinate (lat/lon).
+    for name in agg.coords:
+        if str(name).lower() in explicit_names:
+            coord = agg.coords[name]
+            if np.issubdtype(coord.dtype, np.number):
+                return coord
+
+    # 2) Fall back to the dimension name directly.
     if dim_name in agg.coords:
         coord = agg.coords[dim_name]
         if np.issubdtype(coord.dtype, np.number):
             return coord
 
-    # 2) Scan all coords for a known name
+    # 3) Scan all coords for any other known name (e.g. y/x).
     for name in agg.coords:
         if str(name).lower() in known_names:
             coord = agg.coords[name]

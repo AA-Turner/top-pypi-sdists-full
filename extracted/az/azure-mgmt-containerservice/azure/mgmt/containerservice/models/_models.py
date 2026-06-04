@@ -803,7 +803,8 @@ class AgentPoolManagedClusterAgentPoolProfileProperties(_Model):  # pylint: disa
      exactly equal to it. If orchestratorVersion is <major.minor>, this field will contain the full
      <major.minor.patch> version being used.
     :vartype current_orchestrator_version: str
-    :ivar node_image_version: The version of node image.
+    :ivar node_image_version: The version of the node image. Setting this value triggers an
+     agentPool rollback. Only values from ``recentlyUsedVersions`` are allowed.
     :vartype node_image_version: str
     :ivar upgrade_settings: Settings for upgrading the agentpool.
     :vartype upgrade_settings: ~azure.mgmt.containerservice.models.AgentPoolUpgradeSettings
@@ -1038,8 +1039,11 @@ class AgentPoolManagedClusterAgentPoolProfileProperties(_Model):  # pylint: disa
      specified version <major.minor.patch>, this field will be exactly equal to it. If
      orchestratorVersion is <major.minor>, this field will contain the full <major.minor.patch>
      version being used."""
-    node_image_version: Optional[str] = rest_field(name="nodeImageVersion", visibility=["read"])
-    """The version of node image."""
+    node_image_version: Optional[str] = rest_field(
+        name="nodeImageVersion", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The version of the node image. Setting this value triggers an agentPool rollback. Only values
+     from ``recentlyUsedVersions`` are allowed."""
     upgrade_settings: Optional["_models.AgentPoolUpgradeSettings"] = rest_field(
         name="upgradeSettings", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -1224,6 +1228,7 @@ class AgentPoolManagedClusterAgentPoolProfileProperties(_Model):  # pylint: disa
         type_properties_type: Optional[Union[str, "_models.AgentPoolType"]] = None,
         mode: Optional[Union[str, "_models.AgentPoolMode"]] = None,
         orchestrator_version: Optional[str] = None,
+        node_image_version: Optional[str] = None,
         upgrade_settings: Optional["_models.AgentPoolUpgradeSettings"] = None,
         power_state: Optional["_models.PowerState"] = None,
         availability_zones: Optional[list[str]] = None,
@@ -1301,6 +1306,50 @@ class AgentPoolNetworkProfile(_Model):
         node_public_ip_tags: Optional[list["_models.IPTag"]] = None,
         allowed_host_ports: Optional[list["_models.PortRange"]] = None,
         application_security_groups: Optional[list[str]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class AgentPoolRecentlyUsedVersion(_Model):
+    """A historical version that can be used for rollback operations.
+
+    :ivar orchestrator_version: The Kubernetes version (major.minor.patch) available for rollback.
+    :vartype orchestrator_version: str
+    :ivar node_image_version: The node image version available for rollback.
+    :vartype node_image_version: str
+    :ivar timestamp: The timestamp when this version was last used.
+    :vartype timestamp: ~datetime.datetime
+    """
+
+    orchestrator_version: Optional[str] = rest_field(
+        name="orchestratorVersion", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The Kubernetes version (major.minor.patch) available for rollback."""
+    node_image_version: Optional[str] = rest_field(
+        name="nodeImageVersion", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The node image version available for rollback."""
+    timestamp: Optional[datetime.datetime] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"], format="rfc3339"
+    )
+    """The timestamp when this version was last used."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        orchestrator_version: Optional[str] = None,
+        node_image_version: Optional[str] = None,
+        timestamp: Optional[datetime.datetime] = None,
     ) -> None: ...
 
     @overload
@@ -1403,7 +1452,13 @@ class AgentPoolUpgradeProfile(ProxyResource):
     )
     """The properties of the agent pool upgrade profile. Required."""
 
-    __flattened_items = ["kubernetes_version", "os_type", "upgrades", "latest_node_image_version"]
+    __flattened_items = [
+        "kubernetes_version",
+        "os_type",
+        "upgrades",
+        "recently_used_versions",
+        "latest_node_image_version",
+    ]
 
     @overload
     def __init__(
@@ -1452,6 +1507,9 @@ class AgentPoolUpgradeProfileProperties(_Model):
     :ivar upgrades: List of orchestrator types and versions available for upgrade.
     :vartype upgrades:
      list[~azure.mgmt.containerservice.models.AgentPoolUpgradeProfilePropertiesUpgradesItem]
+    :ivar recently_used_versions: List of historical good versions for rollback operations.
+    :vartype recently_used_versions:
+     list[~azure.mgmt.containerservice.models.AgentPoolRecentlyUsedVersion]
     :ivar latest_node_image_version: The latest AKS supported node image version.
     :vartype latest_node_image_version: str
     """
@@ -1469,6 +1527,10 @@ class AgentPoolUpgradeProfileProperties(_Model):
         visibility=["read", "create", "update", "delete", "query"]
     )
     """List of orchestrator types and versions available for upgrade."""
+    recently_used_versions: Optional[list["_models.AgentPoolRecentlyUsedVersion"]] = rest_field(
+        name="recentlyUsedVersions", visibility=["read"]
+    )
+    """List of historical good versions for rollback operations."""
     latest_node_image_version: Optional[str] = rest_field(
         name="latestNodeImageVersion", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -2475,6 +2537,154 @@ class GPUProfile(_Model):
         self,
         *,
         driver: Optional[Union[str, "_models.GPUDriver"]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class IdentityBinding(ProxyResource):
+    """The IdentityBinding resource.
+
+    :ivar id: Fully qualified resource ID for the resource. Ex -
+     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
+    :vartype id: str
+    :ivar name: The name of the resource.
+    :vartype name: str
+    :ivar type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or
+     "Microsoft.Storage/storageAccounts".
+    :vartype type: str
+    :ivar system_data: Azure Resource Manager metadata containing createdBy and modifiedBy
+     information.
+    :vartype system_data: ~azure.mgmt.containerservice.models.SystemData
+    :ivar properties: The resource-specific properties for this resource.
+    :vartype properties: ~azure.mgmt.containerservice.models.IdentityBindingProperties
+    :ivar e_tag: If eTag is provided in the response body, it may also be provided as a header per
+     the normal etag convention.  Entity tags are used for comparing two or more entities from the
+     same requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match
+     (section 14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields.
+    :vartype e_tag: str
+    """
+
+    properties: Optional["_models.IdentityBindingProperties"] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The resource-specific properties for this resource."""
+    e_tag: Optional[str] = rest_field(name="eTag", visibility=["read"])
+    """If eTag is provided in the response body, it may also be provided as a header per the normal
+     etag convention.  Entity tags are used for comparing two or more entities from the same
+     requested resource. HTTP/1.1 uses entity tags in the etag (section 14.19), If-Match (section
+     14.24), If-None-Match (section 14.26), and If-Range (section 14.27) header fields."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        properties: Optional["_models.IdentityBindingProperties"] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class IdentityBindingManagedIdentityProfile(_Model):
+    """Managed identity profile for the identity binding.
+
+    :ivar resource_id: The resource ID of the managed identity. Required.
+    :vartype resource_id: str
+    :ivar object_id: The object ID of the managed identity.
+    :vartype object_id: str
+    :ivar client_id: The client ID of the managed identity.
+    :vartype client_id: str
+    :ivar tenant_id: The tenant ID of the managed identity.
+    :vartype tenant_id: str
+    """
+
+    resource_id: str = rest_field(name="resourceId", visibility=["read", "create"])
+    """The resource ID of the managed identity. Required."""
+    object_id: Optional[str] = rest_field(name="objectId", visibility=["read"])
+    """The object ID of the managed identity."""
+    client_id: Optional[str] = rest_field(name="clientId", visibility=["read"])
+    """The client ID of the managed identity."""
+    tenant_id: Optional[str] = rest_field(name="tenantId", visibility=["read"])
+    """The tenant ID of the managed identity."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        resource_id: str,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class IdentityBindingOidcIssuerProfile(_Model):
+    """IdentityBinding OIDC issuer profile.
+
+    :ivar oidc_issuer_url: The OIDC issuer URL of the IdentityBinding.
+    :vartype oidc_issuer_url: str
+    """
+
+    oidc_issuer_url: Optional[str] = rest_field(name="oidcIssuerUrl", visibility=["read"])
+    """The OIDC issuer URL of the IdentityBinding."""
+
+
+class IdentityBindingProperties(_Model):
+    """IdentityBinding properties.
+
+    :ivar managed_identity: Managed identity profile for the identity binding. Required.
+    :vartype managed_identity:
+     ~azure.mgmt.containerservice.models.IdentityBindingManagedIdentityProfile
+    :ivar oidc_issuer: The OIDC issuer URL of the IdentityBinding.
+    :vartype oidc_issuer: ~azure.mgmt.containerservice.models.IdentityBindingOidcIssuerProfile
+    :ivar provisioning_state: The status of the last operation. Known values are: "Succeeded",
+     "Failed", "Canceled", "Creating", "Updating", and "Deleting".
+    :vartype provisioning_state: str or
+     ~azure.mgmt.containerservice.models.IdentityBindingProvisioningState
+    """
+
+    managed_identity: "_models.IdentityBindingManagedIdentityProfile" = rest_field(
+        name="managedIdentity", visibility=["read", "create"]
+    )
+    """Managed identity profile for the identity binding. Required."""
+    oidc_issuer: Optional["_models.IdentityBindingOidcIssuerProfile"] = rest_field(
+        name="oidcIssuer", visibility=["read"]
+    )
+    """The OIDC issuer URL of the IdentityBinding."""
+    provisioning_state: Optional[Union[str, "_models.IdentityBindingProvisioningState"]] = rest_field(
+        name="provisioningState", visibility=["read"]
+    )
+    """The status of the last operation. Known values are: \"Succeeded\", \"Failed\", \"Canceled\",
+     \"Creating\", \"Updating\", and \"Deleting\"."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        managed_identity: "_models.IdentityBindingManagedIdentityProfile",
     ) -> None: ...
 
     @overload
@@ -4103,7 +4313,8 @@ class ManagedClusterAgentPoolProfileProperties(_Model):
      exactly equal to it. If orchestratorVersion is <major.minor>, this field will contain the full
      <major.minor.patch> version being used.
     :vartype current_orchestrator_version: str
-    :ivar node_image_version: The version of node image.
+    :ivar node_image_version: The version of the node image. Setting this value triggers an
+     agentPool rollback. Only values from ``recentlyUsedVersions`` are allowed.
     :vartype node_image_version: str
     :ivar upgrade_settings: Settings for upgrading the agentpool.
     :vartype upgrade_settings: ~azure.mgmt.containerservice.models.AgentPoolUpgradeSettings
@@ -4338,8 +4549,11 @@ class ManagedClusterAgentPoolProfileProperties(_Model):
      specified version <major.minor.patch>, this field will be exactly equal to it. If
      orchestratorVersion is <major.minor>, this field will contain the full <major.minor.patch>
      version being used."""
-    node_image_version: Optional[str] = rest_field(name="nodeImageVersion", visibility=["read"])
-    """The version of node image."""
+    node_image_version: Optional[str] = rest_field(
+        name="nodeImageVersion", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The version of the node image. Setting this value triggers an agentPool rollback. Only values
+     from ``recentlyUsedVersions`` are allowed."""
     upgrade_settings: Optional["_models.AgentPoolUpgradeSettings"] = rest_field(
         name="upgradeSettings", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -4524,6 +4738,7 @@ class ManagedClusterAgentPoolProfileProperties(_Model):
         type: Optional[Union[str, "_models.AgentPoolType"]] = None,
         mode: Optional[Union[str, "_models.AgentPoolMode"]] = None,
         orchestrator_version: Optional[str] = None,
+        node_image_version: Optional[str] = None,
         upgrade_settings: Optional["_models.AgentPoolUpgradeSettings"] = None,
         power_state: Optional["_models.PowerState"] = None,
         availability_zones: Optional[list[str]] = None,
@@ -4668,7 +4883,8 @@ class ManagedClusterAgentPoolProfile(ManagedClusterAgentPoolProfileProperties):
      exactly equal to it. If orchestratorVersion is <major.minor>, this field will contain the full
      <major.minor.patch> version being used.
     :vartype current_orchestrator_version: str
-    :ivar node_image_version: The version of node image.
+    :ivar node_image_version: The version of the node image. Setting this value triggers an
+     agentPool rollback. Only values from ``recentlyUsedVersions`` are allowed.
     :vartype node_image_version: str
     :ivar upgrade_settings: Settings for upgrading the agentpool.
     :vartype upgrade_settings: ~azure.mgmt.containerservice.models.AgentPoolUpgradeSettings
@@ -4813,6 +5029,7 @@ class ManagedClusterAgentPoolProfile(ManagedClusterAgentPoolProfileProperties):
         type: Optional[Union[str, "_models.AgentPoolType"]] = None,
         mode: Optional[Union[str, "_models.AgentPoolMode"]] = None,
         orchestrator_version: Optional[str] = None,
+        node_image_version: Optional[str] = None,
         upgrade_settings: Optional["_models.AgentPoolUpgradeSettings"] = None,
         power_state: Optional["_models.PowerState"] = None,
         availability_zones: Optional[list[str]] = None,
@@ -5250,6 +5467,11 @@ class ManagedClusterAzureMonitorProfileMetrics(_Model):
      aka.ms/AzureManagedPrometheus-optional-parameters for details.
     :vartype kube_state_metrics:
      ~azure.mgmt.containerservice.models.ManagedClusterAzureMonitorProfileKubeStateMetrics
+    :ivar control_plane: Control plane metrics collection profile for the Azure Managed Prometheus
+     addon. Configures collection of operational runtime metrics from managed control plane
+     components (kube-apiserver, etcd, etc). See aka.ms/aks/controlplane-metrics for an overview.
+    :vartype control_plane:
+     ~azure.mgmt.containerservice.models.ManagedClusterAzureMonitorProfileMetricsControlPlane
     """
 
     enabled: bool = rest_field(visibility=["read", "create", "update", "delete", "query"])
@@ -5261,6 +5483,12 @@ class ManagedClusterAzureMonitorProfileMetrics(_Model):
     """Kube State Metrics profile for the Azure Managed Prometheus addon. These optional settings are
      for the kube-state-metrics pod that is deployed with the addon. See
      aka.ms/AzureManagedPrometheus-optional-parameters for details."""
+    control_plane: Optional["_models.ManagedClusterAzureMonitorProfileMetricsControlPlane"] = rest_field(
+        name="controlPlane", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Control plane metrics collection profile for the Azure Managed Prometheus addon. Configures
+     collection of operational runtime metrics from managed control plane components
+     (kube-apiserver, etcd, etc). See aka.ms/aks/controlplane-metrics for an overview."""
 
     @overload
     def __init__(
@@ -5268,6 +5496,40 @@ class ManagedClusterAzureMonitorProfileMetrics(_Model):
         *,
         enabled: bool,
         kube_state_metrics: Optional["_models.ManagedClusterAzureMonitorProfileKubeStateMetrics"] = None,
+        control_plane: Optional["_models.ManagedClusterAzureMonitorProfileMetricsControlPlane"] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class ManagedClusterAzureMonitorProfileMetricsControlPlane(_Model):  # pylint: disable=name-too-long
+    """Control plane metrics collection profile for the Azure Managed Prometheus addon. Configures
+    collection of operational runtime metrics from managed control plane components
+    (kube-apiserver, etcd, etc). See aka.ms/aks/controlplane-metrics for an overview.
+
+    :ivar enabled: Whether to enable or disable collection of control plane metrics by the Azure
+     Managed Prometheus addon. Defaults to disabled. See aka.ms/aks/controlplane-metrics for
+     details.
+    :vartype enabled: bool
+    """
+
+    enabled: Optional[bool] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """Whether to enable or disable collection of control plane metrics by the Azure Managed
+     Prometheus addon. Defaults to disabled. See aka.ms/aks/controlplane-metrics for details."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        enabled: Optional[bool] = None,
     ) -> None: ...
 
     @overload
@@ -7818,7 +8080,7 @@ class ManagedClusterWindowsProfile(_Model):
     """Specifies the password of the administrator account. <br><br> **Minimum-length:** 8 characters
      <br><br> **Max-length:** 123 characters <br><br> **Complexity requirements:** 3 out of 4
      conditions below need to be fulfilled <br> Has lower characters <br>Has upper characters <br>
-     Has a digit <br> Has a special character (Regex match [\W_]) <br><br> **Disallowed values:**
+     Has a digit <br> Has a special character (Regex match [\\W_]) <br><br> **Disallowed values:**
      \"abc@123\", \"P@$$w0rd\", \"P@ssw0rd\", \"P@ssword123\", \"Pa$$word\", \"pass@word1\",
      \"Password!\", \"Password1\", \"Password22\", \"iloveyou!\"."""
     license_type: Optional[Union[str, "_models.LicenseType"]] = rest_field(

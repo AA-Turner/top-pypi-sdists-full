@@ -6,9 +6,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from litestar import Request, get
-from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.exceptions import ImproperlyConfiguredException, NotAuthorizedException
 from litestar.middleware.session.server_side import ServerSideSessionConfig
+from litestar.params import FromPath, FromQuery
+from litestar.plugins.jinja import JinjaTemplateEngine
 from litestar.stores.memory import MemoryStore
 from litestar.template.config import TemplateConfig
 from litestar.testing import create_test_client  # pyright: ignore[reportUnknownVariableType]
@@ -29,6 +30,8 @@ from litestar_vite.inertia.helpers import (
     lazy,
     lazy_render,
     merge,
+    once,
+    optional,
     share,
     should_render,
 )
@@ -799,6 +802,21 @@ async def test_extract_deferred_props() -> None:
     assert sorted(groups["attributes"]) == ["projects", "teams"]
 
 
+async def test_extract_deferred_props_uses_nested_dot_paths() -> None:
+    """Test nested deferred props emit v3 dot-path metadata."""
+    props = {
+        "profile": {
+            "permissions": defer("permissions", lambda: ["read"]),
+            "teams": defer("teams", lambda: [], group="attributes"),
+        },
+        "settings": defer("settings", lambda: {}).once(),
+    }
+
+    groups = extract_deferred_props(props)
+
+    assert groups == {"default": ["profile.permissions"], "attributes": ["profile.teams"]}
+
+
 async def test_merge_helper() -> None:
     """Test merge() helper creates MergeProp with strategies."""
     # Default append strategy
@@ -851,6 +869,24 @@ async def test_extract_merge_props() -> None:
     assert prepend_list == ["messages"]
     assert deep_list == ["config"]
     assert match_on == ["items.id"]
+
+
+async def test_extract_merge_props_uses_nested_dot_paths() -> None:
+    """Test nested merge props emit v3 dot-path metadata."""
+    props = {
+        "feed": {
+            "posts": merge("posts", [{"id": 1}], match_on="id"),
+            "messages": merge("messages", [], strategy="prepend"),
+            "config": merge("config", {}, strategy="deep", match_on=["id", "type"]),
+        }
+    }
+
+    merge_list, prepend_list, deep_list, match_on = extract_merge_props(props)
+
+    assert merge_list == ["feed.posts"]
+    assert prepend_list == ["feed.messages"]
+    assert deep_list == ["feed.config"]
+    assert match_on == ["feed.posts.id", "feed.config.id", "feed.config.type"]
 
 
 async def test_should_render_with_partial_except() -> None:
@@ -1243,8 +1279,8 @@ async def test_encrypt_history_defaults_to_false(
     ) as client:
         response = client.get("/", headers={InertiaHeaders.ENABLED.value: "true"})
         data = response.json()
-        # encryptHistory should be false by default
-        assert data["encryptHistory"] is False
+        # encryptHistory is an optional v3 key and should be omitted when false
+        assert "encryptHistory" not in data
 
 
 async def test_encrypt_history_config_default(
@@ -1303,8 +1339,8 @@ async def test_encrypt_history_response_overrides_config(
     ) as client:
         response = client.get("/public", headers={InertiaHeaders.ENABLED.value: "true"})
         data = response.json()
-        # Response parameter should override config
-        assert data["encryptHistory"] is False
+        # Response parameter should override config and omit the false optional v3 key
+        assert "encryptHistory" not in data
 
 
 async def test_clear_history_parameter(
@@ -1352,8 +1388,143 @@ async def test_clear_history_defaults_to_false(
     ) as client:
         response = client.get("/", headers={InertiaHeaders.ENABLED.value: "true"})
         data = response.json()
-        # clearHistory should be false by default
-        assert data["clearHistory"] is False
+        # clearHistory is an optional v3 key and should be omitted when false
+        assert "clearHistory" not in data
+
+
+async def test_nested_special_props_emit_v3_dot_path_metadata(
+    inertia_plugin: InertiaPlugin,
+    vite_plugin: VitePlugin,
+    template_config: TemplateConfig,  # pyright: ignore[reportUnknownParameterType,reportMissingTypeArgument]
+) -> None:
+    """Test nested deferred, once, and merge props serialize with v3 dot paths."""
+
+    @get("/profile", component="Profile")
+    async def handler(request: Request[Any, Any, Any]) -> dict[str, Any]:
+        return {
+            "profile": {
+                "name": "Ada",
+                "permissions": defer("permissions", lambda: ["read"]),
+                "settings": once("settings", {"theme": "dark"}),
+                "posts": merge("posts", [{"id": 1, "title": "Hello"}], match_on="id"),
+            }
+        }
+
+    with create_test_client(
+        route_handlers=[handler],
+        template_config=template_config,
+        plugins=[inertia_plugin, vite_plugin],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        response = client.get("/profile", headers={InertiaHeaders.ENABLED.value: "true"})
+        data = response.json()
+
+        assert "encryptHistory" not in data
+        assert "clearHistory" not in data
+        assert data["deferredProps"] == {"default": ["profile.permissions"]}
+        assert data["onceProps"] == {"settings": {"prop": "profile.settings"}}
+        assert data["mergeProps"] == ["profile.posts"]
+        assert data["matchPropsOn"] == ["profile.posts.id"]
+        assert data["props"]["profile"] == {
+            "name": "Ada",
+            "settings": {"theme": "dark"},
+            "posts": [{"id": 1, "title": "Hello"}],
+        }
+
+
+async def test_nested_optional_prop_renders_for_dot_path_partial_reload(
+    inertia_plugin: InertiaPlugin,
+    vite_plugin: VitePlugin,
+    template_config: TemplateConfig,  # pyright: ignore[reportUnknownParameterType,reportMissingTypeArgument]
+) -> None:
+    """Test nested optional props render when requested by v3 dot path."""
+
+    @get("/profile", component="Profile")
+    async def handler(request: Request[Any, Any, Any]) -> dict[str, Any]:
+        return {
+            "profile": {"name": "Ada", "permissions": optional("permissions", lambda: ["read"])},
+            "summary": "visible",
+        }
+
+    with create_test_client(
+        route_handlers=[handler],
+        template_config=template_config,
+        plugins=[inertia_plugin, vite_plugin],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        response = client.get(
+            "/profile",
+            headers={
+                InertiaHeaders.ENABLED.value: "true",
+                InertiaHeaders.PARTIAL_COMPONENT.value: "Profile",
+                InertiaHeaders.PARTIAL_DATA.value: "profile.permissions",
+            },
+        )
+        data = response.json()
+
+        assert data["props"]["profile"] == {"permissions": ["read"]}
+        assert "summary" not in data["props"]
+
+
+async def test_nested_optional_prop_renders_for_legacy_local_key_partial_reload(
+    inertia_plugin: InertiaPlugin,
+    vite_plugin: VitePlugin,
+    template_config: TemplateConfig,  # pyright: ignore[reportUnknownParameterType,reportMissingTypeArgument]
+) -> None:
+    """Test nested optional props still render when requested by legacy local key."""
+
+    @get("/profile", component="Profile")
+    async def handler(request: Request[Any, Any, Any]) -> dict[str, Any]:
+        return {"profile": {"permissions": optional("permissions", lambda: ["read"])}}
+
+    with create_test_client(
+        route_handlers=[handler],
+        template_config=template_config,
+        plugins=[inertia_plugin, vite_plugin],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        response = client.get(
+            "/profile",
+            headers={
+                InertiaHeaders.ENABLED.value: "true",
+                InertiaHeaders.PARTIAL_COMPONENT.value: "Profile",
+                InertiaHeaders.PARTIAL_DATA.value: "permissions",
+            },
+        )
+        data = response.json()
+
+        assert data["props"]["profile"] == {"permissions": ["read"]}
+
+
+async def test_nested_once_metadata_survives_except_once_header(
+    inertia_plugin: InertiaPlugin,
+    vite_plugin: VitePlugin,
+    template_config: TemplateConfig,  # pyright: ignore[reportUnknownParameterType,reportMissingTypeArgument]
+) -> None:
+    """Test nested once metadata stays available when the cached prop is omitted."""
+
+    @get("/profile", component="Profile")
+    async def handler(request: Request[Any, Any, Any]) -> dict[str, Any]:
+        return {"profile": {"settings": once("settings", {"theme": "dark"})}}
+
+    with create_test_client(
+        route_handlers=[handler],
+        template_config=template_config,
+        plugins=[inertia_plugin, vite_plugin],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        response = client.get(
+            "/profile",
+            headers={InertiaHeaders.ENABLED.value: "true", InertiaHeaders.EXCEPT_ONCE_PROPS.value: "settings"},
+        )
+        data = response.json()
+
+        assert data["props"]["profile"] == {}
+        assert data["onceProps"] == {"settings": {"prop": "profile.settings"}}
 
 
 # =====================================================
@@ -1371,7 +1542,7 @@ async def test_scroll_props_parameter(
     from litestar_vite.inertia.response import InertiaResponse
 
     @get("/posts", component="Posts")
-    async def handler(request: Request[Any, Any, Any], page: int = 1) -> InertiaResponse[dict[str, Any]]:
+    async def handler(request: Request[Any, Any, Any], page: FromQuery[int] = 1) -> InertiaResponse[dict[str, Any]]:
         posts = [{"id": i, "title": f"Post {i}"} for i in range((page - 1) * 10, page * 10)]
         return InertiaResponse(
             {"posts": posts},
@@ -1529,7 +1700,7 @@ async def test_http_exception_404_preserved_for_non_inertia_requests(
     from litestar.exceptions import NotFoundException
 
     @get("/api/items/{item_id:int}")
-    async def handler(request: Request[Any, Any, Any], item_id: int) -> dict[str, Any]:
+    async def handler(request: Request[Any, Any, Any], item_id: FromPath[int]) -> dict[str, Any]:
         raise NotFoundException(detail=f"Item {item_id} not found")
 
     with create_test_client(
@@ -1990,6 +2161,55 @@ async def test_inertia_redirect_allows_relative_url(
         response = client.get("/redirect", headers={InertiaHeaders.ENABLED.value: "true"}, follow_redirects=False)
         assert response.status_code == 307
         assert response.headers.get("location") == "/dashboard"
+
+
+async def test_inertia_redirect_with_fragment_uses_inertia_redirect_header(
+    inertia_plugin: InertiaPlugin,
+    vite_plugin: VitePlugin,
+    template_config: TemplateConfig,  # pyright: ignore[reportUnknownParameterType,reportMissingTypeArgument]
+) -> None:
+    """Test same-origin fragment redirects use the v3 X-Inertia-Redirect protocol."""
+    from litestar_vite.inertia.response import InertiaRedirect
+
+    @get("/redirect", component="Redirect")
+    async def handler(request: Request[Any, Any, Any]) -> InertiaRedirect:
+        return InertiaRedirect(request, redirect_to="/dashboard#details")
+
+    with create_test_client(
+        route_handlers=[handler],
+        template_config=template_config,
+        plugins=[inertia_plugin, vite_plugin],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        response = client.get("/redirect", headers={InertiaHeaders.ENABLED.value: "true"}, follow_redirects=False)
+        assert response.status_code == 409
+        assert response.headers.get("x-inertia-redirect") == "/dashboard#details"
+        assert "location" not in response.headers
+
+
+async def test_standard_redirect_with_fragment_keeps_location_header(
+    inertia_plugin: InertiaPlugin,
+    vite_plugin: VitePlugin,
+    template_config: TemplateConfig,  # pyright: ignore[reportUnknownParameterType,reportMissingTypeArgument]
+) -> None:
+    """Test non-Inertia fragment redirects stay standard HTTP redirects."""
+    from litestar_vite.inertia.response import InertiaRedirect
+
+    @get("/redirect", component="Redirect")
+    async def handler(request: Request[Any, Any, Any]) -> InertiaRedirect:
+        return InertiaRedirect(request, redirect_to="/dashboard#details")
+
+    with create_test_client(
+        route_handlers=[handler],
+        template_config=template_config,
+        plugins=[inertia_plugin, vite_plugin],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        response = client.get("/redirect", follow_redirects=False)
+        assert response.status_code == 307
+        assert response.headers.get("location") == "/dashboard#details"
 
 
 # =====================================================
@@ -2509,3 +2729,124 @@ def test_inertia_deferred_props_full_cycle() -> None:
         data_partial = response_partial.json()
         assert data_partial["props"]["deferred"] == "slow_result"
         assert "immediate" not in data_partial["props"]
+        # The resolved key must not be re-advertised as still-deferred,
+        # or the @inertiajs/core v3 client loops on loadDeferredProps.
+        assert "deferred" not in data_partial.get("deferredProps", {}).get("default", []), (
+            "Server echoed the resolved deferred key back in `deferredProps`; "
+            "this causes the Inertia v3 client to re-fire `loadDeferredProps` in an infinite loop."
+        )
+
+
+def test_deferred_props_partial_reload_strips_resolved_keys_from_metadata() -> None:
+    """A partial reload for a deferred key must not echo it back in `deferredProps`."""
+
+    @get("/", component="Home")
+    async def handler() -> dict[str, Any]:
+        return {"fast": "loads immediately", "slow": defer("slow", lambda: "computed")}
+
+    with create_test_client(
+        route_handlers=[handler],
+        plugins=[InertiaPlugin(config=InertiaConfig()), VitePlugin()],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        partial = client.get(
+            "/",
+            headers={
+                InertiaHeaders.ENABLED.value: "true",
+                InertiaHeaders.PARTIAL_DATA.value: "slow",
+                InertiaHeaders.PARTIAL_COMPONENT.value: "Home",
+            },
+        )
+        body = partial.json()
+        assert body["props"]["slow"] == "computed"
+        # With the only deferred key resolved, `deferredProps` must drop out entirely.
+        assert body.get("deferredProps") in (None, {}), body.get("deferredProps")
+
+
+def test_deferred_props_partial_reload_preserves_unrequested_metadata() -> None:
+    """When only one of two deferred props is requested, the unrequested one
+    must remain in `deferredProps` so the client can fetch it later.
+    """
+
+    @get("/", component="Home")
+    async def handler() -> dict[str, Any]:
+        return {"first": defer("first", lambda: "value-1"), "second": defer("second", lambda: "value-2")}
+
+    with create_test_client(
+        route_handlers=[handler],
+        plugins=[InertiaPlugin(config=InertiaConfig()), VitePlugin()],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        partial = client.get(
+            "/",
+            headers={
+                InertiaHeaders.ENABLED.value: "true",
+                InertiaHeaders.PARTIAL_DATA.value: "first",
+                InertiaHeaders.PARTIAL_COMPONENT.value: "Home",
+            },
+        )
+        body = partial.json()
+        assert body["props"]["first"] == "value-1"
+        assert "first" not in body["deferredProps"].get("default", [])
+        assert "second" in body["deferredProps"]["default"]
+
+
+def test_deferred_props_grouped_partial_reload_strips_only_requested_group() -> None:
+    """When deferred props live in distinct groups, a partial reload for one
+    group's keys must strip those keys from their group only; other groups
+    stay intact and an emptied group is removed entirely.
+    """
+
+    @get("/", component="Home")
+    async def handler() -> dict[str, Any]:
+        return {
+            "stats": defer("stats", lambda: {"hits": 1}, group="metrics"),
+            "perms": defer("perms", lambda: ["read"], group="security"),
+        }
+
+    with create_test_client(
+        route_handlers=[handler],
+        plugins=[InertiaPlugin(config=InertiaConfig()), VitePlugin()],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        partial = client.get(
+            "/",
+            headers={
+                InertiaHeaders.ENABLED.value: "true",
+                InertiaHeaders.PARTIAL_DATA.value: "stats",
+                InertiaHeaders.PARTIAL_COMPONENT.value: "Home",
+            },
+        )
+        body = partial.json()
+        assert body["props"]["stats"] == {"hits": 1}
+        assert "metrics" not in body.get("deferredProps", {}), (
+            "An emptied group must be removed from `deferredProps` entirely."
+        )
+        assert body["deferredProps"]["security"] == ["perms"]
+
+
+def test_deferred_props_initial_response_still_advertises_all_keys() -> None:
+    """The fix must NOT affect the initial response — every deferred key must
+    still be advertised so the client knows to fetch them. Regression guard
+    against over-correcting #236 / PR #241.
+    """
+
+    @get("/", component="Home")
+    async def handler() -> dict[str, Any]:
+        return {"a": defer("a", lambda: 1), "b": defer("b", lambda: 2, group="other")}
+
+    with create_test_client(
+        route_handlers=[handler],
+        plugins=[InertiaPlugin(config=InertiaConfig()), VitePlugin()],
+        middleware=[ServerSideSessionConfig().middleware],
+        stores={"sessions": MemoryStore()},
+    ) as client:
+        initial = client.get("/", headers={InertiaHeaders.ENABLED.value: "true"})
+        body = initial.json()
+        assert "a" not in body["props"]
+        assert "b" not in body["props"]
+        assert body["deferredProps"]["default"] == ["a"]
+        assert body["deferredProps"]["other"] == ["b"]

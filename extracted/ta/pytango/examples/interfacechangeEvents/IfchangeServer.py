@@ -35,9 +35,7 @@ class IfchangeServer(Device):
 
     @command(dtype_in=str, doc_in="name of dynamic attribute to add")
     def add_dyn_attr(self, name):
-        attr = attribute(
-            name=name, dtype="float", fget=self.read_current, fset=self.write_current
-        )
+        attr = attribute(name=name, dtype="float", fget=self.read_current, fset=self.write_current)
         self.add_attribute(attr)
 
     @command(dtype_in=str, doc_in="name of dynamic attribute to delete")

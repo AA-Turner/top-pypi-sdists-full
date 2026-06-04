@@ -21,17 +21,15 @@ void export_locker_info(py::module &m) {
     py::class_<Tango::LockerInfo>(m,
                                   "LockerInfo",
                                   R"doc(
-    A structure with information about the locker with the following members:
+        A structure with information about the locker with the following members:
 
         - ll : (tango.LockerLanguage) the locker language
-        - li : (pid_t / UUID) the locker id
+        - li : (pid_t / UUID) the locker id: pid_t should be an :py:obj:`int`, UUID should be a :py:obj:`tuple` of four numbers.
         - locker_host : (str) the host
         - locker_class : (str) the class
 
-        pid_t should be an int, UUID should be a tuple of four numbers.
-
-        New in PyTango 7.0.0
-)doc")
+        .. versionadded:: 7.0.0
+        )doc")
         .def(py::init<>())
         .def_readonly("ll", &Tango::LockerInfo::ll)
         .def_property("li", &PyLockerInfo::get_locker_id, nullptr)

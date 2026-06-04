@@ -1,4 +1,5 @@
 import os
+
 from pybind11_stubgen import main
 
 for p in os.environ.get("PATH", "").split(";"):

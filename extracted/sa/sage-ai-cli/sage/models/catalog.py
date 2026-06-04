@@ -203,9 +203,14 @@ def fetch_remote_catalog(force: bool = False) -> list[CatalogModel] | None:
 def get_full_catalog() -> list[CatalogModel]:
     """Return the best available catalog: remote > cache > hardcoded."""
     remote = fetch_remote_catalog()
-    if remote and len(remote) > 0:
-        return remote
-    return MODEL_CATALOG
+    if not remote:
+        return MODEL_CATALOG
+    
+    # Merge remote over hardcoded (remote wins on name collision)
+    merged = {m.name: m for m in MODEL_CATALOG}
+    for m in remote:
+        merged[m.name] = m
+    return list(merged.values())
 
 
 def refresh_catalog_from_remote(*, background: bool = False, force: bool = False) -> int:

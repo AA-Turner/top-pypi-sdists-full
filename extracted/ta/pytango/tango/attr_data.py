@@ -5,16 +5,26 @@
 This is an internal PyTango module.
 """
 
-
 __all__ = ("AttrData",)
 
 __docformat__ = "restructuredtext"
 
 import inspect
+from typing import ClassVar
 
-from tango._tango import Except, CmdArgType, AttrDataFormat, AttrWriteType
-from tango._tango import DispLevel, UserDefaultAttrProp, UserDefaultFwdAttrProp
-from tango._tango import Attr, SpectrumAttr, ImageAttr, FwdAttr
+from tango._tango import (
+    Attr,
+    AttrDataFormat,
+    AttrWriteType,
+    CmdArgType,
+    DispLevel,
+    Except,
+    FwdAttr,
+    ImageAttr,
+    SpectrumAttr,
+    UserDefaultAttrProp,
+    UserDefaultFwdAttrProp,
+)
 from tango.utils import is_non_str_seq, is_pure_str
 
 
@@ -122,15 +132,11 @@ class AttrData:
 
         self.alarm_event_implemented = attr_dict.pop("alarm_event_implemented", False)
         self.alarm_event_detect = attr_dict.pop("alarm_event_detect", True)
-        self.archive_event_implemented = attr_dict.pop(
-            "archive_event_implemented", False
-        )
+        self.archive_event_implemented = attr_dict.pop("archive_event_implemented", False)
         self.archive_event_detect = attr_dict.pop("archive_event_detect", True)
         self.change_event_implemented = attr_dict.pop("change_event_implemented", False)
         self.change_event_detect = attr_dict.pop("change_event_detect", True)
-        self.data_ready_event_implemented = attr_dict.pop(
-            "data_ready_event_implemented", False
-        )
+        self.data_ready_event_implemented = attr_dict.pop("data_ready_event_implemented", False)
 
         if self.forward:
             self.att_prop = self.__create_user_default_fwdattr_prop(attr_dict)
@@ -183,11 +189,7 @@ class AttrData:
             elif k == "delta_time":
                 p.set_delta_t(str(v))
             elif k_lower not in ("display level", "polling period", "memorized"):
-                msg = (
-                    f"Wrong definition of attribute. "
-                    f"The object extra information '{k}' "
-                    f"is not recognized!"
-                )
+                msg = f"Wrong definition of attribute. The object extra information '{k}' is not recognized!"
                 Except.throw_exception(
                     "PyDs_WrongAttributeDefinition",
                     msg,
@@ -307,7 +309,7 @@ class AttrData:
                     f"attribute must be an integer"
                 )
         else:
-            assert False, "Unsupported AttrDataFormat {attr_format}."
+            raise AssertionError(f"Unsupported AttrDataFormat {self.attr_format}.")
 
         # get write type
         try:
@@ -320,9 +322,7 @@ class AttrData:
                 f"tango.AttrWriteType"
             )
         try:
-            self.display_level = DispLevel(
-                extra_info.get("display level", DispLevel.OPERATOR)
-            )
+            self.display_level = DispLevel(extra_info.get("display level", DispLevel.OPERATOR))
         except Exception:
             throw_ex(
                 f"Wrong display level in attribute information for "
@@ -357,27 +357,20 @@ class AttrData:
 
         self.alarm_event_implemented = extra_info.get("alarm_event_implemented", False)
         self.alarm_event_detect = extra_info.get("alarm_event_detect", True)
-        self.archive_event_implemented = extra_info.get(
-            "archive_event_implemented", False
-        )
+        self.archive_event_implemented = extra_info.get("archive_event_implemented", False)
         self.archive_event_detect = extra_info.get("archive_event_detect", True)
-        self.change_event_implemented = extra_info.get(
-            "change_event_implemented", False
-        )
+        self.change_event_implemented = extra_info.get("change_event_implemented", False)
         self.change_event_detect = extra_info.get("change_event_detect", True)
-        self.data_ready_event_implemented = extra_info.get(
-            "data_ready_event_implemented", False
-        )
+        self.data_ready_event_implemented = extra_info.get("data_ready_event_implemented", False)
 
         if self.attr_type == CmdArgType.DevEnum:
             if "enum_labels" not in extra_info:
                 throw_ex(
-                    f"Missing 'enum_labels' key in attr_list definition "
-                    f"for enum attribute {attr_name} in class {name}"
+                    f"Missing 'enum_labels' key in attr_list definition for enum attribute {attr_name} in class {name}"
                 )
             self.enum_labels = extra_info["enum_labels"]
 
-        self.attr_class = extra_info.get("klass", None)
+        self.attr_class = extra_info.get("klass")
 
         att_prop = None
         if extra_info:
@@ -388,24 +381,19 @@ class AttrData:
         if self.att_prop:
             self.att_prop.set_enum_labels(enum_labels)
         else:
-            self.att_prop = self.__create_user_default_attr_prop(
-                {"enum_labels": enum_labels}
-            )
+            self.att_prop = self.__create_user_default_attr_prop({"enum_labels": enum_labels})
 
     def to_attr(self):
         if self.attr_args is None:
             attr_args = [self.attr_name, self.attr_type, self.attr_write]
-            if not self.attr_format == AttrDataFormat.SCALAR:
+            if self.attr_format != AttrDataFormat.SCALAR:
                 attr_args.append(self.dim_x)
-                if not self.attr_format == AttrDataFormat.SPECTRUM:
+                if self.attr_format != AttrDataFormat.SPECTRUM:
                     attr_args.append(self.dim_y)
         else:
             attr_args = self.attr_args
 
-        if self.attr_class is None:
-            klass = self.DftAttrClassMap[self.attr_format]
-        else:
-            klass = self.attr_class
+        klass = self.DftAttrClassMap[self.attr_format] if self.attr_class is None else self.attr_class
 
         attr = klass(*attr_args)
         if self.att_prop is not None:
@@ -418,7 +406,7 @@ class AttrData:
             attr.set_polling_period(self.polling_period)
         return attr
 
-    DftAttrClassMap = {
+    DftAttrClassMap: ClassVar[dict] = {
         AttrDataFormat.SCALAR: Attr,
         AttrDataFormat.SPECTRUM: SpectrumAttr,
         AttrDataFormat.IMAGE: ImageAttr,

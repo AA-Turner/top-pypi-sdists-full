@@ -3,22 +3,24 @@
 
 """
 This is an internal PyTango module. It provides tango log classes that can
-be used as decorators in any method of :class:`tango.DeviceImpl`.
+be used as decorators in any method of :class:`tango.DeviceImpl`, including
+the high-level API's :class:`tango.server.Device`.
 
 To access these members use directly :mod:`tango` module and NOT tango.log4tango.
 
 Example::
 
     import tango
+    from tango.server import Device
 
-    class MyDev(tango.Device_4Impl):
+    class MyDev(Device):
 
         @tango.InfoIt()
         def read_Current(self, attr):
             attr.set_value(self._current)
 """
 
-__all__ = ("TangoStream", "LogIt", "DebugIt", "InfoIt", "WarnIt", "ErrorIt", "FatalIt")
+__all__ = ("DebugIt", "ErrorIt", "FatalIt", "InfoIt", "LogIt", "TangoStream", "WarnIt")
 
 __docformat__ = "restructuredtext"
 
@@ -80,7 +82,7 @@ class LogIt:
 
     Example::
 
-        class MyDevice(tango.Device_4Impl):
+        class MyDevice(Device):
 
             @tango.LogIt()
             def read_Current(self, attr):
@@ -96,12 +98,17 @@ class LogIt:
         * show_ret - shows return value in log message (defaults to False)
     """
 
-    def __init__(self, show_args=False, show_kwargs=False, show_ret=False):
+    def __init__(self, show_args: bool = False, show_kwargs: bool = False, show_ret: bool = False):
         """Initializes de LogIt object.
 
-        :param show_args: (bool) show arguments in log message (default is False)
+        :param show_args: show arguments in log message (default is False)
+        :type show_args: :py:obj:`bool`
+
         :param show_kwargs: (bool) show keyword arguments in log message (default is False)
+        :type show_kwargs: :py:obj:`bool`
+
         :param show_ret: (bool) show return in log message (default is False)
+        :type show_ret: :py:obj:`bool`
         """
         self._show_args = show_args
         self._show_kwargs = show_kwargs
@@ -185,7 +192,7 @@ class DebugIt(LogIt):
 
     Example::
 
-        class MyDevice(tango.Device_4Impl):
+        class MyDevice(Device):
 
             @tango.DebugIt()
             def read_Current(self, attr):
@@ -213,7 +220,7 @@ class InfoIt(LogIt):
 
     Example::
 
-        class MyDevice(tango.Device_4Impl):
+        class MyDevice(Device):
 
             @tango.InfoIt()
             def read_Current(self, attr):
@@ -241,7 +248,7 @@ class WarnIt(LogIt):
 
     Example::
 
-        class MyDevice(tango.Device_4Impl):
+        class MyDevice(Device):
 
             @tango.WarnIt()
             def read_Current(self, attr):
@@ -269,7 +276,7 @@ class ErrorIt(LogIt):
 
     Example::
 
-        class MyDevice(tango.Device_4Impl):
+        class MyDevice(Device):
 
             @tango.ErrorIt()
             def read_Current(self, attr):
@@ -297,7 +304,7 @@ class FatalIt(LogIt):
 
     Example::
 
-        class MyDevice(tango.Device_4Impl):
+        class MyDevice(Device):
 
             @tango.FatalIt()
             def read_Current(self, attr):

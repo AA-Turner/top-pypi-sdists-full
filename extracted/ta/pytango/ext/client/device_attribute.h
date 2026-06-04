@@ -25,9 +25,7 @@ typedef std::unique_ptr<std::vector<Tango::DeviceAttribute>> AutoDevAttrVector;
 /// @}
 
 /// Set the value of a DeviceAttribute from python (useful for write*)
-void reset(Tango::DeviceAttribute &self,
-           const Tango::AttributeInfo &attr_info,
-           py::object py_value);
+void reset(Tango::DeviceAttribute &self, const Tango::AttributeInfo &attr_info, py::object py_value);
 
 void reset(Tango::DeviceAttribute &self,
            const std::string &attr_name,

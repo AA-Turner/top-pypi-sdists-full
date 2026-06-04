@@ -1231,6 +1231,20 @@ fn hash_analytic_penalty_kind(
             hasher.write_usize(p.rho_index);
             hash_weight_schedule_option(hasher, &p.weight_schedule);
         }
+        AnalyticPenaltyKind::DecoderIncoherence(p) => {
+            hasher.write_str("decoder-incoherence");
+            hash_psi_slice(hasher, &p.target);
+            hasher.write_usize(p.block_sizes.len());
+            for &m in &p.block_sizes {
+                hasher.write_usize(m);
+            }
+            hasher.write_usize(p.p_out);
+            hash_array2(hasher, &p.coactivation);
+            hasher.write_f64(p.weight);
+            hasher.write_bool(p.learnable_weight);
+            hasher.write_usize(p.rho_index);
+            hash_weight_schedule_option(hasher, &p.weight_schedule);
+        }
         AnalyticPenaltyKind::Orthogonality(p) => {
             hasher.write_str("orthogonality");
             hash_psi_slice(hasher, &p.target);
@@ -6297,6 +6311,9 @@ impl<'a> RemlState<'a> {
                 &pirls_config,
                 warm_start_ref,
                 adaptive_kkt_tolerance,
+                // REML cost eval: never re-profile the Gamma scale against the
+                // trial λ's residuals (would bias λ selection — see #678).
+                false,
             );
             let pirls_elapsed = pirls_start.elapsed();
             if let Ok((ref res, ref wm)) = result {
@@ -6669,6 +6686,9 @@ impl<'a> RemlState<'a> {
             // owned by the production trajectory and the sigma points are
             // not on it.
             None,
+            // Sigma-point cubature eval: Gamma scale refinement stays OFF (only
+            // the final reported fit refines — see #678).
+            false,
         );
         let pirls_elapsed = pirls_start.elapsed();
         if let Ok((ref res, ref wm)) = result {

@@ -348,7 +348,8 @@ class WorkbookTemplate(ItemTemplate, Workbook):
 
     def push(self, *, context: WorkbookPushContext, folder_id=None, item_map: ItemMap = None, label=None,
              include_inventory=True):
-        if context.current_params.specific_worksheet_ids is None or len(context.current_params.specific_worksheet_ids) > 0:
+        if context.current_params.specific_worksheet_ids is None or len(
+                context.current_params.specific_worksheet_ids) > 0:
             override_item_map = OverrideItemMap(item_map, template_parameters=self.parameters)
         else:
             override_item_map = item_map
@@ -494,15 +495,15 @@ class AnalysisWorksheetTemplate(WorksheetTemplate, AnalysisWorksheet):
         return self._annotation
 
     def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
-             existing_worksheet_identifiers, include_inventory, label=None):
+             existing_worksheet_identifiers, include_inventory, label=None) -> str:
         self._current_override_map = OverrideItemMap(item_map, template_parameters=self.parameters)
-        output = super().push(context, pushed_workbook_id,
-                              self._current_override_map, datasource_output,
-                              existing_worksheet_identifiers, include_inventory, self.label)
+        pushed_worksheet_id = super().push(context, pushed_workbook_id,
+                                           self._current_override_map, datasource_output,
+                                           existing_worksheet_identifiers, include_inventory, self.label)
 
         self._after_push(item_map)
 
-        return output
+        return pushed_worksheet_id
 
     def find_unresolved_worksteps(self, item_map: ItemMap):
         return super().find_unresolved_worksteps(self._current_override_map)
@@ -573,14 +574,15 @@ class TopicDocumentTemplate(WorksheetTemplate, TopicDocument):
         return self._annotation
 
     def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
-             existing_worksheet_identifiers, include_inventory, label=None):
-        output = super().push(context, pushed_workbook_id,
-                              OverrideItemMap(item_map, template_parameters=self.parameters), datasource_output,
-                              existing_worksheet_identifiers, include_inventory, self.label)
+             existing_worksheet_identifiers, include_inventory, label=None) -> str:
+        pushed_worksheet_id = super().push(context, pushed_workbook_id,
+                                           OverrideItemMap(item_map, template_parameters=self.parameters),
+                                           datasource_output,
+                                           existing_worksheet_identifiers, include_inventory, self.label)
 
         self._after_push(item_map)
 
-        return output
+        return pushed_worksheet_id
 
     def copy(self, label):
         existing_worksheet = self._find_existing_worksheet_template(self.template.id, label)

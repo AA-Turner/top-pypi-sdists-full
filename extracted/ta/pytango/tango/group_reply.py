@@ -8,20 +8,17 @@ __all__ = ("group_reply_init",)
 
 __docformat__ = "restructuredtext"
 
+from typing import Any
+
+from tango import GroupAttrReply, GroupCmdReply, GroupReply
 from tango.pytango_pprint import __indented, __str_error_stack_helper
-from tango import GroupReply, GroupCmdReply, GroupAttrReply
 
 
-def __GroupCmdReply__get_data(self):
+def __GroupCmdReply__get_data(self) -> Any:
     """
-    get_data(self) -> any
-
-        Get the actual value stored in the GroupCmdRply, the command
-        output value.
-        It's the same as self.get_data_raw().extract()
-
-    Parameters : None
-    Return     : (any) Whatever is stored there, or None.
+    Get the actual value stored in the GroupCmdRply, the command
+    output value.
+    It's the same as self.get_data_raw().extract()
     """
     return self.get_data_raw().extract()
 
@@ -39,10 +36,7 @@ def __str_group_reply_helper(self):
         extra_line = f"err_stack = {err_str}\n"
     elif hasattr(self, "get_data"):
         value = self.get_data()
-        if isinstance(value, str):
-            value = f'"{value}"'
-        else:
-            value = str(value)
+        value = f'"{value}"' if isinstance(value, str) else str(value)
         extra_line = f"data = {value}\n"
     else:
         extra_line = ""
@@ -53,11 +47,7 @@ def __str_group_reply_helper(self):
         f"has_failed = {has_failed}\n"
         f"{extra_line}"
     )
-    return (
-        f"{self.__class__.__name__}[\n"
-        f"{__indented(details, strip_outer=False)}\n"
-        f"]"
-    )
+    return f"{self.__class__.__name__}[\n{__indented(details, strip_outer=False)}\n]"
 
 
 def group_reply_init():

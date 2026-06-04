@@ -34,6 +34,8 @@ from chalk._gen.chalk.common.v2.execute_plan_pb2 import ExecutePlanRequest, Exec
 from chalk._gen.chalk.engine.v1 import query_server_pb2
 from chalk._gen.chalk.engine.v1.query_server_pb2_grpc import QueryServiceStub
 from chalk._gen.chalk.engine.v2.dataframe_service_pb2_grpc import DataFrameServiceStub
+from chalk._gen.chalk.engine.v2.offline_store_service_pb2_grpc import OfflineStoreServiceStub
+from chalk._gen.chalk.engine.v2.query_values_pb2 import GetQueryValuesRequest, OperationIdTableIdentifier
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import Graph
 from chalk._gen.chalk.modeldeployment.v1.service_pb2_grpc import ModelDeploymentServiceStub
@@ -119,6 +121,8 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     GetOfflineQueryRequest,
 )
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
+from chalk._gen.chalk.server.v1.queries_pb2 import GetMetaQueryRequest, GetQueryRunRequest
+from chalk._gen.chalk.server.v1.queries_pb2_grpc import QueriesServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import GetScheduledQueryRunsRequest
 from chalk._gen.chalk.server.v1.scheduler_pb2 import ManualTriggerScheduledQueryRequest
@@ -230,6 +234,7 @@ if TYPE_CHECKING:
     from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
     from chalk._gen.chalk.server.v1.dataframe_pb2 import GetDataFrameRunResponse
     from chalk.client import ChalkError
+    from chalk.client.response import OnlineQueryResult
 
 
 _JOB_STATE_MAP = {
@@ -444,6 +449,18 @@ class StubProvider:
                 "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
             )
         return OfflineQueryMetadataServiceStub(self._server_channel)
+
+    @cached_property
+    def offline_store_stub(self) -> OfflineStoreServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return OfflineStoreServiceStub(self._server_channel)
+
+    @cached_property
+    def queries_stub(self) -> QueriesServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return QueriesServiceStub(self._server_channel)
 
     @cached_property
     def scheduled_query_stub(self) -> SchedulerServiceStub:
@@ -757,6 +774,12 @@ class StubRefresher:
 
     def call_offline_query_stub(self, fn: Callable[[OfflineQueryMetadataServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.offline_query_stub)
+
+    def call_offline_store_stub(self, fn: Callable[[OfflineStoreServiceStub], T]):
+        return self._retry_callable(fn, lambda: self._stub.offline_store_stub)
+
+    def call_queries_stub(self, fn: Callable[[QueriesServiceStub], T]):
+        return self._retry_callable(fn, lambda: self._stub.queries_stub)
 
     def call_scheduled_query_stub(self, fn: Callable[[SchedulerServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.scheduled_query_stub)
@@ -1565,6 +1588,127 @@ class ChalkGRPCClient:
             ),
             body_type=online_query_pb2.FEATHER_BODY_TYPE_RECORD_BATCHES,
         )
+
+    def get_online_query_input_values(
+        self,
+        query: "Union[OnlineQueryResult, str]",
+        query_timestamp: Optional[dt.datetime] = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch the stored inputs of a past online query as a list of row dicts.
+
+        `query` is either the operation id of the online query (a string), or the
+        `OnlineQueryResult` returned by a prior `query(...)` call. When a result is passed, both the
+        operation id and the query timestamp are read from `result.meta`, so the query must have
+        been run with `include_meta=True`.
+
+        `query_timestamp` is the approximate time the query ran. Without it the query run is only
+        looked up within the last 24 hours; pass it to fetch inputs for queries older than that. It
+        is taken automatically from `result.meta.query_timestamp` when a result is passed.
+
+        Inputs are only available when online-query value persistence is enabled for the
+        environment:
+
+        - `CHALK_PLANNER_PERSIST_VALUES_OFFLINE_STORE=1` is required for online queries to persist
+          their inputs/outputs to the value tables. It is off by default; without it this returns
+          an empty list.
+        - `CHALK_PERSIST_TO_OFFLINE_STORE_QUERY_LOG` controls whether the run is written to the
+          query log at all; without it the query run cannot be found.
+
+        (Offline queries always persist their inputs; this method is for online queries.)
+        """
+        import io
+
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        # Resolve the operation id (and, for a result object, the query timestamp) from `query`.
+        if isinstance(query, str):
+            query_id = query
+        else:
+            meta = getattr(query, "meta", None)
+            query_id = getattr(meta, "query_id", None) if meta is not None else None
+            if not query_id:
+                raise ValueError(
+                    "Could not read the query id from the provided online query result. Run the "
+                    + "query with `include_meta=True` so `result.meta.query_id` is populated, or pass "
+                    + "the query id string directly."
+                )
+            if query_timestamp is None:
+                query_timestamp = getattr(meta, "query_timestamp", None)
+
+        # 1) Resolve the query run -> creation time (for the value-table scan window) and the meta
+        #    query id (to know which columns are inputs). Without an approximate timestamp the
+        #    server only searches the last 24h, so pass one through to locate older queries.
+        run_request = GetQueryRunRequest(operation_id=query_id)
+        if query_timestamp is not None:
+            approximate_timestamp = timestamp_pb2.Timestamp()
+            approximate_timestamp.FromDatetime(query_timestamp)
+            run_request = GetQueryRunRequest(operation_id=query_id, approximate_timestamp=approximate_timestamp)
+        try:
+            run_resp = self._stub_refresher.call_queries_stub(lambda x: x.GetQueryRun(run_request))
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise ValueError(
+                    f"Online query '{query_id}' was not found. If the query is new it may take a few "
+                    + "seconds to appear. If it ran more than 24h ago, pass `query_timestamp` (its "
+                    + "approximate run time) so it can be located."
+                ) from e
+            raise
+        query_run = run_resp.query_run
+        created_at = query_run.created_at.ToDatetime()
+
+        meta_resp = self._stub_refresher.call_queries_stub(
+            lambda x: x.GetMetaQuery(GetMetaQueryRequest(meta_query_id=query_run.meta_query_id))
+        )
+        meta_query = meta_resp.meta_query
+        # Value-table columns use dunder-separated fqns (e.g. the feature ``bank_account.id`` is
+        # stored in the column ``bank_account__id``), so map each input feature fqn to its column
+        # name. We key the returned rows by the original dot-separated fqn.
+        column_to_fqn: dict[str, str] = {}
+        for fqn in set(meta_query.input_features) | set(meta_query.input_feature_root_fqns):
+            column = fqn.replace(".", "__")
+            column_to_fqn[column] = fqn
+            # Tolerate versioned/unversioned mismatches between the meta query and the value table.
+            column_to_fqn.setdefault(column.split("@", 1)[0], fqn)
+
+        # 2) The value table is partitioned by query timestamp, so the scan must be bounded to a
+        #    window around the run's creation time (mirrors the dashboard's inputs pane).
+        window = dt.timedelta(minutes=5)
+        lower = timestamp_pb2.Timestamp()
+        lower.FromDatetime(created_at - window)
+        upper = timestamp_pb2.Timestamp()
+        upper.FromDatetime(created_at + window)
+
+        # 3) Page through the stored values for this operation.
+        tables: list[pa.Table] = []
+        FIRST_RUN = "FIRST_RUN_SENTINEL"
+        page_token = FIRST_RUN
+        while page_token:
+            request = GetQueryValuesRequest(
+                operation_id_identifier=OperationIdTableIdentifier(operation_id=query_id),
+                query_timestamp_lower_bound_inclusive=lower,
+                query_timestamp_upper_bound_exclusive=upper,
+                page_token="" if page_token == FIRST_RUN else page_token,
+            )
+            resp = self._stub_refresher.call_offline_store_stub(lambda x: x.GetQueryValues(request))
+
+            if resp.parquet:
+                tables.append(pq.read_table(io.BytesIO(resp.parquet)))
+
+            page_token = resp.next_page_token
+
+        if not tables:
+            return []
+
+        table = tables[0] if len(tables) == 1 else pa.concat_tables(tables)
+
+        # 4) Keep only the input columns (dropping outputs and internal __chalk_* columns) and key
+        #    each row by the feature fqn rather than the raw value-table column name.
+        selected = [name for name in table.column_names if name in column_to_fqn]
+        return [
+            {column_to_fqn[column]: value for column, value in row.items()}
+            for row in table.select(selected).to_pylist()
+        ]
 
     def run_scheduled_query(
         self,

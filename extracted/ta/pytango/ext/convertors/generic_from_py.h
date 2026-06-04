@@ -38,8 +38,9 @@ struct python_scalar_to_cpp {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
     static void convert([[maybe_unused]] const py::object &val, [[maybe_unused]] TangoScalarType &tg) {
-        Tango::Except::throw_exception(
-            "PyDs_WrongPythonDataTypeForAttribute", "Unsupported attribute type translation", "python_scalar_to_cpp::convert()");
+        Tango::Except::throw_exception("PyDs_WrongPythonDataTypeForAttribute",
+                                       "Unsupported attribute type translation",
+                                       "python_scalar_to_cpp::convert()");
     }
 };
 
@@ -74,7 +75,8 @@ struct python_scalar_to_cpp<Tango::DEV_ENCODED> {
         tg.encoded_format = CORBA::string_dup(encoded_format);
 
         Py_ssize_t size;
-        unsigned char *encoded_data = reinterpret_cast<unsigned char *>(from_python_str_to_cpp_char(encoded_data_str, &size, true));
+        unsigned char *encoded_data =
+            reinterpret_cast<unsigned char *>(from_python_str_to_cpp_char(encoded_data_str, &size, true));
         if(size < 0) {
             throw std::runtime_error("Size cannot be negative");
         }
@@ -98,9 +100,10 @@ inline std::string type_missmatch_error(const int tangoTypeConst) {
     } else {
         type_str = "integer";
     };
-    std::string err_msg = "Expecting a " + type_str + " type, but it is not. "
-                                                      "If you use a numpy type instead of python core types,"
-                                                      " then it must exactly match (ex: numpy.int32 for PyTango.DevLong)";
+    std::string err_msg = "Expecting a " + type_str +
+                          " type, but it is not. "
+                          "If you use a numpy type instead of python core types,"
+                          " then it must exactly match (ex: numpy.int32 for PyTango.DevLong)";
     return err_msg;
 }
 
@@ -164,8 +167,7 @@ DEFINE_FROM_PY_NUMERIC(Tango::DEV_FLOAT, double, PyFloat_AsDouble)
 DEFINE_FROM_PY_NUMERIC(Tango::DEV_DOUBLE, double, PyFloat_AsDouble)
 
 template <int tangoArrayTypeConst>
-struct array_element_from_py : public python_scalar_to_cpp<TANGO_const2scalarconst(tangoArrayTypeConst)> {
-};
+struct array_element_from_py : public python_scalar_to_cpp<TANGO_const2scalarconst(tangoArrayTypeConst)> { };
 
 template <>
 struct array_element_from_py<Tango::DEVVAR_CHARARRAY> {
@@ -180,8 +182,8 @@ struct array_element_from_py<Tango::DEVVAR_CHARARRAY> {
         long cpy_value = PyLong_AsLong(py_val);
         if(PyErr_Occurred() != nullptr) {
             PyErr_Clear();
-            if(PyArray_CheckScalar(py_val) &&
-               (PyArray_DescrFromScalar(py_val) == PyArray_DescrFromType(TANGO_const2scalarnumpy(tangoArrayTypeConst)))) {
+            if(PyArray_CheckScalar(py_val) && (PyArray_DescrFromScalar(py_val) ==
+                                               PyArray_DescrFromType(TANGO_const2scalarnumpy(tangoArrayTypeConst)))) {
                 PyArray_ScalarAsCtype(py_val, reinterpret_cast<void *>(&tg));
                 return;
             } else {
@@ -206,7 +208,11 @@ struct array_element_from_py<Tango::DEVVAR_CHARARRAY> {
 template <typename TangoElementType>
 void python_seq_to_tango(const py::object &py_value, _CORBA_Sequence<TangoElementType> &result) {
     size_t len = py::len(py_value);
-    static_assert(sizeof(Py_ssize_t) == sizeof(size_t)); // see also https://github.com/python/cpython/blob/69426fcee7fcecbe34be66d2c5b58b6d0ffe2809/Include/pyport.h#L137C51-L138C18
+    static_assert(
+        sizeof(Py_ssize_t) ==
+        sizeof(
+            size_t)); // see also
+                      // https://github.com/python/cpython/blob/69426fcee7fcecbe34be66d2c5b58b6d0ffe2809/Include/pyport.h#L137C51-L138C18
     if(len > std::numeric_limits<CORBA::ULong>::max() || len > static_cast<size_t>(PY_SSIZE_T_MAX)) {
         throw std::overflow_error("py::len(py_value) is too large for CORBA::ULong/Py_ssize_t");
     }

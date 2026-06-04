@@ -167,8 +167,18 @@ async def get_remote_changes(
                 pass
             elif other_pull["state"] == "closed" and pull["state"] == "open":
                 remote_changes[changeid] = pull
-            elif other_pull["state"] == "opened":
-                msg = f"More than 1 pull found with this head: {pull['head']['ref']}"
+            elif other_pull["state"] == "open" and pull["state"] == "open":
+                # Two open PRs on the same Change-Id is a user-state
+                # bug the rest of the orchestration can't reconcile
+                # (push would race, lease check would clobber).
+                # Surface loudly with both PR URLs + the Change-Id so
+                # the user can close one without a second round trip.
+                msg = (
+                    f"More than 1 pull found for Change-Id {changeid}: "
+                    f"#{other_pull['number']} ({other_pull['html_url']}) and "
+                    f"#{pull['number']} ({pull['html_url']}) "
+                    f"— close one of them and rerun."
+                )
                 raise RuntimeError(msg)
 
         else:
@@ -351,6 +361,13 @@ async def get_changes(
                 changes.locals[-1].dest_branch if changes.locals else base_branch,
                 dest_branch,
                 action,
+                # Amend-reason note from `refs/notes/mergify/stack`,
+                # already populated by the Rust walker via
+                # `git log --notes=…`. Empty string when no note is
+                # attached. Replaces the per-commit
+                # `read_reasons()` round-trip the orchestrator used
+                # to make in `stack_push`.
+                reason=local["note"],
             ),
         )
 
@@ -376,7 +393,7 @@ async def _read_local_commits_via_rust(
 ) -> list[dict[str, str]]:
     """Walk the stack range via the native Rust subcommand.
 
-    Returns a list of `{commit_sha, title, message, change_id, slug}`
+    Returns a list of `{commit_sha, title, message, change_id, slug, note}`
     dicts, one per commit in `<base_commit_sha>..<dest_branch>`.
     A missing `Change-Id:` trailer makes the Rust binary exit with
     `ExitCode.INVALID_STATE`; we mirror the Python exit path so the

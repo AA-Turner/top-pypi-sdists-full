@@ -5,6 +5,9 @@ import sys
 import os
 import re
 
+from sphinx.application import Sphinx
+from sphinx.ext.autodoc import Documenter
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -353,6 +356,7 @@ def fix_indentation(lines):
     paragraphs = []
     paragraph = []
     block_indents = []
+    in_code_block = False
 
     for line in lines:
         indent = len(line) - len(line.lstrip())
@@ -362,6 +366,7 @@ def fix_indentation(lines):
             is_bullet_in_same_block = is_bullet and indent == block_indents[-1]
             if indent <= block_indents[-1] and not is_bullet_in_same_block:
                 block_indents.pop()
+                in_code_block = False
                 if paragraph:
                     paragraphs.append(paragraph)
                     paragraph = []
@@ -372,9 +377,11 @@ def fix_indentation(lines):
             paragraphs.append([""])  # preserve blank line
         else:
             paragraph.append(line)
-        is_new_block = "::" in line or stripped_line.endswith(":")
-        if is_new_block:
-            block_indents.append(indent)
+        if not in_code_block:
+            is_new_block = "::" in line or stripped_line.endswith(":")
+            if is_new_block:
+                block_indents.append(indent)
+                in_code_block = ".. code-block::" in line
 
     if paragraph:
         paragraphs.append(paragraph)
@@ -426,14 +433,7 @@ def __reformat_lines(app, what, name, obj, options, lines):
                     sg = split_signature(line)
                     if sg is not None:
                         # Main lines are like small titles (**bold**):
-                        lines[ln] = (
-                            "**"
-                            + fname
-                            + "** *"
-                            + sg[0]
-                            + "* **->** "
-                            + type_to_link(sg[1])
-                        )
+                        lines[ln] = "**" + fname + "** *" + sg[0] + "* **->** " + type_to_link(sg[1])
                         # Add an ENTER after the title, to make a different
                         # paragraph. So if I have 2 signatures, there's no problem
                         # with it...
@@ -458,10 +458,7 @@ def __reformat_lines(app, what, name, obj, options, lines):
         spl = line.strip().split(":", 1)
         control_word = spl[0].strip()
 
-        if (len(spl) != 2) or (
-            control_word
-            not in ["Parameters", "Return", "Throws", "Example", "See Also"]
-        ):
+        if (len(spl) != 2) or (control_word not in ["Parameters", "Return", "Throws", "Example", "See Also"]):
             if parsingParameters:
                 lines[ln] = parse_parameters(line)
             elif parsingThrows:
@@ -495,6 +492,41 @@ def __reformat_lines(app, what, name, obj, options, lines):
         lines.insert(pos, txt)
 
 
+def custom_signature_processor(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj,
+    options: dict,
+    signature: str,
+    return_annotation: str,
+) -> tuple[str, str]:
+    """
+    Replace detailed default values with simple text for specific parameters.
+    """
+    # Only modify if it's a function or method signature
+    if what in ("function", "method"):
+        # The signature argument is the full signature string including defaults
+
+        # Replace the detailed repr() of sys.stdout with the desired string
+        if "msg_stream=<_io.TextIOWrapper" in signature:
+            signature = signature.replace(
+                "msg_stream=<_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>",
+                "msg_stream=sys.stdout",
+            )
+
+        # Replace the detailed repr() of sys.stderr with the desired string
+        if "err_stream=<_io.TextIOWrapper" in signature:
+            signature = signature.replace(
+                "err_stream=<_io.TextIOWrapper name='<stderr>' mode='w' encoding='utf-8'>",
+                "err_stream=sys.stderr",
+            )
+
+    # Return the modified signature and the original return annotation
+    return signature, return_annotation
+
+
 def setup(app):
     # sphinx will call this method when it finds an object to document.
     app.connect("autodoc-process-docstring", __reformat_lines)
+    app.connect("autodoc-process-signature", custom_signature_processor)

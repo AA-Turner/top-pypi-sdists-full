@@ -25,8 +25,11 @@ else:
 __all__ = (
     "EndUserMessagingSocialServiceName",
     "ListLinkedWhatsAppBusinessAccountsPaginatorName",
+    "ListWhatsAppFlowAssetsPaginatorName",
+    "ListWhatsAppFlowsPaginatorName",
     "ListWhatsAppMessageTemplatesPaginatorName",
     "ListWhatsAppTemplateLibraryPaginatorName",
+    "MetaFlowCategoryType",
     "PaginatorName",
     "RegistrationStatusType",
     "ResourceServiceName",
@@ -35,8 +38,21 @@ __all__ = (
 
 
 ListLinkedWhatsAppBusinessAccountsPaginatorName = Literal["list_linked_whatsapp_business_accounts"]
+ListWhatsAppFlowAssetsPaginatorName = Literal["list_whatsapp_flow_assets"]
+ListWhatsAppFlowsPaginatorName = Literal["list_whatsapp_flows"]
 ListWhatsAppMessageTemplatesPaginatorName = Literal["list_whatsapp_message_templates"]
 ListWhatsAppTemplateLibraryPaginatorName = Literal["list_whatsapp_template_library"]
+MetaFlowCategoryType = Literal[
+    "APPOINTMENT_BOOKING",
+    "CONTACT_US",
+    "CUSTOMER_SUPPORT",
+    "LEAD_GENERATION",
+    "OTHER",
+    "SHOPPING",
+    "SIGN_IN",
+    "SIGN_UP",
+    "SURVEY",
+]
 RegistrationStatusType = Literal["COMPLETE", "INCOMPLETE"]
 EndUserMessagingSocialServiceName = Literal["socialmessaging"]
 ServiceName = Literal[
@@ -471,6 +487,8 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_linked_whatsapp_business_accounts",
+    "list_whatsapp_flow_assets",
+    "list_whatsapp_flows",
     "list_whatsapp_message_templates",
     "list_whatsapp_template_library",
 ]

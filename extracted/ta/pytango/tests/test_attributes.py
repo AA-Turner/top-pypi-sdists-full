@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
-import re
+import enum
 import os
+import re
 import textwrap
 import time
-import enum
-
-import psutil
+from typing import ClassVar
 
 import numpy as np
+import psutil
 
 try:
     import numpy.typing as npt
@@ -20,60 +20,59 @@ import pytest
 import tango.asyncio
 import tango.constants
 from tango import (
-    AttrData,
+    READ_WRITE,
+    SCALAR,
+    SPECTRUM,
     Attr,
+    AttrData,
     AttrDataFormat,
-    AttrQuality,
     AttReqType,
-    AttrWriteType,
     Attribute,
+    AttrQuality,
+    AttrWriteType,
     CmdArgType,
     DevBoolean,
-    DevLong,
     DevDouble,
-    DevFailed,
     DevEncoded,
     DevEnum,
-    DevState,
-    DevVoid,
+    DevFailed,
     Device_4Impl,
     Device_5Impl,
     Device_6Impl,
     DeviceClass,
+    DevLong,
+    DevState,
+    DevVoid,
+    EncodedAttribute,
     ExtractAs,
     GreenMode,
     LatestDeviceImpl,
     MultiClassAttribute,
-    READ_WRITE,
-    SCALAR,
-    SPECTRUM,
-    EncodedAttribute,
     PyTangoUserWarning,  # noqa
     Util,
     WAttribute,
 )
 from tango.green import get_executor
 from tango.pyutil import TimedAttrData
-from tango.server import Device
-from tango.server import command, attribute
+from tango.server import Device, attribute, command
 from tango.test_utils import (
+    UTF8_STRING,
     DeviceTestContext,
     GoodEnum,
-    general_decorator,
-    general_asyncio_decorator,  # noqa
     assert_close,
     check_attr_type,
     check_read_attr,
-    make_nd_value,
     convert_dtype_to_typing_hint,
-    UTF8_STRING,
+    general_asyncio_decorator,  # noqa
+    general_decorator,
+    make_nd_value,
 )
 from tango.utils import (
     FROM_TANGO_TO_NUMPY_TYPE,
     TO_TANGO_TYPE,
     get_enum_labels,
-    is_pure_str,
     get_tango_type_format,
+    is_pure_str,
 )
 
 
@@ -84,9 +83,7 @@ def test_read_write_attribute_all_types(attribute_typed_values, return_time_qual
     class TestDevice(Device):
         _is_allowed = None
 
-        @attribute(
-            dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
-        )
+        @attribute(dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE)
         def attr(self):
             if return_time_quality:
                 return self.attr_value, time.time(), AttrQuality.ATTR_VALID
@@ -168,17 +165,14 @@ def test_wrong_encoding_string():
         def wrong_string(self):
             return "�"
 
-    with DeviceTestContext(TestDevice) as proxy:
-        with pytest.raises(DevFailed, match="UnicodeError"):
-            _ = proxy.wrong_string
+    with DeviceTestContext(TestDevice) as proxy, pytest.raises(DevFailed, match="UnicodeError"):
+        _ = proxy.wrong_string
 
 
 @pytest.mark.parametrize("return_time_quality", [True, False])
 def test_attribute_declared_with_typing(attribute_typed_values, return_time_quality):
     dtype, values, expected = attribute_typed_values
-    tuple_hint, list_hint, check_x_dim, check_y_dim = convert_dtype_to_typing_hint(
-        dtype
-    )
+    tuple_hint, list_hint, check_x_dim, check_y_dim = convert_dtype_to_typing_hint(dtype)
 
     if return_time_quality:
         tuple_hint = tuple[tuple_hint, float, AttrQuality]
@@ -187,9 +181,7 @@ def test_attribute_declared_with_typing(attribute_typed_values, return_time_qual
     class TestDevice(Device):
         attr_value = None
 
-        hint_with_tuple: tuple_hint = attribute(
-            access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
-        )
+        hint_with_tuple: tuple_hint = attribute(access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr")
 
         user_size_priority_over_hint: tuple_hint = attribute(
             max_dim_x=5,
@@ -294,23 +286,13 @@ def test_attribute_declared_with_typing(attribute_typed_values, return_time_qual
     with DeviceTestContext(TestDevice) as proxy:
         for value in values:
             check_attribute_with_size(proxy, "hint_with_tuple", value, 3, 4)
-            check_attribute_with_size(
-                proxy, "user_size_priority_over_hint", value, 5, 5
-            )
+            check_attribute_with_size(proxy, "user_size_priority_over_hint", value, 5, 5)
             check_attribute_with_size(proxy, "hint_with_list", value, 5, 5)
             check_attribute_with_size(proxy, "attribute_tuple_hint", value, 3, 4)
-            check_attribute_with_size(
-                proxy, "attribute_with_decorated_read_method", value, 3, 4
-            )
-            check_attribute_with_size(
-                proxy, "attribute_tuple_hint_in_write", value, 3, 4
-            )
-            check_attribute_with_size(
-                proxy, "attribute_hint_in_decorated_write_method", value, 3, 4
-            )
-            check_attribute_with_size(
-                proxy, "attribute_user_size_priority_over_hint", value, 5, 5
-            )
+            check_attribute_with_size(proxy, "attribute_with_decorated_read_method", value, 3, 4)
+            check_attribute_with_size(proxy, "attribute_tuple_hint_in_write", value, 3, 4)
+            check_attribute_with_size(proxy, "attribute_hint_in_decorated_write_method", value, 3, 4)
+            check_attribute_with_size(proxy, "attribute_user_size_priority_over_hint", value, 5, 5)
             check_attribute_with_size(proxy, "attribute_list_hint", value, 5, 5)
 
 
@@ -329,13 +311,9 @@ def test_attribute_self_typed_with_not_defined_name():
     class TestDevice(Device):
         _value = None
 
-        assignment_attr: int = attribute(
-            access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr"
-        )
+        assignment_attr: int = attribute(access=AttrWriteType.READ_WRITE, fget="read_attr", fset="write_attr")
 
-        non_bound_attr: int = attribute(
-            access=AttrWriteType.READ_WRITE, fget=non_bound_read, fset=non_bound_write
-        )
+        non_bound_attr: int = attribute(access=AttrWriteType.READ_WRITE, fget=non_bound_read, fset=non_bound_write)
 
         non_bound_attr_in_write: int = attribute(
             access=AttrWriteType.READ_WRITE,
@@ -367,16 +345,16 @@ def test_attribute_self_typed_with_not_defined_name():
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.assignment_attr = 1
-        assert 1 == proxy.assignment_attr
+        assert proxy.assignment_attr == 1
         proxy.decorator_attr = 2
-        assert 2 == proxy.decorator_attr
+        assert proxy.decorator_attr == 2
         proxy.decorator_attr_def_in_write = 3
-        assert 3 == proxy.decorator_attr_def_in_write
+        assert proxy.decorator_attr_def_in_write == 3
 
         proxy.non_bound_attr = 1
-        assert 1 == proxy.non_bound_attr
+        assert proxy.non_bound_attr == 1
         proxy.non_bound_attr_in_write = 2
-        assert 2 == proxy.non_bound_attr_in_write
+        assert proxy.non_bound_attr_in_write == 2
 
 
 def test_read_write_attribute_with_unbound_functions():
@@ -397,7 +375,6 @@ def test_read_write_attribute_with_unbound_functions():
         return is_allowed
 
     class TestDevice(Device):
-
         attr = attribute(
             fget=read_attr,
             fset=write_attr,
@@ -459,11 +436,7 @@ def test_read_write_attribute_decorated_methods(server_green_mode):
         )
 
         if server_green_mode == GreenMode.Asyncio:
-            exec(
-                sync_code.replace("def", "async def").replace(
-                    "general_decorator", "general_asyncio_decorator"
-                )
-            )
+            exec(sync_code.replace("def", "async def").replace("general_decorator", "general_asyncio_decorator"))
         else:
             exec(sync_code)
 
@@ -485,9 +458,7 @@ def test_read_write_wvalue_attribute(attribute_typed_values):
     class TestDevice(Device):
         value = None
 
-        attr = attribute(
-            dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
-        )
+        attr = attribute(dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE)
 
         def read_attr(self):
             return self.value
@@ -506,7 +477,6 @@ def test_read_write_wvalue_attribute(attribute_typed_values):
 def test_get_set_attribute_value_warning_and_alarm_thresholds():
 
     class TestDevice(Device):
-
         @attribute(
             dtype=int,
             min_value=-21,
@@ -556,7 +526,7 @@ def test_get_set_attribute_value_warning_and_alarm_thresholds():
 
 @pytest.mark.parametrize(
     "input_values",
-    [[[], []], [np.empty((0)), np.empty((0, 0))], [np.array([]), np.array([])]],
+    [[[], []], [np.empty(0), np.empty((0, 0))], [np.array([]), np.array([])]],
     ids=["list", "np.empty", "np.array"],
 )
 def test_write_read_empty_spectrum_image_attribute(extract_as, base_type, input_values):
@@ -566,13 +536,8 @@ def test_write_read_empty_spectrum_image_attribute(extract_as, base_type, input_
     if requested_type == ExtractAs.Numpy and base_type is str:
         expected_type = tuple
 
-    if (
-        requested_type in [ExtractAs.ByteArray, ExtractAs.Bytes, ExtractAs.String]
-        and base_type is str
-    ):
-        pytest.xfail(
-            "Conversion from (str,) to ByteArray, Bytes and String not supported. May be fixed in future"
-        )
+    if requested_type in [ExtractAs.ByteArray, ExtractAs.Bytes, ExtractAs.String] and base_type is str:
+        pytest.xfail("Conversion from (str,) to ByteArray, Bytes and String not supported. May be fixed in future")
 
     class TestDevice(Device):
         attr_spectrum_value = spectrum_value
@@ -636,37 +601,26 @@ def test_write_read_empty_spectrum_image_attribute(extract_as, base_type, input_
         assert len(attr_read.w_value) == 0
 
 
-@pytest.mark.parametrize(
-    "device_impl_class", [Device_4Impl, Device_5Impl, Device_6Impl, LatestDeviceImpl]
-)
-def test_write_read_empty_spectrum_attribute_classic_api(
-    device_impl_class, extract_as, base_type
-):
+@pytest.mark.parametrize("device_impl_class", [Device_4Impl, Device_5Impl, Device_6Impl, LatestDeviceImpl])
+def test_write_read_empty_spectrum_attribute_classic_api(device_impl_class, extract_as, base_type):
     requested_type, expected_type = extract_as
 
     if requested_type == ExtractAs.Numpy and base_type is str:
         expected_type = tuple
 
-    if (
-        requested_type in [ExtractAs.ByteArray, ExtractAs.Bytes, ExtractAs.String]
-        and base_type is str
-    ):
-        pytest.xfail(
-            "Conversion from (str,) to ByteArray, Bytes and String not supported. May be fixed in future"
-        )
+    if requested_type in [ExtractAs.ByteArray, ExtractAs.Bytes, ExtractAs.String] and base_type is str:
+        pytest.xfail("Conversion from (str,) to ByteArray, Bytes and String not supported. May be fixed in future")
 
     class ClassicAPIClass(DeviceClass):
-        cmd_list = {"check_attr_is_empty_list": [[DevVoid, "none"], [DevVoid, "none"]]}
-        attr_list = {
-            "attr": [[TO_TANGO_TYPE[base_type], SPECTRUM, AttrWriteType.READ_WRITE, 10]]
-        }
+        cmd_list: ClassVar[dict] = {"check_attr_is_empty_list": [[DevVoid, "none"], [DevVoid, "none"]]}
+        attr_list: ClassVar[dict] = {"attr": [[TO_TANGO_TYPE[base_type], SPECTRUM, AttrWriteType.READ_WRITE, 10]]}
 
         def __init__(self, name):
             super().__init__(name)
             self.set_type("TestDevice")
 
     class ClassicAPIDeviceImpl(device_impl_class):
-        attr_value = []
+        attr_value: ClassVar[list] = []
 
         def read_attr(self, attr):
             attr.set_value(self.attr_value)
@@ -738,7 +692,6 @@ def test_read_write_attribute_enum(attr_data_format):
         good_type_str = (("DevEnum",),)
 
     class TestDevice(Device):
-
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             if attr_data_format == AttrDataFormat.SCALAR:
@@ -751,9 +704,7 @@ def test_read_write_attribute_enum(attr_data_format):
                 self.attr_from_enum_value = ((0,),)
                 self.attr_from_labels_value = ((0,),)
 
-        attr_from_enum = attribute(
-            dtype=good_type, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
-        )
+        attr_from_enum = attribute(dtype=good_type, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE)
 
         attr_from_labels = attribute(
             dtype=good_type_str,
@@ -777,7 +728,7 @@ def test_read_write_attribute_enum(attr_data_format):
 
     with DeviceTestContext(TestDevice) as proxy:
         # test assigning values (ints)
-        for value, label in zip(values, enum_labels):
+        for value, label in zip(values, enum_labels, strict=True):
             nd_value = make_nd_value(value, attr_data_format)
             proxy.attr_from_enum = nd_value
             read_attr = proxy.attr_from_enum
@@ -792,7 +743,7 @@ def test_read_write_attribute_enum(attr_data_format):
             check_read_attr(read_attr, attr_data_format, value, label)
 
         # test assigning labels (strings)
-        for value, label in zip(values, enum_labels):
+        for value, label in zip(values, enum_labels, strict=True):
             nd_label = make_nd_value(label, attr_data_format)
             proxy.attr_from_enum = nd_label
             read_attr = proxy.attr_from_enum
@@ -814,7 +765,6 @@ def test_read_write_attribute_enum(attr_data_format):
     with pytest.raises(TypeError) as context:
 
         class BadTestDevice(Device):
-
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 if attr_data_format == AttrDataFormat.SCALAR:
@@ -825,9 +775,7 @@ def test_read_write_attribute_enum(attr_data_format):
                     self.attr_value = ((0,),)
 
             # enum_labels may not be specified if dtype is an enum.Enum
-            @attribute(
-                dtype=good_type, max_dim_x=3, max_dim_y=3, enum_labels=enum_labels
-            )
+            @attribute(dtype=good_type, max_dim_x=3, max_dim_y=3, enum_labels=enum_labels)
             def bad_attr(self):
                 return self.attr_value
 
@@ -867,7 +815,7 @@ def test_enum_devstate_attribute_declared_with_typing(attr_data_format, enum_typ
 
 
 def test_read_attribute_with_invalid_quality_is_none(attribute_typed_values):
-    dtype, values, expected = attribute_typed_values
+    dtype, values, _ = attribute_typed_values
 
     class TestDevice(Device):
         @attribute(dtype=dtype, max_dim_x=3, max_dim_y=3)
@@ -900,7 +848,6 @@ def test_read_enum_attribute_with_invalid_quality_is_none():
 
 def test_wrong_attribute_read():
     class TestDevice(Device):
-
         @attribute(dtype=str)
         def attr_str_err(self):
             return 1.2345
@@ -915,11 +862,11 @@ def test_wrong_attribute_read():
 
     with DeviceTestContext(TestDevice) as proxy:
         with pytest.raises(DevFailed):
-            proxy.attr_str_err
+            _ = proxy.attr_str_err
         with pytest.raises(DevFailed):
-            proxy.attr_int_err
+            _ = proxy.attr_int_err
         with pytest.raises(DevFailed):
-            proxy.attr_str_list_err
+            _ = proxy.attr_str_list_err
 
 
 def test_attribute_access_with_default_method_names():
@@ -927,7 +874,6 @@ def test_attribute_access_with_default_method_names():
     is_allowed = True
 
     class TestDevice(Device):
-
         _read_write_value = ""
         _is_allowed = True
 
@@ -990,9 +936,7 @@ def dynamic_attribute_read_function(request):
     return request.param
 
 
-def test_read_write_dynamic_attribute(
-    dynamic_attribute_read_function, server_green_mode
-):
+def test_read_write_dynamic_attribute(dynamic_attribute_read_function, server_green_mode):
     if server_green_mode == GreenMode.Asyncio:
 
         class TestDevice(Device):
@@ -1113,9 +1057,7 @@ def test_async_add_remove_dynamic_attribute():
 
 def test_dynamic_attribute_declared_with_typing(attribute_typed_values):
     dtype, values, expected = attribute_typed_values
-    tuple_hint, list_hint, check_x_dim, check_y_dim = convert_dtype_to_typing_hint(
-        dtype
-    )
+    tuple_hint, list_hint, check_x_dim, check_y_dim = convert_dtype_to_typing_hint(dtype)
 
     class TestDevice(Device):
         attr_value = None
@@ -1203,9 +1145,7 @@ def test_dynamic_attribute_declared_with_typing(attribute_typed_values):
         for value in values:
             check_attribute_with_size(proxy, "read_function_tuple_hint", value, 3, 4)
             check_attribute_with_size(proxy, "read_function_list_hint", value, 5, 5)
-            check_attribute_with_size(
-                proxy, "user_size_priority_over_hint", value, 5, 5
-            )
+            check_attribute_with_size(proxy, "user_size_priority_over_hint", value, 5, 5)
             check_attribute_with_size(proxy, "write_function_tuple_hint", value, 3, 4)
             check_attribute_with_size(proxy, "write_function_list_hint", value, 5, 5)
 
@@ -1269,14 +1209,14 @@ def test_dynamic_attribute_self_typed_with_not_defined_name():
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.read_with_hint = 1
-        assert 1 == proxy.read_with_hint
+        assert proxy.read_with_hint == 1
         proxy.read_no_hint = 2
-        assert 2 == proxy.read_no_hint
+        assert proxy.read_no_hint == 2
 
         proxy.non_bound_read_with_hint = 1
-        assert 1 == proxy.non_bound_read_with_hint
+        assert proxy.non_bound_read_with_hint == 1
         proxy.non_bound_read_no_hint = 2
-        assert 2 == proxy.non_bound_read_no_hint
+        assert proxy.non_bound_read_no_hint == 2
 
 
 if npt:
@@ -1412,11 +1352,7 @@ def test_read_write_dynamic_attribute_decorated_methods_default_names(
         if server_green_mode != GreenMode.Asyncio:
             exec(sync_code)
         else:
-            exec(
-                sync_code.replace("def ", "async def ").replace(
-                    "general_decorator", "general_asyncio_decorator"
-                )
-            )
+            exec(sync_code.replace("def ", "async def ").replace("general_decorator", "general_asyncio_decorator"))
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.attr = 123
@@ -1473,11 +1409,7 @@ def test_read_write_dynamic_attribute_decorated_methods_user_names(server_green_
         if server_green_mode != GreenMode.Asyncio:
             exec(sync_code)
         else:
-            exec(
-                sync_code.replace("def ", "async def ").replace(
-                    "general_decorator", "general_asyncio_decorator"
-                )
-            )
+            exec(sync_code.replace("def ", "async def ").replace("general_decorator", "general_asyncio_decorator"))
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.attr = 123
@@ -1495,8 +1427,7 @@ def test_read_write_dynamic_attribute_decorated_shared_user_functions():
     is_allowed = True
 
     class TestDevice(Device):
-
-        attr_values = {"attr1": None, "attr2": None}
+        attr_values: ClassVar[dict] = {"attr1": None, "attr2": None}
         is_allowed = None
 
         def initialize_dynamic_attributes(self):
@@ -1565,7 +1496,6 @@ def test_read_write_dynamic_attribute_enum(attr_data_format):
         attr_info = (DevEnum, attr_data_format, READ_WRITE, 10, 10)
 
     class TestDevice(Device):
-
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             if attr_data_format == AttrDataFormat.SCALAR:
@@ -1585,9 +1515,7 @@ def test_read_write_dynamic_attribute_enum(attr_data_format):
                     {"enum_labels": enum_labels},
                 ],
             )
-            self.add_attribute(
-                attr, r_meth=self.read_dyn_attr, w_meth=self.write_dyn_attr
-            )
+            self.add_attribute(attr, r_meth=self.read_dyn_attr, w_meth=self.write_dyn_attr)
 
         @command
         def add_dyn_attr_new(self):
@@ -1616,7 +1544,7 @@ def test_read_write_dynamic_attribute_enum(attr_data_format):
     with DeviceTestContext(TestDevice) as proxy:
         for add_attr_cmd in [proxy.add_dyn_attr_old, proxy.add_dyn_attr_new]:
             add_attr_cmd()
-            for value, label in zip(values, enum_labels):
+            for value, label in zip(values, enum_labels, strict=True):
                 nd_value = make_nd_value(value, attr_data_format)
                 proxy.dyn_attr = nd_value
                 read_attr = proxy.dyn_attr
@@ -1628,9 +1556,7 @@ def test_read_write_dynamic_attribute_enum(attr_data_format):
 
 
 @pytest.mark.parametrize("enum_type", [DevState, GoodEnum])
-def test_enum_devstate_dynamic_attribute_declared_with_typing(
-    attr_data_format, enum_type
-):
+def test_enum_devstate_dynamic_attribute_declared_with_typing(attr_data_format, enum_type):
     value = DevState.MOVING if enum_type is DevState else GoodEnum.MIDDLE
     expected_type = DevState if enum_type is DevState else enum.IntEnum
     nd_value = make_nd_value(value, attr_data_format)
@@ -1804,22 +1730,14 @@ def test_read_write_dynamic_attribute_is_allowed_with_async(server_green_mode):
         for attr_num in range(1, DYN_ATTRS_END_RANGE):
             read_method = read_code.replace("read_dyn_attr", f"read_dyn_attr{attr_num}")
             read_method = read_method.replace("attr_value", f"attr{attr_num}_value")
-            write_method = write_code.replace(
-                "write_dyn_attr", f"write_dyn_attr{attr_num}"
-            )
+            write_method = write_code.replace("write_dyn_attr", f"write_dyn_attr{attr_num}")
             write_method = write_method.replace("attr_value", f"attr{attr_num}_value")
             if attr_num != 6:
-                is_allowed_method = is_allowed_code.replace(
-                    "is_attr_allowed", f"is_attr{attr_num}_allowed"
-                )
+                is_allowed_method = is_allowed_code.replace("is_attr_allowed", f"is_attr{attr_num}_allowed")
             else:
                 # default name differs
-                is_allowed_method = is_allowed_code.replace(
-                    "is_attr_allowed", f"is_dyn_attr{attr_num}_allowed"
-                )
-            is_allowed_method = is_allowed_method.replace(
-                "self.attr_allowed", f"self.attr{attr_num}_allowed"
-            )
+                is_allowed_method = is_allowed_code.replace("is_attr_allowed", f"is_dyn_attr{attr_num}_allowed")
+            is_allowed_method = is_allowed_method.replace("self.attr_allowed", f"self.attr{attr_num}_allowed")
 
             if server_green_mode != GreenMode.Asyncio:
                 exec(read_method)
@@ -1834,7 +1752,6 @@ def test_read_write_dynamic_attribute_is_allowed_with_async(server_green_mode):
         proxy.make_allowed(True)
 
         for ind in range(1, DYN_ATTRS_END_RANGE):
-
             setattr(proxy, f"dyn_attr{ind}", ind)
 
             if ind != 8:
@@ -1843,7 +1760,6 @@ def test_read_write_dynamic_attribute_is_allowed_with_async(server_green_mode):
         proxy.make_allowed(False)
 
         for ind in range(1, DYN_ATTRS_END_RANGE):
-
             if ind != 8:
                 with pytest.raises(DevFailed):
                     _ = getattr(proxy, f"dyn_attr{ind}")
@@ -1934,12 +1850,10 @@ def test_dynamic_attribute_with_green_mode(use_green_mode, server_green_mode):
         assert proxy.attr_ia == 456
 
 
-@pytest.mark.parametrize(
-    "device_impl_class", [Device_4Impl, Device_5Impl, Device_6Impl, LatestDeviceImpl]
-)
+@pytest.mark.parametrize("device_impl_class", [Device_4Impl, Device_5Impl, Device_6Impl, LatestDeviceImpl])
 def test_dynamic_attribute_using_classic_api_like_sardana(device_impl_class):
     class ClassicAPIClass(DeviceClass):
-        cmd_list = {
+        cmd_list: ClassVar[dict] = {
             "make_allowed": [[DevBoolean, "allow access"], [DevVoid, "none"]],
         }
 
@@ -2015,7 +1929,6 @@ def test_dynamic_attribute_with_unbound_functions(read_function_signature, patch
         return is_allowed
 
     class TestDevice(Device):
-
         def initialize_dynamic_attributes(self):
             if read_function_signature == "low_level":
                 read_function = low_level_read_function
@@ -2027,17 +1940,13 @@ def test_dynamic_attribute_with_unbound_functions(read_function_signature, patch
                 self.__dict__["read_dyn_attr1"] = read_function
                 self.__dict__["write_dyn_attr1"] = write_function
                 self.__dict__["is_dyn_attr1_allowed"] = is_allowed_function
-                attr = attribute(
-                    name="dyn_attr1", dtype=int, access=AttrWriteType.READ_WRITE
-                )
+                attr = attribute(name="dyn_attr1", dtype=int, access=AttrWriteType.READ_WRITE)
                 self.add_attribute(attr)
 
-                setattr(self, "read_dyn_attr2", read_function)
-                setattr(self, "write_dyn_attr2", write_function)
-                setattr(self, "is_dyn_attr2_allowed", is_allowed_function)
-                attr = attribute(
-                    name="dyn_attr2", dtype=int, access=AttrWriteType.READ_WRITE
-                )
+                self.read_dyn_attr2 = read_function
+                self.write_dyn_attr2 = write_function
+                self.is_dyn_attr2_allowed = is_allowed_function
+                attr = attribute(name="dyn_attr2", dtype=int, access=AttrWriteType.READ_WRITE)
                 self.add_attribute(attr)
 
             else:
@@ -2174,7 +2083,6 @@ def test_attribute_info_description():
         @attr_decorated_docstring_only.setter
         def attr_decorated_docstring_only(self, value: float) -> None:
             """Docstring from decorated write method currently ignored"""
-            pass
 
         attr_assignment = attribute()
 
@@ -2200,7 +2108,6 @@ def test_read_only_dynamic_attribute_with_dummy_write_method(
         return None
 
     class TestDevice(Device):
-
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.attr_value = 123
@@ -2249,7 +2156,6 @@ def test_dynamic_attribute_with_method_in_other_class():
             return self._is_allowed_method(device, req_type)
 
     class TestDevice(Device):
-
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.helper = Helper()
@@ -2370,16 +2276,12 @@ def test_read_write_dev_encoded(dev_encoded_values, return_quality, return_type)
         check_ans(raw_ans.value, bytearray)
         check_ans(raw_ans.w_value, bytearray)
 
-        raw_ans = proxy.read_attribute(
-            "attr_time_quality_1", extract_as=ExtractAs.Bytes
-        )
+        raw_ans = proxy.read_attribute("attr_time_quality_1", extract_as=ExtractAs.Bytes)
         check_ans(raw_ans.value, bytes)
         assert raw_ans.quality == AttrQuality.ATTR_ALARM
         assert raw_ans.time.tv_sec == 1
 
-        raw_ans = proxy.read_attribute(
-            "attr_time_quality_2", extract_as=ExtractAs.Bytes
-        )
+        raw_ans = proxy.read_attribute("attr_time_quality_2", extract_as=ExtractAs.Bytes)
         check_ans(raw_ans.value, bytes)
         assert raw_ans.quality == AttrQuality.ATTR_WARNING
         assert raw_ans.time.tv_sec == 2
@@ -2462,9 +2364,7 @@ def test_set_value_None():
 )
 def test_encoded_attribute(f_encode, f_decode, data):
     if f_encode == "jpeg_rgb32":
-        pytest.xfail(
-            "jpeg_rgb32 needs cppTango built with TANGO_USE_JPEG option, so we skip this test"
-        )
+        pytest.xfail("jpeg_rgb32 needs cppTango built with TANGO_USE_JPEG option, so we skip this test")
 
     class TestDevice(Device):
         @attribute(dtype=DevEncoded, access=AttrWriteType.READ)
@@ -2485,7 +2385,7 @@ def test_encoded_attribute(f_encode, f_decode, data):
     with DeviceTestContext(TestDevice) as proxy:
         if f_decode == "decode_24":
             ret = proxy.read_attribute("attr", extract_as=ExtractAs.Bytes)
-            codec, ret_data = ret.value
+            _, ret_data = ret.value
             assert_close(decode_24(ret_data), data)
         elif f_decode is not None:
             ret = proxy.read_attribute("attr", extract_as=ExtractAs.Nothing)
@@ -2514,12 +2414,8 @@ def test_dev_encoded_memory_usage():
             assert raw_ans[1] == b"c" * LARGE_DATA_SIZE
 
     class TestDevice(Device):
-        attr_str_read = attribute(
-            dtype=DevEncoded, access=AttrWriteType.READ, fget="read_str"
-        )
-        attr_str_write = attribute(
-            dtype=DevEncoded, access=AttrWriteType.WRITE, fset="write_str"
-        )
+        attr_str_read = attribute(dtype=DevEncoded, access=AttrWriteType.READ, fget="read_str")
+        attr_str_write = attribute(dtype=DevEncoded, access=AttrWriteType.WRITE, fset="write_str")
         attr_str_read_write = attribute(
             dtype=DevEncoded,
             access=AttrWriteType.READ_WRITE,
@@ -2527,12 +2423,8 @@ def test_dev_encoded_memory_usage():
             fset="write_str",
         )
 
-        attr_bytes_read = attribute(
-            dtype=DevEncoded, access=AttrWriteType.READ, fget="read_bytes"
-        )
-        attr_bytes_write = attribute(
-            dtype=DevEncoded, access=AttrWriteType.WRITE, fset="write_bytes"
-        )
+        attr_bytes_read = attribute(dtype=DevEncoded, access=AttrWriteType.READ, fget="read_bytes")
+        attr_bytes_write = attribute(dtype=DevEncoded, access=AttrWriteType.WRITE, fset="write_bytes")
         attr_bytes_read_write = attribute(
             dtype=DevEncoded,
             access=AttrWriteType.READ_WRITE,
@@ -2540,12 +2432,8 @@ def test_dev_encoded_memory_usage():
             fset="write_bytes",
         )
 
-        attr_bytearray_read = attribute(
-            dtype=DevEncoded, access=AttrWriteType.READ, fget="read_bytearray"
-        )
-        attr_bytearray_write = attribute(
-            dtype=DevEncoded, access=AttrWriteType.WRITE, fset="write_bytearray"
-        )
+        attr_bytearray_read = attribute(dtype=DevEncoded, access=AttrWriteType.READ, fget="read_bytearray")
+        attr_bytearray_write = attribute(dtype=DevEncoded, access=AttrWriteType.WRITE, fset="write_bytearray")
         attr_bytearray_read_write = attribute(
             dtype=DevEncoded,
             access=AttrWriteType.READ_WRITE,
@@ -2583,16 +2471,14 @@ def test_dev_encoded_memory_usage():
 
     with DeviceTestContext(TestDevice) as proxy:
         last_memory_usage = []
-        for cycle in range(NUM_CYCLES):
+        for _ in range(NUM_CYCLES):
             proxy.attr_str_write = "str", "a" * LARGE_DATA_SIZE
             proxy.attr_bytes_write = "bytes", b"b" * LARGE_DATA_SIZE
             proxy.attr_bytearray_write = "bytearray", bytearray(b"c" * LARGE_DATA_SIZE)
 
             proxy.attr_str_read_write = "str", "a" * LARGE_DATA_SIZE
             proxy.attr_bytes_read_write = "bytes", b"b" * LARGE_DATA_SIZE
-            proxy.attr_bytearray_read_write = "bytearray", bytearray(
-                b"c" * LARGE_DATA_SIZE
-            )
+            proxy.attr_bytearray_read_write = "bytearray", bytearray(b"c" * LARGE_DATA_SIZE)
 
             check_ans(proxy.attr_str_read)
             check_ans(proxy.attr_bytes_read)
@@ -2604,9 +2490,7 @@ def test_dev_encoded_memory_usage():
 
             check_ans(proxy.cmd_in_out(("str", "a" * LARGE_DATA_SIZE)))
             check_ans(proxy.cmd_in_out(("bytes", b"b" * LARGE_DATA_SIZE)))
-            check_ans(
-                proxy.cmd_in_out(("bytearray", bytearray(b"c" * LARGE_DATA_SIZE)))
-            )
+            check_ans(proxy.cmd_in_out(("bytearray", bytearray(b"c" * LARGE_DATA_SIZE))))
 
             current_memory_usage = int(psutil.Process(os.getpid()).memory_info().rss)
             last_memory_usage = np.append(last_memory_usage, current_memory_usage)
@@ -2615,7 +2499,6 @@ def test_dev_encoded_memory_usage():
 
 def test_attribute_list():
     class TestDevice(Device):
-
         _val = 0
 
         @attribute
@@ -2675,10 +2558,7 @@ def test_fill_attr_polling_buffer(attribute_typed_values, set_w_value):
     start_time = time.time()
 
     class TestDevice(Device):
-
-        @attribute(
-            dtype=dtype, access=AttrWriteType.READ_WRITE, max_dim_x=3, max_dim_y=3
-        )
+        @attribute(dtype=dtype, access=AttrWriteType.READ_WRITE, max_dim_x=3, max_dim_y=3)
         def attr(self):
             return values[0]
 
@@ -2743,9 +2623,7 @@ def test_removed_dim_parameters():
             with pytest.raises(TypeError, match=reason):
                 attr.set_value_date_quality(1, time.time(), AttrQuality.ATTR_VALID, 1)
             with pytest.raises(TypeError, match=reason):
-                attr.set_value_date_quality(
-                    1, time.time(), AttrQuality.ATTR_VALID, 1, 1
-                )
+                attr.set_value_date_quality(1, time.time(), AttrQuality.ATTR_VALID, 1, 1)
             with pytest.raises(TypeError, match=reason):
                 attr.set_value(1, 1)
             with pytest.raises(TypeError, match=reason):
@@ -2755,3 +2633,170 @@ def test_removed_dim_parameters():
 
     with DeviceTestContext(TestDevice) as proxy:
         _ = proxy.attr
+
+
+class InitialEnum(enum.IntEnum):
+    START = 0
+    MIDDLE = 1
+    END = 2
+
+
+class ModifiedEnum(enum.IntEnum):
+    ZERO = 0
+    ONE = 1
+    TWO = 2
+
+
+class DeviceForConfigCachingTest(Device):
+    @command()
+    def add_initial_attr(self):
+        attr = attribute(name="attr", dtype=InitialEnum)
+        self.add_attribute(attr)
+
+    @command()
+    def remove_attr(self):
+        self.remove_attribute("attr")
+
+    @command()
+    def modify_attr(self):
+        self.remove_attribute("attr")
+        attr = attribute(name="attr", dtype=ModifiedEnum)
+        self.add_attribute(attr)
+
+    def read_attr(self, attr):
+        return 1
+
+
+@pytest.mark.parametrize("do_caching", [True, False])
+def test_attribute_configuration_caching(do_caching):
+
+    with DeviceTestContext(DeviceForConfigCachingTest) as proxy:
+        proxy.set_attribute_config_cache(do_caching)
+        proxy.add_initial_attr()
+        assert proxy.attr.name == InitialEnum.MIDDLE.name
+        proxy.modify_attr()
+
+        if do_caching:
+            # if we do caching, then the reading still returns the old enum:
+            assert proxy.attr.name == InitialEnum.MIDDLE.name
+
+            # but if we force cache invalidation, then the reading is correct:
+            proxy.invalidate_attribute_config_cache()
+            assert proxy.attr.name == ModifiedEnum.ONE.name
+        else:
+            # if we disable caching, then the reading automatically returns the new enum:
+            assert proxy.attr.name == ModifiedEnum.ONE.name
+
+        proxy.remove_attr()
+
+        with pytest.raises(AttributeError):
+            _ = proxy.attr
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("do_caching", [True, False])
+async def test_attribute_configuration_caching_async(do_caching):
+
+    with DeviceTestContext(DeviceForConfigCachingTest) as proxy:
+        proxy.set_green_mode(GreenMode.Asyncio)
+        proxy.set_attribute_config_cache(do_caching)
+        await proxy.add_initial_attr()
+        reading = await proxy.attr
+        assert reading.name == InitialEnum.MIDDLE.name
+        await proxy.modify_attr()
+
+        reading = await proxy.attr
+        if do_caching:
+            # if we do caching, then the reading still returns the old enum:
+            assert reading.name == InitialEnum.MIDDLE.name
+
+            # but if we force cache invalidation, then the reading is correct:
+            proxy.invalidate_attribute_config_cache()
+            new_reading = await proxy.attr
+            assert new_reading.name == ModifiedEnum.ONE.name
+        else:
+            # if we disable caching, then the reading automatically returns the new enum:
+            assert reading.name == ModifiedEnum.ONE.name
+
+        await proxy.remove_attr()
+
+        with pytest.raises(DevFailed, match="API_AttrNotFound"):
+            _ = await proxy.attr
+
+
+def test_attribute_configuration_caching_auto_invalidate_on_write():
+
+    class TestDevice(Device):
+        expected_value = 1
+        actual_value = 1
+        expected_enum_value = 1
+        actual_enum_value = 1
+
+        @command()
+        def add_initial_attrs(self):
+            attr = attribute(name="attr", dtype=int, access=AttrWriteType.READ_WRITE)
+            self.add_attribute(attr)
+
+            attr = attribute(name="enum_attr", dtype=InitialEnum, access=AttrWriteType.READ_WRITE)
+            self.add_attribute(attr)
+
+        @command()
+        def remove_attr(self):
+            self.remove_attribute("attr")
+
+        @command()
+        def remove_enum_attr(self):
+            self.remove_attribute("enum_attr")
+
+        @command()
+        def add_modified_attr(self):
+            attr = attribute(name="attr", dtype=str, access=AttrWriteType.READ_WRITE)
+            self.add_attribute(attr)
+
+            self.expected_value = "a"
+
+        @command()
+        def modify_enum_attr(self):
+            self.remove_attribute("enum_attr")
+            attr = attribute(name="enum_attr", dtype=ModifiedEnum, access=AttrWriteType.READ_WRITE)
+            self.add_attribute(attr)
+            self.expected_enum_value = 0
+
+        def read_attr(self, attr):
+            return self.actual_value
+
+        def read_enum_attr(self, attr):
+            return self.actual_enum_value
+
+        def write_attr(self, attr):
+            self.actual_value = attr.get_write_value()
+            assert attr.get_write_value() == self.expected_value
+
+        def write_enum_attr(self, attr):
+            self.actual_enum_value = attr.get_write_value()
+            assert attr.get_write_value() == self.expected_enum_value
+
+    with DeviceTestContext(TestDevice) as proxy:
+        proxy.add_initial_attrs()
+        proxy.attr = 1
+        proxy.enum_attr = InitialEnum.MIDDLE
+        proxy.remove_attr()
+        proxy.add_modified_attr()
+        # when we write we auto-invalidate cache, so we can write new value
+        proxy.attr = "a"
+        assert proxy.attr == "a"
+
+        proxy.remove_attr()
+        # we test, that we do not get any errors after cache invalidation
+        for _ in range(2):
+            with pytest.raises(DevFailed, match="API_AttrNotFound"):
+                proxy.attr = "a"
+
+        proxy.modify_enum_attr()
+        proxy.enum_attr = "ZERO"
+
+        proxy.remove_enum_attr()
+        # we test, that we do not get any errors after cache invalidation
+        for _ in range(2):
+            with pytest.raises(DevFailed, match="API_AttrNotFound"):
+                proxy.enum_attr = "ZERO"

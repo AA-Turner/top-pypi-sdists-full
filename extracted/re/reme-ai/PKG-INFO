@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reme_ai
-Version: 0.3.1.9
+Version: 0.3.1.10
 Summary: Remember Me, Refine Me.
 Author-email: "jinli.yl" <jinli.yl@alibaba-inc.com>, "dengjiaji.djj" <dengjiaji.djj@alibaba-inc.com>, "caozouying.czy" <caozouying.czy@alibaba-inc.com>, "weikangzhou.zwk" <weikangzhou.zwk@alibaba-inc.com>
 License:                                  Apache License
@@ -239,8 +239,6 @@ Requires-Dist: numpy>=2.2.6
 Requires-Dist: openai>=2.8.1
 Requires-Dist: pandas>=2.3.3
 Requires-Dist: pydantic>=2.12.4
-Requires-Dist: pyobvector>=0.1.20
-Requires-Dist: sqlglot<30,>=25
 Requires-Dist: qdrant-client>=1.16.0
 Requires-Dist: tavily-python>=0.7.13
 Requires-Dist: tiktoken>=0.12.0
@@ -249,6 +247,14 @@ Requires-Dist: transformers>=4.57.3
 Requires-Dist: uvicorn>=0.40.0
 Requires-Dist: watchfiles>=1.1.1
 Requires-Dist: pyyaml>=6.0.3
+Provides-Extra: obvec
+Requires-Dist: pyobvector>=0.1.20; extra == "obvec"
+Requires-Dist: sqlalchemy>=2.0; extra == "obvec"
+Requires-Dist: sqlglot<30,>=25; extra == "obvec"
+Provides-Extra: seekdb
+Requires-Dist: pyseekdb>=1.2.0; python_version >= "3.11" and extra == "seekdb"
+Provides-Extra: zvec
+Requires-Dist: zvec; extra == "zvec"
 Provides-Extra: ray
 Requires-Dist: ray; extra == "ray"
 Provides-Extra: dev
@@ -259,13 +265,17 @@ Requires-Dist: sphinxcontrib-bibtex; extra == "dev"
 Requires-Dist: furo; extra == "dev"
 Requires-Dist: sphinxcontrib-mermaid; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
 Provides-Extra: full
 Requires-Dist: reme_ai[dev,light,ray]; extra == "full"
 Provides-Extra: litellm
 Requires-Dist: litellm==1.80.0; extra == "litellm"
 Provides-Extra: light
-Requires-Dist: agentscope==1.0.18; extra == "light"
+Requires-Dist: agentscope==1.0.20; extra == "light"
 Requires-Dist: flowllm[reme]>=0.2.0.10; extra == "light"
+Provides-Extra: core
+Requires-Dist: agentscope==1.0.20; extra == "core"
 Dynamic: license-file
 
 <p align="center">

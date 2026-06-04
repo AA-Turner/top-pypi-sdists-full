@@ -13,7 +13,7 @@
 #include "pyutils.h"
 
 void PyAttr::read(Tango::DeviceImpl *dev, Tango::Attribute &att) {
-    GET_DEVICE
+    GET_DEVICE_KEEP_GIL
     if(!_is_method(py_dev, read_name)) {
         TangoSys_OMemStream o;
         o << read_name << " method not found for " << att.get_name();
@@ -26,7 +26,7 @@ void PyAttr::read(Tango::DeviceImpl *dev, Tango::Attribute &att) {
 }
 
 void PyAttr::write(Tango::DeviceImpl *dev, Tango::WAttribute &att) {
-    GET_DEVICE
+    GET_DEVICE_KEEP_GIL
     if(!_is_method(py_dev, write_name)) {
         TangoSys_OMemStream o;
         o << write_name << " method not found for " << att.get_name();
@@ -39,7 +39,7 @@ void PyAttr::write(Tango::DeviceImpl *dev, Tango::WAttribute &att) {
 }
 
 bool PyAttr::is_allowed(Tango::DeviceImpl *dev, Tango::AttReqType req_type) {
-    GET_DEVICE
+    GET_DEVICE_KEEP_GIL
     if(_is_method(py_dev, py_allowed_name)) {
         try {
             return py_dev.attr(py_allowed_name.c_str())(req_type).cast<bool>();
@@ -54,8 +54,7 @@ bool PyAttr::_is_method(py::object py_dev, const std::string &name) {
     return is_method_defined(py_dev, name);
 }
 
-void PyAttr::set_user_prop(std::vector<Tango::AttrProperty> &user_prop,
-                           Tango::UserDefaultAttrProp &def_prop) {
+void PyAttr::set_user_prop(std::vector<Tango::AttrProperty> &user_prop, Tango::UserDefaultAttrProp &def_prop) {
     //
     // Is there any user defined prop. defined ?
     //
@@ -136,9 +135,7 @@ void export_attr(py::module &m) {
              static_cast<const std::string &(Tango::AttrProperty::*) () const>(&Tango::AttrProperty::get_name),
              py::return_value_policy::copy);
 
-    py::class_<Tango::Attr, PyScaAttr>(m,
-                                       "Attr",
-                                       R"doc()doc")
+    py::class_<Tango::Attr, PyScaAttr>(m, "Attr", R"doc()doc")
         .def(py::init<const char *, long, Tango::AttrWriteType>(),
              py::arg("name"),
              py::arg("data_type"),
@@ -146,368 +143,278 @@ void export_attr(py::module &m) {
         .def("set_default_properties",
              &Tango::Attr::set_default_properties,
              R"doc(
-                set_default_properties(self)
+                Set default attribute properties.
 
-                    Set default attribute properties.
-
-                    :param attr_prop: the user default property class
-                    :type attr_prop: UserDefaultAttrProp)doc")
+                :param attr_prop: the user default property class
+                :type attr_prop: :obj:`~tango.UserDefaultAttrProp`
+             )doc",
+             py::arg("attr_prop"))
         .def("set_disp_level",
              &Tango::Attr::set_disp_level,
              R"doc(
-                set_disp_level(self, disp_level)
+                Set the attribute display level.
 
-                    Set the attribute display level.
-
-                    :param disp_level: the new display level
-                    :type disp_level: DispLevel)doc",
+                :param disp_level: the new display level
+                :type disp_level: :obj:`~tango.DispLevel`
+             )doc",
              py::arg("disp_level"))
         .def("set_polling_period",
              &Tango::Attr::set_polling_period,
              R"doc(
-                set_polling_period(self, period_ms)
+                Set the attribute polling update period.
 
-                    Set the attribute polling update period.
-
-                    :param period_ms: the attribute polling period (in mS)
-                    :type period_ms: int)doc",
+                :param period_ms: the attribute polling period (in milliseconds)
+                :type period_ms: int
+             )doc",
              py::arg("period_ms"))
         .def("set_memorized",
              &Tango::Attr::set_memorized,
              R"doc(
-                set_memorized(self)
+                Set the attribute as memorized in database (only for scalar
+                and writable attribute).
 
-                    Set the attribute as memorized in database (only for scalar
-                    and writable attribute).
-
-                    By default the setpoint will be written to the attribute during initialisation!
-                    Use method set_memorized_init() with False as argument if you don't
-                    want this feature.)doc")
+                By default the setpoint will be written to the attribute during initialisation!
+                Use method set_memorized_init() with False as argument if you don't
+                want this feature.
+             )doc")
         .def("set_memorized_init",
              &Tango::Attr::set_memorized_init,
              R"doc(
-                set_memorized_init(self, write_on_init)
+                Set the initialisation flag for memorized attributes.
 
-                    Set the initialisation flag for memorized attributes.
+                - true = the setpoint value will be written to the attribute on initialisation
+                - false = only the attribute setpoint is initialised.
 
-                    - true = the setpoint value will be written to the attribute on initialisation
-                    - false = only the attribute setpoint is initialised.
+                No action is taken on the attribute
 
-                    No action is taken on the attribute
-
-                    :param write_on_init: if true the setpoint value will be written
-                                          to the attribute on initialisation
-                    :type write_on_init: bool)doc",
+                :param write_on_init: if true the setpoint value will be written
+                                      to the attribute on initialisation
+                :type write_on_init: bool
+             )doc",
              py::arg("write_on_init"))
         .def("set_change_event",
              &Tango::Attr::set_change_event,
              R"doc(
-                set_change_event(self, implemented, detect)
+                Set a flag to indicate that the server fires change events manually
+                without the polling to be started for the attribute.
 
-                    Set a flag to indicate that the server fires change events manually
-                    without the polling to be started for the attribute.
+                If the detect parameter is set to true, the criteria specified for the
+                change event (rel_change and abs_change) are verified and
+                the event is only pushed if a least one of them are fulfilled
+                (change in value compared to previous event exceeds a threshold).
 
-                    If the detect parameter is set to true, the criteria specified for the
-                    change event (rel_change and abs_change) are verified and
-                    the event is only pushed if a least one of them are fulfilled
-                    (change in value compared to previous event exceeds a threshold).
+                If detect is set to false the event is fired without checking!
 
-                    If detect is set to false the event is fired without checking!
-
-                    :param implemented: True when the server fires change events manually.
-                    :type implemented: bool
-                    :param detect: Triggers the verification of the change event properties
-                                   when set to true.
-                    :type detect: bool)doc",
+                :param implemented: True when the server fires change events manually.
+                :type implemented: bool
+                :param detect: Triggers the verification of the change event properties
+                               when set to true.
+                :type detect: bool
+             )doc",
              py::arg("implemented"),
              py::arg("detect"))
         .def("is_change_event",
              &Tango::Attr::is_change_event,
              R"doc(
-                is_change_event(self) -> bool
-
-                    Check if the change event is fired manually for this attribute.
-
-                    :returns: true if a manual fire change event is implemented.
-                    :rtype: bool)doc")
+                Check if the change event is fired manually for this attribute.
+             )doc")
         .def("set_alarm_event",
              &Tango::Attr::set_alarm_event,
              R"doc(
-                set_alarm_event(self, implemented, detect)
+                Set a flag to indicate that the server fires alarm events manually
+                without the polling to be started for the attribute.
 
-                    Set a flag to indicate that the server fires alarm events manually
-                    without the polling to be started for the attribute.
+                If the detect parameter is set to true, the criteria specified for the
+                alarm event (rel_change and abs_change) are verified and
+                the event is only pushed if a least one of them are fulfilled
+                (change in value compared to previous event exceeds a threshold).
 
-                    If the detect parameter is set to true, the criteria specified for the
-                    alarm event (rel_change and abs_change) are verified and
-                    the event is only pushed if a least one of them are fulfilled
-                    (change in value compared to previous event exceeds a threshold).
+                If detect is set to false the event is fired without checking!
 
-                    If detect is set to false the event is fired without checking!
+                :param implemented: True when the server fires alarm events manually.
+                :type implemented: bool
+                :param detect: Triggers the verification of the alarm event properties
+                               when set to true.
+                :type detect: bool
 
-                    :param implemented: True when the server fires alarm events manually.
-                    :type implemented: bool
-                    :param detect: Triggers the verification of the alarm event properties
-                                   when set to true.
-                    :type detect: bool
-
-                    .. versionadded:: 10.0.0)doc",
+                .. versionadded:: 10.0.0
+             )doc",
              py::arg("implemented"),
              py::arg("detect"))
         .def("is_alarm_event",
              &Tango::Attr::is_alarm_event,
              R"doc(
-                is_alarm_event(self) -> bool
-
-                    Check if the alarm event is fired manually (without polling) for this attribute.
-
-                :return: true if a manual fire alarm event is implemented
-                :rtype: bool
+                Check if the alarm event is fired manually (without polling) for this attribute.
 
                 .. versionadded:: 10.0.0
              )doc")
         .def("is_check_change_criteria",
              &Tango::Attr::is_check_change_criteria,
              R"doc(
-                is_check_change_criteria(self) -> bool
-
-                    Check if the change event criteria should be checked when firing the event manually.
-
-                :returns: true if a change event criteria will be checked.
-                :rtype: bool)doc")
+                Check if the change event criteria should be checked when firing the event manually.
+             )doc")
         .def("set_archive_event",
              &Tango::Attr::set_archive_event,
              R"doc(
-                set_archive_event(self)
+                Set a flag to indicate that the server fires archive events manually
+                without the polling to be started for the attribute.
 
-                    Set a flag to indicate that the server fires archive events manually
-                    without the polling to be started for the attribute.
+                If the detect parameter is set to true, the criteria specified for the
+                archive event (rel_change and abs_change) are verified and
+                the event is only pushed if a least one of them are fulfilled
+                (change in value compared to previous event exceeds a threshold).
 
-                    If the detect parameter is set to true, the criteria specified for the
-                    archive event (rel_change and abs_change) are verified and
-                    the event is only pushed if a least one of them are fulfilled
-                    (change in value compared to previous event exceeds a threshold).
-
-                    If detect is set to false the event is fired without checking!
+                If detect is set to false the event is fired without checking!
 
                 :param implemented: True when the server fires change events manually.
                 :type implemented: bool
                 :param detect: Triggers the verification of the archive event properties
                                when set to true.
-                :type detect: bool)doc",
+                :type detect: bool
+             )doc",
              py::arg("implemented"),
              py::arg("detect"))
         .def("is_archive_event",
              &Tango::Attr::is_archive_event,
              R"doc(
-                is_archive_event(self) -> bool
-
-                    Check if the archive event is fired manually for this attribute.
-
-                :returns: true if a manual fire archive event is implemented.
-                :rtype: bool)doc")
+                Check if the archive event is fired manually for this attribute.
+             )doc")
         .def("is_check_archive_criteria",
              &Tango::Attr::is_check_archive_criteria,
              R"doc(
-                is_check_archive_criteria(self) -> bool
-
-                    Check if the archive event criteria should be checked when firing the event manually.
-
-                :returns: true if a archive event criteria will be checked.
-                :rtype: bool)doc")
+                Check if the archive event criteria should be checked when firing the event manually.
+             )doc")
         .def("set_data_ready_event",
              &Tango::Attr::set_data_ready_event,
              R"doc(
-                set_data_ready_event(self, implemented)
-
-                    Set a flag to indicate that the server fires data ready events.
+                Set a flag to indicate that the server fires data ready events.
 
                 :param implemented: True when the server fires data ready events
                 :type implemented: bool
 
-                New in PyTango 7.2.0)doc",
+                .. versionadded:: 7.2.0
+             )doc",
              py::arg("implemented"))
         .def("is_data_ready_event",
              &Tango::Attr::is_data_ready_event,
              R"doc(
-                is_data_ready_event(self) -> bool
+                Check if the data ready event is fired for this attribute.
 
-                    Check if the data ready event is fired for this attribute.
-
-                    :returns: true if firing data ready event is implemented.
-                    :rtype: bool
-
-                    New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc")
         .def("get_name",
              static_cast<const std::string &(Tango::Attr::*) () const>(&Tango::Attr::get_name),
              py::return_value_policy::copy,
              R"doc(
-                get_name(self) -> str
-
-                    Get the attribute name.
-
-                :returns: the attribute name
-                :rtype: str)doc")
+                Get the attribute name.
+             )doc")
         .def("get_format",
              &Tango::Attr::get_format,
              R"doc(
-                get_format(self) -> AttrDataFormat
-
-                    Get the attribute format.
-
-                :returns: the attribute format
-                :rtype: AttrDataFormat)doc")
+                Get the attribute format.
+             )doc")
         .def("get_writable",
              &Tango::Attr::get_writable,
              R"doc(
-                get_writable(self) -> AttrWriteType
-
-                    Get the attribute write type.
-
-                :returns: the attribute write type
-                :rtype: AttrWriteType)doc")
+                Get the attribute write type.
+             )doc")
         .def("get_type",
              &Tango::Attr::get_type,
              R"doc(
-                get_type(self) -> int
-
-                    Get the attribute data type.
-
-                :returns: the attribute data type
-                :rtype: int)doc")
+                Get the attribute data type.
+             )doc")
         .def("get_disp_level",
              &Tango::Attr::get_disp_level,
              R"doc(
-                get_disp_level(self) -> DispLevel
-
-                    Get the attribute display level.
-
-                :returns: the attribute display level
-                :rtype: DispLevel)doc")
+                Get the attribute display level.
+             )doc")
         .def("get_polling_period",
              &Tango::Attr::get_polling_period,
              R"doc(
-                get_polling_period(self) -> int
-
-                    Get the polling period (mS).
-
-                :returns: the polling period (mS)
-                :rtype: int)doc")
+                Get the polling period (in milliseconds).
+             )doc")
         .def("get_memorized",
              &Tango::Attr::get_memorized,
              R"doc(
-                get_memorized(self) -> bool
-
-                    Determine if the attribute is memorized or not.
-
-                :returns: True if the attribute is memorized
-                :rtype: bool)doc")
+                Determine if the attribute is memorized or not.
+             )doc")
         .def("get_memorized_init",
              &Tango::Attr::get_memorized_init,
              R"doc(
-                get_memorized_init(self) -> bool
-
-                    Determine if the attribute is written at startup from the memorized
-                    value if it is memorized.
-
-                :returns: True if initialized with memorized value or not
-                :rtype: bool)doc")
+                Determine if the attribute is written at startup from the memorized
+                value if it is memorized.
+             )doc")
         .def("get_assoc",
              &Tango::Attr::get_assoc,
              py::return_value_policy::copy,
              R"doc(
-                get_assoc(self) -> str
-
-                    Get the associated name.
-
-                :returns: the associated name
-                :rtype: bool)doc")
+                Get the associated name.
+             )doc")
         .def("is_assoc",
              &Tango::Attr::is_assoc,
              R"doc(
-                is_assoc(self) -> bool
-
-                    Determine if it is assoc.
-
-                :returns: if it is assoc
-                :rtype: bool)doc")
+                Determine if it is assoc.
+             )doc")
         .def("get_cl_name",
              &Tango::Attr::get_cl_name,
              py::return_value_policy::copy,
              R"doc(
-                get_cl_name(self) -> str
+                Returns the class name.
 
-                    Returns the class name.
-
-                :returns: the class name
-                :rtype: str
-
-                New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc")
         .def("set_cl_name",
              &Tango::Attr::set_cl_name,
              R"doc(
-                set_cl_name(self, cl)
+                Sets the class name.
 
-                    Sets the class name.
+                :param class_name: new class name
+                :type class_name: :py:obj:`str`
 
-                :param cl: new class name
-                :type cl: str
-
-                New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc",
+             py::arg("class_name"))
         .def("get_class_properties",
              &Tango::Attr::get_class_properties,
              py::return_value_policy::reference_internal,
              R"doc(
-                get_class_properties(self) -> Sequence[AttrProperty]
-
-                    Get the class level attribute properties.
-
-                :returns: the class attribute properties
-                :rtype: Sequence[AttrProperty])doc")
+                Get the class level attribute properties.
+             )doc")
         .def("get_user_default_properties",
              &Tango::Attr::get_user_default_properties,
              py::return_value_policy::reference_internal,
              R"doc(
-                get_user_default_properties(self) -> Sequence[AttrProperty]
-
-                    Get the user default attribute properties.
-
-                :returns: the user default attribute properties
-                :rtype: Sequence[AttrProperty])doc")
+                Get the user default attribute properties.
+             )doc")
         .def("set_class_properties",
              &Tango::Attr::set_class_properties,
              R"doc(
-                set_class_properties(self, props)
-
-                    Set the class level attribute properties.
+                Set the class level attribute properties.
 
                 :param props: new class level attribute properties
-                :type props: StdAttrPropertyVector)doc")
+                :type props: StdAttrPropertyVector
+             )doc",
+             py::arg("props"))
         .def("check_type",
              &Tango::Attr::check_type,
              R"doc(
-                check_type(self)
+                This method checks data type and throws an exception in case of unsupported data type
 
-                    This method checks data type and throws an exception in case of unsupported data type
-
-                :raises: :class:`DevFailed`: If the data type is unsupported.)doc")
+                :raises: :obj:`~tango.DevFailed`: If the data type is unsupported.
+             )doc")
         .def("read", &Tango::Attr::read)
         .def("write", &Tango::Attr::write)
         .def("is_allowed",
              &Tango::Attr::is_allowed,
              R"doc(
-                is_allowed(self, device, request_type) -> bool
-
-                    Returns whether the request_type is allowed for the specified device
+                Returns whether the request_type is allowed for the specified device
 
                 :param device: instance of Device
                 :type device: :class:`tango.server.Device`
 
                 :param request_type: AttReqType.READ_REQ for read request or AttReqType.WRITE_REQ for write request
                 :type request_type: :const:`AttReqType`
-
-                :returns: True if request_type is allowed for the specified device
-                :rtype: bool)doc",
+             )doc",
              py::arg("device"),
              py::arg("request_type"));
 

@@ -8,7 +8,6 @@ Topological sort ensures correct execution order.
 """
 from __future__ import annotations
 from kanban_framework.domain.steps_types import StepDef
-from kanban_framework.domain.steps_full import FULL_STEPS
 from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS
 from kanban_framework.domain.steps_quick import QUICK_STEPS
 from kanban_framework.infra.scheduler import Scheduler
@@ -52,6 +51,7 @@ def build_step_dag(lightweight: bool = False, quick: bool = False,
                    custom_order: list[str] | None = None,
                    custom_steps: dict[str, list[StepDef]] | None = None,
                    mode: str | None = None,
+                   workflow: dict | None = None,
                    kanban_dir = None) -> dict:
     """Build a flat step DAG from phase step definitions.
 
@@ -68,7 +68,8 @@ def build_step_dag(lightweight: bool = False, quick: bool = False,
         from kanban_framework.domain.steps import _get_steps
         steps_map = _get_steps(mode)
         str_order = [p.value if hasattr(p, "value") else str(p)
-                     for p in Scheduler.dispatch_order(mode=mode, kanban_dir=kanban_dir)]
+                     for p in Scheduler.dispatch_order(mode=mode, workflow=workflow,
+                                                       kanban_dir=kanban_dir)]
         phase_order = str_order
     elif quick:
         steps_map = QUICK_STEPS
@@ -77,7 +78,7 @@ def build_step_dag(lightweight: bool = False, quick: bool = False,
         steps_map = LIGHTWEIGHT_STEPS
         phase_order = Scheduler.LIGHTWEIGHT_PHASE_ORDER
     else:
-        steps_map = FULL_STEPS
+        steps_map = LIGHTWEIGHT_STEPS
         phase_order = Scheduler.PHASE_ORDER
 
     has_explicit_after = any(
@@ -195,7 +196,7 @@ def find_step_def(step_id: str, lightweight: bool = False,
     if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
         mode = mode
     else:
-        mode = "quick" if quick else ("lightweight" if lightweight else "full")
+        mode = "quick" if quick else "lightweight"
     # Priority 1: workflow.json loaded steps (includes extensions + per-mode)
     from kanban_framework.domain.steps import _get_steps
     try:
@@ -212,7 +213,7 @@ def find_step_def(step_id: str, lightweight: bool = False,
     elif lightweight:
         steps_map = LIGHTWEIGHT_STEPS
     else:
-        steps_map = FULL_STEPS
+        steps_map = LIGHTWEIGHT_STEPS
     for phase_steps in steps_map.values():
         for step in phase_steps:
             if step.id == step_id:

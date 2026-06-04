@@ -4,7 +4,6 @@
 
 from . import launchable
 
-
 subset = launchable.CommonSubsetImpls(__name__).scan_stdin()
 
 record_tests = launchable.CommonRecordTestImpls(__name__).file_profile_report_files()

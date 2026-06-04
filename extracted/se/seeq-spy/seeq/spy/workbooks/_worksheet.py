@@ -141,8 +141,8 @@ class Worksheet(Item):
     def pull_rendered_content(self, session: Session, status: Status):
         pass
 
-    def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
-             existing_worksheet_identifiers, include_inventory, label=None):
+    def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map: ItemMap, datasource_output,
+             existing_worksheet_identifiers, include_inventory, label=None) -> str:
         existing_worksheet_id = None
 
         # After Integrated Security was introduced, we can no longer search for Worksheets using Data ID,
@@ -166,20 +166,18 @@ class Worksheet(Item):
         workbooks_api = WorkbooksApi(context.session.client)
         items_api = ItemsApi(context.session.client)
         props = list()
-        worksheet_output: Optional[WorksheetOutputV1] = None
         if not existing_worksheet_id:
             worksheet_input = WorksheetInputV1()
             worksheet_input.name = self.definition['Name']
             if not context.dry_run:
                 worksheet_output = workbooks_api.create_worksheet(
                     workbook_id=pushed_workbook_id, body=worksheet_input)
+                pushed_worksheet_id = worksheet_output.id
                 context.status.log(
                     f'Pushed {self} to Workbook {pushed_workbook_id} as Worksheet {worksheet_output.id}')
             else:
-                if pushed_workbook_id is not None:
-                    context.status.log(f'[Dry Run] Would push {self} to Workbook {pushed_workbook_id}')
-                else:
-                    context.status.log(f'[Dry Run] Would push {self} to new Workbook')
+                context.status.log(f'[Dry Run] Would push {self} to Workbook {pushed_workbook_id}')
+                pushed_worksheet_id = item_map.add_dry_run_placeholder_id(self.id)
 
             if context.session.options.wants_compatibility_with(194):
                 spy_id = spy_id_with_label_suffix_maybe
@@ -187,26 +185,29 @@ class Worksheet(Item):
                 spy_id = spy_id_without_label_suffix
 
             props.append(ScalarPropertyV1(name='SPy ID', value=spy_id))
-        else:
+        elif item_map.is_real_id(pushed_workbook_id):
             worksheet_output = workbooks_api.get_worksheet(workbook_id=pushed_workbook_id,
                                                            worksheet_id=existing_worksheet_id)
-            context.status.log(f'{self} mapped to existing worksheet "{worksheet_output.name}" ({worksheet_output.id})')
+            pushed_worksheet_id = worksheet_output.id
+            context.status.log(f'{self} mapped to existing worksheet "{worksheet_output.name}" ({pushed_worksheet_id})')
             props.append(ScalarPropertyV1(name='Name', value=self.definition['Name']))
+        else:
+            context.status.log(f'[Dry Run] Would create worksheet {self} in Workbook {pushed_workbook_id}')
+            pushed_worksheet_id = item_map.add_dry_run_placeholder_id(self.id)
 
-        if worksheet_output is not None:
-            item_map[self.id] = worksheet_output.id
+        item_map[self.id] = pushed_worksheet_id
 
         props.append(ScalarPropertyV1(name='Archived', value=_common.get(self, 'Archived', False)))
         props_string = ', '.join([f'{p.name}={p.value}' for p in props])
 
         if not context.dry_run:
-            context.status.log(f'Updating properties for worksheet ID {worksheet_output.id}: {props_string}')
-            items_api.set_properties(id=worksheet_output.id, body=props)
-        elif worksheet_output is not None:
-            context.status.log(f'[Dry Run] Would update properties for worksheet ID {worksheet_output.id}: '
+            context.status.log(f'Updating properties for worksheet ID {pushed_worksheet_id}: {props_string}')
+            items_api.set_properties(id=pushed_worksheet_id, body=props)
+        else:
+            context.status.log(f'[Dry Run] Would update properties for worksheet ID {pushed_worksheet_id}: '
                                f'{props_string}')
 
-        return worksheet_output
+        return pushed_worksheet_id
 
     @property
     def referenced_items(self):
@@ -407,9 +408,9 @@ class WorksheetForAnalysisOrRoom(Worksheet):
                     workstep_tuples_to_pull.add((workbook_id, worksheet_id, workstep_id))
 
         if extra_workstep_tuples:
-            for workbook_id, worksheet_id, workstep_id in extra_workstep_tuples:
-                if workbook_id == self.workbook.id and worksheet_id == self.id and workstep_id is not None:
-                    workstep_tuples_to_pull.add((workbook_id, worksheet_id, workstep_id))
+            for extra_workbook_id, extra_worksheet_id, extra_workstep_id in extra_workstep_tuples:
+                if extra_workbook_id == self.workbook.id and extra_worksheet_id == self.id and extra_workstep_id is not None:
+                    workstep_tuples_to_pull.add((extra_workbook_id, extra_worksheet_id, extra_workstep_id))
 
         self._pull_worksteps(session, workstep_tuples_to_pull, status)
 
@@ -504,13 +505,10 @@ class WorksheetForAnalysisOrRoom(Worksheet):
                status=status)
 
     def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
-             existing_worksheet_identifiers, include_inventory, label=None):
-        worksheet_output = super().push(context, pushed_workbook_id, item_map, datasource_output,
-                                        existing_worksheet_identifiers, include_inventory,
-                                        label=label)
-
-        if worksheet_output is None:
-            return worksheet_output
+             existing_worksheet_identifiers, include_inventory, label=None) -> str:
+        pushed_worksheet_id = super().push(context, pushed_workbook_id, item_map, datasource_output,
+                                           existing_worksheet_identifiers, include_inventory,
+                                           label=label)
 
         pushed_current_workstep_id = None
 
@@ -524,10 +522,15 @@ class WorksheetForAnalysisOrRoom(Worksheet):
                 self.workbook.update_status('Pushing worksteps', 0)
                 # Intentionally don't send a workstep message since it will be sent below when we set the current
                 # workstep
-                pushed_workstep_id = workstep.push_to_specific_worksheet(context, pushed_workbook_id,
-                                                                         worksheet_output.id, item_map,
-                                                                         include_inventory,
-                                                                         no_workstep_message=True)
+                try:
+                    pushed_workstep_id = workstep.push_to_specific_worksheet(context, pushed_workbook_id,
+                                                                             pushed_worksheet_id, item_map,
+                                                                             include_inventory,
+                                                                             no_workstep_message=True)
+                except (SPyRuntimeError, ApiException) as e:
+                    context.status.raise_or_callback(f'Could not push {workstep}:\n{_common.format_exception(e)}')
+                    continue
+
                 self.workbook.update_status('Pushing worksteps', 1)
 
                 # We have to store off a per-worksheet map of worksteps because of the way they can be duplicated due
@@ -546,20 +549,29 @@ class WorksheetForAnalysisOrRoom(Worksheet):
 
         workbooks_api = WorkbooksApi(context.session.client)
 
-        if worksheet_output is not None:
+        # We conditionalize this on context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP because
+        # in "normal mode" the user may have a pulled state that is "stale" compared to the server but still wants
+        # the pulled state to overwrite the server state.
+        skip_set_current_workstep = (
+                context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and
+                self.definition['Current Workstep ID'] == pushed_current_workstep_id
+        )
+
+        if not skip_set_current_workstep:
             # We have to do this at the end otherwise the other pushed worksheets will take precedence
             safely(lambda: workbooks_api.set_current_workstep(workbook_id=pushed_workbook_id,
-                                                              worksheet_id=worksheet_output.id,
+                                                              worksheet_id=pushed_worksheet_id,
                                                               workstep_id=pushed_current_workstep_id),
-                   action_description=f'set {pushed_workbook_id}/{worksheet_output.id}/{pushed_current_workstep_id} '
+                   action_description=f'set {pushed_workbook_id}/{pushed_worksheet_id}/{pushed_current_workstep_id} '
                                       f'as the current workstep',
                    status=context.status, dry_run=context.dry_run)
 
-            if context.current_params.include_annotations and self._annotation is not None:
-                self._annotation.push(context, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
-                                      context.current_params.access_control, push_images=True, label=label)
+        if (context.current_params.include_annotations and self._annotation is not None and
+                item_map.was_item_pushed(self.id)):
+            self._annotation.push(context, pushed_workbook_id, pushed_worksheet_id, item_map, datasource_output,
+                                  context.current_params.access_control, push_images=True, label=label)
 
-        return worksheet_output
+        return pushed_worksheet_id
 
     def refresh_from(self, context: WorkbookPushContext, new_item, item_map: ItemMap, status: Status):
         super().refresh_from(context, new_item, item_map, status)
@@ -698,155 +710,6 @@ class AnalysisWorksheet(WorksheetForAnalysisOrRoom):
         Journal attached to this worksheet.
         """
         return self._annotation
-
-    def workstep(self, name=None, create=True):
-        if not name:
-            name = _common.new_placeholder_guid()
-
-        existing_workstep = [ws for ws in self.worksteps.values() if ws.name == name]
-        if len(existing_workstep) == 1:
-            return existing_workstep[0]
-        elif not create:
-            return None
-
-        workstep = AnalysisWorkstep(self, {'Name': name})
-        workstep.set_as_current()
-
-        return workstep
-
-    def pull_current_workstep(self, quiet: bool = False, status: Optional[Status] = None,
-                              session: Optional[Session] = None):
-        # noinspection PyUnresolvedReferences
-        """
-        Pulls the current workstep for the given worksheet so that the Python
-        object has been updated with what the user might have changed in the
-        user interface.
-
-        Parameters
-        ----------
-        quiet : bool, default False
-            If True, suppresses progress output. Note that when status is
-            provided, the quiet setting of the Status object that is passed
-            in takes precedence.
-
-        status : spy.Status, optional
-            If specified, the supplied Status object will be updated as the command
-            progresses. It gets filled in with the same information you would see
-            in Jupyter in the blue/green/red table below your code while the
-            command is executed. The table itself is accessible as a DataFrame via
-            the status.df property.
-
-        session : spy.Session, optional
-            If supplied, the Session object (and its Options) will be used to
-            store the login session state. This is useful to log in to different
-            Seeq servers at the same time or with different credentials.
-
-        Example
-        -------
-        >>> worksheet = workbook.worksheets['My Worksheet']
-        >>> worksheet.pull_current_workstep()
-        """
-        session = Session.validate(session)
-        status = Status.validate(status, session, quiet)
-        self.pull_worksheet(session, self.id, include_images=False, status=status, include_annotations=False,
-                            include_referenced_worksteps=False)
-
-    def push_current_workstep(self, quiet: bool = False, status: Optional[Status] = None,
-                              session: Optional[Session] = None):
-        # noinspection PyUnresolvedReferences
-        """
-        Pushes a new workstep for the given worksheet using the current in-memory value given by current_workstep().
-
-        Parameters
-        ----------
-        quiet : bool, default False
-            If True, suppresses progress output. Note that when status is
-            provided, the quiet setting of the Status object that is passed
-            in takes precedence.
-
-        status : spy.Status, optional
-            If specified, the supplied Status object will be updated as the command
-            progresses. It gets filled in with the same information you would see
-            in Jupyter in the blue/green/red table below your code while the
-            command is executed. The table itself is accessible as a DataFrame via
-            the status.df property.
-
-        session : spy.Session, optional
-            If supplied, the Session object (and its Options) will be used to
-            store the login session state. This is useful to log in to different
-            Seeq servers at the same time or with different credentials.
-
-        Example
-        -------
-        >>> worksheet = workbook.worksheets['My Worksheet']
-        >>> worksheet.display_items = worksheet.display_items.drop(
-        >>>     worksheet.display_items[worksheet.display_items['Name'] == 'Temperature'].index)
-        >>> worksheet.push_current_workstep()
-        """
-        session = Session.validate(session)
-        status = Status.validate(status, session, quiet)
-        workstep = self.current_workstep()
-        workstep_input = WorkstepInputV1(data=safe_json_dumps(workstep.data))
-        safely(lambda: WorkbooksApi(session.client).create_workstep(workbook_id=self.workbook.id, worksheet_id=self.id,
-                                                                    no_workstep_message=False, body=workstep_input),
-               status=status)
-
-    def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
-             existing_worksheet_identifiers, include_inventory, label=None):
-        worksheet_output = super().push(context, pushed_workbook_id, item_map, datasource_output,
-                                        existing_worksheet_identifiers, include_inventory,
-                                        label=label)
-
-        if worksheet_output is None:
-            return worksheet_output
-
-        pushed_current_workstep_id = None
-
-        try:
-            # We freeze the replace patterns here because otherwise we unnecessarily recompile the replacement
-            # regexes when the workstep IDs are added to the item map, even though worksteps never refer to other
-            # worksteps.
-            item_map.freeze_replace_patterns()
-
-            for workstep_id, workstep in self.worksteps.items():  # type: (str, Workstep)
-                self.workbook.update_status('Pushing worksteps', 0)
-                # Intentionally don't send a workstep message since it will be sent below when we set the current workstep
-                pushed_workstep_id = workstep.push_to_specific_worksheet(context, pushed_workbook_id,
-                                                                         worksheet_output.id, item_map,
-                                                                         include_inventory,
-                                                                         no_workstep_message=True)
-                self.workbook.update_status('Pushing worksteps', 1)
-
-                # We have to store off a per-worksheet map of worksteps because of the way they can be duplicated due
-                # to duplicated worksheets and copy/pasted Journal links
-                if self.id not in item_map.workstep_mappings:
-                    item_map.workstep_mappings[self.id] = dict()
-                item_map.workstep_mappings[self.id][workstep_id] = pushed_workstep_id
-
-                if workstep_id == self.definition['Current Workstep ID']:
-                    pushed_current_workstep_id = pushed_workstep_id
-        finally:
-            item_map.unfreeze_replace_patterns()
-
-        if not pushed_current_workstep_id and not context.dry_run:
-            raise SPyRuntimeError("Workstep for worksheet's 'Current Workstep ID' not found")
-
-        workbooks_api = WorkbooksApi(context.session.client)
-
-        if worksheet_output is not None:
-            # We have to do this at the end otherwise the other pushed worksheets will take precedence
-            safely(lambda: workbooks_api.set_current_workstep(workbook_id=pushed_workbook_id,
-                                                              worksheet_id=worksheet_output.id,
-                                                              workstep_id=pushed_current_workstep_id),
-                   action_description=f'set {pushed_workbook_id}/{worksheet_output.id}/{pushed_current_workstep_id} '
-                                      f'as the current workstep',
-                   status=context.status, dry_run=context.dry_run)
-
-            if context.current_params.include_annotations and self._annotation is not None:
-                self._annotation.push(context, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
-                                      context.current_params.access_control, push_images=True, label=label)
-
-        return worksheet_output
 
     @property
     def display_items(self):
@@ -1179,16 +1042,17 @@ class TopicDocument(Worksheet):
             self.report.pull_rendered_content(session, status)
 
     def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
-             existing_worksheet_identifiers, include_inventory, label=None):
-        worksheet_output = super().push(context, pushed_workbook_id, item_map, datasource_output,
-                                        existing_worksheet_identifiers, include_inventory,
-                                        label=label)
+             existing_worksheet_identifiers, include_inventory, label=None) -> str:
+        pushed_worksheet_id = super().push(context, pushed_workbook_id, item_map, datasource_output,
+                                           existing_worksheet_identifiers, include_inventory,
+                                           label=label)
 
-        if context.current_params.include_annotations:
-            self.report.push(context, pushed_workbook_id, worksheet_output.id, item_map, datasource_output,
+        if (context.current_params.include_annotations and self.report is not None and
+                item_map.was_item_pushed(self.id)):
+            self.report.push(context, pushed_workbook_id, pushed_worksheet_id, item_map, datasource_output,
                              context.current_params.access_control, push_images=True, label=label)
 
-        return worksheet_output
+        return pushed_worksheet_id
 
     def refresh_from(self, context: WorkbookPushContext, new_item, item_map: ItemMap, status: Status):
         super().refresh_from(context, new_item, item_map, status)

@@ -73,8 +73,9 @@ from ._crs import _resolve_crs_to_wkt, _wkt_to_epsg  # noqa: F401
 from ._errors import (ConflictingCRSError, ConflictingNodataError, DuplicateIFDTagError,
                       GeoTIFFAmbiguousMetadataError, InconsistentGeoKeysError, InvalidCRSCodeError,
                       InvalidIntegerNodataError, MixedBandMetadataError,
-                      NonRepresentableEPSGCRSError, NonUniformCoordsError, RotatedTransformError,
-                      UnknownCRSModelTypeError, UnparseableCRSError, UnsupportedGeoTIFFFeatureError,
+                      NonRepresentableEPSGCRSError, NonUniformCoordsError,
+                      RemoteStableSourcesOnlyError, RotatedTransformError, UnknownCRSModelTypeError,
+                      UnparseableCRSError, UnsupportedGeoTIFFFeatureError,
                       VRTStableSourcesOnlyError)
 from ._geotags import RASTER_PIXEL_IS_AREA, RASTER_PIXEL_IS_POINT, GeoTransform  # noqa: F401
 from ._reader import _MAX_CLOUD_BYTES_SENTINEL, CloudSizeLimitError, UnsafeURLError
@@ -116,6 +117,7 @@ __all__ = [
     'MixedBandMetadataError',
     'NonRepresentableEPSGCRSError',
     'NonUniformCoordsError',
+    'RemoteStableSourcesOnlyError',
     'RotatedTransformError',
     'SUPPORTED_FEATURES',
     'UnknownCRSModelTypeError',
@@ -719,18 +721,24 @@ def open_geotiff(source: str | BinaryIO, *,
         sentinels (e.g. external tooling that writes ``"nan"`` on
         integer outputs).
     stable_only : bool, default False
-        [advanced] Read-side opt-in for stable-tier sources only. When
-        ``True``, a ``.vrt`` source raises
+        [advanced] Read-side opt-in that restricts the read to the
+        stable-tier local-file path. When ``True``, advanced-tier
+        sources are rejected: a ``.vrt`` source raises
         :class:`VRTStableSourcesOnlyError` because ``reader.vrt`` and
         the VRT child-source pipeline sit at the ``advanced`` /
         ``experimental`` tiers in
-        :data:`xrspatial.geotiff.SUPPORTED_FEATURES`. Non-VRT sources
-        on this entry point already ride the stable ``reader.local_file``
-        path and the per-source codec gate, so the flag is a no-op for
-        them. The rejection names the file path and the
+        :data:`xrspatial.geotiff.SUPPORTED_FEATURES`, and HTTP /
+        fsspec sources (``http(s)://``, ``s3://``, etc.) are rejected
+        too because ``reader.http`` and ``reader.fsspec`` are also
+        ``advanced``. Only a local-file source riding the stable
+        ``reader.local_file`` path and the per-source codec gate is
+        accepted. The rejection names the offending source and the
         ``allow_experimental_codecs`` opt-in so the caller can unlock
         the broader tier set explicitly when needed. See
-        ``docs/source/reference/release_gate_geotiff.rst``.
+        ``docs/source/reference/release_gate_geotiff.rst``. The VRT
+        rejection is enforced today; the HTTP / fsspec rejection is the
+        documented contract being rolled out and may not yet fire on
+        every read path (tracked in issue #2820).
     allow_experimental_codecs : bool, default False
         Read-side opt-in for sources compressed with the Tier 3
         experimental codecs (``lerc``, ``jpeg2000`` / ``j2k``, ``lz4``).
@@ -834,6 +842,38 @@ def open_geotiff(source: str | BinaryIO, *,
     _is_vrt_source = (
         isinstance(source, str) and source.lower().endswith('.vrt'))
 
+    # Gate ``stable_only=True`` BEFORE resolving ``bbox=``. The bbox
+    # resolver reads source geo metadata first (the TIFF path reads a
+    # header, which is a range GET for an HTTP / fsspec source; the VRT
+    # path parses the VRT XML), so the stable-only rejection has to run
+    # ahead of it or a stable-only request would trigger remote I/O or a
+    # VRT parse before it is refused. ``_validate_stable_only_remote``
+    # documents exactly this ordering contract ("before any range GET or
+    # decode work"). ``_validate_stable_only_vrt`` is the matching gate
+    # for ``.vrt`` sources; ``read_vrt`` runs it again on the direct-call
+    # path, so this is defence in depth, not the only gate. Each helper is
+    # a no-op for the wrong source type, but branching keeps the intent
+    # obvious. Running ahead of the bbox block also puts this gate ahead
+    # of the ``window=``/``bbox=`` mutual-exclusion check below, so a
+    # stable-only remote/VRT source is refused on the tier gate before
+    # that kwarg conflict is reported -- the tier rejection wins, which
+    # matches refusing the unsupported source before validating kwargs
+    # that would not be honoured anyway.
+    from ._validation import _validate_stable_only_remote
+    from ._validation import _validate_stable_only_vrt
+    if _is_vrt_source:
+        _validate_stable_only_vrt(
+            source,
+            stable_only=stable_only,
+            allow_experimental_codecs=allow_experimental_codecs,
+        )
+    else:
+        _validate_stable_only_remote(
+            source,
+            stable_only=stable_only,
+            allow_experimental_codecs=allow_experimental_codecs,
+        )
+
     # Resolve ``bbox=`` to a pixel ``window=`` via a header-only
     # metadata read. Done at the dispatcher so every backend
     # (eager / dask / GPU / VRT) sees a uniform pixel window without
@@ -906,7 +946,8 @@ def open_geotiff(source: str | BinaryIO, *,
 
     # File-like buffer rejections for ``gpu=True`` / ``chunks=...`` already
     # fired inside ``_validate_dispatch_kwargs`` above; the non-VRT branches
-    # below run with a string source or an eager file-like.
+    # below run with a string source or an eager file-like. The remote /
+    # VRT ``stable_only=True`` gate ran ahead of bbox resolution above.
 
     # GPU path
     if gpu:

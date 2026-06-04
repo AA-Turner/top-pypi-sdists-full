@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Pattern, Tuple, Union
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ class ItemMap:
     _lookup_df: Optional[pd.DataFrame]
     _logs: Dict[str, List[str]]
     _dummy_items: pd.DataFrame
-    _replace_patterns: Optional[List[re.Pattern]]
+    _replace_items_cache: Optional[Tuple[Dict, List[Pattern[str]]]]
     _freeze_replace_patterns: bool
     workstep_mappings: Dict[str, Dict[str, str]]
     image_mappings: Dict[str, Dict[str, str]]
@@ -49,7 +49,7 @@ class ItemMap:
         self.image_mappings = get(7, dict())
         self.content_mappings = get(8, dict())
 
-        self._replace_patterns = None
+        self._replace_items_cache = None
         self._freeze_replace_patterns = False
 
     def __init__(self, item_map=None, lookup_df: Optional[pd.DataFrame] = None):
@@ -57,7 +57,7 @@ class ItemMap:
         self._lookup_df = lookup_df
         self._logs = dict()
         self._dummy_items = pd.DataFrame({'ID': pd.Series(dtype=str)})
-        self._replace_patterns = None
+        self._replace_items_cache = None
         self._freeze_replace_patterns = False
         self.workstep_mappings = dict()
         self.image_mappings = dict()
@@ -92,7 +92,10 @@ class ItemMap:
         key = _common.ensure_upper_case_id('ID', key)
         val = _common.ensure_upper_case_id('ID', val)
         self._item_map.__setitem__(key, val)
-        self.invalidate_replace_patterns()
+
+        # We don't invalidate if key==val because it means that there's no replacement to be done anyways
+        if key != val:
+            self.invalidate_replace_patterns()
 
     def __delitem__(self, key):
         key = _common.ensure_upper_case_id('ID', key)
@@ -122,28 +125,28 @@ class ItemMap:
 
     def invalidate_replace_patterns(self):
         if not self._freeze_replace_patterns:
-            self._replace_patterns = None
+            self._replace_items_cache = None
 
     def freeze_replace_patterns(self):
         self._freeze_replace_patterns = True
 
     def unfreeze_replace_patterns(self):
         self._freeze_replace_patterns = False
-        self._replace_patterns = None
+        self._replace_items_cache = None
 
     def replace_items(self, document: str, chunk_size: int = 5000) -> Optional[str]:
-        keys = sorted(self.keys(), key=len, reverse=True)
-        lookup = {k.lower(): self[k] for k in keys}
-
-        if self._replace_patterns is None:
+        if self._replace_items_cache is None:
+            keys = sorted([k for k in self.keys() if k != self[k]], key=len, reverse=True)
+            lookup = {k.lower(): self[k] for k in keys}
             chunks = [keys[i:i + chunk_size] for i in range(0, len(keys), chunk_size)]
-            self._replace_patterns = [
+            self._replace_items_cache = (lookup, [
                 re.compile("|".join(map(re.escape, chunk)), flags=re.IGNORECASE)
                 for chunk in chunks
-            ]
+            ])
 
         out = document
-        for pattern in self._replace_patterns:
+        lookup, patterns = self._replace_items_cache
+        for pattern in patterns:
             out = pattern.sub(lambda m: lookup.get(m.group(0).lower(), m.group(0)), out)
 
         return out
@@ -203,6 +206,21 @@ class ItemMap:
 
     def clear_logs(self, key):
         self._logs[key] = list()
+
+    def add_dry_run_placeholder_id(self, item_id: str) -> str:
+        value = f'From:{item_id}'
+        self[item_id] = value
+        return value
+
+    def was_item_pushed(self, item_id: str) -> bool:
+        return (
+                not str(item_id).startswith('From:') and
+                item_id in self._item_map and
+                not str(self._item_map[item_id]).startswith('From:')
+        )
+
+    def is_real_id(self, item_id: str) -> bool:
+        return not str(item_id).startswith('From:')
 
 
 class OverrideItemMap(ItemMap):

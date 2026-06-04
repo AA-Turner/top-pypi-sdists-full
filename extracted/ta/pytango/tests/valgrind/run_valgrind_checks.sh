@@ -6,6 +6,9 @@ set -xeuo pipefail
 # make sure we are in the same directory as the script
 cd "$(dirname "$0")"
 
+# Valgrind cannot handle Docker's very large file descriptor limits.
+ulimit -n 1024
+
 # Sanity check:
 #  - run forced leak through valgrind, store result in XML file
 #  - verify that our result parser finds the leak

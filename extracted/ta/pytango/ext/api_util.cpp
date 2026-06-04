@@ -18,199 +18,174 @@ inline py::object get_env_var(const char *name) {
 } // namespace PyApiUtil
 
 void export_api_util(py::module_ &m) {
-    py::class_<Tango::ApiUtil,
-               std::unique_ptr<Tango::ApiUtil,
-                               py::nodelete>>(m,
-                                              "ApiUtil",
-                                              R"doc(
+    py::class_<Tango::ApiUtil, std::unique_ptr<Tango::ApiUtil, py::nodelete>>(m,
+                                                                              "ApiUtil",
+                                                                              R"doc(
                                     This class allows you to access the tango synchronization model API.
                                     It is designed as a singleton. To get a reference to the singleton object
-                                    you must do:
+                                    you must do::
 
                                         import tango
-                                        apiutil = tango.ApiUtil.instance()
+                                        api_util = tango.ApiUtil.instance()
 
-                                    New in PyTango 7.1.3
-                                    )doc")
+                                    .. versionadded:: 7.1.3
+                               )doc")
 
         .def_static("instance",
                     &Tango::ApiUtil::instance,
                     py::return_value_policy::reference,
                     R"doc(
-                    instance() -> ApiUtil
-
                         Returns the ApiUtil singleton instance.
 
-                    :return: (ApiUtil) a reference to the ApiUtil singleton object.
-
-                    New in PyTango 7.1.3
+                        .. versionadded:: 7.1.3
                     )doc")
 
         .def("pending_asynch_call",
              &Tango::ApiUtil::pending_asynch_call,
              R"doc(
-                pending_asynch_call(self, req) -> int
-
-                    Return the number of asynchronous pending requests (any device).
-                    The input parameter is an enumeration with three values:
-                    - POLLING
-                    - CALL_BACK
-                    - ALL_ASYNCH
+                Return the number of asynchronous pending requests (any device) for the given type.
+                The input parameter is an enumeration with three values:
+                - POLLING
+                - CALL_BACK
+                - ALL_ASYNCH
 
                 :param req: asynchronous request type
-                :type req: asyn_req_type
-                :return: the number of pending requests for the given type
-                :rtype: int
+                :type req: :obj:`~tango.asyn_req_type`
 
-                New in PyTango 7.1.3
-                )doc",
+                .. versionadded:: 7.1.3
+             )doc",
              py::arg("req"))
 
         .def("get_asynch_replies",
              py::overload_cast<>(&Tango::ApiUtil::get_asynch_replies),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_asynch_replies(self) -> None
+                Fire callback methods for all asynchronous requests (command and attribute)
+                which already have arrived replies. Returns immediately if no replies arrived
+                or there are no asynchronous requests.
 
-                    Fire callback methods for all asynchronous requests (command and attribute)
-                    which already have arrived replies. Returns immediately if no replies arrived
-                    or there are no asynchronous requests.
+                :throws: None, all errors are reported via the callback's err/errors fields.
 
-                :return: None
-
-                Throws: None, all errors are reported via the callback's err/errors fields.
-
-                New in PyTango 7.1.3
-                )doc")
+                .. versionadded:: 7.1.3
+             )doc")
         .def("get_asynch_replies",
              py::overload_cast<long>(&Tango::ApiUtil::get_asynch_replies),
              py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                get_asynch_replies(self, timeout: int) -> None
-
-                    Fire callback methods for all asynchronous requests (command and attributes)
-                    with already arrived replies. Wait up to `timeout` milliseconds if some replies
-                    haven't arrived yet. If timeout=0, waits until all requests receive a reply.
+                Fire callback methods for all asynchronous requests (command and attributes)
+                with already arrived replies. Wait up to `timeout` milliseconds if some replies
+                haven't arrived yet. If timeout=0, waits until all requests receive a reply.
 
                 :param timeout: timeout in milliseconds
                 :type timeout: int
-                :return: None
 
-                Throws: AsynReplyNotArrived if some replies did not arrive in time.
-                        Other errors are reported via the callback's err/errors fields.
+                :throws: :obj:`~tango.AsynReplyNotArrived` if some replies did not arrive in time.
+                         Other errors are reported via the callback's err/errors fields.
 
-                New in PyTango 7.1.3
+                .. versionadded:: 7.1.3
                 )doc",
              py::arg("timeout"))
 
         .def("set_asynch_cb_sub_model",
              &Tango::ApiUtil::set_asynch_cb_sub_model,
              R"doc(
-                set_asynch_cb_sub_model(self, model) -> None
-
-                    Set the asynchronous callback sub-model between PULL_CALLBACK or PUSH_CALLBACK.
+                Set the asynchronous callback sub-model between PULL_CALLBACK or PUSH_CALLBACK.
 
                 :param model: the callback sub-model
-                :type model: cb_sub_model
-                :return: None
+                :type model: :obj:`~tango.cb_sub_model`
 
-                New in PyTango 7.1.3
-                )doc",
+                .. versionadded:: 7.1.3
+             )doc",
              py::arg("model"))
         .def("get_asynch_cb_sub_model",
              &Tango::ApiUtil::get_asynch_cb_sub_model,
              R"doc(
-                get_asynch_cb_sub_model(self) -> cb_sub_model
+                Get the asynchronous callback sub-model.
 
-                    Get the asynchronous callback sub-model.
-
-                :return: the active asynchronous callback sub-model
-                :rtype: cb_sub_model
-
-                New in PyTango 7.1.3
-                )doc")
+                .. versionadded:: 7.1.3
+             )doc")
 
         .def_static("get_env_var",
                     &PyApiUtil::get_env_var,
                     R"doc(
-                        get_env_var(name) -> str
-
-                            Return the environment variable for the given name.
+                        Return the environment variable value for the given name.
 
                         :param name: Environment variable name
-                        :type name: str
+                        :type name: :py:obj:`str`\
 
-                        :return: The value of the environment variable
-                        :rtype: str
-                        )doc",
+                    )doc",
                     py::arg("name"))
         .def("is_notifd_event_consumer_created",
              &Tango::ApiUtil::is_notifd_event_consumer_created,
              R"doc(
-                is_notifd_event_consumer_created(self) -> bool
-
-                    Check if the notifd event consumer was created.
-
-                :return: True if created, False otherwise
-                :rtype: bool
-                )doc")
+                Check if the notifd event consumer was created.
+             )doc")
         .def("is_zmq_event_consumer_created",
              &Tango::ApiUtil::is_zmq_event_consumer_created,
              R"doc(
-                is_zmq_event_consumer_created(self) -> bool
-
-                    Check if the ZMQ event consumer was created.
-
-                :return: True if created, False otherwise
-                :rtype: bool
-                )doc")
+                Check if the ZMQ event consumer was created.
+             )doc")
         .def("get_user_connect_timeout",
              &Tango::ApiUtil::get_user_connect_timeout,
              R"doc(
-                get_user_connect_timeout(self) -> int
-
-                    Get the user connect timeout (in milliseconds).
-
-                :return: The timeout in milliseconds
-                :rtype: int
-                )doc")
+                Get the user connect timeout (in milliseconds).
+             )doc")
         .def("in_server",
              static_cast<bool (Tango::ApiUtil::*)()>(&Tango::ApiUtil::in_server),
              R"doc(
-                in_server() -> bool
-
-                    Returns True if the current process is running a Tango device server.
-
-                :return: True if running in a server, otherwise False
-                :rtype: bool
+                Returns True if the current process is running a Tango device server.
 
                 .. versionadded:: 10.0.0
-                )doc")
+             )doc")
         .def("get_ip_from_if",
              &Tango::ApiUtil::get_ip_from_if,
              R"doc(
-                 get_ip_from_if(self, interface_name: str) -> str
+                Get the IP address for the given network interface name.
 
-                    Get the IP address for the given network interface name.
-
-                 :param interface_name: The name of the network interface
-                 :type interface_name: str
-
-                 :return: IP address associated to that interface
-                 :rtype: str
-                 )doc",
+                :param interface_name: The name of the network interface
+                :type interface_name: :py:obj:`str`
+             )doc",
              py::arg("interface_name"))
         .def_static("cleanup",
                     &Tango::ApiUtil::cleanup,
                     R"doc(
-                        cleanup() -> None
-
                         Destroy the ApiUtil singleton instance.
                         After calling cleanup(), any existing DeviceProxy, AttributeProxy,
                         or Database objects become invalid and must be reconstructed.
 
-                    :return: None
+                        .. versionadded:: 9.3.0
+                    )doc")
+        .def("query_event_system",
+             &Tango::ApiUtil::query_event_system,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Returns info about both sides of event system in current process:
+                server supplier (if running) and proxy consumer
 
-                    New in PyTango 9.3.0
-                    )doc");
+                This feature is described in the cppTango docs:
+                https://tango-controls.gitlab.io/cppTango/10.1.0/query_event_system.html
+
+                See also :py:meth:`~tango.ApiUtil.enable_event_system_perf_mon`
+
+                :return: Json dump of event system info
+
+                .. versionadded:: 10.3.0
+             )doc")
+        .def("enable_event_system_perf_mon",
+             &Tango::ApiUtil::enable_event_system_perf_mon,
+             py::call_guard<py::gil_scoped_release>(),
+             R"doc(
+                Enables/disables event system performance counter for server supplier (if running)
+                and proxy consumer in current process
+
+                See also :py:meth:`~tango.ApiUtil.query_event_system`
+
+                :param flag: new state of system performance counter
+                :type flag: :py:obj:`bool`
+
+                .. versionadded:: 10.3.0
+
+                .. warning:: Enabled monitoring has a small performance penalty for the event system.
+             )doc",
+             py::arg("flag"));
 }

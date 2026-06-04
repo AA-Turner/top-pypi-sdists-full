@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars-cloud
-Version: 0.7.0
+Version: 0.8.0
 Classifier: Development Status :: 1 - Planning
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Dist: polars[rt64,cloudpickle]==1.40.1
+Requires-Dist: polars[rt64,cloudpickle]==1.41.2
 Requires-Dist: typing-extensions>=4.0 ; python_full_version < '3.13'
 License-File: LICENSE
 Summary: Run Polars remotely, either in the Cloud or On-Prem

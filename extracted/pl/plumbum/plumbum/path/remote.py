@@ -1,46 +1,123 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    "copy",
+    "plumbum.commands",
+    "urllib",
+    "urllib.request",
+}
+
+import copy
 import errno
 import os
+import typing
 import urllib.request as urllib
 from contextlib import contextmanager
 
 from plumbum.commands import ProcessExecutionError, shquote
 from plumbum.path.base import FSUser, Path
 
+if typing.TYPE_CHECKING:
+    import builtins
+    from collections.abc import Generator, Iterable
+
+    from plumbum._compat.typing import Self
+    from plumbum.machines.remote import BaseRemoteMachine
+else:
+    BaseRemoteMachine = typing.Any
+    Self = typing.Any
+
 
 class StatRes:
     """POSIX-like stat result"""
 
-    def __init__(self, tup):
-        self._tup = tuple(tup)
+    __slots__ = ("_tup",)
+    _tup: tuple[int, int, int, int, int, int, int, float, float, float]
 
-    def __getitem__(self, index):
+    def __init__(
+        self, tup: tuple[int, int, int, int, int, int, int, float, float, float]
+    ):
+        self._tup = copy.copy(tup)
+
+    def __getitem__(self, index: int) -> int | float:
         return self._tup[index]
 
-    st_mode = mode = property(lambda self: self[0])
-    st_ino = ino = property(lambda self: self[1])
-    st_dev = dev = property(lambda self: self[2])
-    st_nlink = nlink = property(lambda self: self[3])
-    st_uid = uid = property(lambda self: self[4])
-    st_gid = gid = property(lambda self: self[5])
-    st_size = size = property(lambda self: self[6])
-    st_atime = atime = property(lambda self: self[7])
-    st_mtime = mtime = property(lambda self: self[8])
-    st_ctime = ctime = property(lambda self: self[9])
+    @property
+    def st_mode(self) -> int:
+        return self._tup[0]
+
+    @property
+    def st_ino(self) -> int:
+        return self._tup[1]
+
+    @property
+    def st_dev(self) -> int:
+        return self._tup[2]
+
+    @property
+    def st_nlink(self) -> int:
+        return self._tup[3]
+
+    @property
+    def st_uid(self) -> int:
+        return self._tup[4]
+
+    @property
+    def st_gid(self) -> int:
+        return self._tup[5]
+
+    @property
+    def st_size(self) -> int:
+        return self._tup[6]
+
+    @property
+    def st_atime(self) -> float:
+        return self._tup[7]
+
+    @property
+    def st_mtime(self) -> float:
+        return self._tup[8]
+
+    @property
+    def st_ctime(self) -> float:
+        return self._tup[9]
+
+    # Aliases for backward compatibility / convenience
+    mode = st_mode
+    ino = st_ino
+    dev = st_dev
+    nlink = st_nlink
+    uid = st_uid
+    gid = st_gid
+    size = st_size
+    atime = st_atime
+    mtime = st_mtime
+    ctime = st_ctime
+
+
+class RemoteStatRes(StatRes):
+    """Remote POSIX-like stat result"""
+
+    __slots__ = ("text_mode",)
+
+    text_mode: str  # e.g., "directory", "regular file", etc.
 
 
 class RemotePath(Path):
     """The class implementing remote-machine paths"""
 
-    def __new__(cls, remote, *parts):
-        if not parts:
+    __slots__ = ("CASE_SENSITIVE", "remote")
+    remote: BaseRemoteMachine
+
+    def __new__(cls, remote: BaseRemoteMachine, *parts_str: str | Path) -> Self:
+        if not parts_str:
             raise TypeError("At least one path part is required (none given)")
         windows = remote.uname.lower() == "windows"
-        normed = []
+        normed: list[str] = []
 
-        parts = tuple(
-            map(str, parts)
+        parts: tuple[str, ...] = tuple(
+            map(str, parts_str)
         )  # force the paths into string, so subscription works properly
         # Simple skip if path is absolute
         if parts[0] and parts[0][0] not in ("/", "\\"):
@@ -77,95 +154,97 @@ class RemotePath(Path):
         self.remote = remote
         return self
 
-    def _form(self, *parts):
+    def _form(self, *parts: str | Path) -> RemotePath:
         return RemotePath(self.remote, *parts)
 
     @property
-    def _path(self):
+    def _path(self) -> str:
         return str(self)
 
     @property
-    def name(self):
+    def name(self) -> str:
         if "/" not in str(self):
             return str(self)
         return str(self).rsplit("/", 1)[1]
 
     @property
-    def dirname(self):
+    def dirname(self) -> RemotePath | str:  # type: ignore[override]
         if "/" not in str(self):
             return str(self)
         return self.__class__(self.remote, str(self).rsplit("/", 1)[0])
 
     @property
-    def suffix(self):
-        return "." + self.name.rsplit(".", 1)[1]
+    def suffix(self) -> str:
+        return os.path.splitext(self.name)[1]
 
     @property
-    def suffixes(self):
-        name = self.name
+    def suffixes(self) -> list[str]:
         exts = []
-        while "." in name:
-            name, ext = name.rsplit(".", 1)
-            exts.append("." + ext)
-        return list(reversed(exts))
+        name = self.name
+        while True:
+            name, ext = os.path.splitext(name)
+            if ext:
+                exts.append(ext)
+            else:
+                return list(reversed(exts))
 
     @property
-    def uid(self):
+    def uid(self) -> FSUser:
         uid, name = self.remote._path_getuid(self)
         return FSUser(int(uid), name)
 
     @property
-    def gid(self):
+    def gid(self) -> FSUser:
         gid, name = self.remote._path_getgid(self)
         return FSUser(int(gid), name)
 
-    def _get_info(self):
+    def _get_info(self) -> tuple[BaseRemoteMachine, str]:  # type: ignore[override]
         return (self.remote, self._path)
 
-    def join(self, *parts):
+    def join(self, *parts: str) -> RemotePath:  # type: ignore[override]
         return RemotePath(self.remote, self, *parts)
 
-    def list(self):
+    def list(self) -> list[RemotePath]:
         if not self.is_dir():
             return []
         return [self.join(fn) for fn in self.remote._path_listdir(self)]
 
-    def iterdir(self):
+    def iterdir(self) -> Iterable[RemotePath]:
         if not self.is_dir():
             return ()
         return (self.join(fn) for fn in self.remote._path_listdir(self))
 
-    def is_dir(self):
+    def is_dir(self) -> bool:
         res = self.remote._path_stat(self)
         if not res:
             return False
         return res.text_mode == "directory"
 
-    def is_file(self):
+    def is_file(self) -> bool:
         res = self.remote._path_stat(self)
         if not res:
             return False
         return res.text_mode in ("regular file", "regular empty file")
 
-    def is_symlink(self):
+    def is_symlink(self) -> bool:
         res = self.remote._path_stat(self)
         if not res:
             return False
         return res.text_mode == "symbolic link"
 
-    def exists(self):
+    def exists(self) -> bool:
         return self.remote._path_stat(self) is not None
 
-    def stat(self):
+    def stat(self) -> RemoteStatRes:  # type: ignore[override]
         res = self.remote._path_stat(self)
         if res is None:
             raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), "")
         return res
 
-    def with_name(self, name):
+    def with_name(self, name: str) -> RemotePath:
         return self.__class__(self.remote, self.dirname) / name
 
-    def with_suffix(self, suffix, depth=1):
+    def with_suffix(self, suffix: str, depth: int | None = 1) -> RemotePath:
         if (suffix and not suffix.startswith(".")) or suffix == ".":
             raise ValueError(f"Invalid suffix {suffix!r}")
         name = self.name
@@ -174,7 +253,7 @@ class RemotePath(Path):
             name, _ = name.rsplit(".", 1)
         return self.__class__(self.remote, self.dirname) / (name + suffix)
 
-    def glob(self, pattern):
+    def glob(self, pattern: str) -> builtins.list[RemotePath]:
         return self._glob(
             pattern,
             lambda pat: [
@@ -182,14 +261,14 @@ class RemotePath(Path):
             ],
         )
 
-    def delete(self):
+    def delete(self) -> None:
         if not self.exists():
             return
         self.remote._path_delete(self)
 
     unlink = delete
 
-    def move(self, dst):
+    def move(self, dst: RemotePath | str) -> RemotePath:
         if isinstance(dst, RemotePath):
             if dst.remote is not self.remote:
                 raise TypeError("dst points to a different remote machine")
@@ -197,9 +276,9 @@ class RemotePath(Path):
             raise TypeError(
                 f"dst must be a string or a RemotePath (to the same remote machine), got {dst!r}"
             )
-        self.remote._path_move(self, dst)
+        return self.remote._path_move(self, dst)
 
-    def copy(self, dst, override=False):
+    def copy(self, dst: RemotePath | str, override: bool | None = False) -> RemotePath:
         if isinstance(dst, RemotePath):
             if dst.remote is not self.remote:
                 raise TypeError("dst points to a different remote machine")
@@ -217,9 +296,11 @@ class RemotePath(Path):
             if dst.exists():
                 raise TypeError("Override not specified and dst exists")
 
-        self.remote._path_copy(self, dst)
+        return self.remote._path_copy(self, dst)
 
-    def mkdir(self, mode=None, parents=True, exist_ok=True):
+    def mkdir(
+        self, mode: int | None = None, parents: bool = True, exist_ok: bool = True
+    ) -> None:
         if parents and exist_ok:
             self.remote._path_mkdir(self, mode=mode, minus_p=True)
         else:
@@ -236,37 +317,43 @@ class RemotePath(Path):
                         errno.EEXIST, "File exists (on remote end)", str(self)
                     ) from None
 
-    def read(self, encoding=None):
+    def read(self, encoding: str | None = None) -> str | bytes:
         data = self.remote._path_read(self)
         if encoding:
             return data.decode(encoding)
         return data
 
-    def write(self, data, encoding=None):
+    def write(self, data: str | bytes, encoding: str | None = None) -> None:
         if encoding:
+            assert isinstance(data, str)
             data = data.encode(encoding)
         self.remote._path_write(self, data)
 
-    def touch(self):
+    def touch(self) -> None:
         self.remote._path_touch(str(self))
 
-    def chown(self, owner=None, group=None, recursive=None):
+    def chown(
+        self,
+        owner: int | str | None = None,
+        group: int | str | None = None,
+        recursive: bool | None = None,
+    ) -> None:
         self.remote._path_chown(
             self, owner, group, self.is_dir() if recursive is None else recursive
         )
 
-    def chmod(self, mode):
+    def chmod(self, mode: int) -> None:
         self.remote._path_chmod(mode, self)
 
-    def access(self, mode=0):
+    def access(self, mode: int | str = 0) -> bool:
         mode = self._access_mode_to_flags(mode)
         res = self.remote._path_stat(self)
         if res is None:
             return False
         mask = res.st_mode & 0x1FF
-        return ((mask >> 6) & mode) or ((mask >> 3) & mode)
+        return bool((mask >> 6) & mode) or bool((mask >> 3) & mode)
 
-    def link(self, dst):
+    def link(self, dst: RemotePath | str) -> None:
         if isinstance(dst, RemotePath):
             if dst.remote is not self.remote:
                 raise TypeError("dst points to a different remote machine")
@@ -276,17 +363,19 @@ class RemotePath(Path):
             )
         self.remote._path_link(self, dst, False)
 
-    def symlink(self, dst):
+    def symlink(self, dst: RemotePath | str) -> None:
         if isinstance(dst, RemotePath):
             if dst.remote is not self.remote:
                 raise TypeError("dst points to a different remote machine")
         elif not isinstance(dst, str):
             raise TypeError(
-                "dst must be a string or a RemotePath (to the same remote machine), got {dst!r}"
+                f"dst must be a string or a RemotePath (to the same remote machine), got {dst!r}"
             )
         self.remote._path_link(self, dst, True)
 
-    def open(self, mode="r", bufsize=-1, *, encoding=None):
+    def open(
+        self, mode: str = "r", bufsize: int = -1, *, encoding: str | None = None
+    ) -> typing.IO[str] | typing.IO[bytes]:
         """
         Opens this path as a file.
 
@@ -298,52 +387,54 @@ class RemotePath(Path):
             )
 
         if hasattr(self.remote, "sftp") and hasattr(self.remote.sftp, "open"):
-            return self.remote.sftp.open(self, mode, bufsize)
+            return self.remote.sftp.open(self, mode, bufsize)  # type: ignore[no-any-return]
 
         raise NotImplementedError(
             "RemotePath.open only works for ParamikoMachine-associated paths for now"
         )
 
-    def as_uri(self, scheme="ssh"):
+    def as_uri(self, scheme: str = "ssh") -> str:
         suffix = urllib.pathname2url(str(self))
-        return f"{scheme}://{self.remote._fqhost}{suffix}"
+        # TODO: BaseRemoteMachine doesn't have this, but maybe just because it's not typed yet
+        return f"{scheme}://{self.remote._fqhost}{suffix}"  # type: ignore[attr-defined]
 
     @property
-    def stem(self):
-        return self.name.rsplit(".")[0]
+    def stem(self) -> str:
+        return os.path.splitext(self.name)[0]
 
     @property
-    def root(self):
+    def root(self) -> str:
         return "/"
 
     @property
-    def drive(self):
+    def drive(self) -> str:
         return ""
 
 
 class RemoteWorkdir(RemotePath):
     """Remote working directory manipulator"""
 
-    def __new__(cls, remote):
+    __slots__ = ()
+
+    def __new__(cls, remote: BaseRemoteMachine) -> Self:
         return super().__new__(cls, remote, remote._session.run("pwd")[1].strip())
 
-    def __hash__(self):
-        raise TypeError("unhashable type")
+    __hash__ = None  # type: ignore[assignment]
 
-    def chdir(self, newdir):
+    def chdir(self, newdir: RemotePath | str) -> Self:
         """Changes the current working directory to the given one"""
         self.remote._session.run(f"cd {shquote(newdir)}")
         if hasattr(self.remote, "_cwd"):
             del self.remote._cwd
         return self.__class__(self.remote)
 
-    def getpath(self):
+    def getpath(self) -> RemotePath:
         """Returns the current working directory as a
         `remote path <plumbum.path.remote.RemotePath>` object"""
         return RemotePath(self.remote, self)
 
     @contextmanager
-    def __call__(self, newdir):
+    def __call__(self, newdir: RemotePath | str) -> Generator[RemotePath, None, None]:
         """A context manager used to ``chdir`` into a directory and then ``chdir`` back to
         the previous location; much like ``pushd``/``popd``.
 
@@ -356,3 +447,15 @@ class RemoteWorkdir(RemotePath):
             yield changed_dir
         finally:
             self.chdir(prev)
+
+
+__all__ = [
+    "RemotePath",
+    "RemoteStatRes",
+    "RemoteWorkdir",
+    "StatRes",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

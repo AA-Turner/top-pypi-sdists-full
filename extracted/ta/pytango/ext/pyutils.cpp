@@ -94,21 +94,24 @@ void view_pybytes_as_char_array(const py::object &py_value, Tango::DevVarCharArr
 
     if(PyUnicode_Check(data_ptr)) {
         Py_ssize_t size;
-        CORBA::Octet *encoded_data = reinterpret_cast<CORBA::Octet *>(const_cast<char *>( // NOLINT(readability-redundant-casting)
-            PyUnicode_AsUTF8AndSize(data_ptr, &size)));
+        CORBA::Octet *encoded_data =
+            reinterpret_cast<CORBA::Octet *>(const_cast<char *>( // NOLINT(readability-redundant-casting)
+                PyUnicode_AsUTF8AndSize(data_ptr, &size)));
         nb = static_cast<CORBA::ULong>(size);
         out_array.replace(nb, nb, encoded_data, false);
     }
 
     else if(PyBytes_Check(data_ptr)) {
         nb = static_cast<CORBA::ULong>(py::len(py_value));
-        CORBA::Octet *encoded_data = reinterpret_cast<CORBA::Octet *>(const_cast<char *>( // NOLINT(readability-redundant-casting)
-            PyBytes_AsString(data_ptr)));
+        CORBA::Octet *encoded_data =
+            reinterpret_cast<CORBA::Octet *>(const_cast<char *>( // NOLINT(readability-redundant-casting)
+                PyBytes_AsString(data_ptr)));
         out_array.replace(nb, nb, encoded_data, false);
     } else if(PyByteArray_Check(data_ptr)) {
         nb = static_cast<CORBA::ULong>(py::len(py_value));
-        CORBA::Octet *encoded_data = reinterpret_cast<CORBA::Octet *>(const_cast<char *>( // NOLINT(readability-redundant-casting)
-            PyByteArray_AsString(data_ptr)));
+        CORBA::Octet *encoded_data =
+            reinterpret_cast<CORBA::Octet *>(const_cast<char *>( // NOLINT(readability-redundant-casting)
+                PyByteArray_AsString(data_ptr)));
         out_array.replace(nb, nb, encoded_data, false);
     } else {
         throw_bad_type(Tango::CmdArgTypeName[Tango::DEV_ENCODED], TANGO_EXCEPTION_ORIGIN);

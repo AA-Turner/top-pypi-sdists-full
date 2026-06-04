@@ -103,7 +103,7 @@ def _render_create(data: dict):
         mode = assessment.get("recommended_mode", "?")
         reason = assessment.get("reason", "")
         risks = assessment.get("risk_factors", [])
-        mode_label = mode if mode else "full"
+        mode_label = mode if mode else "lightweight"
         print(f"  推荐模式: {mode_label}")
         print(f"  原因: {reason}")
         if risks:
@@ -111,9 +111,9 @@ def _render_create(data: dict):
 
     tc = data.get("test_config")
     if tc:
-        level = tc.get("level", "full")
+        level = tc.get("level", "quick")
         level_labels = {"full": "完整测试", "quick": "快速验证", "manual": "手动检查"}
-        parts = [level_labels.get(level, "full")]
+        parts = [level_labels.get(level, "快速验证")]
         if tc.get("framework"): parts.append(tc["framework"])
         if tc.get("command"): parts.append(tc["command"])
         if tc.get("coverage"): parts.append(f"coverage {tc['coverage']}")
@@ -129,18 +129,18 @@ def _render_create(data: dict):
         print(f"  描述: {desc[:80]}{'...' if len(desc) > 80 else ''}")
 
     if mode_pending:
-        alt = "full" if recommended == "lightweight" else "lightweight"
+        alt = "quick" if recommended == "lightweight" else "lightweight"
         print(f"\n  ⚠️  等待用户确认运行模式：")
-        print(f"     [1] lightweight（推荐）— 跳过 Plan Review/QA Spec，快速迭代")
-        print(f"     [2] full — 完整 10 阶段流程，严格质量门禁")
-        print(f"  → 选择后执行: kanban task edit {task_id} --mode full")
+        print(f"     [1] lightweight（推荐）— Plan → Execute → Evaluate → Archive")
+        print(f"     [2] quick — Execute → Archive，最快速")
+        print(f"  → 选择后执行: kanban task edit {task_id} --mode quick")
         print(f"                  kanban task edit {task_id} --mode lightweight")
     else:
-        print(f"  模式: {data.get('mode', 'full')}")
+        print(f"  模式: {data.get('mode', 'lightweight')}")
 
     tc = data.get("test_config")
     if tc:
-        print(f"  测试: {tc.get('level', 'full')}")
+        print(f"  测试: {tc.get('level', 'quick')}")
 
     if mode_pending:
         print(f"\n  → 选择模式后运行: kanban run {task_id}")

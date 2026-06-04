@@ -1630,26 +1630,77 @@ class AgentLoop:
                         and self.entrypoint_metadata.agent_entrypoint == "programmatic"
                     )
                     nudges = getattr(self, "_premature_exit_nudges", 0)
-                    if is_programmatic and nudges < 2 and tool_turns < 5:
+                    # Count write-mutating tool calls so far. 26 of 50 (52%)
+                    # tbench failures on 2026-06-03 had ZERO write_file /
+                    # search_replace calls — the model read+bashed but never
+                    # produced the answer file. Detect that explicitly and
+                    # inject a much stronger, write-forcing nudge.
+                    writes_so_far = 0
+                    for msg in self.messages:
+                        for tc in (msg.tool_calls or []):
+                            fn = (tc.function.name if tc.function else "")
+                            if fn in ("write_file", "search_replace"):
+                                writes_so_far += 1
+                    zero_writes = writes_so_far == 0
+                    # Cap raised 5 → 10 nudges per session. Removed tool_turns
+                    # gate entirely — the 2026-06-03 v2948 batch showed that
+                    # most "engaged but failed" trials (bucket D, 26/50 fails)
+                    # blew past tool_turns=20 with extensive engagement and
+                    # THEN emitted a "I have completed X" text. Examples:
+                    # chess-best-move 107 msgs, raman-fitting 156 msgs,
+                    # gpt2-codegolf 126 msgs — all over the previous gate.
+                    # The verifier never ran for any of them. Nudging late
+                    # forces them to run the verifier and iterate.
+                    #
+                    # Also count `verify` tool calls. If the model emitted a
+                    # `verify` call recently AND it returned passed=True, do
+                    # NOT nudge — the model genuinely passed its check.
+                    verify_count = 0
+                    last_verify_passed = False
+                    for msg in self.messages:
+                        if msg.role == Role.tool and (msg.name == "verify"):
+                            verify_count += 1
+                            last_verify_passed = "passed: True" in (msg.content or "")
+                    if is_programmatic and nudges < 10 and not last_verify_passed:
                         self._premature_exit_nudges = nudges + 1
-                        self._inject_system_note(
-                            "You emitted a text-only response after only "
-                            f"{tool_turns} tool call(s). In programmatic mode, "
-                            "a text-only response ENDS the session — but the "
-                            "task isn't finished yet (the verifier check "
-                            "hasn't passed). Don't stop. Emit the next "
-                            "concrete tool call NOW to make progress on the "
-                            "original task. If you're stuck, write a real "
-                            "best-attempt file with write_file/search_replace "
-                            "even if you're not confident — partial credit "
-                            "beats zero."
-                        )
+                        if zero_writes:
+                            note = (
+                                f"⚠ PREMATURE EXIT BLOCK #{nudges + 1}/10. "
+                                "You have made ZERO write_file or search_replace "
+                                "calls. The task explicitly requires creating, "
+                                "modifying, or producing output file(s). Reading "
+                                "and running bash diagnostics is NOT progress — "
+                                "the verifier checks files on disk, not your "
+                                "understanding. Emit a write_file call on the "
+                                "next turn with your best attempt at the answer "
+                                "file. If the task needs /app/move.txt, write "
+                                "/app/move.txt now even with a placeholder. "
+                                "A wrong file beats no file."
+                            )
+                        else:
+                            note = (
+                                f"⚠ PREMATURE EXIT BLOCK #{nudges + 1}/10. "
+                                f"You emitted a text-only response after "
+                                f"{tool_turns} tool call(s) and "
+                                f"{writes_so_far} write(s). The verifier has "
+                                f"NOT passed (verify_calls={verify_count}, "
+                                "last_pass=False). Saying 'I have completed' "
+                                "in text doesn't count — RUN THE VERIFIER NOW. "
+                                "Use the `verify` tool, or `bash` to run "
+                                "pytest, the specified test command, or your "
+                                "best guess at what the verifier checks. If "
+                                "the verifier fails, READ the failure and FIX "
+                                "the source, then run it again. Don't stop "
+                                "until verify returns passed=True."
+                            )
+                        self._inject_system_note(note)
                         should_break_loop = False
                         logger.warning(
                             "[PREMATURE-EXIT] text-only response at turn %d "
-                            "in programmatic mode — injected continuation "
-                            "nudge (#%d/2), continuing loop",
-                            tool_turns, self._premature_exit_nudges,
+                            "(writes=%d, verifies=%d) in programmatic mode — "
+                            "injected continuation nudge (#%d/10), continuing loop",
+                            tool_turns, writes_so_far, verify_count,
+                            self._premature_exit_nudges,
                         )
 
                 # 2026-05-25: AUTO-GOAL loop. If a rename goal was
@@ -5970,6 +6021,35 @@ class AgentLoop:
             from drydock.graphrag import Index
         except Exception as e:
             logger.warning("[AUTO-RETRIEVE] setup failed: %s", e, exc_info=True)
+            return
+
+        # Skip auto-retrieve for file-producing tasks (terminal-bench /
+        # harbor wraps everything with "This task has multiple steps...").
+        # Retrieve adds 2K tokens of (usually irrelevant) cookbook content
+        # to the first turn, distracts the model from the actual file-write
+        # work, and burns one turn that the premature-exit cap doesn't
+        # forgive. Observed 2026-06-03: chess-best-move task got cookbook
+        # binary_search code injected as context — pure noise.
+        #
+        # Signals that this is a do-work-and-produce-files task (skip
+        # retrieve): the harbor plan-wrap header, OR multiple absolute
+        # paths under /app//tmp/ in the user message. Knowledge-style
+        # questions (which DO benefit from retrieve) have neither.
+        msg_text = user_msg or ""
+        is_file_task = (
+            "This task has multiple steps." in msg_text
+            or msg_text.count("/app/") >= 2
+            or msg_text.count("/tmp/") >= 2
+            or ("write_file" in msg_text and "/app/" in msg_text)
+        )
+        if is_file_task and os.environ.get(
+            "DRYDOCK_AUTO_RETRIEVE_FORCE_ON", ""
+        ).strip().lower() not in ("1", "true", "yes"):
+            logger.warning(
+                "[AUTO-RETRIEVE] skipped — file-production task detected "
+                "(harbor wrap / multiple /app/ or /tmp/ paths). Override "
+                "with DRYDOCK_AUTO_RETRIEVE_FORCE_ON=1."
+            )
             return
 
         # Extract the actual question from boilerplate. HLE-style prompts

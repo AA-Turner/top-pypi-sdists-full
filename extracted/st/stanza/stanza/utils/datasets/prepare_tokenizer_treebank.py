@@ -35,6 +35,8 @@ import zipfile
 from collections import Counter
 
 from stanza.models.common.constant import treebank_to_short_name
+from stanza.models.common.short_name_to_treebank import canonical_treebank_name
+from stanza.resources.default_packages import default_treebanks
 import stanza.utils.datasets.common as common
 from stanza.utils.datasets.common import read_sentences_from_conllu, write_sentences_to_conllu, write_sentences_to_file, INT_RE, MWT_RE, MWT_OR_COPY_RE
 import stanza.utils.datasets.tokenization.convert_ml_cochin as convert_ml_cochin
@@ -718,68 +720,6 @@ def write_augmented_dataset(input_conllu, output_conllu, augment_function):
 
     write_sentences_to_conllu(output_conllu, new_sents)
 
-def remove_spaces_from_sentences(sents):
-    """
-    Makes sure every word in the list of sentences has SpaceAfter=No.
-
-    Returns a new list of sentences
-    """
-    new_sents = []
-    for sentence in sents:
-        new_sentence = []
-        for word in sentence:
-            if word.startswith("#"):
-                new_sentence.append(word)
-                continue
-            pieces = word.split("\t")
-            if pieces[-1] == "_":
-                pieces[-1] = "SpaceAfter=No"
-            elif pieces[-1].find("SpaceAfter=No") >= 0:
-                pass
-            else:
-                raise ValueError("oops")
-            word = "\t".join(pieces)
-            new_sentence.append(word)
-        new_sents.append(new_sentence)
-    return new_sents
-
-def remove_spaces(input_conllu, output_conllu):
-    """
-    Turns a dataset into something appropriate for building a segmenter.
-
-    For example, this works well on the Korean datasets.
-    """
-    sents = read_sentences_from_conllu(input_conllu)
-
-    new_sents = remove_spaces_from_sentences(sents)
-
-    write_sentences_to_conllu(output_conllu, new_sents)
-
-
-def build_combined_korean_dataset(udbase_dir, tokenizer_dir, short_name, dataset, output_conllu):
-    """
-    Builds a combined dataset out of multiple Korean datasets.
-
-    Currently this uses GSD and Kaist.  If a segmenter-appropriate
-    dataset was requested, spaces are removed.
-
-    TODO: we need to handle the difference in xpos tags somehow.
-    """
-    gsd_conllu = common.find_treebank_dataset_file("UD_Korean-GSD", udbase_dir, dataset, "conllu")
-    kaist_conllu = common.find_treebank_dataset_file("UD_Korean-Kaist", udbase_dir, dataset, "conllu")
-    sents = read_sentences_from_conllu(gsd_conllu) + read_sentences_from_conllu(kaist_conllu)
-
-    segmenter = short_name.endswith("_seg")
-    if segmenter:
-        sents = remove_spaces_from_sentences(sents)
-
-    write_sentences_to_conllu(output_conllu, sents)
-
-def build_combined_korean(udbase_dir, tokenizer_dir, short_name):
-    for dataset in ("train", "dev", "test"):
-        output_conllu = common.tokenizer_conllu_name(tokenizer_dir, short_name, dataset)
-        build_combined_korean_dataset(udbase_dir, tokenizer_dir, short_name, dataset, output_conllu)
-
 def build_combined_italian_dataset(paths, model_type, dataset):
     udbase_dir = paths["UDBASE"]
     if dataset == 'train':
@@ -1339,10 +1279,29 @@ COMBINED_EXTRA_FNS = {
     "es_combined": build_extra_combined_spanish_dataset,
 }
 
+def build_combined_other_dataset(language, paths, model_type, dataset):
+    """
+    For languages which don't have a dedicated combined building function,
+    we can use this function to build the default treebank as the "combined" dataset.
+
+    Then the user can supply any additional training datasets with --additional_files
+    """
+    udbase_dir = paths["UDBASE"]
+    package = default_treebanks[language]
+    short_name = "%s_%s" % (language, package)
+    full_name = canonical_treebank_name(short_name)
+    print("Using treebank %s section %s as the base for %s_combined %s" % (full_name, dataset, language, dataset))
+    conllu_file = common.find_treebank_dataset_file(full_name, udbase_dir, dataset, "conllu", fail=True)
+    return read_sentences_from_conllu(conllu_file)
+
 def build_combined_dataset(paths, short_name, model_type, args):
     random.seed(1234)
     tokenizer_dir = paths["TOKENIZE_DATA_DIR"]
-    build_fn = COMBINED_FNS[short_name]
+    if short_name not in COMBINED_FNS:
+        short_lang = short_name.split("_")[0]
+        build_fn = lambda paths, model_type, dataset: build_combined_other_dataset(short_lang, paths, model_type, dataset)
+    else:
+        build_fn = COMBINED_FNS[short_name]
     extra_fn = COMBINED_EXTRA_FNS.get(short_name, None)
     for dataset in ("train", "dev", "test"):
         output_conllu = common.tokenizer_conllu_name(tokenizer_dir, short_name, dataset)
@@ -1355,6 +1314,13 @@ def build_combined_dataset(paths, short_name, model_type, args):
                 extra_sents = extra_fn(paths, model_type, dataset, args)
                 if extra_sents:
                     sents['extra'] = extra_sents
+            if dataset == 'train':
+                for additional_filename in args.additional_files:
+                    additional_sentences = read_sentences_from_conllu(additional_filename)
+                    print("Loaded %d additional sentences from %s" % (len(additional_sentences), additional_filename))
+                    if additional_filename not in sents:
+                        sents[additional_filename] = []
+                    sents[additional_filename].extend(additional_sentences)
             output_zip = os.path.splitext(output_conllu)[0] + ".zip"
             with zipfile.ZipFile(output_zip, "w") as zout:
                 for filename in list(sents.keys()):
@@ -1368,6 +1334,11 @@ def build_combined_dataset(paths, short_name, model_type, args):
                 extra_sents = extra_fn(paths, model_type, dataset, args)
                 if extra_sents:
                     sents.extend(extra_sents)
+            if dataset == 'train':
+                for additional_filename in args.additional_files:
+                    additional_sentences = read_sentences_from_conllu(additional_filename)
+                    print("Loaded %d additional sentences from %s" % (len(additional_sentences), additional_filename))
+                    sents.extend(additional_sentences)
             write_sentences_to_conllu(output_conllu, sents)
 
 BIO_DATASETS = ("en_craft", "en_genia", "en_mimic")
@@ -1431,8 +1402,6 @@ def prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_la
 
     if short_name == "te_mtg" and dataset == 'train' and augment:
         write_augmented_dataset(input_conllu, output_conllu, augment_telugu)
-    elif short_name.startswith("ko_") and short_name.endswith("_seg"):
-        remove_spaces(input_conllu, output_conllu)
     elif short_name.startswith("grc_") and short_name.endswith("-diacritics"):
         write_augmented_dataset(input_conllu, output_conllu, augment_accents)
     elif dataset == 'train' and augment:
@@ -1441,12 +1410,13 @@ def prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_la
         sents = read_sentences_from_conllu(input_conllu)
         write_sentences_to_conllu(output_conllu, sents)
 
-def process_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, augment=True):
+def process_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, args):
     """
     Process a normal UD treebank with train/dev/test splits
 
     SL-SSJ and other datasets with inline modifications all use this code path as well.
     """
+    augment = args.augment
     prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "train", augment)
     prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "dev", augment)
     prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_language, "test", augment)
@@ -1571,9 +1541,7 @@ def process_treebank(treebank, model_type, paths, args):
         convert_th_best.main(paths["STANZA_EXTERN_DIR"], tokenizer_dir)
     elif short_name == "ml_cochin":
         convert_ml_cochin.main(paths["STANZA_EXTERN_DIR"], tokenizer_dir)
-    elif short_name.startswith("ko_combined"):
-        build_combined_korean(udbase_dir, tokenizer_dir, short_name)
-    elif short_name in COMBINED_FNS: # eg "it_combined", "en_combined", etc
+    elif short_name.endswith("_combined"): # eg "it_combined", "en_combined", etc
         build_combined_dataset(paths, short_name, model_type, args)
     elif short_name in BIO_DATASETS:
         build_bio_dataset(paths, udbase_dir, tokenizer_dir, handparsed_dir, short_name, model_type, args.augment)
@@ -1595,7 +1563,7 @@ def process_treebank(treebank, model_type, paths, args):
             if not common.find_treebank_dataset_file(treebank, udbase_dir, "dev", "conllu", fail=False):
                 success = process_partial_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, args)
             else:
-                success = process_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, args.augment)
+                success = process_ud_treebank(treebank, udbase_dir, tokenizer_dir, short_name, short_language, args)
 
     if success and (model_type is common.ModelType.TOKENIZER or model_type is common.ModelType.MWT):
         if not short_name in ('th_orchid', 'th_lst20'):

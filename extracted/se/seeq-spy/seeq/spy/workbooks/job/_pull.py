@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import types
@@ -110,7 +111,7 @@ def pull(
     to_remove = set()
     for workbook_id in existing:
         workbook_folder = os.path.join(job_workbooks_folder, existing[workbook_id])
-        if not util.safe_exists(os.path.join(workbook_folder, 'Complete')):
+        if not _PULL_COMPLETE.is_complete(workbook_folder):
             # Something must have gone wrong during the save. Delete the whole thing so we start over
             to_remove.add(workbook_id)
 
@@ -151,7 +152,8 @@ def pull(
                         data_usages[r.id] = {'Definition': r.definition_dict, 'Periods': list()}
 
         if not resume or workbook.id not in existing:
-            spy.workbooks.save(workbook, job_workbooks_folder, overwrite=True, quiet=True)
+            save_folders = spy.workbooks.save(workbook, job_workbooks_folder, overwrite=True, quiet=True)
+            _PULL_COMPLETE.mark(save_folders[workbook], {})
 
     for workstep_id, workstep_usages in all_workstep_usages.items():
         for stored_item_id in workstep_usages['Stored Items']:
@@ -176,6 +178,30 @@ def pull(
     _common.put_properties_on_df(results_df, results_df_properties)
 
     return results_df
+
+
+class CompletionFlagHelper:
+    def __init__(self, filename: str, legacy_filenames: list = None):
+        self.filename = filename
+        self._all_filenames = [filename] + (legacy_filenames or [])
+
+    def is_complete(self, folder: str) -> bool:
+        return any(util.safe_exists(os.path.join(folder, f)) for f in self._all_filenames)
+
+    def get_data(self, folder: str) -> dict:
+        with util.safe_open(os.path.join(folder, self.filename), 'r', encoding='utf-8') as f:
+            return json.load(f)
+
+    def mark(self, folder: str, content: dict):
+        with util.safe_open(os.path.join(folder, self.filename), 'w', encoding='utf-8') as f:
+            json.dump(content, f)
+
+    def clear(self, folder: str):
+        if self.is_complete(folder):
+            util.safe_remove(os.path.join(folder, self.filename))
+
+
+_PULL_COMPLETE = CompletionFlagHelper('Completely Pulled', legacy_filenames=['Complete'])
 
 
 def flatten_timestamps(timestamps):

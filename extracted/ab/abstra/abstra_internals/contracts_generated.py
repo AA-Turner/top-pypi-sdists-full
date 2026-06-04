@@ -12510,6 +12510,251 @@ class CloudApiCliModelsBoletoResponse:
         )
 
 
+CloudApiCliModelsOficiosResponseNumeroOficio = str
+
+CloudApiCliModelsOficiosResponseDataEmissao = str
+
+CloudApiCliModelsOficiosResponseMunicipio = str
+
+CloudApiCliModelsOficiosResponseOrgaoEmissor = str
+
+CloudApiCliModelsOficiosResponseNumeroProcesso = str
+
+CloudApiCliModelsOficiosResponseNumeroReferencia = str
+
+CloudApiCliModelsOficiosResponseAssunto = str
+
+CloudApiCliModelsOficiosResponseDadosSolicitados = str
+
+CloudApiCliModelsOficiosResponsePeriodoSolicitado = str
+
+CloudApiCliModelsOficiosResponseDestinatario = str
+
+CloudApiCliModelsOficiosResponsePrazoResposta = str
+
+CloudApiCliModelsOficiosResponseSigiloso = bool
+
+CloudApiCliModelsOficiosResponseSignatario = str
+
+CloudApiCliModelsOficiosResponseCargoSignatario = str
+
+CloudApiCliModelsOficiosResponseMatriculaSignatario = str
+
+CloudApiCliModelsOficiosResponseEmailRespostaItem = str
+
+CloudApiCliModelsOficiosResponseEmailResposta = typing.List[
+    CloudApiCliModelsOficiosResponseEmailRespostaItem
+]
+
+CloudApiCliModelsOficiosResponseJuiz = str
+
+CloudApiCliModelsOficiosResponseVara = str
+
+CloudApiCliModelsOficiosResponseComarca = str
+
+CloudApiCliModelsOficiosResponseTitularesItemNome = str
+
+CloudApiCliModelsOficiosResponseTitularesItemCpfCnpj = str
+
+
+@dataclass
+class CloudApiCliModelsOficiosResponseTitularesItem:
+    nome: typing.Optional[CloudApiCliModelsOficiosResponseTitularesItemNome] = field(
+        default_factory=lambda: None
+    )
+    cpf_cnpj: typing.Optional[CloudApiCliModelsOficiosResponseTitularesItemCpfCnpj] = (
+        field(default_factory=lambda: None)
+    )
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        if self.nome is not None:
+            data["nome"] = self.nome
+        if self.cpf_cnpj is not None:
+            data["cpf_cnpj"] = self.cpf_cnpj
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CloudApiCliModelsOficiosResponseTitularesItem":
+        return cls(
+            nome=None if data.get("nome") is None else str(data["nome"]),
+            cpf_cnpj=None if data.get("cpf_cnpj") is None else str(data["cpf_cnpj"]),
+        )
+
+
+CloudApiCliModelsOficiosResponseTitulares = typing.List[
+    CloudApiCliModelsOficiosResponseTitularesItem
+]
+
+
+@dataclass
+class CloudApiCliModelsOficiosResponse:
+    numero_oficio: typing.Optional[CloudApiCliModelsOficiosResponseNumeroOficio] = (
+        field(default_factory=lambda: None)
+    )
+    data_emissao: typing.Optional[CloudApiCliModelsOficiosResponseDataEmissao] = field(
+        default_factory=lambda: None
+    )
+    municipio: typing.Optional[CloudApiCliModelsOficiosResponseMunicipio] = field(
+        default_factory=lambda: None
+    )
+    orgao_emissor: typing.Optional[CloudApiCliModelsOficiosResponseOrgaoEmissor] = (
+        field(default_factory=lambda: None)
+    )
+    numero_processo: typing.Optional[CloudApiCliModelsOficiosResponseNumeroProcesso] = (
+        field(default_factory=lambda: None)
+    )
+    numero_referencia: typing.Optional[
+        CloudApiCliModelsOficiosResponseNumeroReferencia
+    ] = field(default_factory=lambda: None)
+    assunto: typing.Optional[CloudApiCliModelsOficiosResponseAssunto] = field(
+        default_factory=lambda: None
+    )
+    dados_solicitados: typing.Optional[
+        CloudApiCliModelsOficiosResponseDadosSolicitados
+    ] = field(default_factory=lambda: None)
+    periodo_solicitado: typing.Optional[
+        CloudApiCliModelsOficiosResponsePeriodoSolicitado
+    ] = field(default_factory=lambda: None)
+    destinatario: typing.Optional[CloudApiCliModelsOficiosResponseDestinatario] = field(
+        default_factory=lambda: None
+    )
+    prazo_resposta: typing.Optional[CloudApiCliModelsOficiosResponsePrazoResposta] = (
+        field(default_factory=lambda: None)
+    )
+    sigiloso: typing.Optional[CloudApiCliModelsOficiosResponseSigiloso] = field(
+        default_factory=lambda: None
+    )
+    signatario: typing.Optional[CloudApiCliModelsOficiosResponseSignatario] = field(
+        default_factory=lambda: None
+    )
+    cargo_signatario: typing.Optional[
+        CloudApiCliModelsOficiosResponseCargoSignatario
+    ] = field(default_factory=lambda: None)
+    matricula_signatario: typing.Optional[
+        CloudApiCliModelsOficiosResponseMatriculaSignatario
+    ] = field(default_factory=lambda: None)
+    email_resposta: typing.Optional[CloudApiCliModelsOficiosResponseEmailResposta] = (
+        field(default_factory=lambda: None)
+    )
+    juiz: typing.Optional[CloudApiCliModelsOficiosResponseJuiz] = field(
+        default_factory=lambda: None
+    )
+    vara: typing.Optional[CloudApiCliModelsOficiosResponseVara] = field(
+        default_factory=lambda: None
+    )
+    comarca: typing.Optional[CloudApiCliModelsOficiosResponseComarca] = field(
+        default_factory=lambda: None
+    )
+    titulares: typing.Optional[CloudApiCliModelsOficiosResponseTitulares] = field(
+        default_factory=lambda: None
+    )
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        if self.numero_oficio is not None:
+            data["numero_oficio"] = self.numero_oficio
+        if self.data_emissao is not None:
+            data["data_emissao"] = self.data_emissao
+        if self.municipio is not None:
+            data["municipio"] = self.municipio
+        if self.orgao_emissor is not None:
+            data["orgao_emissor"] = self.orgao_emissor
+        if self.numero_processo is not None:
+            data["numero_processo"] = self.numero_processo
+        if self.numero_referencia is not None:
+            data["numero_referencia"] = self.numero_referencia
+        if self.assunto is not None:
+            data["assunto"] = self.assunto
+        if self.dados_solicitados is not None:
+            data["dados_solicitados"] = self.dados_solicitados
+        if self.periodo_solicitado is not None:
+            data["periodo_solicitado"] = self.periodo_solicitado
+        if self.destinatario is not None:
+            data["destinatario"] = self.destinatario
+        if self.prazo_resposta is not None:
+            data["prazo_resposta"] = self.prazo_resposta
+        if self.sigiloso is not None:
+            data["sigiloso"] = self.sigiloso
+        if self.signatario is not None:
+            data["signatario"] = self.signatario
+        if self.cargo_signatario is not None:
+            data["cargo_signatario"] = self.cargo_signatario
+        if self.matricula_signatario is not None:
+            data["matricula_signatario"] = self.matricula_signatario
+        if self.email_resposta is not None:
+            data["email_resposta"] = self.email_resposta
+        if self.juiz is not None:
+            data["juiz"] = self.juiz
+        if self.vara is not None:
+            data["vara"] = self.vara
+        if self.comarca is not None:
+            data["comarca"] = self.comarca
+        if self.titulares is not None:
+            data["titulares"] = [item.to_dict() for item in self.titulares]
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CloudApiCliModelsOficiosResponse":
+        return cls(
+            numero_oficio=None
+            if data.get("numero_oficio") is None
+            else str(data["numero_oficio"]),
+            data_emissao=None
+            if data.get("data_emissao") is None
+            else str(data["data_emissao"]),
+            municipio=None if data.get("municipio") is None else str(data["municipio"]),
+            orgao_emissor=None
+            if data.get("orgao_emissor") is None
+            else str(data["orgao_emissor"]),
+            numero_processo=None
+            if data.get("numero_processo") is None
+            else str(data["numero_processo"]),
+            numero_referencia=None
+            if data.get("numero_referencia") is None
+            else str(data["numero_referencia"]),
+            assunto=None if data.get("assunto") is None else str(data["assunto"]),
+            dados_solicitados=None
+            if data.get("dados_solicitados") is None
+            else str(data["dados_solicitados"]),
+            periodo_solicitado=None
+            if data.get("periodo_solicitado") is None
+            else str(data["periodo_solicitado"]),
+            destinatario=None
+            if data.get("destinatario") is None
+            else str(data["destinatario"]),
+            prazo_resposta=None
+            if data.get("prazo_resposta") is None
+            else str(data["prazo_resposta"]),
+            sigiloso=None if data.get("sigiloso") is None else bool(data["sigiloso"]),
+            signatario=None
+            if data.get("signatario") is None
+            else str(data["signatario"]),
+            cargo_signatario=None
+            if data.get("cargo_signatario") is None
+            else str(data["cargo_signatario"]),
+            matricula_signatario=None
+            if data.get("matricula_signatario") is None
+            else str(data["matricula_signatario"]),
+            email_resposta=None
+            if data.get("email_resposta") is None
+            else [str(item) for item in data["email_resposta"]],
+            juiz=None if data.get("juiz") is None else str(data["juiz"]),
+            vara=None if data.get("vara") is None else str(data["vara"]),
+            comarca=None if data.get("comarca") is None else str(data["comarca"]),
+            titulares=None
+            if data.get("titulares") is None
+            else [
+                CloudApiCliModelsOficiosResponseTitularesItem.from_dict(item)
+                for item in data["titulares"]
+            ],
+        )
+
+
 CloudApiCliModelsBankStatementResponseAccountNumber = str
 
 CloudApiCliModelsBankStatementResponseStartingBalance = str

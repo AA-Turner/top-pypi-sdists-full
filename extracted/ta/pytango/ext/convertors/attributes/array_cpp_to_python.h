@@ -21,10 +21,10 @@ static inline void array_value_from_cpp_into_python_as_bin_or_str(Tango::DeviceA
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
     using TangoArrayType = typename TANGO_const2arraytype(tangoTypeConst);
 
-    Py_ssize_t nb_bytes_read = static_cast<Py_ssize_t>(self.get_nb_read()) *
-                               static_cast<Py_ssize_t>(sizeof(TangoScalarType));
-    Py_ssize_t nb_bytes_written = static_cast<Py_ssize_t>(self.get_nb_written()) *
-                                  static_cast<Py_ssize_t>(sizeof(TangoScalarType));
+    Py_ssize_t nb_bytes_read =
+        static_cast<Py_ssize_t>(self.get_nb_read()) * static_cast<Py_ssize_t>(sizeof(TangoScalarType));
+    Py_ssize_t nb_bytes_written =
+        static_cast<Py_ssize_t>(self.get_nb_written()) * static_cast<Py_ssize_t>(sizeof(TangoScalarType));
 
     // Extract the actual data from Tango::DeviceAttribute (self)
     TangoArrayType *value_ptr = nullptr;
@@ -61,10 +61,11 @@ static inline void array_value_from_cpp_into_python_as_bin_or_str(Tango::DeviceA
 }
 
 template <>
-inline void array_value_from_cpp_into_python_as_bin_or_str<Tango::DEV_STRING>([[maybe_unused]] Tango::DeviceAttribute &self,
-                                                                              [[maybe_unused]] PyTango::ExtractAs extract_as,
-                                                                              [[maybe_unused]] py::object &read_value,
-                                                                              [[maybe_unused]] py::object &written_value) {
+inline void
+    array_value_from_cpp_into_python_as_bin_or_str<Tango::DEV_STRING>([[maybe_unused]] Tango::DeviceAttribute &self,
+                                                                      [[maybe_unused]] PyTango::ExtractAs extract_as,
+                                                                      [[maybe_unused]] py::object &read_value,
+                                                                      [[maybe_unused]] py::object &written_value) {
     assert(false);
 }
 
@@ -250,11 +251,13 @@ inline void array_value_from_cpp_into_python_as_numpy<Tango::DEV_STRING>(Tango::
                                                                          bool is_image,
                                                                          py::object &read_value,
                                                                          py::object &written_value) {
+    // clang-format off
     array_value_from_cpp_into_python_as_tuple_or_list<Tango::DEV_STRING>(self,
                                                                          is_image,
                                                                          PyTango::ExtractAsTuple,
                                                                          read_value,
                                                                          written_value);
+    // clang-format on
 }
 
 template <int tangoTypeConst>
@@ -265,6 +268,7 @@ static inline void array_value_from_cpp_into_python(Tango::DeviceAttribute &self
     py::object read_value;
     py::object written_value;
 
+    // clang-format off
     switch(extract_as) {
     default:
     case PyTango::ExtractAsNumpy:
@@ -290,6 +294,7 @@ static inline void array_value_from_cpp_into_python(Tango::DeviceAttribute &self
                                                                        written_value);
         break;
     }
+    // clang-format on
 
     py_value.attr(value_attr_name) = read_value;
     py_value.attr(w_value_attr_name) = written_value;
@@ -319,8 +324,7 @@ struct tango_const2type<Tango::DEV_STRING> {
 };
 
 template <int tangoTypeConst>
-inline void array_value_from_cpp_into_python_as_list(Tango::WAttribute &att,
-                                                     py::object &py_value) {
+inline void array_value_from_cpp_into_python_as_list(Tango::WAttribute &att, py::object &py_value) {
     using TangoScalarType = typename tango_const2type<tangoTypeConst>::Type;
 
     const TangoScalarType *buffer = nullptr;
@@ -353,8 +357,7 @@ inline void array_value_from_cpp_into_python_as_list(Tango::WAttribute &att,
 }
 
 template <int tangoTypeConst>
-inline void array_value_from_cpp_into_python_as_numpy(Tango::WAttribute &att,
-                                                      py::object &py_value) {
+inline void array_value_from_cpp_into_python_as_numpy(Tango::WAttribute &att, py::object &py_value) {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
     const TangoScalarType *buffer = nullptr;
@@ -379,22 +382,17 @@ inline void array_value_from_cpp_into_python_as_numpy(Tango::WAttribute &att,
     // Create the numpy array. Note, that pybind11 copy the data automatically,
     // if there is no capsule object
     // https://github.com/pybind/pybind11/issues/1042#issuecomment-325938098
-    py_value = py::array(py::dtype::of<TangoScalarType>(),
-                         dims,
-                         strides,
-                         buffer);
+    py_value = py::array(py::dtype::of<TangoScalarType>(), dims, strides, buffer);
 }
 
 template <>
-inline void array_value_from_cpp_into_python_as_numpy<Tango::DEV_STRING>(Tango::WAttribute &att,
-                                                                         py::object &py_value) {
+inline void array_value_from_cpp_into_python_as_numpy<Tango::DEV_STRING>(Tango::WAttribute &att, py::object &py_value) {
     array_value_from_cpp_into_python_as_list<Tango::DEV_STRING>(att, py_value);
 }
 
 template <int tangoTypeConst>
-static inline void array_value_from_cpp_into_python(Tango::WAttribute &att,
-                                                    py::object &py_value,
-                                                    PyTango::ExtractAs extract_as) {
+static inline void
+    array_value_from_cpp_into_python(Tango::WAttribute &att, py::object &py_value, PyTango::ExtractAs extract_as) {
     switch(extract_as) {
     case PyTango::ExtractAsPyTango3:
     case PyTango::ExtractAsList: {

@@ -28,26 +28,36 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListLinkedWhatsAppBusinessAccountsPaginator,
+    ListWhatsAppFlowAssetsPaginator,
+    ListWhatsAppFlowsPaginator,
     ListWhatsAppMessageTemplatesPaginator,
     ListWhatsAppTemplateLibraryPaginator,
 )
 from .type_defs import (
     AssociateWhatsAppBusinessAccountInputTypeDef,
     AssociateWhatsAppBusinessAccountOutputTypeDef,
+    CreateWhatsAppFlowInputTypeDef,
+    CreateWhatsAppFlowOutputTypeDef,
     CreateWhatsAppMessageTemplateFromLibraryInputTypeDef,
     CreateWhatsAppMessageTemplateFromLibraryOutputTypeDef,
     CreateWhatsAppMessageTemplateInputTypeDef,
     CreateWhatsAppMessageTemplateMediaInputTypeDef,
     CreateWhatsAppMessageTemplateMediaOutputTypeDef,
     CreateWhatsAppMessageTemplateOutputTypeDef,
+    DeleteWhatsAppFlowInputTypeDef,
     DeleteWhatsAppMessageMediaInputTypeDef,
     DeleteWhatsAppMessageMediaOutputTypeDef,
     DeleteWhatsAppMessageTemplateInputTypeDef,
+    DeprecateWhatsAppFlowInputTypeDef,
     DisassociateWhatsAppBusinessAccountInputTypeDef,
     GetLinkedWhatsAppBusinessAccountInputTypeDef,
     GetLinkedWhatsAppBusinessAccountOutputTypeDef,
     GetLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef,
     GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
+    GetWhatsAppFlowInputTypeDef,
+    GetWhatsAppFlowOutputTypeDef,
+    GetWhatsAppFlowPreviewInputTypeDef,
+    GetWhatsAppFlowPreviewOutputTypeDef,
     GetWhatsAppMessageMediaInputTypeDef,
     GetWhatsAppMessageMediaOutputTypeDef,
     GetWhatsAppMessageTemplateInputTypeDef,
@@ -56,12 +66,17 @@ from .type_defs import (
     ListLinkedWhatsAppBusinessAccountsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    ListWhatsAppFlowAssetsInputTypeDef,
+    ListWhatsAppFlowAssetsOutputTypeDef,
+    ListWhatsAppFlowsInputTypeDef,
+    ListWhatsAppFlowsOutputTypeDef,
     ListWhatsAppMessageTemplatesInputTypeDef,
     ListWhatsAppMessageTemplatesOutputTypeDef,
     ListWhatsAppTemplateLibraryInputTypeDef,
     ListWhatsAppTemplateLibraryOutputTypeDef,
     PostWhatsAppMessageMediaInputTypeDef,
     PostWhatsAppMessageMediaOutputTypeDef,
+    PublishWhatsAppFlowInputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
     SendWhatsAppMessageInputTypeDef,
     SendWhatsAppMessageOutputTypeDef,
@@ -69,6 +84,9 @@ from .type_defs import (
     TagResourceOutputTypeDef,
     UntagResourceInputTypeDef,
     UntagResourceOutputTypeDef,
+    UpdateWhatsAppFlowAssetsInputTypeDef,
+    UpdateWhatsAppFlowAssetsOutputTypeDef,
+    UpdateWhatsAppFlowInputTypeDef,
     UpdateWhatsAppMessageTemplateInputTypeDef,
 )
 
@@ -140,6 +158,16 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#associate_whatsapp_business_account)
         """
 
+    def create_whatsapp_flow(
+        self, **kwargs: Unpack[CreateWhatsAppFlowInputTypeDef]
+    ) -> CreateWhatsAppFlowOutputTypeDef:
+        """
+        Creates a new WhatsApp Flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/create_whatsapp_flow.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#create_whatsapp_flow)
+        """
+
     def create_whatsapp_message_template(
         self, **kwargs: Unpack[CreateWhatsAppMessageTemplateInputTypeDef]
     ) -> CreateWhatsAppMessageTemplateOutputTypeDef:
@@ -171,6 +199,16 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#create_whatsapp_message_template_media)
         """
 
+    def delete_whatsapp_flow(
+        self, **kwargs: Unpack[DeleteWhatsAppFlowInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a WhatsApp Flow permanently.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/delete_whatsapp_flow.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#delete_whatsapp_flow)
+        """
+
     def delete_whatsapp_message_media(
         self, **kwargs: Unpack[DeleteWhatsAppMessageMediaInputTypeDef]
     ) -> DeleteWhatsAppMessageMediaOutputTypeDef:
@@ -189,6 +227,17 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/delete_whatsapp_message_template.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#delete_whatsapp_message_template)
+        """
+
+    def deprecate_whatsapp_flow(
+        self, **kwargs: Unpack[DeprecateWhatsAppFlowInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deprecates a published WhatsApp Flow, marking it as no longer recommended for
+        use.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/deprecate_whatsapp_flow.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#deprecate_whatsapp_flow)
         """
 
     def disassociate_whatsapp_business_account(
@@ -221,6 +270,27 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_linked_whatsapp_business_account_phone_number.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#get_linked_whatsapp_business_account_phone_number)
+        """
+
+    def get_whatsapp_flow(
+        self, **kwargs: Unpack[GetWhatsAppFlowInputTypeDef]
+    ) -> GetWhatsAppFlowOutputTypeDef:
+        """
+        Retrieves the metadata and status of a WhatsApp Flow, including validation
+        errors, preview information, and health status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_flow.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#get_whatsapp_flow)
+        """
+
+    def get_whatsapp_flow_preview(
+        self, **kwargs: Unpack[GetWhatsAppFlowPreviewInputTypeDef]
+    ) -> GetWhatsAppFlowPreviewOutputTypeDef:
+        """
+        Generates a web preview URL for testing a WhatsApp Flow before publishing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_flow_preview.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#get_whatsapp_flow_preview)
         """
 
     def get_whatsapp_message_media(
@@ -263,6 +333,27 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#list_tags_for_resource)
         """
 
+    def list_whatsapp_flow_assets(
+        self, **kwargs: Unpack[ListWhatsAppFlowAssetsInputTypeDef]
+    ) -> ListWhatsAppFlowAssetsOutputTypeDef:
+        """
+        Lists the assets (Flow JSON definition) of a WhatsApp Flow with presigned
+        download URLs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/list_whatsapp_flow_assets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#list_whatsapp_flow_assets)
+        """
+
+    def list_whatsapp_flows(
+        self, **kwargs: Unpack[ListWhatsAppFlowsInputTypeDef]
+    ) -> ListWhatsAppFlowsOutputTypeDef:
+        """
+        Lists all WhatsApp Flows for a WhatsApp Business Account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/list_whatsapp_flows.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#list_whatsapp_flows)
+        """
+
     def list_whatsapp_message_templates(
         self, **kwargs: Unpack[ListWhatsAppMessageTemplatesInputTypeDef]
     ) -> ListWhatsAppMessageTemplatesOutputTypeDef:
@@ -291,6 +382,16 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/post_whatsapp_message_media.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#post_whatsapp_message_media)
+        """
+
+    def publish_whatsapp_flow(
+        self, **kwargs: Unpack[PublishWhatsAppFlowInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Publishes a WhatsApp Flow, making it available for use in template messages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/publish_whatsapp_flow.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#publish_whatsapp_flow)
         """
 
     def put_whatsapp_business_account_event_destinations(
@@ -332,6 +433,26 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#untag_resource)
         """
 
+    def update_whatsapp_flow(
+        self, **kwargs: Unpack[UpdateWhatsAppFlowInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the metadata of a WhatsApp Flow, such as its name or categories.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/update_whatsapp_flow.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#update_whatsapp_flow)
+        """
+
+    def update_whatsapp_flow_assets(
+        self, **kwargs: Unpack[UpdateWhatsAppFlowAssetsInputTypeDef]
+    ) -> UpdateWhatsAppFlowAssetsOutputTypeDef:
+        """
+        Updates the Flow JSON definition (assets) of a WhatsApp Flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/update_whatsapp_flow_assets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#update_whatsapp_flow_assets)
+        """
+
     def update_whatsapp_message_template(
         self, **kwargs: Unpack[UpdateWhatsAppMessageTemplateInputTypeDef]
     ) -> dict[str, Any]:
@@ -346,6 +467,28 @@ class EndUserMessagingSocialClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_linked_whatsapp_business_accounts"]
     ) -> ListLinkedWhatsAppBusinessAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_whatsapp_flow_assets"]
+    ) -> ListWhatsAppFlowAssetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_socialmessaging/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_whatsapp_flows"]
+    ) -> ListWhatsAppFlowsPaginator:
         """
         Create a paginator for an operation.
 

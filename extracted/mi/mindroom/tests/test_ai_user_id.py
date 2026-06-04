@@ -40,6 +40,7 @@ from mindroom.ai import (
     _compose_current_turn_prompt,
     _prepare_agent_and_prompt,
     _PreparedAgentRun,
+    _run_error_event_text,
     _stream_completed_without_visible_output,
     _StreamingAttemptState,
     ai_response,
@@ -105,10 +106,9 @@ from mindroom.response_runner import (
     ResponseRequest,
     ResponseRunner,
     ResponseRunnerDeps,
-    _strip_visible_tool_markers,
     prepare_memory_and_model_context,
 )
-from mindroom.streaming import StreamingDeliveryError
+from mindroom.streaming import StreamingDeliveryError, strip_visible_tool_markers
 from mindroom.tool_system.events import ToolTraceEntry
 from mindroom.tool_system.runtime_context import (
     LiveToolDispatchContext,
@@ -1382,10 +1382,89 @@ async def test_process_and_respond_streaming_persists_interrupted_history_when_d
     ]
 
 
+@pytest.mark.asyncio
+async def test_process_and_respond_streaming_persists_interrupted_history_when_model_stream_errors(
+    tmp_path: Path,
+) -> None:
+    """Model stream errors returned as text should still persist interrupted replay."""
+    runtime_paths = _runtime_paths(tmp_path)
+    config = bind_runtime_paths(_config(), runtime_paths)
+    bot = _make_bot(tmp_path, config=config, runtime_paths=runtime_paths)
+    storage = _SessionStorage()
+    mock_agent = MagicMock()
+    mock_agent.model = MagicMock()
+    mock_agent.model.__class__.__name__ = "OpenAIChat"
+    mock_agent.model.id = "test-model"
+    mock_agent.name = "GeneralAgent"
+    mock_agent.add_history_to_context = False
+
+    completed_tool = ToolExecution(
+        tool_call_id="call-1",
+        tool_name="run_shell_command",
+        tool_args={"cmd": "pwd"},
+        result="/app",
+    )
+
+    async def errored_agent_stream() -> AsyncIterator[object]:
+        yield RunContentEvent(content="Partial answer")
+        yield ToolCallStartedEvent(tool=completed_tool)
+        yield ToolCallCompletedEvent(tool=completed_tool)
+        yield RunErrorEvent(content="Error code: 500 - provider exploded")
+
+    mock_agent.arun = MagicMock(return_value=errored_agent_stream())
+
+    with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
+        mock_prepare.return_value = _prepared_prompt_result(mock_agent)
+        coordinator = _build_response_runner(
+            bot,
+            config=config,
+            runtime_paths=runtime_paths,
+            storage_path=tmp_path,
+            requester_id="@bob:localhost",
+            history_storage=storage,
+            message_target=MessageTarget.resolve("!test:localhost", "$thread-root", "$user_msg"),
+        )
+
+        async def consume_delivery(request: object) -> StreamTransportOutcome:
+            rendered = "".join([str(chunk) async for chunk in request.response_stream])
+            request.visible_event_id_callback("$streamed")
+            return _stream_outcome("$streamed", rendered)
+
+        coordinator.deps.delivery_gateway.deliver_stream.side_effect = consume_delivery
+
+        delivery = await coordinator.process_and_respond_streaming(
+            _response_request(prompt="Hello", user_id="@bob:localhost", thread_id="$thread-root"),
+            run_id="run-1",
+        )
+
+    assert delivery.event_id == "$streamed"
+    persisted_session = cast("AgentSession", storage.session)
+    assert persisted_session is not None
+    assert persisted_session.runs is not None
+    persisted_run = cast("RunOutput", persisted_session.runs[0])
+    assert persisted_run.run_id == "run-1"
+    assert persisted_run.metadata is not None
+    assert persisted_run.metadata["matrix_response_event_id"] == "$streamed"
+    assert persisted_run.messages is not None
+    assert [(message.role, message.content) for message in persisted_run.messages] == [
+        ("user", "Hello"),
+        (
+            "assistant",
+            "Partial answer\n\n[tool:run_shell_command completed]\n  args: cmd=pwd\n  result: /app\n\n[interrupted]",
+        ),
+    ]
+
+
 def test_strip_visible_tool_markers_handles_blank_lined_markers() -> None:
     """The tool-marker stripper should leave bodies intact when markers are followed by blank lines."""
     text = "Intro\n\n🔧 `run_shell_command` [1]\n\n---\n\nBody"
-    assert _strip_visible_tool_markers(text) == "Intro\n\n\nBody"
+    assert strip_visible_tool_markers(text) == "Intro\n\n\nBody"
+
+
+def test_strip_visible_tool_markers_preserves_marker_free_text_byte_for_byte() -> None:
+    """Marker-free text should not be normalized while checking for display chrome."""
+    text = "Intro\r\n---\r\nBody with trailing spaces  \r\n\r\n"
+    assert strip_visible_tool_markers(text) == text
 
 
 @pytest.mark.asyncio
@@ -5998,6 +6077,73 @@ class TestUserIdPassthrough:
         assert str(second_prompt[-1].content).count("Inline media unavailable for this model") == 1
         assert chunks == ["friendly-error"]
         mock_friendly_error.assert_called_once()
+
+    @pytest.mark.parametrize(
+        ("event", "expected"),
+        [
+            (
+                RunErrorEvent(content=None, additional_data={"message": " direct provider failure "}),
+                "direct provider failure",
+            ),
+            (
+                RunErrorEvent(content=None, additional_data={"error": {"message": "nested provider failure"}}),
+                "nested provider failure",
+            ),
+            (
+                RunErrorEvent(content=None, additional_data={"detail": {"error": {"message": "deep detail"}}}),
+                "deep detail",
+            ),
+            (RunErrorEvent(content=None), "Agent run failed without provider error details"),
+        ],
+    )
+    def test_run_error_event_text_uses_additional_data_and_fallback(
+        self,
+        event: RunErrorEvent,
+        expected: str,
+    ) -> None:
+        """Run errors should surface nested provider payloads before static fallback."""
+        assert _run_error_event_text(event) == expected
+
+    @pytest.mark.asyncio
+    async def test_stream_agent_response_uses_run_error_event_metadata_when_content_empty(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Empty Agno streaming errors should surface available error metadata."""
+        mock_agent = MagicMock()
+        mock_agent.model = MagicMock()
+        mock_agent.model.__class__.__name__ = "OpenAIChat"
+        mock_agent.model.id = "test-model"
+        mock_agent.name = "GeneralAgent"
+        mock_agent.add_history_to_context = False
+
+        async def empty_error_stream() -> AsyncIterator[object]:
+            yield RunErrorEvent(content=None, error_type="APITimeoutError", error_id="timeout-1")
+
+        mock_agent.arun = MagicMock(return_value=empty_error_stream())
+
+        with (
+            patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare,
+            patch(
+                "mindroom.ai.get_user_friendly_error_message",
+                return_value="friendly-error",
+            ) as mock_friendly_error,
+        ):
+            mock_prepare.return_value = _prepared_prompt_result(mock_agent)
+            chunks = [
+                chunk
+                async for chunk in stream_agent_response(
+                    agent_name="general",
+                    prompt="test",
+                    session_id="session1",
+                    runtime_paths=_runtime_paths(tmp_path),
+                    config=_config(),
+                )
+            ]
+
+        assert chunks == ["friendly-error"]
+        friendly_error = mock_friendly_error.call_args.args[0]
+        assert str(friendly_error) == "Agent run failed (type=APITimeoutError, id=timeout-1)"
 
     @pytest.mark.asyncio
     async def test_user_id_none_when_not_provided(self, tmp_path: Path) -> None:

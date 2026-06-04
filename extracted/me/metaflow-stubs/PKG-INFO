@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metaflow-stubs
-Version: 2.19.31
+Version: 2.19.32
 Summary: Metaflow Stubs: Stubs for the metaflow package
 Author: Metaflow Developers
 Author-email: help@metaflow.org
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
-Requires-Dist: metaflow==2.19.31
+Requires-Dist: metaflow==2.19.32
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

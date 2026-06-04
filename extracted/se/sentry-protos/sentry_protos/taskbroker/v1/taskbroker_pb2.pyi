@@ -72,13 +72,13 @@ class RetryState(google.protobuf.message.Message):
     attempts: builtins.int
     """Current attempt number"""
     max_attempts: builtins.int
-    """After this number of attempts, the task is either discarded or deadlettered."""
+    """After this number of attempts, the activation is either discarded or deadlettered."""
     on_attempts_exceeded: global___OnAttemptsExceeded.ValueType
     """The action to take after the max_attempts is exceeded."""
     at_most_once: builtins.bool
-    """Whether a task should be executed at most once."""
+    """Whether an activation should be executed at most once."""
     delay_on_retry: builtins.int
-    """Duration in seconds that a task must wait to begin execution after it is retried."""
+    """Duration in seconds that an activation must wait to begin execution after it is retried."""
     def __init__(
         self,
         *,
@@ -99,7 +99,7 @@ global___RetryState = RetryState
 
 @typing.final
 class TaskActivation(google.protobuf.message.Message):
-    """Task message that is stored in Kafka and shared over RPC."""
+    """Activation message that is stored in Kafka and shared over RPC."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -132,14 +132,14 @@ class TaskActivation(google.protobuf.message.Message):
     DELAY_FIELD_NUMBER: builtins.int
     APPLICATION_FIELD_NUMBER: builtins.int
     id: builtins.str
-    """A GUID for the task. Used to update tasks"""
+    """A GUID for the activation. Used to update activations"""
     namespace: builtins.str
-    """The task namespace. Applications can contain multiple namespaces.
+    """The activation namespace. Applications can contain multiple namespaces.
     While namespaces within an application must be unique, different
     applications can have overlapping namespace values.
     """
     taskname: builtins.str
-    """The name of the task. This name is resolved within the worker"""
+    """The name of the activation. This name is resolved within the worker"""
     parameters: builtins.str
     """DEPRECATED: Use parameters_bytes instead.
     An opaque JSON-encoded parameter string.
@@ -150,16 +150,16 @@ class TaskActivation(google.protobuf.message.Message):
     Mutually exclusive with `parameters`.
     """
     processing_deadline_duration: builtins.int
-    """The duration in seconds that a worker has to complete task execution.
+    """The duration in seconds that a worker has to complete activation execution.
     When an activation is moved from pending -> processing a result is expected
     in this many seconds.
     """
     expires: builtins.int
-    """The duration in seconds that a task has to start execution.
+    """The duration in seconds that an activation has to start execution.
     After received_at + expires has passed an activation is expired and will not be executed.
     """
     delay: builtins.int
-    """The duration in seconds that a task must wait to begin execution after it is emitted.
+    """The duration in seconds that an activation must wait to begin execution after it is emitted.
     After received_at + delay has passed, the activation will become pending.
     """
     application: builtins.str
@@ -170,11 +170,11 @@ class TaskActivation(google.protobuf.message.Message):
     """
     @property
     def headers(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
-        """A map of headers for the task."""
+        """A map of headers for the activation."""
 
     @property
     def received_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
-        """The timestamp a task was stored in Kafka"""
+        """The timestamp an activation was stored in Kafka"""
 
     @property
     def retry_state(self) -> global___RetryState:
@@ -239,7 +239,7 @@ class GetTaskResponse(google.protobuf.message.Message):
     TASK_FIELD_NUMBER: builtins.int
     @property
     def task(self) -> global___TaskActivation:
-        """If there are no tasks available, this will be empty"""
+        """If there are no activations available, this will be empty"""
 
     def __init__(
         self,
@@ -289,20 +289,20 @@ class SetTaskStatusRequest(google.protobuf.message.Message):
     id: builtins.str
     status: global___TaskActivationStatus.ValueType
     max_attempts: builtins.int
-    """Maximum number of attempts for this task (including the initial attempt).
+    """Maximum number of attempts for this activation (including the initial attempt).
     When status is RETRY and this field is set, the broker will update
     the activation's retry_state with this value. This allows workers
     to communicate the retry policy for tasks from raw topics that
     don't have retry_state embedded in the message.
     """
     delay_on_retry: builtins.int
-    """Duration in seconds to wait before retrying the task.
+    """Duration in seconds to wait before retrying the activation.
     When status is RETRY and this field is set, the broker will update
     the activation's retry_state.delay_on_retry with this value.
     """
     @property
     def fetch_next_task(self) -> global___FetchNextTask:
-        """If fetch_next is provided, receive a new task in the response"""
+        """If fetch_next is provided, receive a new activation in the response"""
 
     def __init__(
         self,
@@ -331,7 +331,7 @@ class SetTaskStatusResponse(google.protobuf.message.Message):
     TASK_FIELD_NUMBER: builtins.int
     @property
     def task(self) -> global___TaskActivation:
-        """The next task the worker should execute. Requires fetch_next to be set on the request."""
+        """The next activation the worker should execute. Requires fetch_next to be set on the request."""
 
     def __init__(
         self,
@@ -343,6 +343,34 @@ class SetTaskStatusResponse(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_task", b"_task"]) -> typing.Literal["task"] | None: ...
 
 global___SetTaskStatusResponse = SetTaskStatusResponse
+
+@typing.final
+class SetBatchActivationStatusRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    UPDATES_FIELD_NUMBER: builtins.int
+    @property
+    def updates(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SetTaskStatusRequest]:
+        """The status updates the broker should execute"""
+
+    def __init__(
+        self,
+        *,
+        updates: collections.abc.Iterable[global___SetTaskStatusRequest] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["updates", b"updates"]) -> None: ...
+
+global___SetBatchActivationStatusRequest = SetBatchActivationStatusRequest
+
+@typing.final
+class SetBatchActivationStatusResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___SetBatchActivationStatusResponse = SetBatchActivationStatusResponse
 
 @typing.final
 class PushTaskRequest(google.protobuf.message.Message):

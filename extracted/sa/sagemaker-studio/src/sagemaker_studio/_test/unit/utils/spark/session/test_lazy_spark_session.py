@@ -371,7 +371,9 @@ class TestLazySparkSession:
         ) as mock_resolve:
             result = lazy_session._get_spark()
 
-        mock_resolve.assert_called_once_with(connection_name="deferred-conn", config="cfg")
+        mock_resolve.assert_called_once_with(
+            connection_name="deferred-conn", config="cfg", spark_conf=None
+        )
         assert result is mock_spark
         assert lazy_session._session_manager is mock_manager
 
@@ -667,3 +669,47 @@ class TestLazySparkSession:
             result = lazy_session._get_spark()
 
         assert result is mock_spark
+
+    def test_init_stores_spark_conf(self):
+        """Test LazySparkSession stores spark_conf when provided."""
+        conf = {"spark.executor.memory": "4g"}
+        lazy_session = LazySparkSession(None, connection_name="conn", config="cfg", spark_conf=conf)
+
+        assert lazy_session._spark_conf == conf
+
+    def test_init_spark_conf_defaults_to_none(self):
+        """Test LazySparkSession spark_conf defaults to None when not provided."""
+        lazy_session = LazySparkSession(None, connection_name="conn", config="cfg")
+
+        assert lazy_session._spark_conf is None
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_get_spark_deferred_resolution_passes_spark_conf(self):
+        """Test _get_spark passes spark_conf to _resolve_connection_and_create_session_manager."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_spark = Mock()
+        mock_manager.create.return_value = mock_spark
+        mock_manager.get_session_id.return_value = "sess-1"
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        user_conf = {"spark.sql.catalog.spark_catalog.warehouse": "s3://bucket/warehouse"}
+        lazy_session = LazySparkSession(
+            None, connection_name="my-conn", config="cfg", spark_conf=user_conf
+        )
+
+        with patch(
+            "sagemaker_studio.utils.spark.session.lazy_spark_session._resolve_connection_and_create_session_manager",
+            return_value=mock_manager,
+        ) as mock_resolve:
+            lazy_session._get_spark()
+
+        mock_resolve.assert_called_once_with(
+            connection_name="my-conn", config="cfg", spark_conf=user_conf
+        )

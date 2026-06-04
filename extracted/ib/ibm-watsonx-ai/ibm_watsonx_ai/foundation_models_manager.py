@@ -28,31 +28,31 @@ class FoundationModelsManager(WMLResource):
 
     @cached_property
     def TextModels(self) -> StrEnum:
-        return StrEnum("TextModels", self._get_model_dict("text_generation"))
+        return StrEnum("TextModels", self._get_model_dict("text_generation"))  # type: ignore[call-arg]
 
     @cached_property
     def ChatModels(self) -> StrEnum:
-        return StrEnum("ChatModels", self._get_model_dict("text_chat"))
+        return StrEnum("ChatModels", self._get_model_dict("text_chat"))  # type: ignore[call-arg]
 
     @cached_property
     def EmbeddingModels(self) -> StrEnum:
-        return StrEnum("EmbeddingModels", self._get_model_dict("embedding"))
+        return StrEnum("EmbeddingModels", self._get_model_dict("embedding"))  # type: ignore[call-arg]
 
     @cached_property
     def PromptTunableModels(self) -> StrEnum:
-        return StrEnum("PromptTunableModels", self._get_model_dict("prompt_tuning"))
+        return StrEnum("PromptTunableModels", self._get_model_dict("prompt_tuning"))  # type: ignore[call-arg]
 
     @cached_property
     def RerankModels(self) -> StrEnum:
-        return StrEnum("RerankModels", self._get_model_dict("rerank"))
+        return StrEnum("RerankModels", self._get_model_dict("rerank"))  # type: ignore[call-arg]
 
     @cached_property
     def TimeSeriesModels(self) -> StrEnum:
-        return StrEnum("TimeSeriesModels", self._get_model_dict("time_series_forecast"))
+        return StrEnum("TimeSeriesModels", self._get_model_dict("time_series_forecast"))  # type: ignore[call-arg]
 
     @cached_property
     def AudioTranscriptionsModels(self) -> StrEnum:
-        return StrEnum(
+        return StrEnum(  # type: ignore[call-arg]
             "AudioTranscriptionsModels",
             self._get_model_dict("audio_transcriptions"),
         )

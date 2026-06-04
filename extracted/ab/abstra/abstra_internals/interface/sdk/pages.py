@@ -142,6 +142,13 @@ def get_user() -> UserClaims:
 
     Can be called inside `__render__` or any registered function.
 
+    Pages render without the player navbar, so login/logout are driven from the
+    page's own HTML through the browser `window.abstra` API:
+
+    - `abstra.login()` — send the user to the login screen (returns to the page).
+    - `abstra.logout()` — clear the session and reload the page logged out.
+    - `abstra.logged()` — returns `true` when a user is logged in (synchronous).
+
     Returns:
         UserClaims: User information with `email` (str) and `roles` (list[str]).
 
@@ -155,7 +162,10 @@ def get_user() -> UserClaims:
         @register_function
         def __render__():
             user = get_user()
-            return f"<h1>Hello, {user.email}</h1>"
+            return f'''
+            <h1>Hello, {user.email}</h1>
+            <button onclick="abstra.logout()">Sign out</button>
+            '''
         ```
     """
     return _get_page_sdk().get_user()

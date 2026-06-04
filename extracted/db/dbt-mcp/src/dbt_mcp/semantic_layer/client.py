@@ -26,6 +26,7 @@ from dbt_mcp.semantic_layer.gql.gql import GRAPHQL_QUERIES
 from dbt_mcp.semantic_layer.gql.gql_request import submit_request
 from dbt_mcp.semantic_layer.types import (
     DimensionToolResponse,
+    DimensionValuesResponse,
     EntityToolResponse,
     GetMetricsCompiledSqlError,
     GetMetricsCompiledSqlResult,
@@ -111,6 +112,12 @@ class SemanticLayerClientProtocol(Protocol):
         where: list[str] | None = None,
         read_cache: bool = True,
     ) -> str: ...
+
+    def dimension_values(
+        self,
+        metrics: list[str],
+        group_by: str,
+    ) -> Any: ...
 
 
 class SemanticLayerClientProvider(Protocol):
@@ -350,6 +357,38 @@ class SemanticLayerFetcher:
             self.entities_cache[metrics_key] = entities
         return self.entities_cache[metrics_key]
 
+    async def get_dimension_values(
+        self,
+        config: SemanticLayerConfig,
+        dimension: str,
+        metrics: list[str] | None = None,
+        limit: int = 100,
+    ) -> DimensionValuesResponse:
+        try:
+            sl_client = await self.client_provider.get_client(config=config)
+            with sl_client.session():
+                raw_table: pa.Table = await asyncio.to_thread(
+                    sl_client.dimension_values,
+                    metrics=metrics or [],
+                    group_by=dimension,
+                )
+            # SDK doesn't support server-side limiting; truncation is applied client-side.
+            # SDK returns column names in uppercase; match case-insensitively.
+            schema_names = raw_table.schema.names
+            column_name = next(
+                (n for n in schema_names if n.lower() == dimension.lower()),
+                dimension,
+            )
+            raw: list[str] = [
+                str(v)
+                for v in raw_table.column(column_name).to_pylist()
+                if v is not None
+            ]
+            truncated = len(raw) > limit
+            return DimensionValuesResponse(values=raw[:limit], truncated=truncated)
+        except Exception as e:
+            raise RuntimeError(self._format_semantic_layer_error(e)) from e
+
     def _format_semantic_layer_error(self, error: Exception) -> str:
         """Format semantic layer errors by cleaning up common error message patterns."""
         error_str = str(error)
@@ -494,8 +533,11 @@ class SemanticLayerFetcher:
                 config=config,
             )
             with sl_client.session():
-                # Catching any exception within the session
-                # to ensure it is closed properly
+                # Only query-level failures (the SL processed the query and
+                # rejected it) are returned to the caller as data. Operational
+                # failures (auth, connection, transport) propagate so callers
+                # can distinguish a bad query from an unreachable semantic layer.
+                # The `with` block handles session cleanup either way.
                 try:
                     parsed_order_by: list[OrderBySpec] = self._get_order_bys(
                         order_by=order_by, metrics=metrics, group_by=group_by
@@ -524,7 +566,7 @@ class SemanticLayerFetcher:
                             f"filters, reducing dimensions, or limiting results."
                         ) from e
                     query_error = e
-                except Exception as e:
+                except QueryFailedError as e:
                     query_error = e
             if query_error:
                 return self._format_query_failed_error(query_error)
@@ -533,5 +575,5 @@ class SemanticLayerFetcher:
             return QueryMetricsSuccess(result=json_result or "")
         except SemanticLayerQueryTimeoutError:
             raise
-        except Exception as e:
+        except QueryFailedError as e:
             return self._format_query_failed_error(e)

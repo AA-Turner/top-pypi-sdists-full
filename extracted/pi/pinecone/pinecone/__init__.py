@@ -93,6 +93,8 @@ if TYPE_CHECKING:
         PineconeTimeoutError,
         PineconeTypeError,
         PineconeValueError,
+        RateLimitError,
+        RateLimitException,
         ResponseParsingError,
         ServiceError,
         ServiceException,
@@ -205,7 +207,7 @@ if TYPE_CHECKING:
     from pinecone.models.vectors.vector import ScoredVector, Vector
     from pinecone.utils.filter_builder import Field, FilterBuilder
 
-__version__ = "9.0.1"
+__version__ = "9.1.0"
 
 if _os.environ.get("PINECONE_DEBUG"):
     import logging as _logging
@@ -319,6 +321,8 @@ __all__ = [
     "QueryResponse",
     "QueryResultsAggregator",
     "RankedDocument",
+    "RateLimitError",
+    "RateLimitException",
     "RerankConfig",
     "RerankModel",
     "RerankResult",
@@ -379,6 +383,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "PineconeTimeoutError": ("pinecone.errors.exceptions", "PineconeTimeoutError"),
     "PineconeTypeError": ("pinecone.errors.exceptions", "PineconeTypeError"),
     "PineconeValueError": ("pinecone.errors.exceptions", "PineconeValueError"),
+    "RateLimitError": ("pinecone.errors.exceptions", "RateLimitError"),
+    "RateLimitException": ("pinecone.errors.exceptions", "RateLimitException"),
     "ResponseParsingError": ("pinecone.errors.exceptions", "ResponseParsingError"),
     "ServiceError": ("pinecone.errors.exceptions", "ServiceError"),
     "ServiceException": ("pinecone.errors.exceptions", "ServiceException"),

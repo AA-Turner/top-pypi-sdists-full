@@ -198,6 +198,19 @@ def record_error(error_type: str, message: str | None = None):
     _error_collector.record(error_type, message)
 
 
+def _sanitize_error(e: Exception) -> str:
+    """Summarize an error for customer-facing logs WITHOUT leaking internal URLs.
+
+    str(httpx errors) embeds the full request URL (our internal licensing
+    service) and MDN links. Customers should only ever see the status code
+    or the error class.
+    """
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    if status is not None:
+        return f"HTTP {status}"
+    return type(e).__name__
+
+
 class LicenseValidator:
     """
     Validates Aigie tokens with the Aigie licensing server.
@@ -383,7 +396,7 @@ class LicenseValidator:
         except (httpx.RequestError, httpx.TimeoutException) as e:
             # Network error - check if we have cached info
             if self._license_info and self._license_info.valid:
-                logger.warning(format_diagnostic(A004, extra=str(e)))
+                logger.warning(format_diagnostic(A004, extra=_sanitize_error(e)))
                 return self._license_info
             raise LicenseError(
                 "Unable to reach license validation service. "
@@ -498,7 +511,7 @@ class LicenseValidator:
             return True
 
         except Exception as e:
-            logger.warning(format_diagnostic(R005, extra=str(e)))
+            logger.debug(format_diagnostic(R005, extra=_sanitize_error(e)))
             return False
 
     async def send_heartbeat(self) -> bool:
@@ -571,7 +584,7 @@ class LicenseValidator:
         except (LicenseRevokedError, LicenseExpiredError, LicenseError):
             raise
         except Exception as e:
-            logger.warning(format_diagnostic(R005, extra=str(e)))
+            logger.debug(format_diagnostic(R005, extra=_sanitize_error(e)))
             # Record the heartbeat failure as an error for next time
             _error_collector.record("heartbeat_failed", str(e))
             return False
@@ -593,7 +606,7 @@ class LicenseValidator:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(format_diagnostic(R005, extra=str(e)))
+                logger.debug(format_diagnostic(R005, extra=_sanitize_error(e)))
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
 
     async def _usage_report_loop(self):
@@ -605,7 +618,7 @@ class LicenseValidator:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(format_diagnostic(R005, extra=str(e)))
+                logger.debug(format_diagnostic(R005, extra=_sanitize_error(e)))
 
     def _get_sdk_version(self) -> str:
         """Get the SDK version."""

@@ -4,19 +4,18 @@
 """This module exposes a futures version of :class:`tango.DeviceProxy` and
 :class:`tango.AttributeProxy"""
 
-__all__ = ("DeviceProxy", "AttributeProxy")
+__all__ = ("AttributeProxy", "DeviceProxy")
 
 from functools import partial
 
 from tango import GreenMode
-from tango.device_proxy import get_device_proxy
 from tango.attribute_proxy import get_attribute_proxy
-
+from tango.device_proxy import get_device_proxy
 
 DeviceProxy = partial(get_device_proxy, green_mode=GreenMode.Futures)
 DeviceProxy.__doc__ = """
-    DeviceProxy(self, dev_name, wait=True, timeout=True) -> DeviceProxy
-    DeviceProxy(self, dev_name, need_check_acc, wait=True, timeout=True) -> DeviceProxy
+    DeviceProxy(self, dev_name: str, wait: bool=False, timeout: float=None) -> DeviceProxy
+    DeviceProxy(self, dev_name: str, need_check_acc: bool, wait: bool=False, timeout: float=None) -> DeviceProxy
 
     Creates a *futures* enabled :class:`~tango.DeviceProxy`.
 
@@ -31,7 +30,7 @@ DeviceProxy.__doc__ = """
 
     :param dev_name: the device name or alias
     :type dev_name: str
-    :param need_check_acc: in first version of the function it defaults to True.
+    :param need_check_acc: (optional, default is True)
                            Determines if at creation time of DeviceProxy it
                            should check for channel access (rarely used)
     :type need_check_acc: bool
@@ -46,19 +45,17 @@ DeviceProxy.__doc__ = """
             :class:`~tango.DeviceProxy`
         else:
             :class:`concurrent.futures.Future`
-    :throws:
-        * a *DevFailed* if wait is True and there is an error creating
-          the device.
-        * a *concurrent.futures.TimeoutError* if wait is False, timeout is not
-          None and the time to create the device has expired.
+    :throws: :obj:`~tango.DevFailed` if wait is True and there is an error creating the device. \n
+             :obj:`concurrent.futures.TimeoutError` if wait is False, timeout is not None
+                                                    and the time to create the device has expired.
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
 """
 
 AttributeProxy = partial(get_attribute_proxy, green_mode=GreenMode.Futures)
 AttributeProxy.__doc__ = """
-    AttributeProxy(self, full_attr_name, wait=True, timeout=True) -> AttributeProxy
-    AttributeProxy(self, device_proxy, attr_name, wait=True, timeout=True) -> AttributeProxy
+    AttributeProxy(self, full_attr_name: str, wait: bool=False, timeout: float=None) -> AttributeProxy
+    AttributeProxy(self, device_proxy: DeviceProxy, attr_name: str, wait: bool=False, timeout: float=None) -> AttributeProxy
 
     Creates a *futures* enabled :class:`~tango.AttributeProxy`.
 
@@ -84,13 +81,11 @@ AttributeProxy.__doc__ = """
             :class:`~tango.AttributeProxy`
         else:
             :class:`concurrent.futures.Future`
-    :throws:
-        * a *DevFailed* if wait is True  and there is an error creating the
-          attribute.
-        * a *concurrent.futures.TimeoutError* if wait is False, timeout is not
-          None and the time to create the attribute has expired.
+    :throws: :obj:`~tango.DevFailed` if wait is True  and there is an error creating the attribute. \n
+             :obj:`concurrent.futures.TimeoutError` if wait is False, timeout is not None
+                                                    and the time to create the attribute has expired.
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
 """
 
 Device = DeviceProxy

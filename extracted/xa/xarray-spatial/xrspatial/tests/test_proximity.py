@@ -28,6 +28,49 @@ def test_great_circle_distance():
             assert e_info
 
 
+def _simple_raster():
+    data = np.asarray([[0., 0., 1.],
+                       [0., 0., 0.],
+                       [2., 0., 0.]])
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = np.linspace(-20, 20, 3)
+    raster['lat'] = np.linspace(20, -20, 3)
+    return raster
+
+
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_invalid_distance_metric_raises(func):
+    # A typoed / unsupported distance_metric must raise rather than
+    # silently falling back to EUCLIDEAN (issue #2807).
+    raster = _simple_raster()
+    with pytest.raises(ValueError) as e_info:
+        func(raster, x='lon', y='lat', distance_metric='euclidian')
+    msg = str(e_info.value)
+    assert 'euclidian' in msg
+    # the error should list the valid options
+    for metric in ('EUCLIDEAN', 'GREAT_CIRCLE', 'MANHATTAN'):
+        assert metric in msg
+
+
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+@pytest.mark.parametrize(
+    "metric", ['EUCLIDEAN', 'GREAT_CIRCLE', 'MANHATTAN'])
+def test_valid_distance_metric_runs(func, metric):
+    # All documented metrics must keep working unchanged (issue #2807).
+    raster = _simple_raster()
+    result = func(raster, x='lon', y='lat', distance_metric=metric)
+    assert result.shape == raster.shape
+
+
+def test_great_circle_distance_returns_meters():
+    # One degree of longitude at the equator spans ~111319.49 meters
+    # (radius * radians(1) = 6378137 * pi/180). In kilometers this would
+    # be ~111, so this fixed literal pins the unit down and keeps the
+    # docstring's "meters" claim honest.
+    dist = great_circle_distance(x1=0.0, x2=1.0, y1=0.0, y2=0.0)
+    assert dist == pytest.approx(111319.49, abs=1e-2)
+
+
 @pytest.fixture
 def test_raster(backend):
     height, width = 4, 6
@@ -298,6 +341,59 @@ def test_output_metadata_consistent_across_backends(
     assert result.attrs == test_raster.attrs
 
 
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+@pytest.mark.parametrize("max_distance", [-1, -0.5, -np.inf, np.nan])
+def test_invalid_max_distance_raises(test_raster, func, max_distance):
+    # A negative or NaN max_distance is meaningless and used to produce
+    # backend-dependent output (numpy squared it, the CUDA path compared
+    # against it directly).  It must raise on every backend instead.
+    with pytest.raises(ValueError, match="max_distance"):
+        func(test_raster, x='lon', y='lat', max_distance=max_distance)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_zero_max_distance_keeps_meaning(test_raster, func):
+    # Edge value: max_distance=0 is valid and means only target cells
+    # qualify.  It must not raise.
+    result = func(test_raster, x='lon', y='lat', max_distance=0)
+    general_output_checks(test_raster, result)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+@pytest.mark.parametrize("target_values", [[np.inf], [-np.inf], [np.nan], [2, np.inf]])
+def test_non_finite_target_values_raises(test_raster, func, target_values):
+    # A non-finite target_values entry used to produce backend-dependent
+    # output: numpy matched inf pixels and returned a real grid, while
+    # dask/cupy masked non-finite pixels out and returned all-NaN for the
+    # same raster (issue #2850).  It must raise on every backend instead.
+    with pytest.raises(ValueError, match="target_values"):
+        func(test_raster, x='lon', y='lat', target_values=target_values)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_non_numeric_target_values_raises(test_raster, func):
+    # A non-numeric target_values can't index a raster; it must raise a clear
+    # ValueError on every backend rather than a downstream TypeError (#2850).
+    with pytest.raises(ValueError, match="target_values"):
+        func(test_raster, x='lon', y='lat', target_values=['a', 'b'])
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_finite_target_values_run(test_raster, func):
+    # The raster carries an inf and a nan pixel; the default (empty
+    # target_values) path must keep ignoring them on every backend, and
+    # explicit finite targets must keep working unchanged.
+    result_default = func(test_raster, x='lon', y='lat')
+    general_output_checks(test_raster, result_default)
+    result_explicit = func(test_raster, x='lon', y='lat', target_values=[1, 3])
+    general_output_checks(test_raster, result_explicit)
+
+
 def test_proximity_distance_against_qgis(raster, qgis_proximity_distance_target_values):
     target_values, qgis_result = qgis_proximity_distance_target_values
     input_raster = create_test_raster(raster)
@@ -472,6 +568,58 @@ def test_proximity_dask_kdtree_with_target_values():
     )
 
 
+# ---------------------------------------------------------------------------
+# Tie-breaking: when two targets are equidistant, every backend must pick the
+# same one. The documented policy is "lowest flat (row-major) index wins".
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def tie_break_raster_data():
+    # Targets at (1, 0)=1 and (1, 2)=2. The whole centre column is equidistant
+    # to both. Target 1 sits at flat index 3, target 2 at flat index 5, so the
+    # lowest-flat-index policy allocates the centre column to 1.
+    return np.array([[0., 0., 0.],
+                     [1., 0., 2.],
+                     [0., 0., 0.]], dtype=np.float64)
+
+
+@pytest.fixture
+def tie_break_expected_allocation():
+    return np.array([[1., 1., 2.],
+                     [1., 1., 2.],
+                     [1., 1., 2.]], dtype=np.float32)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+def test_allocation_tie_break_lowest_flat_index(
+        backend, tie_break_raster_data, tie_break_expected_allocation):
+    raster = create_test_raster(
+        tie_break_raster_data, backend=backend, dims=['lat', 'lon'],
+        chunks=(1, 1),
+    )
+    result = allocation(raster, x='lon', y='lat')
+    general_output_checks(
+        raster, result, tie_break_expected_allocation, verify_dtype=True,
+    )
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+def test_direction_tie_break_matches_numpy(backend, tie_break_raster_data):
+    # The numpy backend is the reference. Pin every other backend to it so the
+    # direction angle chosen on a tie stays identical across backends.
+    numpy_raster = create_test_raster(
+        tie_break_raster_data, backend='numpy', dims=['lat', 'lon'],
+    )
+    expected = direction(numpy_raster, x='lon', y='lat').data
+
+    raster = create_test_raster(
+        tie_break_raster_data, backend=backend, dims=['lat', 'lon'],
+        chunks=(1, 1),
+    )
+    result = direction(raster, x='lon', y='lat')
+    general_output_checks(raster, result, expected)
+
+
 @pytest.mark.skipif(da is None, reason="dask is not installed")
 def test_proximity_dask_kdtree_no_targets():
     """No target pixels found → result is all NaN."""
@@ -639,6 +787,40 @@ def test_proximity_dask_kdtree_tiled_manhattan():
     np.testing.assert_allclose(
         dask_result.values, numpy_result.values, rtol=1e-5, equal_nan=True,
     )
+
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+def test_allocation_tie_break_tiled_path():
+    """The eager tiled KDTree fallback obeys the lowest-flat-index tie-break."""
+    data = np.array([[0., 0., 0.],
+                     [1., 0., 2.],
+                     [0., 0., 0.]], dtype=np.float64)
+    _lon = np.array([0., 1., 2.])
+    _lat = np.array([2., 1., 0.])
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = _lon
+    raster['lat'] = _lat
+    raster.data = da.from_array(data, chunks=(1, 1))
+
+    # Force the eager tiled KDTree path (see _force_tiled_proximity for the
+    # counter semantics): tiny cache budget, force the tiled decision, then a
+    # large value so the result-size guard passes.
+    call_count = [0]
+
+    def _small_then_large():
+        call_count[0] += 1
+        if call_count[0] <= 2:
+            return 1
+        return 10 * 1024 ** 3
+
+    with patch('xrspatial.proximity._available_memory_bytes',
+               side_effect=_small_then_large):
+        result = allocation(raster, x='lon', y='lat')
+
+    expected = np.array([[1., 1., 2.],
+                         [1., 1., 2.],
+                         [1., 1., 2.]], dtype=np.float32)
+    np.testing.assert_array_equal(result.values, expected)
 
 
 @pytest.mark.skipif(da is None, reason="dask is not installed")
@@ -1313,6 +1495,133 @@ def test_proximity_res_attr_drives_bounded_dask_padding():
         result.values, expected, equal_nan=True, rtol=1e-5)
 
 
+# --- issue #2809: bounded-dask halo depth on irregular / degenerate coords --
+
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_bounded_dask_irregular_coords_matches_numpy(func):
+    """Bounded dask must match numpy when coords are irregularly spaced.
+
+    Regression for issue #2809 bug 1: the halo depth was taken from only the
+    first coordinate pair. With a large leading gap and dense spacing
+    afterwards, the overlap came out too thin and chunks dropped valid targets
+    just past their boundary, so in-range cells turned to NaN under dask.
+    """
+    # First gap is 100, every later gap is 1 -> first-pair spacing would size
+    # the halo at 0 pixels for max_distance=2.5, missing nearby targets.
+    coords = np.array([0, 100, 101, 102, 103, 104, 105, 106], dtype=float)
+    data = np.zeros((8, 8), dtype=np.float64)
+    data[3, 3] = 1.0
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = coords
+    raster['lat'] = coords
+
+    expected = func(raster, x='lon', y='lat', max_distance=2.5).data
+
+    dask_raster = raster.copy()
+    dask_raster.data = da.from_array(data, chunks=(4, 2))
+    result = func(dask_raster, x='lon', y='lat', max_distance=2.5)
+
+    assert isinstance(result.data, da.Array)
+    np.testing.assert_allclose(
+        result.values, expected, equal_nan=True, rtol=1e-5)
+
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_bounded_dask_does_not_mutate_input(func):
+    """Bounded dask must not rebind or rechunk the caller's .data (issue #2908).
+
+    When the halo is deeper than a chunk, the bounded path folds that axis into
+    a single chunk. The fold used to be assigned back to ``raster.data``, which
+    rebound the caller's DataArray (the same mutation issue #2847 guards
+    against) and left map_overlap reading a stale, un-folded array. Sizing the
+    halo at 3 px against width-2 column chunks forces the column-axis fold.
+    """
+    coords = np.array([0, 100, 101, 102, 103, 104, 105, 106], dtype=float)
+    data = np.zeros((8, 8), dtype=np.float64)
+    data[3, 3] = 1.0
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = coords
+    raster['lat'] = coords
+    raster.data = da.from_array(data, chunks=(4, 2))
+
+    data_before = raster.data
+    chunks_before = raster.data.chunks
+
+    func(raster, x='lon', y='lat', max_distance=2.5).compute()
+
+    assert raster.data is data_before, "bounded dask rebound the input .data"
+    assert raster.data.chunks == chunks_before, \
+        "bounded dask rechunked the input"
+
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+@pytest.mark.parametrize("shape_name", ["1xN", "Nx1"])
+def test_bounded_dask_single_row_or_col_matches_numpy(func, shape_name):
+    """Bounded dask must not crash on 1xN / Nx1 rasters.
+
+    Regression for issue #2809 bug 2: the halo code indexed coords[1] along
+    both axes, so a single-row or single-column raster raised IndexError on
+    the bounded dask path while numpy handled it fine.
+    """
+    if shape_name == "1xN":
+        data = np.zeros((1, 6), dtype=np.float64)
+        data[0, 2] = 1.0
+        chunks = (1, 3)
+    else:
+        data = np.zeros((6, 1), dtype=np.float64)
+        data[2, 0] = 1.0
+        chunks = (3, 1)
+
+    raster = _backend_raster(data, 'numpy')
+    expected = func(raster, x='lon', y='lat', max_distance=2.5).data
+
+    dask_raster = _backend_raster(data, 'numpy')
+    dask_raster.data = da.from_array(data, chunks=chunks)
+    result = func(dask_raster, x='lon', y='lat', max_distance=2.5)
+
+    assert isinstance(result.data, da.Array)
+    np.testing.assert_allclose(
+        result.values, expected, equal_nan=True, rtol=1e-5)
+
+
+# --- issue #2854: bounded-dask halo depth larger than an axis length -------
+
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_bounded_dask_skinny_raster_matches_numpy(func):
+    """Bounded dask must not crash when the halo is deeper than an axis.
+
+    Regression for issue #2854: on a skinny raster ``_halo_depth`` can return
+    a pixel radius larger than the raster height/width. That depth went
+    straight into ``da.map_overlap``, which rejects a depth larger than the
+    array along that axis and raised ``ValueError: The overlapping depth ...
+    is larger than your array ...``. A valid raster with a finite
+    ``max_distance`` should still run and match the numpy backend.
+    """
+    data = np.zeros((3, 100), dtype=np.float64)
+    data[1, 50] = 1.0
+    xs = np.linspace(0, 99, 100)
+    ys = np.linspace(0, 2, 3)
+
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = xs
+    raster['lat'] = ys
+    expected = func(raster, x='lon', y='lat', max_distance=10).data
+
+    dask_raster = raster.copy()
+    dask_raster.data = da.from_array(data, chunks=(3, 100))
+    result = func(dask_raster, x='lon', y='lat', max_distance=10)
+
+    assert isinstance(result.data, da.Array)
+    np.testing.assert_allclose(
+        result.values, expected, equal_nan=True, rtol=1e-5)
+
+
 @pytest.mark.parametrize("func", [proximity, allocation, direction])
 def test_target_values_none_default_matches_empty_list(func):
     # target_values default switched from [] to a None sentinel; passing
@@ -1334,3 +1643,319 @@ def test_target_values_none_default_matches_empty_list(func):
         np.nan_to_num(default_result.data),
         np.nan_to_num(explicit_result.data),
     )
+
+
+# --- Cat 4: dim-order validation error path -------------------------------
+# _process rejects a raster whose dims are not (y, x). The bounded-dask and
+# kdtree paths all index xs/ys assuming that order, so a swapped raster must
+# raise before any backend dispatch rather than silently transposing.
+
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_wrong_dim_order_raises(func):
+    data = np.zeros((4, 5), dtype=np.float64)
+    data[1, 1] = 1.0
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = np.arange(5, dtype=np.float64)
+    raster['lat'] = np.arange(4, dtype=np.float64)[::-1]
+
+    # raster.dims is (lat, lon); passing x='lat', y='lon' makes the expected
+    # order (lon, lat), which does not match -> ValueError.
+    with pytest.raises(ValueError, match="should be named as coordinates"):
+        func(raster, x='lat', y='lon')
+
+
+# --- Cat 2: all-NaN raster (no targets) across all four backends ----------
+# An all-NaN raster contains no finite, non-zero target pixels, so every
+# output cell must be NaN. The dask no-target path is pinned above with an
+# all-zero raster; this pins the all-NaN input (NaN is not finite, so it is
+# never treated as a target) on every backend, including eager numpy/cupy.
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+def test_all_nan_raster_all_nan_output(backend, func):
+    if has_cuda_and_cupy() is False and 'cupy' in backend:
+        pytest.skip("Requires CUDA and CuPy")
+    data = np.full((6, 6), np.nan, dtype=np.float64)
+    raster = _backend_raster(data, backend)
+
+    result = func(raster, x='lon', y='lat')
+
+    out = result.data
+    if da is not None and isinstance(out, da.Array):
+        out = out.compute()
+    if hasattr(out, 'get'):
+        out = out.get()
+    assert np.all(np.isnan(out))
+    assert result.dtype == np.float32
+
+
+# ---------------------------------------------------------------------------
+# Issue #2812: GREAT_CIRCLE must match a brute-force nearest-target reference.
+#
+# The GDAL-style line-sweep propagates one nearest-target candidate between
+# adjacent pixels, which assumes the nearest-target field is locally
+# monotonic. That holds for EUCLIDEAN/MANHATTAN but not for GREAT_CIRCLE,
+# which wraps in longitude and converges at the poles. On wide-longitude
+# rasters the sweep latched onto a farther target and was off by ~1e6 metres.
+# ---------------------------------------------------------------------------
+
+def _brute_force_great_circle(data, lon, lat, process_mode):
+    """Exact nearest-target reference for GREAT_CIRCLE on a lat/lon raster.
+
+    process_mode is one of 'proximity', 'allocation', 'direction'. Mirrors the
+    semantics of the proximity functions: non-zero finite pixels are targets,
+    each output pixel reports the closest target under great-circle distance.
+    """
+    from xrspatial.proximity import _calc_direction
+
+    h, w = data.shape
+    mask = np.isfinite(data) & (data != 0)
+    tr, tc = np.where(mask)
+    out = np.full((h, w), np.nan, dtype=np.float32)
+    if len(tr) == 0:
+        return out
+    for i in range(h):
+        for j in range(w):
+            best = np.inf
+            best_k = -1
+            for k in range(len(tr)):
+                d = great_circle_distance(
+                    lon[j], lon[tc[k]], lat[i], lat[tr[k]])
+                if d < best:
+                    best = d
+                    best_k = k
+            if process_mode == 'proximity':
+                out[i, j] = best
+            elif process_mode == 'allocation':
+                out[i, j] = data[tr[best_k], tc[best_k]]
+            else:
+                out[i, j] = _calc_direction(
+                    lon[j], lon[tc[best_k]], lat[i], lat[tr[best_k]])
+    return out
+
+
+@pytest.fixture
+def _wide_longitude_raster_data():
+    # Wide longitude span at low latitude: the worst-case family found by a
+    # brute-force-vs-line-sweep sweep (off by ~5.9e6 m before the fix).
+    width, height = 11, 6
+    lon = np.linspace(-127.2, 173.3, width)
+    lat = np.linspace(21.2, 19.9, height)
+    data = np.zeros((height, width), dtype=np.float64)
+    data[2, 1] = 1.0
+    data[4, 0] = 2.0
+    data[5, 4] = 3.0
+    data[5, 6] = 4.0
+    return data, lon, lat
+
+
+def _wide_lon_raster(data, lon, lat, backend):
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = lon
+    raster['lat'] = lat
+    if has_cuda_and_cupy() and 'cupy' in backend:
+        import cupy
+        raster.data = cupy.asarray(data)
+    if 'dask' in backend and da is not None:
+        raster.data = da.from_array(raster.data, chunks=(3, 6))
+    return raster
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize(
+    "func, mode",
+    [(proximity, 'proximity'),
+     (allocation, 'allocation'),
+     (direction, 'direction')],
+)
+def test_great_circle_matches_brute_force(
+        backend, func, mode, _wide_longitude_raster_data):
+    """GREAT_CIRCLE proximity/allocation/direction must match a brute-force
+    nearest-target reference on a wide-longitude raster (issue #2812)."""
+    if has_cuda_and_cupy() is False and 'cupy' in backend:
+        pytest.skip("Requires CUDA and CuPy")
+    data, lon, lat = _wide_longitude_raster_data
+    expected = _brute_force_great_circle(data, lon, lat, mode)
+
+    raster = _wide_lon_raster(data, lon, lat, backend)
+    result = func(raster, x='lon', y='lat', distance_metric='GREAT_CIRCLE')
+    # rtol covers float32 rounding on million-metre distances; direction is
+    # in degrees so use a small absolute tolerance there.
+    if mode == 'direction':
+        general_output_checks(raster, result, expected, rtol=1e-4)
+    else:
+        general_output_checks(raster, result, expected, rtol=1e-5)
+
+
+def test_great_circle_numpy_off_by_more_than_a_metre_is_fixed(
+        _wide_longitude_raster_data):
+    """Direct numpy assertion that the old line-sweep error is gone.
+
+    Before the fix this raster was off from brute force by ~5.9e6 metres.
+    """
+    data, lon, lat = _wide_longitude_raster_data
+    expected = _brute_force_great_circle(data, lon, lat, 'proximity')
+
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = lon
+    raster['lat'] = lat
+    result = proximity(
+        raster, x='lon', y='lat', distance_metric='GREAT_CIRCLE').data
+
+    assert np.nanmax(np.abs(result - expected)) < 1.0
+
+
+# --- non-monotonic 1D coordinate rejection (issue #2851) ---
+
+
+def _nonmonotonic_raster(backend, axis):
+    """Build a raster whose `axis` ('lon' or 'lat') is non-monotonic.
+
+    All other inputs are valid so the only reason _process can fail is the
+    coordinate check.
+    """
+    data = np.asarray([[0., 0., 1., 0.],
+                       [0., 0., 0., 0.],
+                       [2., 0., 0., 0.],
+                       [0., 0., 0., 3.]])
+    lon = np.array([-20., -10., 0., 10.])
+    lat = np.array([20., 10., 0., -10.])
+    if axis == 'lon':
+        lon = np.array([-20., 0., -10., 10.])  # not sorted
+    else:
+        lat = np.array([20., 0., 10., -10.])  # not sorted
+
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = lon
+    raster['lat'] = lat
+    if has_cuda_and_cupy() and 'cupy' in backend:
+        import cupy
+        raster.data = cupy.asarray(data)
+    if 'dask' in backend and da is not None:
+        raster.data = da.from_array(raster.data, chunks=(2, 2))
+    return raster
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("func", [proximity, allocation, direction])
+@pytest.mark.parametrize("axis", ['lon', 'lat'])
+def test_nonmonotonic_coords_raise(backend, func, axis):
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("cupy not available")
+    if 'dask' in backend and da is None:
+        pytest.skip("dask not available")
+
+    raster = _nonmonotonic_raster(backend, axis)
+    with pytest.raises(ValueError, match="monotonic"):
+        func(raster, x='lon', y='lat')
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+def test_descending_coords_allowed(backend, result_default_proximity):
+    """A strictly decreasing axis is monotonic and must be accepted.
+
+    The default test raster already uses a descending lat axis; assert the
+    standard backends still produce the reference proximity.
+    """
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("cupy not available")
+    if 'dask' in backend and da is None:
+        pytest.skip("dask not available")
+
+    data = np.asarray([[0., 0., 0., 0., 0., 2.],
+                       [0., 0., 1., 0., 0., 0.],
+                       [0., np.inf, 3., 0., 0., 0.],
+                       [4., 0., 0., 0., np.nan, 0.]])
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = np.linspace(-20, 20, 6)   # ascending
+    raster['lat'] = np.linspace(20, -20, 4)   # descending
+    if has_cuda_and_cupy() and 'cupy' in backend:
+        import cupy
+        raster.data = cupy.asarray(data)
+    if 'dask' in backend and da is not None:
+        raster.data = da.from_array(raster.data, chunks=(4, 3))
+
+    result = proximity(raster, x='lon', y='lat')
+    general_output_checks(raster, result, result_default_proximity)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+def test_single_element_axis_allowed(backend):
+    """A length-1 axis has no order to violate and must not be rejected."""
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("cupy not available")
+    if 'dask' in backend and da is None:
+        pytest.skip("dask not available")
+
+    data = np.asarray([[0., 1., 0., 2.]])
+    raster = xr.DataArray(data, dims=['lat', 'lon'])
+    raster['lon'] = np.linspace(0, 30, 4)
+    raster['lat'] = np.array([0.])
+    if has_cuda_and_cupy() and 'cupy' in backend:
+        import cupy
+        raster.data = cupy.asarray(data)
+    if 'dask' in backend and da is not None:
+        raster.data = da.from_array(raster.data, chunks=(1, 2))
+
+    result = proximity(raster, x='lon', y='lat')
+    # no exception; finite proximity at the target columns
+    assert result.shape == (1, 4)
+
+
+# ---------------------------------------------------------------------------
+# Regression: unbounded dask fallback must not mutate the caller's input
+# (issue #2847). _process_dask used to do raster.data = raster.data.rechunk(),
+# which rebound .data on the caller's DataArray for the GREAT_CIRCLE and
+# no-scipy fallback paths.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+@pytest.mark.parametrize("op", [proximity, allocation, direction])
+def test_proximity_dask_great_circle_does_not_mutate_input(backend, op):
+    """GREAT_CIRCLE unbounded fallback keeps the input .data untouched."""
+    if has_cuda_and_cupy() is False and 'cupy' in backend:
+        pytest.skip("Requires CUDA and CuPy")
+
+    data = np.zeros((8, 10), dtype=np.float64)
+    data[2, 3] = 1.0
+    data[6, 8] = 2.0
+    raster = _backend_raster(data, backend)
+
+    data_before = raster.data
+    chunks_before = raster.data.chunks
+
+    op(raster, x='lon', y='lat', distance_metric='GREAT_CIRCLE')
+
+    assert raster.data is data_before, "proximity rebound the input .data"
+    assert raster.data.chunks == chunks_before, "proximity rechunked the input"
+
+
+@pytest.mark.skipif(da is None, reason="dask is not installed")
+@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+@pytest.mark.parametrize("op", [proximity, allocation, direction])
+def test_proximity_dask_no_scipy_does_not_mutate_input(backend, op):
+    """No-scipy unbounded fallback keeps the input .data untouched."""
+    if has_cuda_and_cupy() is False and 'cupy' in backend:
+        pytest.skip("Requires CUDA and CuPy")
+
+    import sys
+    prox_mod = sys.modules['xrspatial.proximity']
+
+    data = np.zeros((8, 10), dtype=np.float64)
+    data[2, 3] = 1.0
+    data[6, 8] = 2.0
+    raster = _backend_raster(data, backend)
+
+    data_before = raster.data
+    chunks_before = raster.data.chunks
+
+    original_ckdtree = prox_mod.cKDTree
+    try:
+        prox_mod.cKDTree = None
+        op(raster, x='lon', y='lat')
+    finally:
+        prox_mod.cKDTree = original_ckdtree
+
+    assert raster.data is data_before, "proximity rebound the input .data"
+    assert raster.data.chunks == chunks_before, "proximity rechunked the input"

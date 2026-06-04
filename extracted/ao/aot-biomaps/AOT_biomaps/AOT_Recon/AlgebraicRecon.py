@@ -3,7 +3,7 @@ import warnings
 from AOT_biomaps.Config import config
 
 from ._mainRecon import Recon
-from .ReconEnums import NoiseType, ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, PreconditionerType
+from .ReconEnums import NoiseType, ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, PreconditionerType, PotentialShapeType, StopCriterionType
 from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, PGC, PPGMLEM, LBFGS, PIGD
 from .AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from .AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
@@ -26,141 +26,138 @@ from IPython.display import HTML
 
 ALGORITHM_FORMULAS = {
     OptimizerType.MLEM: {
-        "formula": r"θ^(k+1) = θ^(k) * (A^T * (y / (A*θ^(k) + ε))) / (A^T * 1)",
+        "formula": "λ^(k+1) = λ^(k) * (A^T * (y / (A*λ^(k) + ε))) / (A^T * 1)",
         "description": "Maximum Likelihood Expectation Maximization (multiplicative form)",
         "reference": "Shepp and Vardi, IEEE TMI, 1982",
         "required_params": ["denominatorThreshold"],
         "constraints": {
-            "denominatorThreshold": "> 0",
             "numIterations": "> 0",
-            "numSubsets": "> 0",
+            "denominatorThreshold": "> 0",
         },
-        "notes": "If numSubsets > 1, becomes OSEM (Ordered Subset EM)",
+        "notes": "Native Poisson solver. Unregularized, tends to amplify high-frequency noise at high iterations.",
         "potentialFunction": [PotentialType.NONE]
     },
     OptimizerType.LS: {
-        "formula": r"θ^(k+1) = θ^(k) - α * A^T * (A*θ^(k) - y)",
+        "formula": "λ^(k+1) = [ λ^(k) - α * M^-1 * A^T * (A*λ^(k) - y) ]_+",
         "description": "Least Squares (Projected Gradient Descent)",
         "reference": "Landweber, 1951",
         "required_params": ["alpha"],
         "constraints": {
             "alpha": "> 0 or 'auto'",
-            "eta": "1 < and < 2 for faster convergence",
+            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
+            "numIterations_stepCalculation": "> 0",
         },
-        "notes": "Convergence can be slow; consider using accelerated methods",
+        "notes": "Gaussian noise solver. Alpha='auto' uses power method for Lipschitz estimation.",
         "potentialFunction": [PotentialType.NONE]
     },
     OptimizerType.MAPEM: {
-        "formula": r"θ^(k+1) = θ^(k) * (A^T * (y / (A*θ^(k) + ε))) / (A^T * 1 + λ * diag(H_U))",
-        "description": "Maximum A Posteriori Expectation Maximization",
+        "formula": "λ^(k+1) = [ λ^(k) * (A^T * (y / (A*λ^(k) + ε))) / (A^T * 1 + ∇U) ]_+",
+        "description": "Maximum A Posteriori Expectation Maximization (One-Step Late)",
         "reference": "Green, IEEE TMI, 1990",
         "required_params": ["beta", "delta"],
         "constraints": {
             "beta": ">= 0",
             "delta": ">= 0",
-            "denominatorThreshold": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "H_U is the Hessian diagonal of the potential function",
-        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE, PotentialType.TOTAL_VARIATION]
+        "notes": "Structurally unstable for large beta due to gradient in denominator. Use DEPIERRO instead.",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.DEPIERRO: {
-        "formula": r"θ^(k+1) = θ^(k) * (A^T * (y / (A*θ^(k) + ε))) / (A^T * 1 + δ * β * I)",
-        "description": "De Pierro's quadratic regularization for EM",
+        "formula": "λ^(k+1) = [ λ^(k) + λ^(k) * (∇EM - ∇U) / (A^T * 1 + λ^(k) * H_U) ]_+",
+        "description": "De Pierro's Optimization Transfer (Separable Paraboloidal Surrogate)",
         "reference": "De Pierro, IEEE TMI, 1995",
         "required_params": ["beta", "delta"],
         "constraints": {
             "beta": ">= 0",
-            "delta": ">= 0",
-            "denominatorThreshold": "> 0",
+            "delta": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "Convergent for MRF penalties",
-        "potentialFunction": [PotentialType.QUADRATIC]
+        "notes": "Monotonically convergent and highly stable surrogate method for Poisson MRF penalties.",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.PPGMLEM: {
-        "formula": r"θ^(k+1) = θ^(k) + α * (A^T * (y / (A*θ^(k) + ε) - 1)) / (A^T * 1 + β * diag(H_U))",
+        "formula": "λ^(k+1) = [ λ^(k) + α * (∇EM - ∇U) / (A^T * 1 + δ * H_U + γ) ]_+",
         "description": "Penalized Preconditioned Gradient ML-EM",
         "reference": "Nuyts et al., IEEE TNS, 2002",
-        "required_params": ["beta", "delta", "gamma"],
+        "required_params": ["alpha", "beta", "gamma", "delta"],
         "constraints": {
+            "alpha": "> 0 or 'auto'",
             "beta": ">= 0",
             "delta": ">= 0",
             "gamma": ">= 0",
-            "denominatorThreshold": "> 0",
+            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
+            "numIterations_stepCalculation": "> 0",
         },
-        "notes": "Addresses numerical problems with large penalty strengths",
+        "notes": "Additive Poisson gradient descent stabilized by pseudo-Hessian and Tikhonov parameter.",
         "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.PGC: {
-        "formula": r"θ^(k+1) = θ^(k) + α * (A^T * (y / (A*θ^(k) + ε) - 1)) / (A^T * 1 + β * diag(H_U))",
-        "description": "Penalized Gauss-Newton Conjugate Gradient",
-        "reference": "Nuyts et al., IEEE TNS, 2002",
-        "required_params": ["beta", "delta"],
+        "formula": "d_k = -∇f + β_cg * d_{k-1} | λ^(k+1) = [ λ^(k) + α * d_k ]_+",
+        "description": "Penalized Gauss-Newton Conjugate Gradient (Polak-Ribière)",
+        "reference": "Standard Nonlinear Conjugate Gradient",
+        "required_params": ["alpha", "beta", "delta"],
         "constraints": {
+            "alpha": "> 0 or 'auto'",
             "beta": ">= 0",
             "delta": ">= 0",
-            "eta": "1 < and < 2 for faster convergence",
-            "denominatorThreshold": "> 0",
+            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
+            "numIterations_stepCalculation": "> 0",
         },
-        "notes": "Requires penalty terms with derivative order >= 2",
+        "notes": "Highly accelerated convergence for Least-Squares (Gaussian) fidelity.",
         "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.PDHG: {
-        "formula": r"x^(k+1) = prox_{τ*TV}(x^(k) - τ * ∇f(x^(k))) \ y^(k+1) = y^(k) + σ * (A*x^(k+1) - y)",
-        "description": "Primal-Dual Hybrid Gradient for TV regularization",
+        "formula": "x = prox_{τ*TV}(x - τ*A^Ty) | y = y + σ*(A(2x - x_{old}) - data)",
+        "description": "Primal-Dual Hybrid Gradient (Chambolle-Pock)",
         "reference": "Chambolle and Pock, J. Math. Imaging Vis., 2011",
-        "required_params": ["alpha"],
+        "required_params": ["beta", "gamma", "theta", "tau", "sigma"],
         "constraints": {
-            "noiseType": " in [NoiseType.GAUSSIAN, NoiseType.POISSON]",
             "beta": ">= 0",
-            "gamma": ">= 0",
-            "theta": ">=0",
+            "gamma": "> 0",
+            "theta": ">= 0",
             "tau": "> 0 or 'auto'",
             "sigma": "> 0 or 'auto'",
             "numIterations": "> 0",
-            "num_subsets": ">= 1",
+            "numSubsets": ">= 1",
+            "reshufflePeriod": ">= 0",
         },
-        "notes": "tau and sigma are step sizes; prox is the proximal operator for TV",
+        "notes": "Mathematically robust solver for non-differentiable Total Variation (L1).",
         "potentialFunction": [PotentialType.TOTAL_VARIATION]
     },
     OptimizerType.LBFGS: {
-        "formula": r"θ^(k+1) = θ^(k) + α_k * d^(k)",
-        "description": "Limited-memory BFGS quasi-Newton optimization",
+        "formula": "w^(k+1) = w^(k) - step * H_k * ∇f(w^(k)) | λ = w^2",
+        "description": "Limited-memory BFGS quasi-Newton optimization (Unconstrained Variable Transform)",
         "reference": "Liu and Nocedal, Mathematical Programming, 1989",
-        "required_params": ["alpha", "beta"],
+        "required_params": ["beta", "delta"],
         "constraints": {
             "beta": ">= 0",
-            "delta": ">= 0",
+            "delta": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "Manual implementation without scipy dependency. Supports differentiable potentials (QUADRATIC, HUBER, RELATIVE_DIFFERENCE)",
+        "notes": "Uses λ = w^2 transform to inherently enforce non-negativity without projection artifacts.",
         "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.PIGD: {
-        "formula": "λ(k+1) = λ(k) - α · diag(AT 1)^-1 · (∇f(λ(k)) + β ∇U(λ(k)))",
-        "description": "Penalized Iterative Gradient Descent with diagonal sensitivity preconditioning",
-        "reference": "Based on standard proximal gradient methods (FISTA-like), AOT-BioMaps implementation",
-        "required_params": ["alpha", "beta"],
+        "formula": "λ^(k+1) = [ λ^(k) - α * diag(A^T 1)^-1 * (∇f(λ^(k)) + ∇U(λ^(k))) ]_+",
+        "description": "Penalized Iterative Gradient Descent",
+        "reference": "Standard Proximal Gradient Method",
+        "required_params": ["alpha", "beta", "delta"],
         "constraints": {
-            "beta": ">= 0",
             "alpha": "> 0 or 'auto'",
-            "delta": ">= 0",
-            "eta": "1 < and < 2 for faster convergence",
+            "beta": ">= 0",
+            "delta": "> 0",
+            "eta": "in (1.0, 2.0)",
             "numIterations": "> 0",
+            "numIterations_stepCalculation": "> 0",
         },
-        "notes": "α is the step size, β regulates the potential influence. The inverse of the sensitivity (diag(AT*1)) acts as the diagonal preconditioner for the gradient update.",
-        "potentialFunction": [
-            PotentialType.QUADRATIC, 
-            PotentialType.HUBER, 
-            PotentialType.RELATIVE_DIFFERENCE, 
-        ]
+        "notes": "Poisson gradient descent diagonally preconditioned by sensitivity.",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
 }
-
 
 class AlgebraicRecon(Recon):
     """
@@ -223,13 +220,15 @@ class AlgebraicRecon(Recon):
         isComplexeRecon: bool = False,
         device: Optional[str] = None,
         # Preconditioning
-        preconditionerType: PreconditionerType = PreconditionerType.NONE,
+        preconditionerType: Optional[PreconditionerType] = PreconditionerType.NONE,
         # Regularization parameters
         alpha: Optional[float] = None,
         beta: Optional[float] = None,
         gamma: Optional[float] = None,
         delta: Optional[float] = None,
+        # Parameters for automatic step size calculation
         eta: Optional[float] = None,
+        numIterations_stepCalculation: Optional[int] = 20,
         # PDHG-specific parameters
         theta: Optional[float] = None,
         tau: Optional[float] = None,
@@ -237,8 +236,8 @@ class AlgebraicRecon(Recon):
         reshufflePeriod: Optional[int] = None,
         noiseType: Optional[NoiseType] = NoiseType.GAUSSIAN,
         # Potential function parameters
-        corner: Optional[float] = None,
-        face: Optional[float] = None,
+        PotentialShape: Optional[PotentialShapeType] = PotentialShapeType.CROSS,
+        PotentialRadius: Optional[int] = 2,
         **kwargs
     ):
         """
@@ -265,12 +264,13 @@ class AlgebraicRecon(Recon):
             gamma: Preconditioning parameter for PPGMLEM (default: None)
             delta: Huber threshold or relative difference parameter for MAPEM, PPGMLEM, DEPIERRO (default: None)
             eta: Parameter for the Lipschitz constant estimation (must be < 2 for convergence and > 1 for faster convergence). Useless if alpha is a float. (default: None)
+            numIterations_stepCalculation: Number of iterations for automatic step size calculation (default: 20). Used for power method estimation of the Lipschitz constant when alpha is set to "auto".
             theta: Extrapolation parameter for PDHG (default: None)
             tau: Primal step size for PDHG (default: None)
             sigma: Dual step size for PDHG (default: None)
             noiseType: Type of noise (NoiseType enum, default: GAUSSIAN) for PDHG if gaussian -> L2 data fidelity, if poisson -> KL divergence
-            corner: Corner parameter for potential functions (default: computed value)
-            face: Face parameter for potential functions (default: computed value)
+            PotentialShape: Shape parameter for potential functions (default: PotentialShapeType.CROSS). Useless for TOTAL_VARIATION potential which use cross shape by default.
+            PotentialRadius: Radius parameter for potential functions (default: 2). Useless for TOTAL_VARIATION potential which use radius = 1 by default.
             **kwargs: Additional keyword arguments
         
         Raises:
@@ -318,9 +318,12 @@ class AlgebraicRecon(Recon):
         self.beta = beta
         self.gamma = gamma
         self.delta = delta
-        self.eta = eta
         self.sigma = sigma
-        
+
+        # Store parameters for automatic step size calculation
+        self.eta = eta
+        self.numIterations_stepCalculation = numIterations_stepCalculation
+
         # Store PDHG-specific parameters
         self.theta = theta
         self.tau = tau
@@ -329,8 +332,8 @@ class AlgebraicRecon(Recon):
         self.reshufflePeriod = reshufflePeriod
         
         # Set corner and face with defaults
-        self.corner = corner if corner is not None else (0.5 - np.sqrt(2)/4) / np.sqrt(2)
-        self.face = face if face is not None else 0.5 - np.sqrt(2)/4
+        self.PotentialShape = PotentialShape
+        self.PotentialRadius = PotentialRadius
         
         # Initialize reconstruction results
         self.reconPhantom: List[np.ndarray] = []
@@ -352,14 +355,9 @@ class AlgebraicRecon(Recon):
     
     def _validate_potential_compatibility(self, errors: list):
         """
-        Validate that the selected potential function is compatible with the optimizer.
-        
-        Args:
-            errors: List to append error messages to
+        Validate that the selected potential function is compatible with the optimizer,
+        and that the geometrical parameters (shape, radius) are mathematically sound.
         """
-        # Define compatibility matrix: which potential functions work with which optimizers
-        # MLEM and LS are non-regularized algorithms and should NOT use any potential function.
-        # PDHG and LBFGS handle regularized differentiable or non-differentiable potentials.
         POTENTIAL_COMPATIBILITY = {
             PotentialType.QUADRATIC: [
                 OptimizerType.MAPEM, OptimizerType.DEPIERRO, OptimizerType.PPGMLEM,
@@ -382,41 +380,39 @@ class AlgebraicRecon(Recon):
             ],
         }
         
-        # Safe-guard against Python NoneType initialization
         current_potential = self.potentialFunction if self.potentialFunction is not None else PotentialType.NONE
 
-        # Check if potential function is in compatibility matrix
         if current_potential not in POTENTIAL_COMPATIBILITY:
             errors.append(f"Unknown potential function: {current_potential}")
             return
         
-        # Check if optimizer is compatible with this potential function
         compatible_optimizers = POTENTIAL_COMPATIBILITY[current_potential]
         if self.optimizer not in compatible_optimizers:
             compatible_names = [opt.value for opt in compatible_optimizers]
             errors.append(
-                f"Potential function '{current_potential.value}' is not compatible with "
-                f"optimizer '{self.optimizer.value}'. "
-                f"Compatible optimizers for this potential: {', '.join(compatible_names)}"
+                f"Potential '{current_potential.value}' is not compatible with optimizer '{self.optimizer.value}'. "
+                f"Compatible optimizers: {', '.join(compatible_names)}"
             )
         
         # Hyperparameters dependency checks per potential type
         if current_potential == PotentialType.TOTAL_VARIATION:
-            if self.alpha is None:
-                errors.append("TOTAL_VARIATION potential requires alpha parameter to be set.")
             if self.beta is None:
-                errors.append("TOTAL_VARIATION potential requires beta parameter to be set.")
+                errors.append("TOTAL_VARIATION potential requires 'beta' parameter to be set.")
+            if self.PotentialShape != PotentialShapeType.CROSS or self.PotentialRadius != 1:
+                errors.append(f"TOTAL_VARIATION strictly requires shape=CROSS and radius=1 for proximal evaluation. Got shape={self.PotentialShape}, radius={self.PotentialRadius}.")
         
         elif current_potential == PotentialType.HUBER:
             if self.delta is None:
-                errors.append("HUBER potential requires delta parameter to be set.")
+                errors.append("HUBER potential requires 'delta' parameter to be set.")
         
         elif current_potential == PotentialType.RELATIVE_DIFFERENCE:
             if self.beta is None:
-                errors.append("RELATIVE_DIFFERENCE potential requires beta parameter to be set.")
+                errors.append("RELATIVE_DIFFERENCE potential requires 'beta' parameter to be set.")
+            if self.delta is None:
+                errors.append("RELATIVE_DIFFERENCE potential requires 'delta' parameter to be set.")
 
     def _validate_hyperparameters(self):
-        """Validate all hyperparameters for the selected optimizer."""
+        """Validate all hyperparameters and stopping criteria for the selected optimizer."""
         if self.optimizer not in ALGORITHM_FORMULAS:
             warnings.warn(f"Unknown optimizer type: {self.optimizer}. Skipping hyperparameter validation.")
             return
@@ -424,41 +420,43 @@ class AlgebraicRecon(Recon):
         formula_info = ALGORITHM_FORMULAS[self.optimizer]
         errors = []
 
-        # 1. Structural checks on baseline parameters
+        # 1. Structural checks
         if self.numIterations <= 0:
             errors.append(f"numIterations must be > 0, got {self.numIterations}")
         if self.numSubsets <= 0:
             errors.append(f"numSubsets must be > 0, got {self.numSubsets}")
-        if not isinstance(self.numIterations, int):
-            errors.append(f"numIterations must be an integer, got {type(self.numIterations).__name__}")
-        if not isinstance(self.numSubsets, int):
-            errors.append(f"numSubsets must be an integer, got {type(self.numSubsets).__name__}")
 
-        # 2. Check optimizer-specific mathematical constraints
+        # 2. Validate Stopping Criteria Logic
+        stop_crit = getattr(self, 'stop_criterion', StopCriterionType.MAX_ITERATIONS)
+        if stop_crit != StopCriterionType.MAX_ITERATIONS:
+            threshold = getattr(self, 'stop_threshold', None)
+            if threshold is None or threshold <= 0:
+                errors.append(f"Stopping criterion {stop_crit.name} requires a positive 'stop_threshold'. Got {threshold}.")
+            if stop_crit == StopCriterionType.MSE:
+                # Basic check to ensure we are in a simulated context if MSE is requested
+                if self.experiment.OpticImage is None or self.experiment.OpticImage.phantom is None:
+                    errors.append("MSE stopping criterion requires a simulated Ground Truth (phantom) in the experiment.")
+
+        # 3. Check optimizer-specific mathematical constraints
         constraints = formula_info.get("constraints", {})
-        
-        # Safe fallback for constraints display mapping
         constraints_display = formula_info.get("constraints_display", {})
 
         for param_name, constraint in constraints.items():
-            # Fallback evaluation to avoid AttributeError if parameter is omitted from instance structure
             param_value = getattr(self, param_name, None)
             display_name = constraints_display.get(param_name, param_name)
 
-            # Check if parameter is missing but strictly required by the algorithm
             if param_value is None:
                 if param_name in formula_info.get("required_params", []):
                     errors.append(f"Required hyperparameter '{display_name}' is not set.")
                 continue
 
-            # Parsing constraints conditions
             if constraint == "> 0 or 'auto'":
                 if not (param_value == 'auto' or (isinstance(param_value, (int, float)) and param_value > 0)):
                     errors.append(f"'{display_name}' must be > 0 or 'auto', got '{param_value}'")
 
-            elif constraint == "1 < and < 2 for faster convergence":
-                if not (isinstance(param_value, (int, float)) and 1 < param_value < 2):
-                    errors.append(f"'{display_name}' must be strictly inside interval (1, 2), got '{param_value}'")
+            elif constraint == "in (1.0, 2.0)":
+                if not (isinstance(param_value, (int, float)) and 1.0 < param_value < 2.0):
+                    errors.append(f"'{display_name}' must be strictly inside interval (1.0, 2.0), got '{param_value}'")
 
             elif constraint == "> 0":
                 if not (isinstance(param_value, (int, float)) and param_value > 0):
@@ -476,15 +474,7 @@ class AlgebraicRecon(Recon):
                 except ValueError:
                     pass
 
-            elif constraint.startswith("in ("):
-                try:
-                    low, high = map(float, constraint[4:-1].split(","))
-                    if not (low < param_value < high):
-                        errors.append(f"'{display_name}' must be in open interval ({low}, {high}), got '{param_value}'")
-                except ValueError:
-                    pass
-
-        # 4. Check global cross-compatibility between optimizer and structural constraints
+        # 4. Check global cross-compatibility
         self._validate_potential_compatibility(errors)
 
         # 5. Format and raise validation errors stack
@@ -516,7 +506,8 @@ class AlgebraicRecon(Recon):
             for error in errors:
                 error_msg += f"  [Constraint Violation] -> {error}\n"
             error_msg += f"\n{'='*80}\n"
-            raise ValueError(error_msg)     
+            raise ValueError(error_msg)
+        
     # PUBLIC METHODS
     def generate_SMatrix(self, isShowLogs=True):
         if self.smatrixType == SMatrixType.DENSE:
@@ -530,11 +521,13 @@ class AlgebraicRecon(Recon):
         else:
             raise ValueError(f"Unsupported SMatrix type: {self.smatrixType}")
     
-    def flip_angle(self):
-        if self.smatrixType == SMatrixType.CSR:
-            self.SMatrix.flip_angle()
+    def flip_probe(self):
+        self.SMatrix.flip_probe()
+
+    def apply_apodization(self, window_vector: np.ndarray):
+        self.SMatrix.apply_apodization(window_vector)
     
-    def run(self, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, show_logs: bool = True):
+    def run(self, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs: bool = True):
         """
         Run the algebraic reconstruction process.
         
@@ -543,6 +536,9 @@ class AlgebraicRecon(Recon):
         Args:
             processType: Type of processing (PYTHON or CASToR)
             withTumor: If True, reconstruct with tumor data; otherwise without
+            stop_criterion: Criterion for stopping the reconstruction
+            stop_threshold: Threshold for the stopping criterion
+            show_criterion: If True, display the stopping criterion
             show_logs: If True, display progress logs
             
         Raises:
@@ -554,11 +550,11 @@ class AlgebraicRecon(Recon):
         if processType == ProcessType.CASToR:
             self._algebraic_recon_CASToR(withTumor=withTumor, show_logs=show_logs)
         elif processType == ProcessType.PYTHON:
-            self._algebraic_recon_Python(withTumor=withTumor, show_logs=show_logs)
+            self._algebraic_recon_Python(withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         else:
             raise ValueError(f"Unknown Algebraic reconstruction type: {processType}")
 
-    def _algebraic_recon_Python(self, withTumor: bool = True, show_logs: bool = True):
+    def _algebraic_recon_Python(self, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs: bool = True):
         """
         Run algebraic reconstruction using Python implementation.
         
@@ -566,6 +562,9 @@ class AlgebraicRecon(Recon):
         
         Args:
             withTumor: If True, reconstruct with tumor data; otherwise without
+            stop_criterion: Criterion for stopping the reconstruction
+            stop_threshold: Threshold for the stopping criterion
+            show_criterion: If True, display the stopping criterion
             show_logs: If True, display progress logs
             
         Raises:
@@ -585,21 +584,23 @@ class AlgebraicRecon(Recon):
 
         # Dispatch to optimizer-specific method
         if self.optimizer == OptimizerType.MLEM:
-            self._run_MLEM(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_MLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.LS:
-            self._run_LS(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_LS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.MAPEM:
-            self._run_MAPEM(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_MAPEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.DEPIERRO:
-            self._run_DEPIERRO(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_DEPIERRO(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PPGMLEM:
-            self._run_PPGMLEM(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_PPGMLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
+        elif self.optimizer == OptimizerType.PIGD:
+            self._run_PIGD(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PGC:
-            self._run_PGC(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_PGC(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PDHG:
-            self._run_PDHG(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_PDHG(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.LBFGS:
-            self._run_LBFGS(y=y, withTumor=withTumor, show_logs=show_logs)
+            self._run_LBFGS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, show_criterion=show_criterion, show_logs=show_logs)
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer}")
 
@@ -743,7 +744,7 @@ class AlgebraicRecon(Recon):
             print("Reconstruction completed successfully.")
         self.load_reconCASToR(withTumor=withTumor)
 
-    def _run_MLEM(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_MLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run MLEM reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = MLEM(
@@ -751,11 +752,14 @@ class AlgebraicRecon(Recon):
                 y=y,
                 numIterations=self.numIterations,
                 denominator_threshold=self.denominatorThreshold,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = MLEM(
@@ -763,14 +767,17 @@ class AlgebraicRecon(Recon):
                 y=y,
                 numIterations=self.numIterations,
                 denominator_threshold=self.denominatorThreshold,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_LS(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_LS(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run Least Squares reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = LS(
@@ -779,12 +786,16 @@ class AlgebraicRecon(Recon):
                 numIterations=self.numIterations,
                 alpha=self.alpha,
                 eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 preconditioner_type=self.preconditionerType,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = LS(
@@ -793,48 +804,60 @@ class AlgebraicRecon(Recon):
                 numIterations=self.numIterations,
                 alpha=self.alpha,
                 eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 preconditioner_type=self.preconditionerType,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_LBFGS(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_LBFGS(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run LBFGS reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = LBFGS(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
-                preconditioner_type=self.preconditionerType,
-                beta=self.beta if self.beta is not None else 1.0,
-                delta=self.delta if self.delta is not None else 0.01,   
-                potential_type=self.potentialFunction,             
+                beta=self.beta,
+                delta=self.delta,   
+                potential_type=self.potentialFunction,  
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = LBFGS(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
-                preconditioner_type=self.preconditionerType,
-                beta=self.beta if self.beta is not None else 1.0,
-                delta=self.delta if self.delta is not None else 0.01,   
-                potential_type=self.potentialFunction,             
+                beta=self.beta,
+                delta=self.delta,   
+                potential_type=self.potentialFunction,  
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_MAPEM(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_MAPEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run MAPEM reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = MAPEM(
@@ -844,12 +867,16 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = MAPEM(
@@ -859,14 +886,19 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_DEPIERRO(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_DEPIERRO(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run DEPIERRO reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = DEPIERRO(
@@ -876,11 +908,16 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = DEPIERRO(
@@ -890,49 +927,68 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_PPGMLEM(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_PPGMLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run PPGMLEM reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PPGMLEM(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
+                alpha=self.alpha,
                 beta=self.beta,
                 delta=self.delta,
                 gamma=self.gamma,
+                eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = PPGMLEM(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
+                alpha=self.alpha,
                 beta=self.beta,
                 delta=self.delta,
                 gamma=self.gamma,
+                eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_PIGD(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_PIGD(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run PIGD reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PIGD(
@@ -943,12 +999,18 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = PIGD(
@@ -959,15 +1021,21 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_PGC(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_PGC(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run PGC reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PGC(
@@ -978,12 +1046,18 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = PGC(
@@ -994,15 +1068,21 @@ class AlgebraicRecon(Recon):
                 beta=self.beta,
                 delta=self.delta,
                 eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
+                potential_shape=self.PotentialShape,
+                potential_radius=self.PotentialRadius,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
 
-    def _run_PDHG(self, y, withTumor: bool = True, show_logs: bool = True):
+    def _run_PDHG(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, show_criterion=True, show_logs=True):
         """Run PDHG reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices, self.cost_historyPhantom = PDHG(
@@ -1014,15 +1094,20 @@ class AlgebraicRecon(Recon):
                 theta=self.theta,
                 tau=self.tau,
                 sigma=self.sigma,
+                eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 num_subsets=self.numSubsets,
                 reshuffle_period=self.reshufflePeriod,
                 noise_type=self.noiseType,
                 preconditioner_type=self.preconditionerType,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
         else:
             self.reconLaser, self.indices, self.cost_historyLaser = PDHG(
@@ -1034,15 +1119,20 @@ class AlgebraicRecon(Recon):
                 theta=self.theta,
                 tau=self.tau,
                 sigma=self.sigma,
+                eta=self.eta,
+                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 num_subsets=self.numSubsets,
                 reshuffle_period=self.reshufflePeriod,
                 noise_type=self.noiseType,
                 preconditioner_type=self.preconditionerType,
+                stop_criterion=stop_criterion,
+                stop_threshold=stop_threshold,
                 isSavingEachIteration=self.isSavingEachIteration,
                 isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
+                show_criterion=show_criterion
             )
     
     def plot_MSE(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):

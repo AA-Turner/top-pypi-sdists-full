@@ -1,28 +1,28 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
-import os
 import inspect
+import os
 import threading
 import time
-
-from collections import namedtuple
 from asyncio import sleep as asleep
+from collections import namedtuple
+from typing import ClassVar
 
 import pytest
 
-from tango import DeviceProxy, GreenMode, DevFailed
+from tango import DevFailed, DeviceProxy, GreenMode
 from tango.log4tango import (
-    LogIt,
     DebugIt,
-    InfoIt,
-    WarnIt,
     ErrorIt,
     FatalIt,
+    InfoIt,
+    LogIt,
     TangoStream,
+    WarnIt,
 )
-from tango.test_utils import general_asyncio_decorator, general_decorator
 from tango.server import Device, attribute, command
 from tango.test_context import DeviceTestContext, MultiDeviceTestContext
+from tango.test_utils import general_asyncio_decorator, general_decorator
 
 # Constants
 WINDOWS = "nt" in os.name
@@ -33,9 +33,7 @@ LogConsumerEntry = namedtuple(
 )
 
 
-def check_log(
-    received_logs, device_name, log_level, method_name, arg, kwarg, ret, error
-):
+def check_log(received_logs, device_name, log_level, method_name, arg, kwarg, ret, error):
 
     entry_log = LogConsumerEntry(*received_logs[-2])
     exit_log = LogConsumerEntry(*received_logs[-1])
@@ -57,8 +55,7 @@ def check_log(
 
 
 class LogReceiver(Device):
-
-    _received_logs = []
+    _received_logs: ClassVar[list] = []
 
     @command
     def log(self, str_in: list[str]):
@@ -77,7 +74,7 @@ class LogReceiver(Device):
 class AsyncLogReceiver(Device):
     green_mode = GreenMode.Asyncio
 
-    _received_logs = []
+    _received_logs: ClassVar[list] = []
 
     @command
     async def log(self, str_in: list[str]):
@@ -98,7 +95,6 @@ method_pause = 0.01
 
 
 class LogDevice(Device):
-
     @command
     @LogIt()
     def log_cmd(self):
@@ -188,9 +184,7 @@ def check_logs(log_device, expected_log):
         time.sleep(delay)
 
     if log_device.log_size() < 2:
-        raise RuntimeError(
-            f"Cannot receive logs for {expected_log[0]}:{expected_log[2]}"
-        )
+        raise RuntimeError(f"Cannot receive logs for {expected_log[0]}:{expected_log[2]}")
 
     log_device.check_last_log(expected_log)
 
@@ -216,9 +210,7 @@ def test_logging_decorators():
         test_device = DeviceProxy("test/logdevice/1")
         log_device = DeviceProxy("test/logreceiver/1")
 
-        test_device.add_logging_target(
-            f"device::{context.get_device_access('test/logreceiver/1')}"
-        )
+        test_device.add_logging_target(f"device::{context.get_device_access('test/logreceiver/1')}")
         test_device.log_cmd()
         check_logs(log_device, ("LogDevice", "DEBUG", "log_cmd", "", "", "", ""))
 
@@ -254,9 +246,7 @@ def test_logging_decorators():
 
         with pytest.raises(DevFailed):
             test_device.error_test()
-        check_logs(
-            log_device, ("LogDevice", "DEBUG", "error_test", "", "", "", "Test error!")
-        )
+        check_logs(log_device, ("LogDevice", "DEBUG", "error_test", "", "", "", "Test error!"))
 
 
 async_devices_info = (
@@ -280,9 +270,7 @@ def test_async_logging_decorators():
         log_emitter = DeviceProxy("test/logdevice/1")
         log_receiver = DeviceProxy("test/logreceiver/1")
 
-        log_emitter.add_logging_target(
-            f"device::{context.get_device_access('test/logreceiver/1')}"
-        )
+        log_emitter.add_logging_target(f"device::{context.get_device_access('test/logreceiver/1')}")
         log_emitter.log_cmd()
         check_logs(log_receiver, ("AsyncLogDevice", "DEBUG", "log_cmd", "", "", "", ""))
 
@@ -381,7 +369,7 @@ def test_logging(server_green_mode):
 
         class LogConsumerDevice(Device):
             green_mode = server_green_mode
-            _last_log_data = []
+            _last_log_data: ClassVar[list] = []
 
             @command(dtype_in=("str",))
             async def Log(self, argin):
@@ -464,7 +452,7 @@ def test_logging(server_green_mode):
 
         class LogConsumerDevice(Device):
             green_mode = server_green_mode
-            _last_log_data = []
+            _last_log_data: ClassVar[list] = []
 
             @command(dtype_in=("str",))
             def Log(self, argin):
@@ -536,50 +524,35 @@ def test_logging(server_green_mode):
             log_msg = msg[:]
             log_msg[0] = "test " + level + msg[0]
             proxy_source.log_fatal_message(log_msg)
-            if len(msg) > 1:
-                check_log_msg = log_msg[0] % log_msg[1]
-            else:
-                check_log_msg = log_msg[0]
+            check_log_msg = log_msg[0] % log_msg[1] if len(msg) > 1 else log_msg[0]
             assert_log_details_correct(level, check_log_msg)
 
             level = "error"
             log_msg = msg[:]
             log_msg[0] = "test " + level + msg[0]
             proxy_source.log_error_message(log_msg)
-            if len(msg) > 1:
-                check_log_msg = log_msg[0] % log_msg[1]
-            else:
-                check_log_msg = log_msg[0]
+            check_log_msg = log_msg[0] % log_msg[1] if len(msg) > 1 else log_msg[0]
             assert_log_details_correct(level, check_log_msg)
 
             level = "warn"
             log_msg = msg[:]
             log_msg[0] = "test " + level + msg[0]
             proxy_source.log_warn_message(log_msg)
-            if len(msg) > 1:
-                check_log_msg = log_msg[0] % log_msg[1]
-            else:
-                check_log_msg = log_msg[0]
+            check_log_msg = log_msg[0] % log_msg[1] if len(msg) > 1 else log_msg[0]
             assert_log_details_correct(level, check_log_msg)
 
             level = "info"
             log_msg = msg[:]
             log_msg[0] = "test " + level + msg[0]
             proxy_source.log_info_message(log_msg)
-            if len(msg) > 1:
-                check_log_msg = log_msg[0] % log_msg[1]
-            else:
-                check_log_msg = log_msg[0]
+            check_log_msg = log_msg[0] % log_msg[1] if len(msg) > 1 else log_msg[0]
             assert_log_details_correct(level, check_log_msg)
 
             level = "debug"
             log_msg = msg[:]
             log_msg[0] = "test " + level + msg[0]
             proxy_source.log_debug_message(log_msg)
-            if len(msg) > 1:
-                check_log_msg = log_msg[0] % log_msg[1]
-            else:
-                check_log_msg = log_msg[0]
+            check_log_msg = log_msg[0] % log_msg[1] if len(msg) > 1 else log_msg[0]
             assert_log_details_correct(level, check_log_msg)
 
 
@@ -646,18 +619,12 @@ def test_decorator_logging_source_location(server_green_mode, capfd):
             ("run_decorated_method", "decorated_method"),
         ]:
             lineno = device.command_inout(cmd) - 3
-            out, err = capfd.readouterr()  # calling this function clears the buffer
-            assert (
-                f"({filename}:{lineno}) test/nodb/infoitdevice -> InfoItDevice.{method}()"
-                in out
-            )
+            out, _ = capfd.readouterr()  # calling this function clears the buffer
+            assert f"({filename}:{lineno}) test/nodb/infoitdevice -> InfoItDevice.{method}()" in out
 
         lineno = device.decorated_attribute - 3
-        out, err = capfd.readouterr()
-        assert (
-            f"({filename}:{lineno}) test/nodb/infoitdevice -> InfoItDevice.decorated_attribute()"
-            in out
-        )
+        out, _ = capfd.readouterr()
+        assert f"({filename}:{lineno}) test/nodb/infoitdevice -> InfoItDevice.decorated_attribute()" in out
 
 
 @pytest.mark.skipif(
@@ -696,7 +663,7 @@ def test_stream_logging_source_location(server_green_mode, capfd):
     with DeviceTestContext(StreamLogsDevice, debug=3) as device:
         lineno = device.command_inout("log_streams") - 5
         filename = os.path.basename(__file__)
-        out, err = capfd.readouterr()
+        out, _ = capfd.readouterr()
         for i, level in [
             (0, "INFO"),
             (1, "DEBUG"),
@@ -704,6 +671,4 @@ def test_stream_logging_source_location(server_green_mode, capfd):
             (3, "ERROR"),
             (4, "FATAL"),
         ]:
-            assert (
-                f"{level} ({filename}:{lineno + i}) test/nodb/streamlogsdevice" in out
-            )
+            assert f"{level} ({filename}:{lineno + i}) test/nodb/streamlogsdevice" in out

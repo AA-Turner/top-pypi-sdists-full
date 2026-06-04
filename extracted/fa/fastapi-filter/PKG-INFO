@@ -1,32 +1,33 @@
 Metadata-Version: 2.1
 Name: fastapi-filter
-Version: 2.0.1
+Version: 3.0.0
 Summary: FastAPI filter
 Home-page: https://github.com/arthurio/fastapi-filter
 License: MIT
 Author: Arthur Rio
 Author-email: arthur.rio44@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Framework :: FastAPI
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: all
 Provides-Extra: beanie
 Provides-Extra: mongoengine
 Provides-Extra: sqlalchemy
-Requires-Dist: SQLAlchemy (>=1.4.36,<2.1.0) ; extra == "sqlalchemy" or extra == "all"
-Requires-Dist: beanie (>=1.26.0,<1.30.0) ; extra == "beanie" or extra == "all"
-Requires-Dist: fastapi (>=0.100.0,<1.0)
-Requires-Dist: mongoengine (>=0.24.1,<0.28.0) ; extra == "mongoengine" or extra == "all"
-Requires-Dist: pydantic (>=2.0.0,<3.0.0)
+Requires-Dist: SQLAlchemy (>=2.0.0,<2.1.0) ; extra == "sqlalchemy" or extra == "all"
+Requires-Dist: beanie (>=2.0.0,<3.0.0) ; extra == "beanie" or extra == "all"
+Requires-Dist: fastapi (>=0.115.0,<1.0)
+Requires-Dist: mongoengine (>=0.28.0,<0.30.0) ; extra == "mongoengine" or extra == "all"
+Requires-Dist: pydantic (>=2.12.0,<3.0.0)
 Project-URL: Repository, https://github.com/arthurio/fastapi-filter
 Description-Content-Type: text/markdown
 

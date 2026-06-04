@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 def _make_default_telemetry_config() -> "TelemetryConfig":
     from aigie.telemetry._config import TelemetryConfig
+
     return TelemetryConfig.from_env()
 
 
@@ -102,9 +103,7 @@ class Config:
 
     # Sampling Configuration
     sampling_rate: float | None = field(
-        default_factory=lambda: (
-            float(os.getenv("AIGIE_SAMPLING_RATE")) if os.getenv("AIGIE_SAMPLING_RATE") else None
-        )
+        default_factory=lambda: float(v) if (v := os.getenv("AIGIE_SAMPLING_RATE")) else None
     )
 
     # Auto-Instrumentation Configuration
@@ -181,19 +180,23 @@ class Config:
     # Autonomous Runtime — ONE toggle for everything autonomous
     # =========================================================================
     #
-    # `autonomous` is the single source of truth. When True (default), the SDK
-    # creates the interceptor chain, installs framework adapters, binds the
-    # autonomous runtime hook, and routes LLM errors through the chain so
-    # interventions like RetryIntervention can fire end-to-end.
+    # `autonomous` is the single source of truth. When True, the SDK creates
+    # the interceptor chain, installs framework adapters, binds the autonomous
+    # runtime hook, and routes LLM errors through the chain so interventions
+    # like RetryIntervention can fire end-to-end.
+    #
+    # DISABLED by default. The only way to enable it is explicitly in code:
+    # Config(autonomous=True). The platform control plane (gRPC stream +
+    # /v1/sdk/config) only exists from platform v0.1.45, so enabling it by
+    # default left every customer on an older platform with permanently-
+    # failing background loops.
     #
     # `enable_interception` is kept as a derived, read-only property for
     # backwards-compatible internal callers. Do NOT set it directly.
     #
-    # Legacy `AIGIE_AUTONOMOUS_DISABLE=1` env var is honored as a kill-switch
-    # (BC shim). A one-line deprecation log fires once at config build time.
-    autonomous: bool = field(
-        default_factory=lambda: os.environ.get("AIGIE_AUTONOMOUS_DISABLE") != "1"
-    )
+    # Legacy `AIGIE_AUTONOMOUS_DISABLE=1` env var still emits a one-line
+    # deprecation log at config build time (it is now redundant).
+    autonomous: bool = False
 
     @property
     def enable_interception(self) -> bool:
@@ -219,28 +222,20 @@ class Config:
 
     # Cost limit per trace (None = no limit)
     cost_limit_per_trace: float | None = field(
-        default_factory=lambda: (
-            float(os.getenv("AIGIE_COST_LIMIT_PER_TRACE"))
-            if os.getenv("AIGIE_COST_LIMIT_PER_TRACE")
-            else None
-        )
+        default_factory=lambda: float(v) if (v := os.getenv("AIGIE_COST_LIMIT_PER_TRACE")) else None
     )
 
     # Cost limit per request (None = no limit)
     cost_limit_per_request: float | None = field(
         default_factory=lambda: (
-            float(os.getenv("AIGIE_COST_LIMIT_PER_REQUEST"))
-            if os.getenv("AIGIE_COST_LIMIT_PER_REQUEST")
-            else None
+            float(v) if (v := os.getenv("AIGIE_COST_LIMIT_PER_REQUEST")) else None
         )
     )
 
     # Token limit per request (None = no limit)
     token_limit_per_request: int | None = field(
         default_factory=lambda: (
-            int(os.getenv("AIGIE_TOKEN_LIMIT_PER_REQUEST"))
-            if os.getenv("AIGIE_TOKEN_LIMIT_PER_REQUEST")
-            else None
+            int(v) if (v := os.getenv("AIGIE_TOKEN_LIMIT_PER_REQUEST")) else None
         )
     )
 
@@ -259,11 +254,7 @@ class Config:
 
     # Rate limit per minute (None = no limit)
     rate_limit_per_minute: int | None = field(
-        default_factory=lambda: (
-            int(os.getenv("AIGIE_RATE_LIMIT_PER_MINUTE"))
-            if os.getenv("AIGIE_RATE_LIMIT_PER_MINUTE")
-            else None
-        )
+        default_factory=lambda: int(v) if (v := os.getenv("AIGIE_RATE_LIMIT_PER_MINUTE")) else None
     )
 
     # Enable automatic fix application from backend
@@ -310,12 +301,10 @@ class Config:
     )
 
     # Internal OTel telemetry configuration
-    internal_telemetry: "TelemetryConfig" = field(
-        default_factory=_make_default_telemetry_config
-    )
+    internal_telemetry: "TelemetryConfig" = field(default_factory=_make_default_telemetry_config)
 
-    def __post_init__(self):
-        """Normalize configuration values."""
+    def _consolidate_legacy_fields(self) -> None:
+        """Apply backward-compatible URL/token consolidation and deprecation notices."""
         # One-line deprecation notice for legacy autonomous kill-switch env var.
         if os.environ.get("AIGIE_AUTONOMOUS_DISABLE") is not None:
             logging.getLogger("aigie").warning(
@@ -343,6 +332,10 @@ class Config:
             logging.getLogger("aigie").debug(
                 "[AIGIE] Using api_key as aigie_token (api_key is deprecated, use AIGIE_TOKEN instead)"
             )
+
+    def __post_init__(self):
+        """Normalize configuration values."""
+        self._consolidate_legacy_fields()
 
         # Validate batch size
         self.batch_size = max(self.batch_size, 1)
@@ -432,7 +425,10 @@ class Config:
 
         # Check for HTTP (not HTTPS) in non-localhost URLs
         if self.aigie_url.startswith("http://"):
-            is_local = any(host in self.aigie_url for host in ["localhost", "127.0.0.1", "0.0.0.0"])
+            is_local = any(
+                host in self.aigie_url
+                for host in ["localhost", "127.0.0.1", "0.0.0.0"]  # noqa: S104 — URL substring check, not a bind address
+            )
             if not is_local:
                 warnings.append(
                     f"API URL uses HTTP instead of HTTPS: {self.aigie_url}. "
@@ -442,7 +438,8 @@ class Config:
         # Check license server URL security
         if self.license_server_url.startswith("http://"):
             is_local = any(
-                host in self.license_server_url for host in ["localhost", "127.0.0.1", "0.0.0.0"]
+                host in self.license_server_url
+                for host in ["localhost", "127.0.0.1", "0.0.0.0"]  # noqa: S104 — URL substring check, not a bind address
             )
             if not is_local:
                 warnings.append(

@@ -158,7 +158,7 @@ def handle_steps(args: list[str], fs: Filesystem, tm: TaskManager,
     from kanban_framework.types import Phase
 
     # Load extensions for custom phases/steps
-    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
+    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else "lightweight")
     quick = task.mode == "quick"
     base_steps = _get_steps(mode)  # _get_steps already applies extensions
     base_order = _get_phase_order(task.lightweight, quick=quick, mode=task.mode,

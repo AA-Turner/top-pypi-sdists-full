@@ -119,7 +119,7 @@ def _session_context() -> dict:
                         "phase": phase,
                         "status": status,
                         "iteration": data.get("iteration", 1),
-                        "mode": data.get("mode", "full"),
+                        "mode": data.get("mode", "lightweight"),
                         "lightweight": data.get("lightweight", False),
                         "auto_mode": data.get("auto_mode", {}),
                         "next_step": step_info.get("description") if step_info else None,
@@ -147,7 +147,9 @@ def _format_summary(tasks: list[dict]) -> str:
     """Produce a human-readable summary for context injection."""
     lines = ["[KANBAN SESSION CONTEXT]"]
     for t in tasks:
-        mode = "light" if t.get("lightweight") else "full"
+        mode = t.get("mode", "lightweight")
+        if t.get("lightweight"):
+            mode = "lightweight"
         auto = "auto" if any(t.get("auto_mode", {}).values()) else "manual"
         lines.append(
             f"  {t['id']}: {t['title'][:50]} "

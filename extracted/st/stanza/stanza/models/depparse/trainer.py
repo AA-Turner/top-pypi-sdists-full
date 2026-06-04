@@ -18,6 +18,7 @@ from stanza.models.common.trainer import Trainer as BaseTrainer
 from stanza.models.common import utils, loss
 from stanza.models.common.foundation_cache import load_bert, load_bert_with_peft, NoTransformerFoundationCache
 from stanza.models.common.peft_config import build_peft_wrapper, load_peft_wrapper
+from stanza.models.common.warmup_plateau_scheduler import WarmupThenPlateauScheduler
 from stanza.models.depparse.model import EnsembleGraphParser, GraphParser
 from stanza.models.depparse.transition.model import SubtreeCombination, EnsembleTransitionParser, TransitionParser
 from stanza.models.pos.vocab import MultiVocab
@@ -62,7 +63,7 @@ class Trainer(BaseTrainer, ABC):
             self.args = args
             self.vocab = vocab
 
-            bert_model, bert_tokenizer = load_bert(self.args['bert_model'])
+            bert_model, bert_tokenizer = load_bert(self.args['bert_model'], enable_gradient_checkpointing=args['enable_gradient_checkpointing'])
             peft_name = None
             if self.args['use_peft']:
                 # fine tune the bert if we're using peft
@@ -105,22 +106,32 @@ class Trainer(BaseTrainer, ABC):
                                                        is_peft=self.args.get('use_peft', False),
                                                        bert_finetune_layers=self.args.get('bert_finetune_layers', None))
         self.scheduler = {}
-        if self.args.get("second_stage", False) and self.args.get('second_optim'):
-            if self.args.get('second_warmup_steps', None):
-                for name, optimizer in self.optimizer.items():
-                    name = name + "_scheduler"
-                    warmup_scheduler = transformers.get_constant_schedule_with_warmup(optimizer, self.args['second_warmup_steps'])
-                    self.scheduler[name] = warmup_scheduler
-        else:
-            if "bert_optimizer" in self.optimizer:
-                zero_scheduler = torch.optim.lr_scheduler.ConstantLR(self.optimizer["bert_optimizer"], factor=0, total_iters=self.args['bert_start_finetuning'])
-                warmup_scheduler = transformers.get_constant_schedule_with_warmup(
-                    self.optimizer["bert_optimizer"],
-                    self.args['bert_warmup_steps'])
-                self.scheduler["bert_scheduler"] = torch.optim.lr_scheduler.SequentialLR(
-                    self.optimizer["bert_optimizer"],
-                    schedulers=[zero_scheduler, warmup_scheduler],
-                    milestones=[self.args['bert_start_finetuning']])
+        for name, optimizer in self.optimizer.items():
+            name = name + "_scheduler"
+            if self.args.get("second_stage", False) and self.args.get('second_optim'):
+                num_freeze_steps = 0
+                num_warmup_steps = self.args.get('second_warmup_steps', 0)
+            else:
+                num_freeze_steps = 0
+                num_warmup_steps = 0
+                if name.startswith("bert_") or name.startswith("peft_"):
+                    num_freeze_steps = self.args.get('bert_start_finetuning', 0)
+                    num_warmup_steps = self.args.get('bert_warmup_steps', 0)
+            patience = self.args.get('plateau_steps', None) if self.args.get('use_plateau') else None
+            decay = self.args.get('plateau_decay', 0.9)
+            logger.debug("Building scheduler %s with num_freeze_steps %d, num_warmup_steps %d, decay factor %f, patience %s",
+                         name, num_freeze_steps, num_warmup_steps, decay, patience)
+            warmup_scheduler = WarmupThenPlateauScheduler(optimizer,
+                                                          num_freeze_steps = num_freeze_steps,
+                                                          num_warmup_steps = num_warmup_steps,
+                                                          reset_optimizer_on_unfreeze=True,
+                                                          mode = "max",   # we are passing in F1 scores
+                                                          factor = decay,
+                                                          patience = patience)
+            self.scheduler[name] = warmup_scheduler
+        self.bert_finetuning = any(x.startswith("bert") or x.startswith("peft") for x in self.optimizer)
+        self.model.bert_finetuning = self.bert_finetuning
+        logger.debug("Bert finetuning during this training portion: %s", self.model.bert_finetuning)
 
     def update(self, batch, eval=False):
         device = self.model.get_device()
@@ -142,8 +153,6 @@ class Trainer(BaseTrainer, ABC):
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.args['max_grad_norm'])
         for opt in self.optimizer.values():
             opt.step()
-        for scheduler in self.scheduler.values():
-            scheduler.step()
         return loss_val, batch_stats
 
     def predict(self, batch, unsort=True):
@@ -187,6 +196,10 @@ class Trainer(BaseTrainer, ABC):
             model_type = "ensemble_transition"
         else:
             raise ValueError("Unknown model type: %s" % type(self.model))
+        # remove the gradient checkpointing arg so that when we reload,
+        # the model isn't trying to gradient checkpoint in a pipeline
+        if "enable_gradient_checkpointing" in config:
+            config.pop("enable_gradient_checkpointing")
         params = {
             'model': model_state,
             'vocab': self.vocab.state_dict(),
@@ -269,6 +282,11 @@ class Trainer(BaseTrainer, ABC):
                 logger.debug("Found peft weights for depparse; loading a peft adapter")
                 loaded_args["use_peft"] = True
 
+            # the loaded_args should not have been saved with this value
+            # (it gets removed in save())
+            # but the passed in args from the main program might have it,
+            # if someone deliberately set it while training
+            enable_gradient_checkpointing = loaded_args.get('enable_gradient_checkpointing')
             # load model
             emb_matrix = None
             if loaded_args['pretrain'] and pretrain is not None: # we use pretrain only if args['pretrain'] == True and pretrain is not None
@@ -279,7 +297,7 @@ class Trainer(BaseTrainer, ABC):
             peft_name = None
             if loaded_args.get('use_peft', False):
                 force_bert_saved = True
-                bert_model, bert_tokenizer, peft_name = load_bert_with_peft(loaded_args['bert_model'], "depparse", foundation_cache)
+                bert_model, bert_tokenizer, peft_name = load_bert_with_peft(loaded_args['bert_model'], "depparse", foundation_cache, enable_gradient_checkpointing=enable_gradient_checkpointing)
                 bert_model = load_peft_wrapper(bert_model, lora_weights, loaded_args, logger, peft_name)
                 logger.debug("Loaded peft with name %s", peft_name)
             else:
@@ -287,7 +305,7 @@ class Trainer(BaseTrainer, ABC):
                     logger.debug("Model %s has a finetuned transformer.  Not using transformer cache to make sure the finetuned version of the transformer isn't accidentally used elsewhere", model_name)
                     foundation_cache = NoTransformerFoundationCache(foundation_cache)
                     force_bert_saved = True
-                bert_model, bert_tokenizer = load_bert(loaded_args.get('bert_model'), foundation_cache)
+                bert_model, bert_tokenizer = load_bert(loaded_args.get('bert_model'), foundation_cache, enable_gradient_checkpointing=enable_gradient_checkpointing)
 
             if 'output_basic.weight' in checkpoint['model']:
                 model = TransitionTrainer.build_model(loaded_args, vocab, emb_matrix=emb_matrix, foundation_cache=foundation_cache, bert_model=bert_model, bert_tokenizer=bert_tokenizer, force_bert_saved=force_bert_saved, peft_name=peft_name)

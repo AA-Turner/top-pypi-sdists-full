@@ -165,8 +165,8 @@ class ExecutionController:
         # normcase is used to make the paths case-insensitive and replace backslashes with slashes on Windows
         normalized_entrypoint = os.path.normcase(str(entrypoint.resolve()))
 
-        entrypoint_frame_index = 0
-        legacy_thread_frame_index = 0
+        entrypoint_frame_index = None
+        legacy_thread_frame_index = None
 
         tb = exception.__traceback__
         index = 0
@@ -174,20 +174,38 @@ class ExecutionController:
             frame_filename = os.path.normcase(
                 str(Path(tb.tb_frame.f_code.co_filename).resolve())
             )
-            if frame_filename == normalized_entrypoint:
+            # Keep the first entrypoint frame so the whole user call chain is
+            # preserved
+            if (
+                frame_filename == normalized_entrypoint
+                and entrypoint_frame_index is None
+            ):
                 entrypoint_frame_index = index
+            # Keep the last legacy-thread frame: user code re-enters right
+            # after the internal wrapper, so we crop up to it.
             if tb.tb_frame.f_code.co_name == "use_legacy_threads":
                 legacy_thread_frame_index = index
             index += 1
             tb = tb.tb_next
 
-        user_frame_index = max(entrypoint_frame_index, legacy_thread_frame_index)
+        found_indices = [
+            i
+            for i in (entrypoint_frame_index, legacy_thread_frame_index)
+            if i is not None
+        ]
 
-        # Reset traceback and skip frames before the user frame
         tb = exception.__traceback__
-        for _ in range(user_frame_index):
-            if tb is not None:
-                tb = tb.tb_next
+        if found_indices:
+            # Skip the internal frames before the first user frame.
+            for _ in range(max(found_indices)):
+                if tb is not None:
+                    tb = tb.tb_next
+        elif isinstance(exception, SyntaxError):
+            # SyntaxError (incl. IndentationError/TabError) is raised while
+            # *compiling* the entrypoint, before any user frame is pushed onto
+            # the stack. The whole traceback is therefore internal; drop it.
+            # The exception itself already carries the offending file/line.
+            tb = None
 
         traceback.print_exception(type(exception), exception, tb)
 

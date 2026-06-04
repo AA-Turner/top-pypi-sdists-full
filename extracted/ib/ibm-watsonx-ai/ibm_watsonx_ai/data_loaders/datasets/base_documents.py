@@ -8,6 +8,8 @@ import logging
 import os
 from collections import Counter
 from copy import copy
+from itertools import chain
+from random import shuffle
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 from warnings import warn
 
@@ -79,6 +81,14 @@ class BaseDocumentsIterableDataset(IterableDataset):
         self.benchmark_dataset = benchmark_dataset
         self.error_callback = error_callback
 
+        # Validate benchmark dataset schema if provided
+        if benchmark_dataset is not None:
+            if "correct_answer_document_ids" not in benchmark_dataset.columns:
+                raise WMLClientError(
+                    "Invalid benchmark dataset schema: The 'correct_answer_document_ids' column is missing. "
+                    "Please ensure your benchmark dataset includes this column with a list of document IDs for each row."
+                )
+
         self._download_strategy = kwargs.get(
             "_download_strategy", "n_parallel"
         )  # expected values: "n_parallel", "sequential"
@@ -89,8 +99,13 @@ class BaseDocumentsIterableDataset(IterableDataset):
 
         data_asset_id_name_mapping = self._build_asset_mapping(connections)
 
+        benchmark_document_ids = self._extract_benchmark_document_ids(benchmark_dataset)
+
         self.remote_documents = self._build_remote_documents(
-            connections, include_subfolders, data_asset_id_name_mapping
+            connections,
+            include_subfolders,
+            data_asset_id_name_mapping,
+            benchmark_document_ids,
         )
 
         self._validate_unique_document_ids(self.remote_documents)
@@ -106,6 +121,44 @@ class BaseDocumentsIterableDataset(IterableDataset):
             for conn in connections:
                 if conn._api_client is None:
                     conn.set_client(api_client)
+
+    @staticmethod
+    def _extract_benchmark_document_ids(
+        benchmark_dataset: pd.DataFrame | None,
+    ) -> list[str]:
+        """Extract unique benchmark document IDs from the benchmark dataset.
+
+        :param benchmark_dataset: The benchmark dataset containing correct_answer_document_ids
+        :type benchmark_dataset: pd.DataFrame | None
+
+        :return: List of unique benchmark document IDs
+        :rtype: list[str]
+        """
+        if benchmark_dataset is None:
+            return []
+
+        try:
+            correct_document_ids = benchmark_dataset[
+                "correct_answer_document_ids"
+            ].values
+
+            # Check for any missing values
+            if benchmark_dataset["correct_answer_document_ids"].isna().any():
+                missing_indices = benchmark_dataset[
+                    benchmark_dataset["correct_answer_document_ids"].isna()
+                ].index.tolist()
+                raise ValueError(
+                    f"Missing 'correct_answer_document_ids' in row(s): {missing_indices}. "
+                    "All rows in the benchmark dataset must contain a list of document IDs."
+                )
+
+            return list(set(chain.from_iterable(correct_document_ids)))
+        except (TypeError, ValueError) as e:
+            raise WMLClientError(
+                "Invalid benchmark dataset schema: Unable to extract 'correct_answer_document_ids'. "
+                f"Each row must contain a list of document IDs. "
+                f"Error details: {e}"
+            ) from e
 
     @staticmethod
     def _build_asset_mapping(connections: list[DataConnection]) -> dict[str, str]:
@@ -139,21 +192,111 @@ class BaseDocumentsIterableDataset(IterableDataset):
             except DirectoryHasNoFilename:
                 raise FolderDownloadNotSupported()
 
+    @staticmethod
+    def _is_plain_filename(path: str) -> bool:
+        """Check if path is a plain filename without path separators.
+
+        :param path: The path to check
+        :type path: str
+
+        :return: True if path contains no path separators, False otherwise
+        :rtype: bool
+        """
+        return os.sep not in path and (os.altsep is None or os.altsep not in path)
+
+    def _match_benchmark_id(
+        self,
+        document_id: str,
+        benchmark_document_ids: list[str],
+    ) -> str | None:
+        """Match a document ID against benchmark IDs.
+
+        Tries exact match first, then falls back to filename matching for backward compatibility.
+
+        :param document_id: The document ID to match
+        :type document_id: str
+
+        :param benchmark_document_ids: List of benchmark document IDs
+        :type benchmark_document_ids: list[str]
+
+        :return: The matched benchmark ID, or None if no match
+        :rtype: str | None
+        """
+        # Try exact match first (new flow with full paths)
+        if document_id in benchmark_document_ids:
+            return document_id
+
+        # Fall back to filename matching (old flow - backward compatibility)
+        doc_basename = os.path.basename(document_id)
+        for benchmark_id in benchmark_document_ids:
+            # Check if benchmark_id is just a filename (no path separators)
+            if self._is_plain_filename(benchmark_id) and doc_basename == benchmark_id:
+                return benchmark_id
+
+        return None
+
     def _build_remote_documents(
         self,
         connections: list[DataConnection],
         include_subfolders: bool,
         data_asset_id_name_mapping: dict[str, str],
+        benchmark_document_ids: list[str],
     ) -> list[RemoteDocument]:
-        """Build list of remote documents from connections."""
-        return [
-            RemoteDocument(
-                connection=c,
-                document_id=self._resolve_document_id(c, data_asset_id_name_mapping),
-            )
-            for connection in connections
-            for c in connection._get_all_connections(recursive=include_subfolders)
-        ]
+        """Build list of remote documents from connections with benchmark ID matching.
+
+        :param connections: List of data connections
+        :type connections: list[DataConnection]
+
+        :param include_subfolders: Whether to include subfolders
+        :type include_subfolders: bool
+
+        :param data_asset_id_name_mapping: Mapping of asset IDs to filenames
+        :type data_asset_id_name_mapping: dict[str, str]
+
+        :param benchmark_document_ids: List of benchmark document IDs
+        :type benchmark_document_ids: list[str]
+
+        :return: List of RemoteDocument instances with benchmark IDs matched
+        :rtype: list[RemoteDocument]
+        """
+        remote_docs = []
+
+        # Track ambiguous matches for warnings
+        benchmark_filename_matches: dict[str, list[str]] = {}
+
+        for connection in connections:
+            for c in connection._get_all_connections(recursive=include_subfolders):
+                document_id = self._resolve_document_id(c, data_asset_id_name_mapping)
+                benchmark_id = self._match_benchmark_id(
+                    document_id, benchmark_document_ids
+                )
+
+                # Track filename matches for ambiguity warnings
+                if benchmark_id is not None and self._is_plain_filename(benchmark_id):
+                    if benchmark_id not in benchmark_filename_matches:
+                        benchmark_filename_matches[benchmark_id] = []
+                    benchmark_filename_matches[benchmark_id].append(document_id)
+
+                remote_docs.append(
+                    RemoteDocument(
+                        connection=c,
+                        document_id=document_id,
+                        benchmark_id=benchmark_id,
+                    )
+                )
+
+        # Log warnings for ambiguous filename matches
+        for benchmark_id, matched_paths in benchmark_filename_matches.items():
+            if len(matched_paths) > 1:
+                logger.warning(
+                    "Benchmark document ID '%s' matched multiple documents: "
+                    "%s. All matching documents will be included as benchmark documents. "
+                    "To avoid ambiguity, consider using full paths in benchmark_document_ids.",
+                    benchmark_id,
+                    matched_paths,
+                )
+
+        return remote_docs
 
     @staticmethod
     def _validate_unique_document_ids(remote_documents: list[RemoteDocument]) -> None:
@@ -194,83 +337,35 @@ class BaseDocumentsIterableDataset(IterableDataset):
                     and size_limit != DEFAULT_SAMPLE_SIZE_LIMIT
                 ):
                     raise InvalidSizeLimit(size_limit, max_tshirt_size_limit)
-                else:
-                    self.total_size_limit = min(size_limit, max_tshirt_size_limit)
+                self.total_size_limit = min(size_limit, max_tshirt_size_limit)
             else:
                 self.total_size_limit = size_limit
         else:
-            if size_limit == DEFAULT_SAMPLE_SIZE_LIMIT:
-                self.total_size_limit = None  # do not limit reading if sampling is disabled, we want read all data
-            else:
-                self.total_size_limit = size_limit
+            self.total_size_limit = (
+                None if size_limit == DEFAULT_SAMPLE_SIZE_LIMIT else size_limit
+            )
 
     @staticmethod
     def _docs_context_sampling(
         remote_documents: list[RemoteDocument],
-        benchmark_document_ids: list[str],
     ) -> list[RemoteDocument]:
-        """Randomly sample documents from the benchmark set, then randomly from the rest up to a `size_upper_bound`.
+        """Order documents with benchmark documents first, then non-benchmark documents.
 
-        :param remote_documents: documents to sample from
+        :param remote_documents: documents to sample from (with _benchmark_id already set)
         :type remote_documents: list[RemoteDocument]
 
-        :param benchmark_document_ids: IDs of documents from the benchmark dataset
-        :type benchmark_document_ids: list[str]
-
-        :return: list of sampled documents
+        :return: list of documents ordered with benchmark documents first
         :rtype: list[RemoteDocument]
         """
-        doc_basenames = {
-            doc.document_id: os.path.basename(doc.document_id)
-            for doc in remote_documents
-        }
+        benchmark: list[RemoteDocument] = []
+        non_benchmark: list[RemoteDocument] = []
+        for doc in remote_documents:
+            (benchmark if doc._benchmark_id is not None else non_benchmark).append(doc)
 
-        def _is_benchmark_document(
-            doc: RemoteDocument, benchmark_ids: list[str]
-        ) -> bool:
-            """Check if document matches any benchmark ID (exact match or filename match)."""
-            # Try exact match first (new flow with full paths)
-            if doc.document_id in benchmark_ids:
-                return True
+        shuffle(benchmark)
+        shuffle(non_benchmark)
 
-            # Fall back to filename matching (old flow - backward compatibility)
-            return doc_basenames[doc.document_id] in benchmark_ids
-
-        sampled_documents = []
-        benchmark_documents = [
-            doc
-            for doc in remote_documents
-            if _is_benchmark_document(doc, benchmark_document_ids)
-        ]
-        non_benchmark_documents = [
-            doc
-            for doc in remote_documents
-            if not _is_benchmark_document(doc, benchmark_document_ids)
-        ]
-
-        # Check for ambiguous filename matches and log warnings
-        for benchmark_id in benchmark_document_ids:
-            # If benchmark_id doesn't contain path separator, it might be just a filename
-            if os.sep not in benchmark_id and (
-                os.altsep is None or os.altsep not in benchmark_id
-            ):
-                matching_docs = [
-                    doc
-                    for doc in benchmark_documents
-                    if doc_basenames[doc.document_id] == benchmark_id
-                ]
-                if len(matching_docs) > 1:
-                    matched_paths = [doc.document_id for doc in matching_docs]
-                    logger.warning(
-                        f"Benchmark document ID '{benchmark_id}' matched multiple documents: "
-                        f"{matched_paths}. All matching documents will be included as benchmark documents. "
-                        f"To avoid ambiguity, consider using full paths in benchmark_document_ids."
-                    )
-
-        sampled_documents.extend(benchmark_documents)
-        sampled_documents.extend(non_benchmark_documents)
-
-        return sampled_documents
+        return benchmark + non_benchmark
 
     @staticmethod
     def _docs_random_sampling(
@@ -284,8 +379,6 @@ class BaseDocumentsIterableDataset(IterableDataset):
         :return: list of sampled documents
         :rtype: list[RemoteDocument]
         """
-        from random import shuffle
-
         sampling_order = list(range(len(remote_documents)))
         shuffle(sampling_order)
 
@@ -340,7 +433,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
                         exc = result
                         self.last_exception = exc
                         doc_id = sampled_docs[i].document_id
-                        logger.warning(f"Failed to download the file: `{doc_id}`")
+                        logger.warning("Failed to download the file: `%s`", doc_id)
                         if not isinstance(exc, Empty):
                             logger.warning(exc)
                         if self.error_callback:
@@ -357,32 +450,11 @@ class BaseDocumentsIterableDataset(IterableDataset):
             if self.sampling_type == DocumentsSamplingTypes.RANDOM:
                 sampled_docs = self._docs_random_sampling(self.remote_documents)
             elif self.sampling_type == DocumentsSamplingTypes.BENCHMARK_DRIVEN:
-                if self.benchmark_dataset is not None:
-                    try:
-                        benchmark_documents_ids = list(
-                            set(
-                                [
-                                    y
-                                    for x in self.benchmark_dataset[
-                                        "correct_answer_document_ids"
-                                    ].values
-                                    for y in x
-                                ]
-                            )
-                        )
-                    except TypeError as e:
-                        raise WMLClientError(
-                            "Unable to collect `correct_answer_document_ids` from the benchmark dataset, "
-                            f"due to invalid schema provided. Error: {e}"
-                        ) from e
-                else:
+                if self.benchmark_dataset is None:
                     raise ValueError(
                         "`benchmark_dataset` is mandatory for sample_type: DocumentsSamplingTypes.BENCHMARK_DRIVEN."
                     )
-
-                sampled_docs = self._docs_context_sampling(
-                    self.remote_documents, benchmark_documents_ids
-                )
+                sampled_docs = self._docs_context_sampling(self.remote_documents)
             else:
                 raise ValueError(
                     f"Unsupported documents sampling type: {self.sampling_type}"
@@ -390,13 +462,16 @@ class BaseDocumentsIterableDataset(IterableDataset):
         else:
             sampled_docs = copy(self.remote_documents)
 
-        if self.total_ndocs_limit is not None:
-            if len(sampled_docs) > self.total_ndocs_limit:
-                logger.info(
-                    "Documents sampled with total_ndocs_limit param, "
-                    + f"{len(sampled_docs[: self.total_ndocs_limit])} docs chosen "
-                    + f"from {len(sampled_docs)} possible."
-                )
+        if (
+            self.total_ndocs_limit is not None
+            and len(sampled_docs) > self.total_ndocs_limit
+        ):
+            logger.info(
+                "Documents sampled with total_ndocs_limit param, "
+                "%s docs chosen from %s possible.",
+                len(sampled_docs[: self.total_ndocs_limit]),
+                len(sampled_docs),
+            )
             sampled_docs = sampled_docs[: self.total_ndocs_limit]
 
         return sampled_docs

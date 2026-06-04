@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: kafka-python
-Version: 2.3.1
+Version: 2.3.2
 Summary: Pure Python client for Apache Kafka
 Author-email: Dana Powers <dana.powers@gmail.com>
 Project-URL: Homepage, https://github.com/dpkp/kafka-python

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"gettext", "importlib", "importlib.resources"}
+
 import locale
 
 # High performance method for English (no translation needed)
@@ -7,10 +9,12 @@ loc = locale.getlocale()[0]
 if loc is None or loc.startswith("en") or loc == "C":
 
     class NullTranslation:
+        __slots__ = ()
+
         def gettext(self, str1: str) -> str:  # pylint: disable=no-self-use
             return str1
 
-        def ngettext(self, str1, strN, n):  # pylint: disable=no-self-use
+        def ngettext(self, str1: str, strN: str, n: int) -> str:  # pylint: disable=no-self-use
             if n == 1:
                 return str1.replace("{0}", str(n))
 
@@ -45,3 +49,13 @@ else:
             return gettext.translation(
                 package_name, localedir=localedir, languages=[loc], fallback=True
             )
+
+
+__all__ = [
+    "get_translation_for",
+    "loc",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

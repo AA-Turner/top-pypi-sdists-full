@@ -13,6 +13,8 @@ Usage::
     from mypy_boto3_socialmessaging.client import EndUserMessagingSocialClient
     from mypy_boto3_socialmessaging.paginator import (
         ListLinkedWhatsAppBusinessAccountsPaginator,
+        ListWhatsAppFlowAssetsPaginator,
+        ListWhatsAppFlowsPaginator,
         ListWhatsAppMessageTemplatesPaginator,
         ListWhatsAppTemplateLibraryPaginator,
     )
@@ -21,6 +23,8 @@ Usage::
     client: EndUserMessagingSocialClient = session.client("socialmessaging")
 
     list_linked_whatsapp_business_accounts_paginator: ListLinkedWhatsAppBusinessAccountsPaginator = client.get_paginator("list_linked_whatsapp_business_accounts")
+    list_whatsapp_flow_assets_paginator: ListWhatsAppFlowAssetsPaginator = client.get_paginator("list_whatsapp_flow_assets")
+    list_whatsapp_flows_paginator: ListWhatsAppFlowsPaginator = client.get_paginator("list_whatsapp_flows")
     list_whatsapp_message_templates_paginator: ListWhatsAppMessageTemplatesPaginator = client.get_paginator("list_whatsapp_message_templates")
     list_whatsapp_template_library_paginator: ListWhatsAppTemplateLibraryPaginator = client.get_paginator("list_whatsapp_template_library")
     ```
@@ -36,6 +40,10 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     ListLinkedWhatsAppBusinessAccountsInputPaginateTypeDef,
     ListLinkedWhatsAppBusinessAccountsOutputTypeDef,
+    ListWhatsAppFlowAssetsInputPaginateTypeDef,
+    ListWhatsAppFlowAssetsOutputTypeDef,
+    ListWhatsAppFlowsInputPaginateTypeDef,
+    ListWhatsAppFlowsOutputTypeDef,
     ListWhatsAppMessageTemplatesInputPaginateTypeDef,
     ListWhatsAppMessageTemplatesOutputTypeDef,
     ListWhatsAppTemplateLibraryInputPaginateTypeDef,
@@ -49,6 +57,8 @@ else:
 
 __all__ = (
     "ListLinkedWhatsAppBusinessAccountsPaginator",
+    "ListWhatsAppFlowAssetsPaginator",
+    "ListWhatsAppFlowsPaginator",
     "ListWhatsAppMessageTemplatesPaginator",
     "ListWhatsAppTemplateLibraryPaginator",
 )
@@ -71,6 +81,42 @@ class ListLinkedWhatsAppBusinessAccountsPaginator(_ListLinkedWhatsAppBusinessAcc
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/paginator/ListLinkedWhatsAppBusinessAccounts.html#EndUserMessagingSocial.Paginator.ListLinkedWhatsAppBusinessAccounts.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/paginators/#listlinkedwhatsappbusinessaccountspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListWhatsAppFlowAssetsPaginatorBase = Paginator[ListWhatsAppFlowAssetsOutputTypeDef]
+else:
+    _ListWhatsAppFlowAssetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListWhatsAppFlowAssetsPaginator(_ListWhatsAppFlowAssetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/paginator/ListWhatsAppFlowAssets.html#EndUserMessagingSocial.Paginator.ListWhatsAppFlowAssets)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/paginators/#listwhatsappflowassetspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListWhatsAppFlowAssetsInputPaginateTypeDef]
+    ) -> PageIterator[ListWhatsAppFlowAssetsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/paginator/ListWhatsAppFlowAssets.html#EndUserMessagingSocial.Paginator.ListWhatsAppFlowAssets.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/paginators/#listwhatsappflowassetspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListWhatsAppFlowsPaginatorBase = Paginator[ListWhatsAppFlowsOutputTypeDef]
+else:
+    _ListWhatsAppFlowsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListWhatsAppFlowsPaginator(_ListWhatsAppFlowsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/paginator/ListWhatsAppFlows.html#EndUserMessagingSocial.Paginator.ListWhatsAppFlows)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/paginators/#listwhatsappflowspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListWhatsAppFlowsInputPaginateTypeDef]
+    ) -> PageIterator[ListWhatsAppFlowsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/paginator/ListWhatsAppFlows.html#EndUserMessagingSocial.Paginator.ListWhatsAppFlows.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/paginators/#listwhatsappflowspaginator)
         """
 
 if TYPE_CHECKING:

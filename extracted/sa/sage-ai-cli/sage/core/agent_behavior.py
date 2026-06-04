@@ -13,6 +13,9 @@ This is the main entry point for the fixed SAGE behavior.
 
 from __future__ import annotations
 
+import re
+import logging
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -105,9 +108,57 @@ class AgentBehaviorController:
         self.response_validator = ResponseQualityValidator()
         self.tool_heuristics = ToolSelectionHeuristics()
 
+        # Register tool handlers
+        self._register_handlers()
+
         # Current state
         self.state: AgentState | None = None
         self.context: ConversationContext | None = None
+
+    def _register_handlers(self) -> None:
+        """Register handlers for all tool types."""
+        self.tool_executor.register_handler(ToolType.WRITE, self._handle_write)
+        self.tool_executor.register_handler(ToolType.RUN, self._handle_run)
+        self.tool_executor.register_handler(ToolType.SEARCH, self._handle_search)
+
+    def _handle_write(self, call: ToolCall) -> str:
+        """Handle WRITE tool by writing to filesystem."""
+        path = call.command.strip()
+        content = call.args.get("content", "")
+        
+        if not content and "\n" in path:
+            path, content = path.split("\n", 1)
+            path = path.strip()
+            
+        full_path = self.base_dir / path if not Path(path).is_absolute() else Path(path)
+        full_path = full_path.resolve()
+        
+        # Ensure directories exist
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write file
+        full_path.write_text(content, encoding="utf-8")
+        
+        if not full_path.exists():
+            return f"Error: Failed to create file at {full_path}"
+            
+        self.record_file_modification(path)
+        return f"Successfully wrote {len(content)} bytes to {full_path}"
+
+    def _handle_run(self, call: ToolCall) -> str:
+        """Handle RUN tool by executing shell command."""
+        from sage.core.commands import execute_command
+        # Allow shell=True for better flexibility in agent-generated scripts
+        result = execute_command(call.command, cwd=self.base_dir, allow_shell=True)
+        if result.success:
+            return result.stdout + (f"\n[stderr]\n{result.stderr}" if result.stderr else "")
+        else:
+            return f"Error ({result.returncode}):\n{result.stderr}\n{result.stdout}"
+
+    def _handle_search(self, call: ToolCall) -> str:
+        """Handle SEARCH tool using the search executor."""
+        response = self.search_executor.execute(call.command)
+        return self.search_executor.format_results(response)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # SESSION MANAGEMENT
@@ -322,9 +373,11 @@ class AgentBehaviorController:
     # TOOL OPERATIONS
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def execute_tool(self, tool_type: ToolType, command: str) -> ToolCall:
+    def execute_tool(
+        self, tool_type: ToolType, command: str, args: dict[str, Any] | None = None
+    ) -> ToolCall:
         """Execute a tool and track it."""
-        call = ToolCall(tool_type=tool_type, command=command)
+        call = ToolCall(tool_type=tool_type, command=command, args=args or {})
         result = self.tool_executor.execute(call)
 
         self.state.tools_executed.append(result)

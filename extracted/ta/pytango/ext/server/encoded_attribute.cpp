@@ -13,13 +13,12 @@ bool IS_BIGENDIAN() {
 }
 
 namespace PyEncodedAttribute {
-void encode_image(
-    Tango::EncodedAttribute &self,
-    py::object py_value,
-    int &w,
-    int &h,
-    EncodingType encoding,
-    double quality = 0.0 // Default value for quality (only used for JPEG encodings)
+void encode_image(Tango::EncodedAttribute &self,
+                  py::object py_value,
+                  int &w,
+                  int &h,
+                  EncodingType encoding,
+                  double quality = 0.0 // Default value for quality (only used for JPEG encodings)
 ) {
     switch(encoding) {
     case EncodingType::GRAY8:
@@ -162,7 +161,8 @@ void encode_image(
                 py::object cell_obj = row_seq[x];
                 if(py::isinstance<py::bytes>(cell_obj)) {
                     py::bytes cell_bytes = cell_obj.cast<py::bytes>();
-                    if((encoding == EncodingType::RGB24 || encoding == EncodingType::JPEG_RGB24) && py::len(cell_bytes) != 3) {
+                    if((encoding == EncodingType::RGB24 || encoding == EncodingType::JPEG_RGB24) &&
+                       py::len(cell_bytes) != 3) {
                         throw py::type_error("All byte items must have length three for RGB24 encodings");
                     } else if(encoding == EncodingType::JPEG_RGB32 && py::len(cell_bytes) != 4) {
                         throw py::type_error("All byte items must have length four for JPEG_RGB32 encodings");
@@ -258,11 +258,10 @@ void encode_image(
     }
 }
 
-py::object decode_image(
-    Tango::EncodedAttribute &self,
-    Tango::DeviceAttribute *attr,
-    PyTango::ExtractAs extract_as,
-    EncodingType decode_type) {
+py::object decode_image(Tango::EncodedAttribute &self,
+                        Tango::DeviceAttribute *attr,
+                        PyTango::ExtractAs extract_as,
+                        EncodingType decode_type) {
     py::object ret;
 
     switch(decode_type) {
@@ -529,9 +528,7 @@ py::object decode_image(
 void export_encoded_attribute(py::module &m) {
     py::class_<Tango::EncodedAttribute>(m, "EncodedAttribute")
         .def(py::init<>())
-        .def(py::init<int, bool>(),
-             py::arg("buf_pool_size"),
-             py::arg("serialization") = false)
+        .def(py::init<int, bool>(), py::arg("buf_pool_size"), py::arg("serialization") = false)
         .def("_encode_gray8",
              [](Tango::EncodedAttribute &self, py::object py_value, int w, int h) {
                  PyEncodedAttribute::encode_image(self, py_value, w, h, EncodingType::GRAY8);

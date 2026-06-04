@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: infrared-protocols
-Version: 5.8.1
+Version: 6.0.0
 Summary: Library to decode and encode infrared signals.
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/home-assistant-libs/infrared-protocols
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.13.0
+Requires-Python: >=3.14.2
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev

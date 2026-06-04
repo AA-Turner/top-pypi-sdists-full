@@ -30,16 +30,16 @@ from tango import (
     AttributeInfoList,
     AttributeInfoListEx,
     AttrWriteType,
+    DevFailed,
     DeviceInfo,
     DeviceProxy,
-    DevFailed,
+    EventSubMode,
     EventType,
     ExtractAs,
     GreenMode,
     Group,
     PyTangoUserWarning,
     constants,
-    EventSubMode,
 )
 from tango.constants import AllAttr
 from tango.server import Device, attribute, command
@@ -52,10 +52,10 @@ from tango.test_utils import (
 )
 from tango.utils import (
     EventCallback,
-    is_str_type,
-    is_int_type,
-    is_float_type,
     is_bool_type,
+    is_float_type,
+    is_int_type,
+    is_str_type,
 )
 
 ATTRIBUTES = [
@@ -95,6 +95,8 @@ ATTRIBUTES = [
     "long_scalar",
     "long_scalar_rww",
     "long_scalar_w",
+    "long_scalar_ts_future",
+    "long_scalar_ts_past",
     "long_spectrum",
     "long_spectrum_ro",
     "no_value",
@@ -131,17 +133,19 @@ ATTRIBUTES = [
     "wave",
 ]
 
-WRITABLE_SCALAR_ATTRIBUTES = [
-    a for a in ATTRIBUTES if "scalar" in a and a.split("_")[-1] not in ("ro", "rww")
-]
-WRITABLE_SPECTRUM_ATTRIBUTES = [
-    a for a in ATTRIBUTES if "spectrum" in a and a.split("_")[-1] not in ("ro", "rww")
-]
+WRITABLE_SCALAR_ATTRIBUTES = [a for a in ATTRIBUTES if "scalar" in a and a.split("_")[-1] not in ("ro", "rww")]
+WRITABLE_SPECTRUM_ATTRIBUTES = [a for a in ATTRIBUTES if "spectrum" in a and a.split("_")[-1] not in ("ro", "rww")]
 
 TEST_DOUBLE_ATTRIBUTES = (
     ("double_scalar_w", -28.2),
     ("double_spectrum", [-28.2, 23.4]),
     ("double_image", [[-28.2, 23.4], [-4.9, 6.5]]),
+)
+
+TEST_DOUBLE_ATTRIBUTES_2 = (
+    ("double_scalar_w", 28.2),
+    ("double_spectrum", [28.2, -23.4]),
+    ("double_image", [[28.2, -23.4], [4.9, -6.5]]),
 )
 
 # Helpers
@@ -162,9 +166,7 @@ def attributes(request):
     return request.param
 
 
-@pytest.fixture(
-    params=[a for a in ATTRIBUTES if a not in ("no_value", "throw_exception")]
-)
+@pytest.fixture(params=[a for a in ATTRIBUTES if a not in ("no_value", "throw_exception")])
 def readable_attribute(request):
     return request.param
 
@@ -233,12 +235,23 @@ def test_read_write_attribute_with_green_modes(tango_test_with_green_modes):
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
 
+    for attr_name, write_value in TEST_DOUBLE_ATTRIBUTES_2:
+        read_attr = tango_test_with_green_modes.write_read_attribute(attr_name, write_value, wait=True)
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
 
 def test_read_write_attribute_with_attr_info(tango_test):
     for attr_name, write_value in TEST_DOUBLE_ATTRIBUTES:
         attr_info = tango_test.get_attribute_config(attr_name, wait=True)
         tango_test.write_attribute(attr_info, write_value, wait=True)
         read_attr = tango_test.read_attribute(attr_name, wait=True)
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+    for attr_name, write_value in TEST_DOUBLE_ATTRIBUTES_2:
+        attr_info = tango_test.get_attribute_config(attr_name, wait=True)
+        read_attr = tango_test.write_read_attribute(attr_info, write_value, wait=True)
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
 
@@ -250,7 +263,13 @@ def test_read_write_attributes_with_green_modes(tango_test_with_green_modes):
     tango_test_with_green_modes.write_attributes(TEST_DOUBLE_ATTRIBUTES, wait=True)
     attr_names = [name for name, _ in TEST_DOUBLE_ATTRIBUTES]
     read_attrs = tango_test_with_green_modes.read_attributes(attr_names, wait=True)
-    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs, strict=True):
+        assert read_attr.name == attr_name
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+    read_attrs = tango_test_with_green_modes.write_read_attributes(TEST_DOUBLE_ATTRIBUTES_2, attr_names, wait=True)
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES_2, read_attrs, strict=True):
         assert read_attr.name == attr_name
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
@@ -261,13 +280,22 @@ def test_read_write_attributes_with_attr_info(tango_test):
     attr_infos = tango_test.get_attribute_config_ex(attr_names)
 
     value_to_write = [
-        (attr_info, value)
-        for (attr_info, (_, value)) in zip(attr_infos, TEST_DOUBLE_ATTRIBUTES)
+        (attr_info, value) for (attr_info, (_, value)) in zip(attr_infos, TEST_DOUBLE_ATTRIBUTES, strict=True)
     ]
 
     tango_test.write_attributes(value_to_write, wait=True)
     read_attrs = tango_test.read_attributes(attr_names, wait=True)
-    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs, strict=True):
+        assert read_attr.name == attr_name
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+    value_to_write = [
+        (attr_info, value) for (attr_info, (_, value)) in zip(attr_infos, TEST_DOUBLE_ATTRIBUTES_2, strict=True)
+    ]
+
+    read_attrs = tango_test.write_read_attributes(value_to_write, attr_names, wait=True)
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES_2, read_attrs, strict=True):
         assert read_attr.name == attr_name
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
@@ -290,7 +318,7 @@ def test_read_write_attributes_different_sequences(tango_test, sequence_type):
 
     tango_test.write_attributes(attr_names_values, wait=True)
     read_attrs = tango_test.read_attributes(attr_names, wait=True)
-    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs, strict=True):
         assert read_attr.name == attr_name
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
@@ -301,10 +329,8 @@ def test_write_read_attributes_with_green_modes(tango_test_with_green_modes):
     Check write and read multiple attributes in a single call with all green modes
     """
     attr_names = [name for name, _ in TEST_DOUBLE_ATTRIBUTES]
-    read_attrs = tango_test_with_green_modes.write_read_attributes(
-        TEST_DOUBLE_ATTRIBUTES, attr_names, wait=True
-    )
-    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+    read_attrs = tango_test_with_green_modes.write_read_attributes(TEST_DOUBLE_ATTRIBUTES, attr_names, wait=True)
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs, strict=True):
         assert read_attr.name == attr_name
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
@@ -314,7 +340,7 @@ def test_write_read_attributes_with_green_modes(tango_test_with_green_modes):
 async def test_high_level_api_for_asyncio(tango_test):
     tango_test.set_green_mode(GreenMode.Asyncio)
     _ = await tango_test.long_scalar
-    _ = await getattr(tango_test, "long_scalar")
+    _ = await tango_test.long_scalar
     _ = await tango_test["long_scalar"]
 
 
@@ -334,9 +360,7 @@ def test_write_scalar_attribute(tango_test, writable_scalar_attribute):
         pytest.xfail("Not currently testing this type")
 
 
-def test_write_read_spectrum_attribute(
-    tango_test, writable_spectrum_attribute, extract_as
-):
+def test_write_read_spectrum_attribute(tango_test, writable_spectrum_attribute, extract_as):
     "Check that writable spectrum attributes can be written and read"
     requested_type, expected_type = extract_as
     attr_name = writable_spectrum_attribute
@@ -346,19 +370,14 @@ def test_write_read_spectrum_attribute(
     elif is_int_type(config.data_type):
         write_values = [76, 77]
     elif is_float_type(config.data_type):
-        if requested_type == ExtractAs.String:
-            # it is hard to find a proper float values, which can be converted to str,
-            # most of them case UnicodeDecodeError, so we use the most simple one
-            write_values = [0, 0]
-        else:
-            write_values = [-28.2, 44.3]
+        # When extracting as String, finding float values convertible to str is hard
+        # (most cause UnicodeDecodeError), so use the simplest values.
+        write_values = [0, 0] if requested_type == ExtractAs.String else [-28.2, 44.3]
     elif is_str_type(config.data_type):
         if requested_type == ExtractAs.Numpy:
             expected_type = tuple
         if requested_type in [ExtractAs.ByteArray, ExtractAs.Bytes, ExtractAs.String]:
-            pytest.xfail(
-                "Conversion from (str,) to ByteArray, Bytes and String not supported. May be fixed in future"
-            )
+            pytest.xfail("Conversion from (str,) to ByteArray, Bytes and String not supported. May be fixed in future")
         write_values = ["hello", "hola"]
     else:
         pytest.xfail("Not currently testing this type")
@@ -367,9 +386,7 @@ def test_write_read_spectrum_attribute(
     read_attr = tango_test.read_attribute(attr_name, extract_as=requested_type)
 
     assert isinstance(read_attr.value, expected_type)
-    assert_close(
-        read_attr.value, convert_to_type(write_values, config.data_type, expected_type)
-    )
+    assert_close(read_attr.value, convert_to_type(write_values, config.data_type, expected_type))
 
     assert isinstance(read_attr.w_value, expected_type)
     assert_close(
@@ -383,9 +400,7 @@ def test_write_read_empty_spectrum_attribute(tango_test, writable_spectrum_attri
     attr_name = writable_spectrum_attribute
     config = tango_test.get_attribute_config(attr_name, wait=True)
     if is_str_type(config.data_type):
-        pytest.xfail(
-            "Conversion from (str,) to numpy not supported. Probably, may be fixed in future"
-        )
+        pytest.xfail("Conversion from (str,) to numpy not supported. Probably, may be fixed in future")
 
     tango_test.write_attribute(attr_name, [], wait=True)
     read_attr = tango_test.read_attribute(attr_name, wait=True)
@@ -419,19 +434,19 @@ def test_write_read_string_attribute(tango_test):
         str_big,
     ]
 
-    for value, expected_value in zip(values, expected_values):
+    for value, expected_value in zip(values, expected_values, strict=True):
         tango_test.write_attribute(attr_name, value, wait=True)
         result = tango_test.read_attribute(attr_name, wait=True)
         assert result.value == expected_value
 
     attr_name = "string_spectrum"
-    for value, expected_value in zip(values, expected_values):
+    for value, expected_value in zip(values, expected_values, strict=True):
         tango_test.write_attribute(attr_name, ["", value, ""], wait=True)
         result = tango_test.read_attribute(attr_name, wait=True)
         assert result.value[1] == expected_value
 
     attr_name = "string_image"
-    for value, expected_value in zip(values, expected_values):
+    for value, expected_value in zip(values, expected_values, strict=True):
         tango_test.write_attribute(attr_name, [[value], [value]], wait=True)
         result = tango_test.read_attribute(attr_name, wait=True)
         assert result.value == ((expected_value,), (expected_value,))
@@ -484,7 +499,7 @@ def test_dynamic_interface_unfreeze_generates_a_user_warning(tango_test):
 def test_get_attribute_config(tango_test):
     all_conf = tango_test.get_attribute_config(ATTRIBUTES)
     assert len(all_conf) == len(ATTRIBUTES)
-    assert set([conf.name for conf in all_conf]) == set(ATTRIBUTES)
+    assert {conf.name for conf in all_conf} == set(ATTRIBUTES)
 
     for attr in ATTRIBUTES:
         tango_test.get_attribute_config(attr)
@@ -492,7 +507,6 @@ def test_get_attribute_config(tango_test):
 
 def test_get_attribute_config_ex():
     class TestDevice(Device):
-
         @attribute(dtype=int, unit="mA")
         def attr_config_int(self):
             return 1
@@ -514,15 +528,13 @@ def test_get_attribute_config_ex():
         ac1 = dev_proxy.get_attribute_config_ex("attr_config_int")
         ac2 = dev_proxy.get_attribute_config_ex("attr_config_bool")
         acs = dev_proxy.get_attribute_config_ex(("attr_config_int", "attr_config_bool"))
-        acs_2 = dev_proxy.get_attribute_config_ex(
-            ["attr_config_int", "attr_config_bool"]
-        )
+        acs_2 = dev_proxy.get_attribute_config_ex(["attr_config_int", "attr_config_bool"])
 
         acs_all = dev_proxy.get_attribute_config_ex(AllAttr)
 
-        assert repr(ac1[0]) == repr(acs[0]) == repr(acs_2[0]) == repr(
-            acs_all[0]
-        ) and repr(ac2[0]) == repr(acs[1]) == repr(acs_2[1]) == repr(acs_all[1])
+        assert repr(ac1[0]) == repr(acs[0]) == repr(acs_2[0]) == repr(acs_all[0]) and repr(ac2[0]) == repr(
+            acs[1]
+        ) == repr(acs_2[1]) == repr(acs_all[1])
 
     with DeviceTestContext(TestDevice) as proxy:
         assert_attr_config_ok(proxy)
@@ -531,7 +543,6 @@ def test_get_attribute_config_ex():
 
 def test_set_attribute_config():
     class TestDevice(Device):
-
         @attribute(dtype=int, unit="mA")
         def attr_config(self):
             return 1
@@ -652,20 +663,18 @@ def test_command_string(tango_test):
         str_big,
     ]
 
-    for value, expected_value in zip(values, expected_values):
+    for value, expected_value in zip(values, expected_values, strict=True):
         result = tango_test.command_inout(cmd_name, value, wait=True)
         assert result == expected_value
 
     cmd_name = "DevVarStringArray"
-    for value, expected_value in zip(values, expected_values):
+    for value, expected_value in zip(values, expected_values, strict=True):
         result = tango_test.command_inout(cmd_name, [value, value], wait=True)
         assert result == [expected_value, expected_value]
 
     cmd_name = "DevVarLongStringArray"
-    for value, expected_value in zip(values, expected_values):
-        result = tango_test.command_inout(
-            cmd_name, [[-10, 200], [value, value]], wait=True
-        )
+    for value, expected_value in zip(values, expected_values, strict=True):
+        result = tango_test.command_inout(cmd_name, [[-10, 200], [value, value]], wait=True)
         assert len(result) == 2
         assert_close(result[0], [-10, 200])
         assert_close(result[1], [expected_value, expected_value])
@@ -701,9 +710,7 @@ def test_repr_default_if_info_unavailable(green_mode_device_proxy, simple_device
     assert repr(proxy) == "Device(test/nodb/testdevice)"
 
 
-def test_multiple_repr_calls_only_call_info_once(
-    green_mode_device_proxy, simple_device_fqdn
-):
+def test_multiple_repr_calls_only_call_info_once(green_mode_device_proxy, simple_device_fqdn):
     proxy = green_mode_device_proxy(simple_device_fqdn)
 
     def mock_info(self):
@@ -771,9 +778,7 @@ def device_proxy_lifecycle(device_trl):
 
 @pytest.mark.extra_src_test
 @pytest.mark.parametrize("subject", [group_client_lifecycle, device_proxy_lifecycle])
-def test_client_destructor_does_not_deadlock(
-    tango_test_process_device_trl_with_function_scope, subject
-):
+def test_client_destructor_does_not_deadlock(tango_test_process_device_trl_with_function_scope, subject):
     proc, device_trl = tango_test_process_device_trl_with_function_scope
 
     # Create client to be run in a subprocess.
@@ -829,9 +834,7 @@ def continuously_call_subject_during_not_connected_event(
     cb = EventCallback()
     proxy = DeviceProxy(device_trl)
     proxy_created.set()
-    eid = proxy.subscribe_event(
-        "boolean_scalar", EventType.CHANGE_EVENT, cb, sub_mode=EventSubMode.Stateless
-    )
+    eid = proxy.subscribe_event("boolean_scalar", EventType.CHANGE_EVENT, cb, sub_mode=EventSubMode.Stateless)
     assert eid > 0
 
     # wait for Tango device server to be terminated by parent
@@ -874,9 +877,12 @@ def uninitialized_dev_proxy():
         DeviceProxy("not/existing/device")
     except DevFailed:
         traceback = sys.exc_info()[2]
-        for v in traceback.tb_next.tb_frame.f_locals.values():
-            if isinstance(v, DeviceProxy):
-                proxy_instance = v
+        while traceback is not None and proxy_instance is None:
+            for v in traceback.tb_frame.f_locals.values():
+                if isinstance(v, DeviceProxy):
+                    proxy_instance = v
+                    break
+            traceback = traceback.tb_next
 
     assert proxy_instance is not None
     yield proxy_instance
@@ -897,10 +903,10 @@ def test_dunder_methods_on_failed_device_proxy_do_not_crash(uninitialized_dev_pr
         dir(uninitialized_dev_proxy)
 
     with pytest.raises(RuntimeError, match="not fully initialized"):
-        getattr(uninitialized_dev_proxy, "dummy")
+        _ = uninitialized_dev_proxy.dummy
 
     with pytest.raises(RuntimeError, match="not fully initialized"):
-        setattr(uninitialized_dev_proxy, "dummy", 123)
+        uninitialized_dev_proxy.dummy = 123
 
     with pytest.raises(RuntimeError, match="not fully initialized"):
         _ = uninitialized_dev_proxy["dummy"]
@@ -917,7 +923,6 @@ def test_dunder_methods_on_failed_device_proxy_do_not_crash(uninitialized_dev_pr
 
 def test_getattr_does_not_raise_for_removed_attribute():
     class TestDevice(Device):
-
         def initialize_dynamic_attributes(self):
             attr = attribute(
                 name="dyn_attr",
@@ -937,3 +942,29 @@ def test_getattr_does_not_raise_for_removed_attribute():
         assert hasattr(proxy, "dyn_attr")
         proxy.delete_attr()
         assert not hasattr(proxy, "dyn_attr")
+
+
+def test_structures_equality(tango_test):
+    # test AttributeInfo
+    ac1, ac2, ac3 = tango_test.get_attribute_config(["double_scalar", "double_scalar", "float_scalar"])
+    assert ac1 == ac2
+    assert ac1 != ac3
+
+    # test AttributeInfoEx
+    acx1, acx2, acx3 = tango_test.get_attribute_config_ex(["double_scalar", "double_scalar", "float_scalar"])
+    assert acx1 == acx2
+    assert acx1 != acx3
+
+    acx3.alarms.max_alarm = "1000"
+    # test AttributeAlarmInfo
+    assert acx1.alarms == acx2.alarms
+    assert acx1.alarms != acx3.alarms
+
+    acx3.events.per_event.period = "2000"
+    # test AttributeEventInfo
+    assert acx1.events == acx2.events
+    assert acx1.events != acx3.events
+
+    ci1, ci2, ci3 = tango_test.get_command_config(["State", "State", "Status"])
+    assert ci1 == ci2
+    assert ci1 != ci3

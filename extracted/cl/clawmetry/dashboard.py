@@ -97,6 +97,7 @@ from helpers.gateway import (  # noqa: F401 — re-export for routes/
 )
 from routes.usage import bp_usage
 from routes.crons import bp_crons
+from routes.harness import bp_harness
 from routes.health import bp_health
 from routes.alerts import bp_alerts, bp_budget
 from routes.channels import bp_channels
@@ -129,6 +130,7 @@ from routes.tool_catalog import bp_tool_catalog
 from routes.context_economics import bp_context_economics
 from routes.entitlement import bp_entitlement
 from routes.otel_export import bp_otel_export
+from routes.device import bp_device
 from routes.runtime_ingest import bp_runtime_ingest
 from routes.audit import bp_audit
 from routes.sla import bp_sla
@@ -154,13 +156,15 @@ _HAS_OTEL_PROTO = False
 try:
     from opentelemetry.proto.collector.metrics.v1 import metrics_service_pb2
     from opentelemetry.proto.collector.trace.v1 import trace_service_pb2
+    from opentelemetry.proto.collector.logs.v1 import logs_service_pb2
 
     _HAS_OTEL_PROTO = True
 except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
+    logs_service_pb2 = None
 
-__version__ = "0.12.418"
+__version__ = "0.12.439"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -2479,6 +2483,40 @@ def _process_otlp_traces(pb_data):
                         },
                     )
 
+                # Generic cost/token mapping from span ATTRIBUTES. Codex (and
+                # OTel-instrumented agents) emit cost/token telemetry on spans
+                # like ``codex.api_request`` — without this they persist to the
+                # spans table but never light the cost/usage tiles. OpenClaw cost
+                # arrives via the /v1/metrics path (openclaw.cost.usd), not span
+                # attrs, so this doesn't double-count. Same shape as /v1/logs
+                # (#2591).
+                _sc = attrs.get("cost_usd") or attrs.get("cost.usd") or attrs.get("cost")
+                if _sc is not None:
+                    try:
+                        _add_metric("cost", {
+                            "timestamp": ts, "usd": float(_sc),
+                            "model": attrs.get("model", resource_attrs.get("model", "")),
+                            "channel": attrs.get("channel", resource_attrs.get("channel", "")),
+                            "provider": attrs.get("provider", resource_attrs.get("provider", "")),
+                        })
+                    except (TypeError, ValueError):
+                        pass
+                _si = (attrs.get("input_tokens") or attrs.get("tokens.input")
+                       or attrs.get("prompt_tokens"))
+                _so = (attrs.get("output_tokens") or attrs.get("tokens.output")
+                       or attrs.get("completion_tokens"))
+                if _si is not None or _so is not None:
+                    try:
+                        _i, _o = int(_si or 0), int(_so or 0)
+                        _add_metric("tokens", {
+                            "timestamp": ts, "input": _i, "output": _o, "total": _i + _o,
+                            "model": attrs.get("model", resource_attrs.get("model", "")),
+                            "channel": attrs.get("channel", resource_attrs.get("channel", "")),
+                            "provider": attrs.get("provider", resource_attrs.get("provider", "")),
+                        })
+                    except (TypeError, ValueError):
+                        pass
+
                 # DuckDB write-through. Failures here are logged but do not
                 # break the metrics cache path above (which is what the
                 # live tiles read from). Idempotent on span_id — OTLP
@@ -2494,6 +2532,76 @@ def _process_otlp_traces(pb_data):
                             )
                         except Exception:
                             pass
+
+
+def _process_otlp_logs(pb_data):
+    """Decode OTLP logs protobuf and ingest agent EVENT records (#2596).
+
+    Claude Code (and other runtimes) export their per-turn event stream as OTel
+    *logs* — ``event_name`` like ``claude_code.api_request`` / ``tool_decision``
+    with cost/token/model attributes — not just metrics/traces, so an OTel-
+    configured install gives signal we previously dropped. We map any log record
+    carrying cost or token attributes into the same metrics cache categories as
+    /v1/metrics (cost / tokens / runs), so the cost + usage tiles light up.
+    Best-effort: a bad record never breaks the batch.
+    """
+    req = logs_service_pb2.ExportLogsServiceRequest()
+    req.ParseFromString(pb_data)
+
+    def _f(attrs, *keys):
+        for k in keys:
+            if k in attrs and attrs[k] not in (None, ""):
+                return attrs[k]
+        return None
+
+    for resource_logs in req.resource_logs:
+        resource_attrs = {}
+        if resource_logs.resource:
+            for attr in resource_logs.resource.attributes:
+                resource_attrs[attr.key] = _otel_attr_value(attr.value)
+
+        for scope_logs in resource_logs.scope_logs:
+            for rec in scope_logs.log_records:
+                attrs = {}
+                for attr in rec.attributes:
+                    attrs[attr.key] = _otel_attr_value(attr.value)
+                ts = time.time()
+                model = _f(attrs, "model") or resource_attrs.get("model", "")
+                channel = _f(attrs, "channel") or resource_attrs.get("channel", "")
+                provider = _f(attrs, "provider") or resource_attrs.get("provider", "")
+
+                cost = _f(attrs, "cost_usd", "cost.usd", "cost")
+                if cost is not None:
+                    try:
+                        _add_metric("cost", {
+                            "timestamp": ts, "usd": float(cost),
+                            "model": model, "channel": channel, "provider": provider,
+                        })
+                    except (TypeError, ValueError):
+                        pass
+
+                itok = _f(attrs, "input_tokens", "tokens.input", "prompt_tokens")
+                otok = _f(attrs, "output_tokens", "tokens.output", "completion_tokens")
+                if itok is not None or otok is not None:
+                    try:
+                        i, o = int(itok or 0), int(otok or 0)
+                        _add_metric("tokens", {
+                            "timestamp": ts, "input": i, "output": o, "total": i + o,
+                            "model": model, "channel": channel, "provider": provider,
+                        })
+                    except (TypeError, ValueError):
+                        pass
+
+                dur = _f(attrs, "duration_ms", "duration.ms")
+                ev = (getattr(rec, "event_name", "") or "").lower()
+                if dur is not None and any(k in ev for k in ("request", "run", "completion")):
+                    try:
+                        _add_metric("runs", {
+                            "timestamp": ts, "duration_ms": float(dur),
+                            "model": model, "channel": channel,
+                        })
+                    except (TypeError, ValueError):
+                        pass
 
 
 def _get_otel_usage_data():
@@ -8119,11 +8227,13 @@ _HAS_OTEL_PROTO = False
 try:
     from opentelemetry.proto.collector.metrics.v1 import metrics_service_pb2
     from opentelemetry.proto.collector.trace.v1 import trace_service_pb2
+    from opentelemetry.proto.collector.logs.v1 import logs_service_pb2
 
     _HAS_OTEL_PROTO = True
 except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
+    logs_service_pb2 = None
 
 
 app = Flask(
@@ -10450,6 +10560,40 @@ def _process_otlp_traces(pb_data):
                         },
                     )
 
+                # Generic cost/token mapping from span ATTRIBUTES. Codex (and
+                # OTel-instrumented agents) emit cost/token telemetry on spans
+                # like ``codex.api_request`` — without this they persist to the
+                # spans table but never light the cost/usage tiles. OpenClaw cost
+                # arrives via the /v1/metrics path (openclaw.cost.usd), not span
+                # attrs, so this doesn't double-count. Same shape as /v1/logs
+                # (#2591).
+                _sc = attrs.get("cost_usd") or attrs.get("cost.usd") or attrs.get("cost")
+                if _sc is not None:
+                    try:
+                        _add_metric("cost", {
+                            "timestamp": ts, "usd": float(_sc),
+                            "model": attrs.get("model", resource_attrs.get("model", "")),
+                            "channel": attrs.get("channel", resource_attrs.get("channel", "")),
+                            "provider": attrs.get("provider", resource_attrs.get("provider", "")),
+                        })
+                    except (TypeError, ValueError):
+                        pass
+                _si = (attrs.get("input_tokens") or attrs.get("tokens.input")
+                       or attrs.get("prompt_tokens"))
+                _so = (attrs.get("output_tokens") or attrs.get("tokens.output")
+                       or attrs.get("completion_tokens"))
+                if _si is not None or _so is not None:
+                    try:
+                        _i, _o = int(_si or 0), int(_so or 0)
+                        _add_metric("tokens", {
+                            "timestamp": ts, "input": _i, "output": _o, "total": _i + _o,
+                            "model": attrs.get("model", resource_attrs.get("model", "")),
+                            "channel": attrs.get("channel", resource_attrs.get("channel", "")),
+                            "provider": attrs.get("provider", resource_attrs.get("provider", "")),
+                        })
+                    except (TypeError, ValueError):
+                        pass
+
                 # DuckDB write-through. Failures here are logged but do not
                 # break the metrics cache path above (which is what the
                 # live tiles read from). Idempotent on span_id — OTLP
@@ -10465,6 +10609,76 @@ def _process_otlp_traces(pb_data):
                             )
                         except Exception:
                             pass
+
+
+def _process_otlp_logs(pb_data):
+    """Decode OTLP logs protobuf and ingest agent EVENT records (#2596).
+
+    Claude Code (and other runtimes) export their per-turn event stream as OTel
+    *logs* — ``event_name`` like ``claude_code.api_request`` / ``tool_decision``
+    with cost/token/model attributes — not just metrics/traces, so an OTel-
+    configured install gives signal we previously dropped. We map any log record
+    carrying cost or token attributes into the same metrics cache categories as
+    /v1/metrics (cost / tokens / runs), so the cost + usage tiles light up.
+    Best-effort: a bad record never breaks the batch.
+    """
+    req = logs_service_pb2.ExportLogsServiceRequest()
+    req.ParseFromString(pb_data)
+
+    def _f(attrs, *keys):
+        for k in keys:
+            if k in attrs and attrs[k] not in (None, ""):
+                return attrs[k]
+        return None
+
+    for resource_logs in req.resource_logs:
+        resource_attrs = {}
+        if resource_logs.resource:
+            for attr in resource_logs.resource.attributes:
+                resource_attrs[attr.key] = _otel_attr_value(attr.value)
+
+        for scope_logs in resource_logs.scope_logs:
+            for rec in scope_logs.log_records:
+                attrs = {}
+                for attr in rec.attributes:
+                    attrs[attr.key] = _otel_attr_value(attr.value)
+                ts = time.time()
+                model = _f(attrs, "model") or resource_attrs.get("model", "")
+                channel = _f(attrs, "channel") or resource_attrs.get("channel", "")
+                provider = _f(attrs, "provider") or resource_attrs.get("provider", "")
+
+                cost = _f(attrs, "cost_usd", "cost.usd", "cost")
+                if cost is not None:
+                    try:
+                        _add_metric("cost", {
+                            "timestamp": ts, "usd": float(cost),
+                            "model": model, "channel": channel, "provider": provider,
+                        })
+                    except (TypeError, ValueError):
+                        pass
+
+                itok = _f(attrs, "input_tokens", "tokens.input", "prompt_tokens")
+                otok = _f(attrs, "output_tokens", "tokens.output", "completion_tokens")
+                if itok is not None or otok is not None:
+                    try:
+                        i, o = int(itok or 0), int(otok or 0)
+                        _add_metric("tokens", {
+                            "timestamp": ts, "input": i, "output": o, "total": i + o,
+                            "model": model, "channel": channel, "provider": provider,
+                        })
+                    except (TypeError, ValueError):
+                        pass
+
+                dur = _f(attrs, "duration_ms", "duration.ms")
+                ev = (getattr(rec, "event_name", "") or "").lower()
+                if dur is not None and any(k in ev for k in ("request", "run", "completion")):
+                    try:
+                        _add_metric("runs", {
+                            "timestamp": ts, "duration_ms": float(dur),
+                            "model": model, "channel": channel,
+                        })
+                    except (TypeError, ValueError):
+                        pass
 
 
 def _get_otel_usage_data():
@@ -10808,6 +11022,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_crons)
     app.register_blueprint(bp_fleet)
     app.register_blueprint(bp_gateway)
+    app.register_blueprint(bp_harness)
     app.register_blueprint(bp_health)
     app.register_blueprint(bp_logs)
     app.register_blueprint(bp_memory)
@@ -10862,6 +11077,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_context_economics)
     app.register_blueprint(bp_entitlement)
     app.register_blueprint(bp_audit)
+    app.register_blueprint(bp_device)
 
     # Register built-in agent adapters. External plugins can register more
     # via clawmetry.extensions entry points — see clawmetry/adapters/.
@@ -11354,8 +11570,12 @@ DASHBOARD_HTML = r"""
         </div>
         <div class="left-nav-item left-nav-item-sub" id="left-nav-tool-catalog" data-tab="tool-catalog" onclick="switchTab('tool-catalog')" title="Every tool the agent uses by provenance, with call count and p50/p95 latency">
           <span class="left-nav-label">Tool catalog</span>
+        </div>
         <div class="left-nav-item left-nav-item-sub" id="left-nav-context-economics" data-tab="context-economics" onclick="switchTab('context-economics')" title="Context-window utilization over time, compaction triggers and tokens reclaimed">
           <span class="left-nav-label">Context economics</span>
+        </div>
+        <div class="left-nav-item left-nav-item-sub" id="left-nav-harness" data-tab="harness" onclick="switchTab('harness')" title="What the selected runtime uniquely exposes — beyond the generic tabs">
+          <span class="left-nav-label">Harness</span>
         </div>
         <div class="left-nav-item left-nav-item-sub" id="left-nav-swimlane" data-tab="swimlane" onclick="switchTab('swimlane')" title="Compare up to 4 sessions or runtimes side by side as parallel live lanes">
           <span class="left-nav-label">Swimlane</span>
@@ -11490,6 +11710,9 @@ DASHBOARD_HTML = r"""
 <!-- TOOL CATALOG (provenance + p50/p95 latency + error rate, P1-3) -->
 {% include 'tabs/tool-catalog.html' %}
 {% include 'tabs/context-economics.html' %}
+
+<!-- HARNESS (declarative per-runtime custom panel; #2667) -->
+{% include 'tabs/harness.html' %}
 
 <!-- SWIMLANE COMPARE — N parallel live lanes (sessions / runtimes) -->
 {% include 'tabs/swimlane.html' %}
@@ -15666,6 +15889,26 @@ def _build_context_inspector_data():
 # ── Data Helpers ────────────────────────────────────────────────────────
 
 
+def _extract_gw_session_cost(s: dict):
+    """Return the session cost in USD from a gateway sessions.list entry.
+
+    The gateway has emitted this value under several key names across versions
+    (costUsd, totalCostUsd, cost_usd) and also as a nested cost.total dict.
+    Returns float or None (honest unknown).
+    """
+    raw = s.get("costUsd") or s.get("totalCostUsd") or s.get("cost_usd")
+    if raw is None:
+        co = s.get("cost")
+        if isinstance(co, dict):
+            raw = co.get("total") or co.get("total_usd")
+        elif isinstance(co, (int, float)):
+            raw = co
+    try:
+        return float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _get_sessions():
     """Get sessions via gateway API first, file fallback."""
     now = time.time()
@@ -15689,6 +15932,11 @@ def _get_sessions():
                     "model": s.get("model", s.get("modelRef", "unknown")),
                     "channel": s.get("channel", "unknown"),
                     "totalTokens": s.get("totalTokens", 0),
+                    "inputTokens": s.get("inputTokens", 0),
+                    "outputTokens": s.get("outputTokens", 0),
+                    "cacheReadTokens": s.get("cacheReadInputTokens", s.get("cacheReadTokens", 0)),
+                    "cacheWriteTokens": s.get("cacheCreationInputTokens", s.get("cacheWriteTokens", 0)),
+                    "costUsd": _extract_gw_session_cost(s),
                     "contextTokens": api_data.get("defaults", {}).get(
                         "contextTokens", 200000
                     ),

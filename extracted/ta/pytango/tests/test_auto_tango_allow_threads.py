@@ -1,22 +1,21 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
-from tango import (
-    Util,
-    SerialModel,
-    AutoTangoAllowThreads,
-    EnsureOmniThread,
-    AutoTangoMonitor,
-    DevFailed,
-)
-from tango.server import Device, attribute
-from tango.test_utils import DeviceTestContext
-
-from threading import Thread, Event
 from queue import Queue
+from threading import Event, Thread
+from time import sleep
 
 import pytest
 
-from time import sleep
+from tango import (
+    AutoTangoAllowThreads,
+    AutoTangoMonitor,
+    DevFailed,
+    EnsureOmniThread,
+    SerialModel,
+    Util,
+)
+from tango.server import Device, attribute
+from tango.test_utils import DeviceTestContext
 
 pytestmark = pytest.mark.extra_src_test
 
@@ -26,7 +25,6 @@ def do_nothing():
 
 
 class SimpleDS(Device):
-
     def init_device(self):
         u = Util.instance()
         mode = SerialModel.BY_CLASS
@@ -34,9 +32,8 @@ class SimpleDS(Device):
         u.set_serial_model(mode)
         assert u.get_serial_model() == mode
 
-        with AutoTangoAllowThreads(self):
-            with AutoTangoAllowThreads(self):
-                do_nothing()
+        with AutoTangoAllowThreads(self), AutoTangoAllowThreads(self):
+            do_nothing()
 
     @attribute
     def attr(self) -> int:
@@ -69,10 +66,7 @@ class MonSameThread(Device):
 
     def thread_func(self):
         with EnsureOmniThread():
-            if MonDiffThread.serial_model == SerialModel.BY_CLASS:
-                obj = self.get_device_class()
-            else:
-                obj = self
+            obj = self.get_device_class() if MonDiffThread.serial_model == SerialModel.BY_CLASS else self
 
         with AutoTangoMonitor(obj):
             if MonSameThread.unlock:
@@ -90,32 +84,18 @@ class MonSameThread(Device):
 
 
 @pytest.mark.parametrize("unlock", [True, False])
-def test_monitor_force_unlock_from_same_thread(
-    unlock, server_green_mode, server_serial_model
-):
+def test_monitor_force_unlock_from_same_thread(unlock, server_green_mode, server_serial_model):
     MonSameThread.serial_model = server_serial_model
     MonSameThread.unlock = unlock
 
-    if unlock:
-        if server_serial_model == SerialModel.BY_CLASS:
-            pytest.xfail(
-                "Not implemented, see https://gitlab.com/tango-controls/pytango/-/issues/650"
-            )
-        elif server_serial_model == SerialModel.BY_PROCESS:
-            pytest.xfail(
-                "Not implemented, see https://gitlab.com/tango-controls/pytango/-/issues/650"
-            )
+    if unlock and server_serial_model in (SerialModel.BY_CLASS, SerialModel.BY_PROCESS):
+        pytest.xfail("Not implemented, see https://gitlab.com/tango-controls/pytango/-/issues/650")
 
     with DeviceTestContext(MonSameThread) as proxy:
-
-        if server_serial_model == SerialModel.NO_SYNC:
-            assert proxy.attr == 1234
-        elif unlock:
+        if server_serial_model == SerialModel.NO_SYNC or unlock:
             assert proxy.attr == 1234
         else:
-            with pytest.raises(
-                DevFailed, match="not able to acquire serialization monitor"
-            ):
+            with pytest.raises(DevFailed, match="not able to acquire serialization monitor"):
                 assert proxy.attr == 1234
 
         # required especially by SerialModel.BY_PROCESS so that the DS can be killed from the test context
@@ -148,10 +128,7 @@ class MonDiffThread(Device):
 
     def lock_thread_func(self):
         with EnsureOmniThread():
-            if MonDiffThread.serial_model == SerialModel.BY_CLASS:
-                obj = self.get_device_class()
-            else:
-                obj = self
+            obj = self.get_device_class() if MonDiffThread.serial_model == SerialModel.BY_CLASS else self
 
             with AutoTangoMonitor(obj):
                 while MonDiffThread.running:
@@ -174,20 +151,15 @@ class MonDiffThread(Device):
 
 
 @pytest.mark.parametrize("unlock", [True, False])
-def test_monitor_force_unlock_from_different_thread(
-    unlock, server_green_mode, server_serial_model
-):
+def test_monitor_force_unlock_from_different_thread(unlock, server_green_mode, server_serial_model):
     MonDiffThread.serial_model = server_serial_model
     MonDiffThread.unlock = unlock
 
     with DeviceTestContext(MonDiffThread) as proxy:
-
         if server_serial_model == SerialModel.NO_SYNC:
             assert proxy.attr == 1234
         else:
-            with pytest.raises(
-                DevFailed, match="not able to acquire serialization monitor"
-            ):
+            with pytest.raises(DevFailed, match="not able to acquire serialization monitor"):
                 assert proxy.attr == 1234
 
         # required especially by SerialModel.BY_PROCESS so that the DS can be killed from the test context

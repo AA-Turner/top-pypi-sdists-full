@@ -228,7 +228,7 @@ class GuardChecks:
         if mode in ('quick', 'lightweight') or task.lightweight:
             return CheckResult(passed=True)
         # Custom modes without explicit TDD guard config are exempt
-        if mode and mode != 'full':
+        if mode and mode not in ('quick', 'lightweight'):
             guard_cfg = self._get_mode_execute_guard(mode)
             if 'tdd_evidence' not in guard_cfg.get('checks', []):
                 return CheckResult(passed=True)
@@ -327,7 +327,7 @@ class GuardChecks:
         if mode == 'quick':
             return CheckResult(passed=True)
         # Custom modes without explicit test_spec_coverage guard config are exempt
-        if mode and mode not in ('full', 'quick'):
+        if mode and mode not in ('quick', 'lightweight'):
             guard_cfg = self._get_mode_execute_guard(mode)
             if 'test_spec_coverage' not in guard_cfg.get('checks', []):
                 return CheckResult(passed=True)

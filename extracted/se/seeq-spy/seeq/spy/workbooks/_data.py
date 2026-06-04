@@ -156,6 +156,9 @@ class StoredOrCalculatedItem(Item):
 
         item_map.clear_logs(self.id)
 
+        if self['Archived'] is True:
+            item_map.log(self.id, 'Note: This item is in the Archived state')
+
         # First, we process the "overrides". These are the cases where, even if the item with the ID exists in the
         # destination, we still want to map to something else. Useful for swapping datasources on the same server.
         override = self._lookup_relevant_datasource_map(context.datasource_maps, override=True)
@@ -474,15 +477,20 @@ class StoredOrCalculatedItem(Item):
                              f'{new_definition["Datasource ID"]}')
                 del new_definition['Datasource Name']
 
+            search_workbook = pushed_workbook_id
+            if not item_map.is_real_id(pushed_workbook_id):
+                # This happens on dry runs if the workbook doesn't yet exist on the server
+                search_workbook = _common.GLOBALS_ONLY
+
             query_df = pd.DataFrame([new_definition])
             from seeq.spy import _search
             if 'Path' in new_definition:
                 # If we're matching based on path, unfortunately we will not be able to match against archived items
                 # due to a limitation of the API. See CRAB-18439.
-                search_df = _search.search(query_df, workbook=pushed_workbook_id, recursive=False,
+                search_df = _search.search(query_df, workbook=search_workbook, recursive=False,
                                            ignore_unindexed_properties=False, session=session, quiet=True)
             else:
-                search_df = _search.search(query_df, workbook=pushed_workbook_id, include_archived=True,
+                search_df = _search.search(query_df, workbook=search_workbook, include_archived=True,
                                            ignore_unindexed_properties=False, session=session, quiet=True)
 
             # If several things are returned, but some of them are archived, then filter out the archived ones.
@@ -753,9 +761,8 @@ class StoredItem(StoredOrCalculatedItem):
         if item is None:
             if local:
                 status.log(f'{dry_run_tense} local item for {self}')
-                if not context.dry_run:
-                    self._push_local_item(context, label, item_map, datasource_output, pushed_workbook_id,
-                                          item_inventory)
+                self._push_local_item(context, label, item_map, datasource_output, pushed_workbook_id,
+                                      item_inventory)
             else:
                 # Check if this is an intentional no-mapping and short-circuit before dummy item creation
                 if self.id in context.intentional_no_mappings:
@@ -793,8 +800,10 @@ class StoredItem(StoredOrCalculatedItem):
                         context, label, item_map, datasource_output, pushed_workbook_id, item_inventory,
                         self_already_exists_and_may_need_update)
 
-        item_map[self.id] = item.id
-        item_map.data_item_cache[self.id] = item
+        # item can fall through to here and be None during dry runs
+        if item is not None:
+            item_map[self.id] = item.id
+            item_map.data_item_cache[self.id] = item
 
         return item
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: topk_sdk
-Version: 0.10.0
+Version: 0.11.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -136,6 +136,7 @@ except SlowDownError:
 | Error | Description |
 | --- | --- |
 | `CollectionNotFoundError` | Collection does not exist |
+| `PartitionNotFoundError`  | Partition does not exist  |
 | `CollectionAlreadyExistsError` | Collection with this name already exists |
 | `CollectionValidationError` | Invalid collection name or schema |
 | `DatasetNotFoundError` | Dataset does not exist |

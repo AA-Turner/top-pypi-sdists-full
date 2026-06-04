@@ -10,7 +10,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from pymammotion.aliyun.exceptions import DeviceOfflineException, TooManyRequestsException
+from pymammotion.aliyun.exceptions import DeviceOfflineException, DeviceUnboundException, TooManyRequestsException
+from pymammotion.data.model.device import MowerDevice
 from pymammotion.data.mqtt.event import DeviceProtobufMsgEventParams
 from pymammotion.data.mqtt.status import StatusType
 from pymammotion.device.ble_loop import ble_activity_loop, ble_polling_loop
@@ -254,6 +255,12 @@ class DeviceHandle:
         self._last_active_transport_log: tuple[str, bool, bool, bool] | None = None
         #: Timer handle for the transient continuous-stream auto-stop.
         self._report_stream_timer: asyncio.TimerHandle | None = None
+        #: Client-wired hook invoked once when the cloud reports this device unbound
+        #: (Aliyun 29004).  The client re-discovers the device and either migrates it
+        #: to Mammotion MQTT or removes it entirely.  Guarded by ``_unbound_migrating``
+        #: so repeated 29004s don't launch concurrent migrations.
+        self.on_device_unbound: Callable[[DeviceHandle], Awaitable[None]] | None = None
+        self._unbound_migrating: bool = False
         # Wire up critical error propagation from queue
         self.queue.on_critical_error = self._on_critical_error
 
@@ -341,6 +348,10 @@ class DeviceHandle:
                 # CONNECTED: subscription is live, commands can be dispatched normally.
                 # DISCONNECTED: don't hold commands indefinitely; let NoTransportAvailableError
                 # handle them if no other transport is available.
+                _logger.debug(
+                    "DeviceHandle[%s]: MQTT transport connected — resuming command dispatch",
+                    self.device_name,
+                )
                 self.queue.resume_after_reconnect()
 
         return _handler
@@ -403,7 +414,13 @@ class DeviceHandle:
                 sync = self.commands.send_todev_ble_sync(sync_type=3)
                 await transport.send_heartbeat(sync, iot_id=self.iot_id)
 
-        await transport.send(payload, iot_id=self.iot_id)
+        version = self.snapshot.raw.update_check.current_version
+
+        # TODO do this by device type
+        if version == "1.0.0.0" and hasattr(cast(MowerDevice, self.snapshot.raw), "mower_state"):
+            version = cast(MowerDevice, self.snapshot.raw).mower_state.swversion
+
+        await transport.send(payload, iot_id=self.iot_id, firmware_version=version)
         if not self._stopping:
             await self._sent_bus.emit(payload)
 
@@ -441,6 +458,17 @@ class DeviceHandle:
         transport = self._transports.pop(transport_type, None)
         if transport is not None:
             await transport.disconnect()
+
+    def detach_transport(self, transport_type: TransportType) -> Transport | None:
+        """Remove a transport from this handle WITHOUT disconnecting it.
+
+        Use for account-shared transports (e.g. the Aliyun MQTT transport, which is
+        the same object across every device handle on an account): disconnecting it
+        would tear down cloud for all the account's devices.  ``remove_transport``
+        disconnects and so must NOT be used for shared transports.  Returns the
+        removed transport, or ``None`` if it was not registered (idempotent).
+        """
+        return self._transports.pop(transport_type, None)
 
     async def on_raw_message(self, payload: bytes, transport_type: TransportType = TransportType.CLOUD_ALIYUN) -> None:
         """Receive raw bytes from transport, decode, update state, route to broker.
@@ -680,6 +708,14 @@ class DeviceHandle:
                     send_fn=lambda: self._send_marked(ble, cmd),
                     expected_field=field,
                 )
+            except DeviceUnboundException:
+                unbound_ble = await self._on_device_unbound(transport)
+                if unbound_ble is None:
+                    raise
+                await self.broker.send_and_wait(
+                    send_fn=lambda t=unbound_ble: self._send_marked(t, cmd),
+                    expected_field=field,
+                )
 
         await self.queue.enqueue(
             lambda: _do_send(command, expected_field),
@@ -711,6 +747,49 @@ class DeviceHandle:
             transport.transport_type,
         )
         return None
+
+    async def _on_device_unbound(self, transport: Transport) -> Transport | None:
+        """Handle a cloud "device is unbound" (Aliyun 29004) during a send.
+
+        Detaches *transport* from this handle WITHOUT disconnecting it (it is the
+        account-shared Aliyun connection serving other devices), then triggers the
+        client's re-discovery hook once — which migrates the device to Mammotion MQTT
+        or removes it entirely.  Returns a connected BLE transport so the in-flight
+        command can still complete locally, or ``None`` if there is no BLE fallback.
+
+        Unlike ``_on_device_offline`` this does NOT set ``mqtt_reported_offline``:
+        that flag marks a recoverable offline cleared by inbound frames, whereas an
+        unbind is a permanent detach with no Aliyun transport left to clear it.
+        """
+        removed = self.detach_transport(transport.transport_type)
+        if removed is None:
+            # Already detached by an earlier 29004 — don't re-trigger migration.
+            ble = self._transports.get(TransportType.BLE)
+            return ble if ble is not None and ble.is_connected else None
+
+        self.update_availability(transport.transport_type, TransportAvailability.DISCONNECTED)
+        _logger.warning(
+            "Device '%s' unbound from cloud (%s) — detaching transport and re-discovering",
+            self.device_name,
+            transport.transport_type.value,
+        )
+        if self.on_device_unbound is not None and not self._unbound_migrating:
+            self._unbound_migrating = True
+            # Fire-and-forget so the send path isn't blocked by network re-discovery.
+            asyncio.ensure_future(self.on_device_unbound(self))  # noqa: RUF006
+
+        ble = self._transports.get(TransportType.BLE)
+        if ble is not None and ble.is_connected:
+            _logger.warning("Device '%s' unbound via cloud, retrying over BLE", self.device_name)
+            return ble
+        return None
+
+    def reset_unbound_migration(self) -> None:
+        """Re-arm the unbound hook so a future 29004 can trigger migration again.
+
+        Called by the client once it finishes handling an unbound event.
+        """
+        self._unbound_migrating = False
 
     async def enqueue_saga(
         self,
@@ -1494,6 +1573,11 @@ class DeviceHandle:
             if ble is None:
                 raise
             await self._send_marked(ble, payload)
+        except DeviceUnboundException:
+            ble = await self._on_device_unbound(transport)
+            if ble is None:
+                raise
+            await self._send_marked(ble, payload)
         except TransportError:
             if transport.transport_type is not TransportType.BLE:
                 raise
@@ -1599,14 +1683,12 @@ class DeviceHandle:
 
     @ble_heartbeat_failures.setter
     def ble_heartbeat_failures(self, value: int) -> None:
-        """Setter so the BLE loop can update the counter without reaching
-        into ``_ble_heartbeat_failures`` directly.
-        """
+        """Setter so the BLE loop can update the counter without reaching into ``_ble_heartbeat_failures`` directly."""
         self._ble_heartbeat_failures = value
 
     @property
     def has_usable_transport(self) -> bool:
-        """Single source of truth: would a send right now find a usable transport?
+        """Single source of truth: would a send right now find a usable transport.
 
         Wraps :meth:`active_transport` in a try/except — True when the selector
         would return a transport, False when it would raise
@@ -1670,7 +1752,6 @@ class DeviceHandle:
             if t is not None:
                 mqtt = t
                 break
-        mqtt_registered = mqtt is not None
         mqtt_usable = mqtt is not None and not mqtt_reported_offline and mqtt.is_usable
 
         def _log_selection(path: str, *args: Any) -> None:

@@ -6,6 +6,7 @@
 import enum
 import time
 from functools import wraps
+from typing import ClassVar
 
 import numpy as np
 
@@ -13,30 +14,34 @@ try:
     import numpy.typing as npt
 
     # in numpy 1.20 npt does not have npt.NDArray, so we cannot parce hits
-    npt.NDArray
+    _ = npt.NDArray
 except (AttributeError, ImportError):
     npt = None
 
 # Local imports
 from tango import (
-    DeviceProxy,
-    DevState,
-    GreenMode,
+    READ,
+    SCALAR,
     AttrDataFormat,
-    ExtractAs,
     DevFailed,
-    DevVarLongStringArray,
+    DeviceClass,
+    DeviceProxy,
+    DevLong64,
+    DevState,
     DevVarDoubleStringArray,
+    DevVarLongStringArray,
+    ExtractAs,
+    GreenMode,
+    LatestDeviceImpl,
     SerialModel,
 )
 from tango.server import Device
 from tango.test_context import (
-    MultiDeviceTestContext,
     DeviceTestContext,
+    MultiDeviceTestContext,
     get_server_port_via_pid,
 )
-from tango.utils import is_non_str_seq, FROM_TANGO_TO_NUMPY_TYPE
-from tango import DeviceClass, LatestDeviceImpl, DevLong64, SCALAR, READ
+from tango.utils import FROM_TANGO_TO_NUMPY_TYPE, is_non_str_seq
 
 # Conditional imports
 try:
@@ -45,38 +50,39 @@ except ImportError:
     pytest = None
 
 __all__ = [
-    "MultiDeviceTestContext",
-    "DeviceTestContext",
-    "SimpleDevice",
-    "ClassicAPISimpleDeviceImpl",
-    "ClassicAPISimpleDeviceClass",
-    "state",
-    "command_typed_values",
-    "attribute_typed_values",
-    "dev_encoded_values",
-    "server_green_mode",
-    "attr_data_format",
-    "convert_dtype_to_typing_hint",
-    "assert_close",
-    "general_decorator",
-    "general_asyncio_decorator",
     "DEVICE_SERVER_ARGUMENTS",
-    "wait_for_proxy",
+    "ClassicAPISimpleDeviceClass",
+    "ClassicAPISimpleDeviceImpl",
+    "DeviceTestContext",
+    "MultiDeviceTestContext",
+    "SimpleDevice",
+    "assert_close",
+    "attr_data_format",
+    "attribute_typed_values",
+    "command_typed_values",
+    "convert_dtype_to_typing_hint",
+    "dev_encoded_values",
+    "general_asyncio_decorator",
+    "general_decorator",
+    "server_green_mode",
+    "state",
     "wait_for_nodb_proxy_via_pid",
+    "wait_for_proxy",
 ]
 
 if npt:
     __all__ += [
-        "command_numpy_typed_values",
         "attribute_numpy_typed_values",
         "attribute_wrong_numpy_typed",
+        "command_numpy_typed_values",
     ]
 
+
 UTF8_STRING = (
-    r"""ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~𝘈Ḇ𝖢𝕯٤ḞԍНǏ𝙅ƘԸⲘ𝙉০Ρ𝗤Ɍ𝓢ȚЦ𝒱Ѡ𝓧ƳȤ"""
-    r"""ả𝘢ѧᖯć𝗱ễ𝑓𝙜Ⴙ𝞲𝑗𝒌ļṃŉо𝞎𝒒ᵲꜱ𝙩ừ𝗏ŵ𝒙𝒚ź1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~АḂⲤ𝗗𝖤𝗙ꞠꓧȊ𝐉𝜥ꓡ𝑀𝑵Ǭ𝙿𝑄Ŗ𝑆𝒯𝖴𝘝𝘞ꓫŸ𝜡"""
-    r"""𝜶ƀ𝖼ḋếᵮℊ𝙝Ꭵ𝕛кιṃդⱺ𝓅𝘲𝕣𝖘ŧ𝑢ṽẉ𝘅ყž1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~Ѧ𝙱ƇᗞΣℱԍҤ١𝔍К𝓛𝓜ƝȎ𝚸𝑄Ṛ𝓢ṮṺƲᏔꓫ𝚈𝚭"""
-    r"""Ꮟçძ𝑒𝖿𝗀ḧ𝗂𝐣ҝɭḿ𝕟𝐨𝝔𝕢ṛ𝓼тú𝔳ẃ⤬𝝲𝗓1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~𝖠Β𝒞𝘋𝙴𝓕ĢȞỈ𝕵ꓗʟ𝙼ℕ০𝚸𝗤ՀꓢṰǓⅤ𝔚Ⲭ𝑌𝙕𝘢𝕤"""
+    r"""ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~𝘈Ḇ𝖢𝕯٤ḞԍНǏ𝙅ƘԸⲘ𝙉০Ρ𝗤Ɍ𝓢ȚЦ𝒱Ѡ𝓧ƳȤ"""  # noqa: RUF001
+    r"""ả𝘢ѧᖯć𝗱ễ𝑓𝙜Ⴙ𝞲𝑗𝒌ļṃŉо𝞎𝒒ᵲꜱ𝙩ừ𝗏ŵ𝒙𝒚ź1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~АḂⲤ𝗗𝖤𝗙ꞠꓧȊ𝐉𝜥ꓡ𝑀𝑵Ǭ𝙿𝑄Ŗ𝑆𝒯𝖴𝘝𝘞ꓫŸ𝜡"""  # noqa: RUF001
+    r"""𝜶ƀ𝖼ḋếᵮℊ𝙝Ꭵ𝕛кιṃդⱺ𝓅𝘲𝕣𝖘ŧ𝑢ṽẉ𝘅ყž1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~Ѧ𝙱ƇᗞΣℱԍҤ١𝔍К𝓛𝓜ƝȎ𝚸𝑄Ṛ𝓢ṮṺƲᏔꓫ𝚈𝚭"""  # noqa: RUF001
+    r"""Ꮟçძ𝑒𝖿𝗀ḧ𝗂𝐣ҝɭḿ𝕟𝐨𝝔𝕢ṛ𝓼тú𝔳ẃ⤬𝝲𝗓1234567890!@#$%^&*()-_=+[{]};:'",<.>/?~𝖠Β𝒞𝘋𝙴𝓕ĢȞỈ𝕵ꓗʟ𝙼ℕ০𝚸𝗤ՀꓢṰǓⅤ𝔚Ⲭ𝑌𝙕𝘢𝕤"""  # noqa: RUF001
 )
 
 # char \x00 cannot be sent in a DevString. All other 1-255 chars can
@@ -106,7 +112,7 @@ class ClassicAPISimpleDeviceImpl(LatestDeviceImpl):
 
 
 class ClassicAPISimpleDeviceClass(DeviceClass):
-    attr_list = {"attr1": [[DevLong64, SCALAR, READ]]}
+    attr_list: ClassVar[dict] = {"attr1": [[DevLong64, SCALAR, READ]]}
 
 
 # Test enums
@@ -260,9 +266,7 @@ if npt:
                     [dtype, npt.NDArray[dtype], AttrDataFormat.SPECTRUM, spectrum],
                 ]
             )
-            NUMPY_IMAGES_TYPING_HINTS.append(
-                [dtype, npt.NDArray[dtype], AttrDataFormat.IMAGE, image]
-            )
+            NUMPY_IMAGES_TYPING_HINTS.append([dtype, npt.NDArray[dtype], AttrDataFormat.IMAGE, image])
 
     WRONG_NUMPY_TYPING_HINTS = (  # dformat, max_x, max_y, value, error, match
         (None, None, None, None, RuntimeError, "AttrDataFormat has to be specified"),
@@ -529,7 +533,7 @@ if pytest:
     def assert_close(a, b):
         if is_non_str_seq(a):
             assert len(a) == len(b)
-            for _a, _b in zip(a, b):
+            for _a, _b in zip(a, b, strict=True):
                 assert_close(_a, _b)
         else:
             __assert_all_types(a, b)
@@ -544,9 +548,9 @@ if pytest:
             dtype = dtype[0]
             return [create_result(dtype, v) for v in value]
         elif dtype == DevVarLongStringArray:
-            return [create_result(dtype, v) for v, dtype in zip(value, [int, str])]
+            return [create_result(dtype, v) for v, dtype in zip(value, [int, str], strict=True)]
         elif dtype == DevVarDoubleStringArray:
-            return [create_result(dtype, v) for v, dtype in zip(value, [float, str])]
+            return [create_result(dtype, v) for v, dtype in zip(value, [float, str], strict=True)]
 
         return __convert_value(value)
 
@@ -569,9 +573,7 @@ if pytest:
     def state(request):
         return request.param
 
-    @pytest.fixture(
-        params=list(GENERAL_TYPED_VALUES.items()), ids=lambda x: repr_type(x[0])
-    )
+    @pytest.fixture(params=list(GENERAL_TYPED_VALUES.items()), ids=lambda x: repr_type(x[0]))
     def general_typed_values(request):
         dtype, values = request.param
         expected = lambda v: create_result(dtype, v)
@@ -597,9 +599,7 @@ if pytest:
 
     if npt:
 
-        @pytest.fixture(
-            params=NUMPY_GENERAL_TYPING_HINTS, ids=lambda x: repr_numpy_type(x[0], x[2])
-        )
+        @pytest.fixture(params=NUMPY_GENERAL_TYPING_HINTS, ids=lambda x: repr_numpy_type(x[0], x[2]))
         def command_numpy_typed_values(request):
             dtype, type_hint, dformat, values = request.param
             expected = lambda v: create_result(dtype, v)
@@ -614,9 +614,7 @@ if pytest:
             expected = lambda v: create_result(dtype, v)
             return type_hint, dformat, values, expected
 
-        @pytest.fixture(
-            params=WRONG_NUMPY_TYPING_HINTS, ids=lambda x: f"{x[-2].__name__}: {x[-1]}"
-        )
+        @pytest.fixture(params=WRONG_NUMPY_TYPING_HINTS, ids=lambda x: f"{x[-2].__name__}: {x[-1]}")
         def attribute_wrong_numpy_typed(request):
             return request.param
 
@@ -625,22 +623,19 @@ if pytest:
         @pytest.fixture
         def command_numpy_typed_values(request):
             raise RuntimeError(
-                f"Numpy typing supported only for Numpy >= 1.20, "
-                f"while current version is {np.version.version}"
+                f"Numpy typing supported only for Numpy >= 1.20, while current version is {np.version.version}"
             )
 
         @pytest.fixture
         def attribute_numpy_typed_values(request):
             raise RuntimeError(
-                f"Numpy typing supported only for Numpy >= 1.20, "
-                f"while current version is {np.version.version}"
+                f"Numpy typing supported only for Numpy >= 1.20, while current version is {np.version.version}"
             )
 
         @pytest.fixture
         def attribute_wrong_numpy_typed(request):
             raise RuntimeError(
-                f"Numpy typing supported only for Numpy >= 1.20, "
-                f"while current version is {np.version.version}"
+                f"Numpy typing supported only for Numpy >= 1.20, while current version is {np.version.version}"
             )
 
     @pytest.fixture(
@@ -650,9 +645,7 @@ if pytest:
     def dev_encoded_values(request):
         return request.param
 
-    @pytest.fixture(
-        params=EXTRACT_AS, ids=[f"extract_as.{req_type}" for req_type, _ in EXTRACT_AS]
-    )
+    @pytest.fixture(params=EXTRACT_AS, ids=[f"extract_as.{req_type}" for req_type, _ in EXTRACT_AS])
     def extract_as(request):
         requested_type, expected_type = request.param
         return requested_type, expected_type
@@ -665,9 +658,7 @@ if pytest:
     def green_mode(request):
         return request.param
 
-    @pytest.fixture(
-        params=[GreenMode.Synchronous, GreenMode.Asyncio, GreenMode.Gevent], ids=str
-    )
+    @pytest.fixture(params=[GreenMode.Synchronous, GreenMode.Asyncio, GreenMode.Gevent], ids=str)
     def server_green_mode(request):
         return request.param
 
@@ -736,8 +727,7 @@ def wait_for_proxy(
                 time.sleep(delay)
             count += 1
     raise RuntimeError(
-        f"Device at {dev_name} did not respond within {count * delay:.1f} sec!\n"
-        f"Last error: {last_error}."
+        f"Device at {dev_name} did not respond within {count * delay:.1f} sec!\nLast error: {last_error}."
     )
 
 

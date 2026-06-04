@@ -14,17 +14,15 @@ void export_event_infos(py::module &m) {
     A structure containing available change event information for an attribute
     with the following members:
 
-        - rel_change : (str) relative change that will generate an event
-        - abs_change : (str) absolute change that will generate an event
-        - extensions : (StdStringVector) extensions (currently not used)
-)doc")
+    - rel_change : (str) relative change that will generate an event
+    - abs_change : (str) absolute change that will generate an event
+    - extensions : (list[str]) extensions (currently not used)
+    )doc")
         .def(py::init<>())
 
         .def(py::pickle(
             [](const Tango::ChangeEventInfo &self) { // __getstate__
-                return py::make_tuple(self.rel_change,
-                                      self.abs_change,
-                                      pickle_stdstringvector(self.extensions));
+                return py::make_tuple(self.rel_change, self.abs_change, pickle_stdstringvector(self.extensions));
             },
             [](py::tuple py_tuple) { // __setstate__
                 if(py_tuple.size() != 3) {
@@ -49,15 +47,14 @@ void export_event_infos(py::module &m) {
     A structure containing available periodic event information for an attribute
     with the following members:
 
-        - period : (str) event period
-        - extensions : (StdStringVector) extensions (currently not used)
-)doc")
+    - period : (str) event period
+    - extensions : (list[str]) extensions (currently not used)
+    )doc")
         .def(py::init<>())
 
         .def(py::pickle(
             [](const Tango::PeriodicEventInfo &self) { // __getstate__
-                return py::make_tuple(self.period,
-                                      pickle_stdstringvector(self.extensions));
+                return py::make_tuple(self.period, pickle_stdstringvector(self.extensions));
             },
             [](py::tuple py_tuple) { // __setstate__
                 if(py_tuple.size() != 2) {
@@ -81,11 +78,11 @@ void export_event_infos(py::module &m) {
     A structure containing available archiving event information for an attribute
     with the following members:
 
-        - archive_rel_change : (str) relative change that will generate an event
-        - archive_abs_change : (str) absolute change that will generate an event
-        - archive_period : (str) archive period
-        - extensions : (sequence<str>) extensions (currently not used)
-)doc")
+    - archive_rel_change : (str) relative change that will generate an event
+    - archive_abs_change : (str) absolute change that will generate an event
+    - archive_period : (str) archive period
+    - extensions : (list[str]) extensions (currently not used)
+    )doc")
         .def(py::init<>())
 
         .def(py::pickle(
@@ -121,10 +118,10 @@ void export_event_infos(py::module &m) {
     A structure containing available event information for an attribute
     with the following members:
 
-        - ch_event : (ChangeEventInfo) change event information
-        - per_event : (PeriodicEventInfo) periodic event information
-        - arch_event :  (ArchiveEventInfo) archiving event information
-)doc")
+    - ch_event : (ChangeEventInfo) change event information
+    - per_event : (PeriodicEventInfo) periodic event information
+    - arch_event :  (ArchiveEventInfo) archiving event information
+    )doc")
         .def(py::init<>())
 
         .def(py::pickle(
@@ -147,5 +144,9 @@ void export_event_infos(py::module &m) {
 
         .def_readwrite("ch_event", &Tango::AttributeEventInfo::ch_event)
         .def_readwrite("per_event", &Tango::AttributeEventInfo::per_event)
-        .def_readwrite("arch_event", &Tango::AttributeEventInfo::arch_event);
+        .def_readwrite("arch_event", &Tango::AttributeEventInfo::arch_event)
+        .def(
+            "__eq__",
+            [](Tango::AttributeEventInfo &self, Tango::AttributeEventInfo &other) { return self == other; },
+            py::is_operator());
 }

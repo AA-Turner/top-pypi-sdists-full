@@ -1,24 +1,18 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: string_grouper
-Version: 0.7.1
+Version: 0.7.2
 Summary: String grouper contains functions to do string matching using TF-IDF and the cossine similarity.
-License: MIT
-Author: Chris van den Berg
-Maintainer: Chris van den Berg
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: loguru (>0.7.0)
-Requires-Dist: numpy (>=1.26.0,<2.0.0)
-Requires-Dist: pandas (>=2.0,<3.0)
-Requires-Dist: scikit-learn (>=1.4.0,<2.0.0)
-Requires-Dist: scipy (>=1.4.1)
-Requires-Dist: sparse_dot_topn (>=1.1.0)
+Author: Chris van den Berg, ParticularMiner, Vincent Chalmel
+Maintainer: Chris van den Berg, Guillaume Pressiat, Vincent Chalmel
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.10
+Requires-Dist: loguru>0.7.0
+Requires-Dist: numpy>=2.0
+Requires-Dist: pandas<3.0,>=2.0
+Requires-Dist: scikit-learn>=1.4.0
+Requires-Dist: scipy>=1.15
+Requires-Dist: sparse-dot-topn>=1.1.0
 Description-Content-Type: text/markdown
 
 # String Grouper  
@@ -123,4 +117,3 @@ companies.groupby('name_deduped')['Line Number'].count().sort_values(ascending=F
 ## Documentation
 
 The documentation can be found [here](https://bergvca.github.io/string_grouper/)
-

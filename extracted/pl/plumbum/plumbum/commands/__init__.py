@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "plumbum.commands.base",
+    "plumbum.commands.modifiers",
+    "plumbum.commands.processes",
+}
+
 from plumbum.commands.base import (
     ERROUT,
     BaseCommand,
@@ -47,5 +53,5 @@ __all__ = (
 )
 
 
-def __dir__():
-    return __all__
+def __dir__() -> list[str]:
+    return list(__all__)

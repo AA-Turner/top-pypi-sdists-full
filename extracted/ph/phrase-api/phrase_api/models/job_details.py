@@ -42,13 +42,16 @@ class JobDetails(object):
         'branch': 'BranchName',
         'created_at': 'datetime',
         'updated_at': 'datetime',
+        'automation_id': 'str',
+        'job_template_id': 'str',
         'owner': 'UserPreview',
         'job_tag_name': 'str',
         'source_translations_updated_at': 'datetime',
         'source_locale': 'LocalePreview',
         'locales': 'List[LocalePreview]',
         'keys': 'List[KeyPreview]',
-        'annotations': 'List[JobAnnotationShort]'
+        'annotations': 'List[JobAnnotationShort]',
+        'locked': 'bool'
     }
 
     attribute_map = {
@@ -62,16 +65,19 @@ class JobDetails(object):
         'branch': 'branch',
         'created_at': 'created_at',
         'updated_at': 'updated_at',
+        'automation_id': 'automation_id',
+        'job_template_id': 'job_template_id',
         'owner': 'owner',
         'job_tag_name': 'job_tag_name',
         'source_translations_updated_at': 'source_translations_updated_at',
         'source_locale': 'source_locale',
         'locales': 'locales',
         'keys': 'keys',
-        'annotations': 'annotations'
+        'annotations': 'annotations',
+        'locked': 'locked'
     }
 
-    def __init__(self, id=None, name=None, briefing=None, due_date=None, state=None, ticket_url=None, project=None, branch=None, created_at=None, updated_at=None, owner=None, job_tag_name=None, source_translations_updated_at=None, source_locale=None, locales=None, keys=None, annotations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, briefing=None, due_date=None, state=None, ticket_url=None, project=None, branch=None, created_at=None, updated_at=None, automation_id=None, job_template_id=None, owner=None, job_tag_name=None, source_translations_updated_at=None, source_locale=None, locales=None, keys=None, annotations=None, locked=None, local_vars_configuration=None):  # noqa: E501
         """JobDetails - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -87,6 +93,8 @@ class JobDetails(object):
         self._branch = None
         self._created_at = None
         self._updated_at = None
+        self._automation_id = None
+        self._job_template_id = None
         self._owner = None
         self._job_tag_name = None
         self._source_translations_updated_at = None
@@ -94,6 +102,7 @@ class JobDetails(object):
         self._locales = None
         self._keys = None
         self._annotations = None
+        self._locked = None
         self.discriminator = None
 
         if id is not None:
@@ -115,6 +124,8 @@ class JobDetails(object):
             self.created_at = created_at
         if updated_at is not None:
             self.updated_at = updated_at
+        self.automation_id = automation_id
+        self.job_template_id = job_template_id
         if owner is not None:
             self.owner = owner
         if job_tag_name is not None:
@@ -129,6 +140,8 @@ class JobDetails(object):
             self.keys = keys
         if annotations is not None:
             self.annotations = annotations
+        if locked is not None:
+            self.locked = locked
 
     @property
     def id(self):
@@ -341,6 +354,52 @@ class JobDetails(object):
         self._updated_at = updated_at
 
     @property
+    def automation_id(self):
+        """Gets the automation_id of this JobDetails.  # noqa: E501
+
+        The ID of the automation that created this job, or null if the job was created manually.  # noqa: E501
+
+        :return: The automation_id of this JobDetails.  # noqa: E501
+        :rtype: str
+        """
+        return self._automation_id
+
+    @automation_id.setter
+    def automation_id(self, automation_id):
+        """Sets the automation_id of this JobDetails.
+
+        The ID of the automation that created this job, or null if the job was created manually.  # noqa: E501
+
+        :param automation_id: The automation_id of this JobDetails.  # noqa: E501
+        :type: str
+        """
+
+        self._automation_id = automation_id
+
+    @property
+    def job_template_id(self):
+        """Gets the job_template_id of this JobDetails.  # noqa: E501
+
+        The ID of the job template this job was created from, or null if no template was used.  # noqa: E501
+
+        :return: The job_template_id of this JobDetails.  # noqa: E501
+        :rtype: str
+        """
+        return self._job_template_id
+
+    @job_template_id.setter
+    def job_template_id(self, job_template_id):
+        """Sets the job_template_id of this JobDetails.
+
+        The ID of the job template this job was created from, or null if no template was used.  # noqa: E501
+
+        :param job_template_id: The job_template_id of this JobDetails.  # noqa: E501
+        :type: str
+        """
+
+        self._job_template_id = job_template_id
+
+    @property
     def owner(self):
         """Gets the owner of this JobDetails.  # noqa: E501
 
@@ -470,6 +529,7 @@ class JobDetails(object):
     def annotations(self):
         """Gets the annotations of this JobDetails.  # noqa: E501
 
+        Returned only when `include_annotations=true` is supplied on the request.  # noqa: E501
 
         :return: The annotations of this JobDetails.  # noqa: E501
         :rtype: List[JobAnnotationShort]
@@ -480,12 +540,36 @@ class JobDetails(object):
     def annotations(self, annotations):
         """Sets the annotations of this JobDetails.
 
+        Returned only when `include_annotations=true` is supplied on the request.  # noqa: E501
 
         :param annotations: The annotations of this JobDetails.  # noqa: E501
         :type: List[JobAnnotationShort]
         """
 
         self._annotations = annotations
+
+    @property
+    def locked(self):
+        """Gets the locked of this JobDetails.  # noqa: E501
+
+        `true` if the job has been locked by the project's job-locking workflow (translations attached to the job are read-only until the job advances).   # noqa: E501
+
+        :return: The locked of this JobDetails.  # noqa: E501
+        :rtype: bool
+        """
+        return self._locked
+
+    @locked.setter
+    def locked(self, locked):
+        """Sets the locked of this JobDetails.
+
+        `true` if the job has been locked by the project's job-locking workflow (translations attached to the job are read-only until the job advances).   # noqa: E501
+
+        :param locked: The locked of this JobDetails.  # noqa: E501
+        :type: bool
+        """
+
+        self._locked = locked
 
     def to_dict(self):
         """Returns the model properties as a dict"""

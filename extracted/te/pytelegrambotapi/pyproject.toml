@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyTelegramBotAPI"
-version = "4.33.0"
+version = "4.34.0"
 description = "Python Telegram bot API."
 authors = [{name = "eternnoir", email = "eternnoir@gmail.com"}]
 license = {text = "GPL2"}
@@ -22,7 +22,7 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)"
 ]
-dependencies = ["requests"]
+dependencies = ["requests", "aiohttp"]
 
 [project.urls]
 Homepage = "https://github.com/eternnoir/pyTelegramBotAPI"

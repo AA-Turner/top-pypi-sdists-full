@@ -42,12 +42,8 @@ void export_group_reply(py::module &m) {
         .def("group_element_enabled",
              &Tango::GroupReply::group_element_enabled,
              R"doc(
-                group_element_enabled(self) -> bool
-
-                    Check if the group element corresponding to this reply is enabled.
-
-                :return: true if corresponding element is enabled, false otherwise
-                :rtype: bool)doc")
+                Check if the group element corresponding to this reply is enabled.
+             )doc")
         // TODO: this method seems to be usefull, but I cannot export it due to compilation error
         //        .def("enable_exception",
         //             &Tango::GroupReply::enable_exception,
@@ -68,32 +64,20 @@ void export_group_reply(py::module &m) {
         .def("dev_name",
              &Tango::GroupReply::dev_name,
              R"doc(
-                dev_name(self) -> str
-
-                    Returns the device name for the group element
-
-                :return: The device name
-                :rtype: str)doc",
+                Returns the device name for the group element
+             )doc",
              py::return_value_policy::copy)
         .def("obj_name",
              &Tango::GroupReply::obj_name,
              R"doc(
-                obj_name(self) -> str
-
-                    The object name
-
-                :return: The device name
-                :rtype: str)doc",
+                The object name
+             )doc",
              py::return_value_policy::copy)
         .def("get_err_stack",
              &Tango::GroupReply::get_err_stack,
              R"doc(
-                get_err_stack(self) -> DevErrorList
-
-                    Get error stack
-
-                :return: The error stack
-                :rtype: DevErrorList)doc",
+                Get error stack
+             )doc",
              py::return_value_policy::copy);
 
     py::class_<Tango::GroupCmdReply, Tango::GroupReply>(m, "GroupCmdReply", py::dynamic_attr())
@@ -101,27 +85,26 @@ void export_group_reply(py::module &m) {
              &Tango::GroupCmdReply::get_data,
              py::return_value_policy::reference_internal,
              R"doc(
-                get_data_raw(self) -> any
+                Get the DeviceData containing the output parameter
+                of the command.
 
-                        Get the DeviceData containing the output parameter
-                        of the command.
-
-                    Parameters : None
-                    Return     : (DeviceData) Whatever is stored there, or None.)doc");
+                :return: Whatever is stored there, or None.
+                :rtype: :obj:`~tango.DeviceData` | None
+             )doc");
 
     py::class_<Tango::GroupAttrReply, Tango::GroupReply>(m, "GroupAttrReply", py::dynamic_attr())
         .def("get_data",
              &PyGroupAttrReply::get_data,
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"),
              R"doc(
-    Get the DeviceAttribute.
+                Get the DeviceAttribute.
 
-    Parameters :
-        - extract_as : (ExtractAs)
+                :param extract_as:
+                :type: :obj:`~tango.ExtractAs`
 
-    Return     : (DeviceAttribute) Whatever is stored there, or None.
-
-        )doc");
+                :return: Whatever is stored there, or None.
+                :rtype: :obj:`~tango.DeviceAttribute` | None
+             )doc");
     fix_dynamic_attr_dealloc<Tango::GroupReply>();
     fix_dynamic_attr_dealloc<Tango::GroupCmdReply>();
     fix_dynamic_attr_dealloc<Tango::GroupAttrReply>();

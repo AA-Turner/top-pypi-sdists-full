@@ -2938,6 +2938,13 @@ https://docs.chalk.ai/cli/apply
     def get_offline_query_profile_summary(self, offline_query_id: str) -> OfflineQueryProfileSummary:
         return self._grpc_client.get_offline_query_profile_summary(offline_query_id=offline_query_id)
 
+    def get_online_query_input_values(
+        self,
+        query: Union[OnlineQueryResult, str],
+        query_timestamp: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        return self._grpc_client.get_online_query_input_values(query, query_timestamp=query_timestamp)
+
     def redeploy(
         self,
         deployment_id: Optional[str] = None,

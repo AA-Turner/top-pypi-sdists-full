@@ -14,6 +14,7 @@ import tango
 from tango import AttrWriteType
 from tango.globals import get_class_by_class, get_constructed_class_by_class
 from tango.server import Device, attribute, command, run
+from tango.test_context import parse_ior
 
 from . import db_access
 from .db_errors import (
@@ -202,19 +203,17 @@ class DataBase(Device):
         self._log.debug("In read_Timing_info()")
         util = tango.Util.instance()
         attr_Timing_info_read = []
-        attr_Timing_info_read.append(
-            "TANGO Database Timing info on host " + util.get_host_name()
-        )
+        attr_Timing_info_read.append("TANGO Database Timing info on host " + util.get_host_name())
         attr_Timing_info_read.append(" ")
         attr_Timing_info_read.append("command	average	minimum	maximum	calls")
         attr_Timing_info_read.append(" ")
         for tmp_name in sorted(self.timing_maps.keys()):
-            tmp_info = "%41s\t%6.3f\t%6.3f\t%6.3f\t%.0f" % (
-                tmp_name,
-                self.timing_maps[tmp_name].average,
-                self.timing_maps[tmp_name].minimum,
-                self.timing_maps[tmp_name].maximum,
-                self.timing_maps[tmp_name].calls,
+            tmp_info = (
+                f"{tmp_name:>41}"
+                f"\t{self.timing_maps[tmp_name].average:6.3f}"
+                f"\t{self.timing_maps[tmp_name].minimum:6.3f}"
+                f"\t{self.timing_maps[tmp_name].maximum:6.3f}"
+                f"\t{self.timing_maps[tmp_name].calls:.0f}"
             )
             attr_Timing_info_read.append(tmp_info)
         return attr_Timing_info_read
@@ -280,9 +279,7 @@ class DataBase(Device):
         self._log.debug("In DbDeleteAllDeviceAttributeProperty()")
 
         if len(argin) < 2:
-            self.warn_stream(
-                "DataBase::DbDeleteAllDeviceAttributeProperty(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::DbDeleteAllDeviceAttributeProperty(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to delete all device attribute(s) property",
@@ -296,9 +293,7 @@ class DataBase(Device):
         if not ret:
             th_exc(
                 DB_IncorrectDeviceName,
-                "device name ("
-                + argin
-                + ") syntax error (should be [tango:][//instance/]domain/family/member)",
+                "device name (" + argin + ") syntax error (should be [tango:][//instance/]domain/family/member)",
                 "DataBase::DbDeleteAllDeviceAttributeProperty()",
             )
 
@@ -339,9 +334,7 @@ class DataBase(Device):
         class_name = argin[0]
         attribute = replace_wildcard(argin[1])
         prop_name = replace_wildcard(argin[2])
-        return self.db.get_class_attribute_property_hist(
-            class_name, attribute, prop_name
-        )
+        return self.db.get_class_attribute_property_hist(class_name, attribute, prop_name)
 
     @stats
     @command(
@@ -422,9 +415,7 @@ class DataBase(Device):
         self._log.debug("In DbPutAttributeAlias()")
 
         if len(argin) < 2:
-            self.warn_stream(
-                "DataBase::DbPutAttributeAlias(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::DbPutAttributeAlias(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to put attribute alias",
@@ -491,9 +482,7 @@ class DataBase(Device):
         self._log.debug("In DbDeleteDeviceAttributeProperty()")
 
         if len(argin) < 3:
-            self.warn_stream(
-                "DataBase::db_delete_device_attribute_property(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::db_delete_device_attribute_property(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to delete device attribute property",
@@ -504,11 +493,7 @@ class DataBase(Device):
 
         ret, dev_name, dfm = check_device_name(dev_name)
         if not ret:
-            self.warn_stream(
-                "DataBase::db_delete_device_attribute_property(): device name "
-                + argin
-                + " incorrect "
-            )
+            self.warn_stream("DataBase::db_delete_device_attribute_property(): device name " + argin + " incorrect ")
             th_exc(
                 DB_IncorrectDeviceName,
                 "failed to delete device attribute property, device name incorrect",
@@ -519,9 +504,7 @@ class DataBase(Device):
             self.db.delete_device_attribute_property(dev_name, attr_name, prop_name)
 
     @stats
-    @command(
-        dtype_in="str", doc_in="The wildcard", dtype_out=("str",), doc_out="Family list"
-    )
+    @command(dtype_in="str", doc_in="The wildcard", dtype_out=("str",), doc_out="Family list")
     def DbGetDeviceFamilyList(self, argin):
         """Get a list of device name families for device name matching the
         specified wildcard
@@ -659,9 +642,7 @@ class DataBase(Device):
         if not ret:
             th_exc(
                 DB_IncorrectDeviceName,
-                "device name ("
-                + argin
-                + ") syntax error (should be [tango:][//instance/]domain/family/member)",
+                "device name (" + argin + ") syntax error (should be [tango:][//instance/]domain/family/member)",
                 "DataBase::DbGetDeviceAlias()",
             )
 
@@ -742,9 +723,7 @@ class DataBase(Device):
         self._log.debug("In DbDeleteClassAttribute()")
 
         if len(argin) < 2:
-            self.warn_stream(
-                "DataBase::db_delete_class_attribute(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::db_delete_class_attribute(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to delete class attribute",
@@ -794,9 +773,7 @@ class DataBase(Device):
         self._log.debug("In DbDeleteDeviceAttribute()")
 
         if len(argin) < 2:
-            self.warn_stream(
-                "DataBase::db_delete_device_attribute(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::db_delete_device_attribute(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to delete device attribute",
@@ -807,11 +784,7 @@ class DataBase(Device):
 
         ret, dev_name, dfm = check_device_name(dev_name)
         if not ret:
-            self.warn_stream(
-                "DataBase::db_delete_device_attribute(): device name "
-                + argin
-                + " incorrect "
-            )
+            self.warn_stream("DataBase::db_delete_device_attribute(): device name " + argin + " incorrect ")
             th_exc(
                 DB_IncorrectDeviceName,
                 "failed to delete device attribute, device name incorrect",
@@ -960,9 +933,7 @@ class DataBase(Device):
         dev_name = argin[0].lower()
         self.db.uexport_device(dev_name)
 
-    @command(
-        dtype_in="str", doc_in="Alias name", dtype_out="str", doc_out="Device name"
-    )
+    @command(dtype_in="str", doc_in="Alias name", dtype_out="str", doc_out="Device name")
     def DbGetAliasDevice(self, argin):
         """Get device name from its alias.
 
@@ -986,9 +957,7 @@ class DataBase(Device):
 
         ret, dev_name, dfm = check_device_name(argin)
         if not ret:
-            self.warn_stream(
-                "DataBase::db_delete_device(): device name " + argin + " incorrect "
-            )
+            self.warn_stream("DataBase::db_delete_device(): device name " + argin + " incorrect ")
             th_exc(
                 DB_IncorrectDeviceName,
                 "failed to delete device, device name incorrect",
@@ -1049,9 +1018,7 @@ class DataBase(Device):
         self._log.debug("In DbRenameServer()")
 
         if len(argin) < 2:
-            self.warn_stream(
-                "DataBase::DbRenameServer(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::DbRenameServer(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments (two required: old name and new name",
@@ -1062,9 +1029,7 @@ class DataBase(Device):
         new_name = argin[1]
 
         if ("/" not in argin[0]) or ("/" not in argin[1]):
-            self.warn_stream(
-                "DataBase::DbRenameServer(): wrong syntax in command args "
-            )
+            self.warn_stream("DataBase::DbRenameServer(): wrong syntax in command args ")
             th_exc(
                 DB_IncorrectArguments,
                 "Wrong syntax in command args (ds_exec_name/inst_name)",
@@ -1122,9 +1087,7 @@ class DataBase(Device):
         self._log.debug("In DbDeleteServer()")
 
         if "*" in argin or "%" in argin or "/" not in argin:
-            self.warn_stream(
-                "DataBase::db_delete_server(): server name " + argin + " incorrect "
-            )
+            self.warn_stream("DataBase::db_delete_server(): server name " + argin + " incorrect ")
             th_exc(
                 DB_IncorrectServerName,
                 "failed to delete server, server name incorrect",
@@ -1387,13 +1350,9 @@ class DataBase(Device):
         dev_name = argin[0]
         attribute = replace_wildcard(argin[1])
         prop_name = replace_wildcard(argin[2])
-        return self.db.get_device_attribute_property_hist(
-            dev_name, attribute, prop_name
-        )
+        return self.db.get_device_attribute_property_hist(dev_name, attribute, prop_name)
 
-    @command(
-        dtype_in="str", doc_in="server name", dtype_out=("str",), doc_out="server info"
-    )
+    @command(dtype_in="str", doc_in="server name", dtype_out=("str",), doc_out="server info")
     def DbGetServerInfo(self, argin):
         """Get info about host, mode and level for specified server
 
@@ -1420,9 +1379,7 @@ class DataBase(Device):
         self._log.debug("In DbPutDeviceAlias()")
 
         if len(argin) < 2:
-            self.warn_stream(
-                "DataBase::DbPutDeviceAlias(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::DbPutDeviceAlias(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to put device alias",
@@ -1535,9 +1492,7 @@ class DataBase(Device):
         self._log.debug("In DbDeleteClassAttributeProperty()")
 
         if len(argin) < 3:
-            self.warn_stream(
-                "DataBase::db_delete_class_attribute_property(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::db_delete_class_attribute_property(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient number of arguments to delete class attribute property",
@@ -1601,9 +1556,7 @@ class DataBase(Device):
         self._log.debug("In DbAddServer()")
 
         if len(argin) < 3 or not len(argin) % 2:
-            self.warn_stream(
-                "DataBase::AddServer(): incorrect number of input arguments "
-            )
+            self.warn_stream("DataBase::AddServer(): incorrect number of input arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "incorrect no. of input arguments, needs at least 3 (server,device,class)",
@@ -1617,9 +1570,7 @@ class DataBase(Device):
             if not ret:
                 th_exc(
                     DB_IncorrectDeviceName,
-                    "device name ("
-                    + d_name
-                    + ") syntax error (should be [tango:][//instance/]domain/family/member)",
+                    "device name (" + d_name + ") syntax error (should be [tango:][//instance/]domain/family/member)",
                     "DataBase::AddServer()",
                 )
             self.db.add_device(server_name, (dev_name, dfm), klass_name)
@@ -1897,9 +1848,7 @@ class DataBase(Device):
         self._log.debug("In DbPutServerInfo()")
 
         if len(argin) < 4:
-            self.warn_stream(
-                "DataBase::DbPutServerInfo(): insufficient number of arguments "
-            )
+            self.warn_stream("DataBase::DbPutServerInfo(): insufficient number of arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient server info",
@@ -1947,9 +1896,7 @@ class DataBase(Device):
         self._log.debug("In DbExportEvent()")
 
         if len(argin) < 5:
-            self.warn_stream(
-                "DataBase::db_export_event(): insufficient export info for event "
-            )
+            self.warn_stream("DataBase::db_export_event(): insufficient export info for event ")
             th_exc(
                 DB_IncorrectArguments,
                 "insufficient export info for event",
@@ -2135,18 +2082,14 @@ class DataBase(Device):
         self._log.debug("In DbAddDevice()")
 
         if len(argin) < 3:
-            self.warn_stream(
-                "DataBase::AddDevice(): incorrect number of input arguments "
-            )
+            self.warn_stream("DataBase::AddDevice(): incorrect number of input arguments ")
             th_exc(
                 DB_IncorrectArguments,
                 "incorrect no. of input arguments, needs at least 3 (server,device,class)",
                 "DataBase::AddDevice()",
             )
 
-        self.info_stream(
-            "DataBase::AddDevice(): insert %s server with device %s", argin[0], argin[1]
-        )
+        self.info_stream("DataBase::AddDevice(): insert %s server with device %s", argin[0], argin[1])
         # TODO is this standard?
         server_name, d_name, klass_name = argin[:3]
         alias = argin[3] if len(argin) > 3 else None
@@ -2155,9 +2098,7 @@ class DataBase(Device):
         if not ret:
             th_exc(
                 DB_IncorrectDeviceName,
-                "device name ("
-                + d_name
-                + ") syntax error (should be [tango:][//instance/]domain/family/member)",
+                "device name (" + d_name + ") syntax error (should be [tango:][//instance/]domain/family/member)",
                 "DataBase::AddDevice()",
             )
         # Lock table
@@ -2184,8 +2125,9 @@ class DataBase(Device):
 
 
 # DbExportDevice is executed in the post_init_cb function below.
-# It needs to be separated from the actual device to prevent the device in
-# gevent mode to queue the request to the gevent thread and waitting for it.
+# (Historically, we used GreenMode.Gevent, so it needed to be separated
+# from the actual device to prevent the device in gevent mode to queue
+# the request to the gevent thread and waiting for it)
 def DbExportDevice(self, argin):
     """Export a device to the database
 
@@ -2199,9 +2141,7 @@ def DbExportDevice(self, argin):
     :rtype: tango.DevVoid"""
     self._log.debug("In DbExportDevice()")
     if len(argin) < 5:
-        self.warn_stream(
-            "DataBase::DbExportDevice(): insufficient export info for device "
-        )
+        self.warn_stream("DataBase::DbExportDevice(): insufficient export info for device ")
         th_exc(
             DB_IncorrectArguments,
             "insufficient export info for device",
@@ -2219,12 +2159,8 @@ def main(argv=None):
     # Parameters management
     global options
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--db_access", dest="db_access", default="sqlite3", help="database type"
-    )
-    parser.add_argument(
-        "-e", "--embedded", dest="embedded", default=False, action="store_true"
-    )
+    parser.add_argument("--db_access", dest="db_access", default="sqlite3", help="database type")
+    parser.add_argument("-e", "--embedded", dest="embedded", default=False, action="store_true")
     parser.add_argument(
         "--logging_level",
         "-l",
@@ -2246,6 +2182,13 @@ def main(argv=None):
         default=None,
         type=str,
         help="database host (use host from TANGO_HOST if not set or 0.0.0.0)",
+    )
+    parser.add_argument(
+        "--print-host-port",
+        dest="print_host_port",
+        default=False,
+        action="store_true",
+        help="prints host and port to stderr on startup, like host=127.0.0.1, port=10000.",
     )
     parser.add_argument("argv", nargs=argparse.REMAINDER)
     options = parser.parse_args(argv)
@@ -2283,7 +2226,7 @@ def main(argv=None):
         if options.embedded:
             __run_embedded(db_name, options.argv)
         else:
-            __run(db_name, options.argv)
+            __run(db_name, options.argv, options.print_host_port)
     except Exception:
         import traceback
 
@@ -2330,7 +2273,7 @@ def __monkey_patch_util(util):
     util.server_run = util.orb_run
 
 
-def __run(db_name, argv):
+def __run(db_name: str, argv: list[str], print_host_port: bool):
     """
     Runs the Database DS as a standalone database. Run it with::
 
@@ -2353,6 +2296,12 @@ def __run(db_name, argv):
         dbase = util.get_device_by_name(db_name)
         dbase_name = dbase.get_name()
         dbase_ior = util.get_device_ior(dbase)
+        if print_host_port:
+            ior_info = parse_ior(dbase_ior)
+            print(
+                f"Database DS listening on: host={ior_info.host.decode()}, port={ior_info.port}.",
+                file=sys.stderr,
+            )
         host = util.get_host_name()
         pid = util.get_pid_str()
         version = util.get_version_str()
@@ -2364,7 +2313,6 @@ def __run(db_name, argv):
         args=argv,
         util=util,
         post_init_callback=post_init_cb,
-        # green_mode=GreenMode.Gevent,
         verbose=True,
     )
 
@@ -2379,7 +2327,6 @@ def __run_embedded(db_name, argv):
         (DataBase,),
         args=argv,
         util=util,
-        # green_mode=GreenMode.Gevent
     )
 
 

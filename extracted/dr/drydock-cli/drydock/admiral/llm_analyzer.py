@@ -65,7 +65,7 @@ really going wrong and propose ONE short directive to unstick the agent.
 
 Detector that fired: {code}
 Initial directive Admiral was about to send: "{fallback}"
-
+{loop_constraint}
 Recent conversation (last {n_turns} turns):
 <conversation>
 {context}
@@ -108,10 +108,22 @@ async def analyze(agent_loop: AgentLoop, finding: Finding) -> str | None:
     """
     try:
         context = _render_turns(agent_loop.messages, n_turns=12)
+        # If the loop is on a bash command, add an explicit constraint so
+        # the LLM doesn't suggest running that same command again.
+        loop_constraint = ""
+        if finding.code.startswith("loop:bash::"):
+            cmd_snippet = finding.code[len("loop:bash::"):][:120]
+            loop_constraint = (
+                f"\nCRITICAL CONSTRAINT: The repeated command is `bash` with "
+                f"args `{cmd_snippet}`. Your directive MUST NOT suggest running "
+                f"this same command again — the model already has its output. "
+                f"Direct the agent to read/edit source code instead.\n"
+            )
         prompt = _ANALYZER_PROMPT.format(
             rubric=_DIRECTIVES_RUBRIC,
             code=finding.code,
             fallback=finding.directive[:200],
+            loop_constraint=loop_constraint,
             n_turns=12,
             context=context,
         )

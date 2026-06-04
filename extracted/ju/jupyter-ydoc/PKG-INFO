@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-ydoc
-Version: 3.4.1
+Version: 3.5.0
 Summary: Document structures for collaborative editing using Ypy
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Source, https://github.com/jupyter-server/jupyter_ydoc
@@ -10,7 +10,7 @@ License-File: LICENSE
 Keywords: jupyter,pycrdt,yjs
 Requires-Python: >=3.10
 Requires-Dist: anyio<5.0.0,>=4.12.1
-Requires-Dist: pycrdt<0.13.0,>=0.10.1
+Requires-Dist: pycrdt<0.14.0,>=0.13.0
 Description-Content-Type: text/markdown
 
 [![Build Status](https://github.com/jupyter-server/jupyter_ydoc/workflows/Tests/badge.svg)](https://github.com/jupyter-server/jupyter_ydoc/actions)

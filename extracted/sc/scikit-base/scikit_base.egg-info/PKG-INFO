@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-base
-Version: 1.0.0
+Version: 1.0.1
 Summary: Base classes for sklearn-like parametric objects
 Author-email: sktime developers <sktime.toolbox@gmail.com>
 Maintainer: Franz Király
@@ -90,7 +90,7 @@ Requires-Dist: nbsphinx>=0.8.6; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: pydata-sphinx-theme; extra == "docs"
 Requires-Dist: sphinx-issues<7.0.0; extra == "docs"
-Requires-Dist: sphinx-gallery<0.21.0; extra == "docs"
+Requires-Dist: sphinx-gallery<0.22.0; extra == "docs"
 Requires-Dist: sphinx-panels; extra == "docs"
 Requires-Dist: sphinx-design<0.7.0; extra == "docs"
 Requires-Dist: Sphinx!=7.2.0,<10.0.0; extra == "docs"
@@ -115,7 +115,7 @@ Dynamic: license-file
 `skbase` provides base classes for creating scikit-learn-like parametric objects,
 along with tools to make it easier to build your own packages that follow these design patterns.
 
-:rocket: Version 1.0.0 is now available. Check out our
+:rocket: Version 1.0.1 is now available. Check out our
 [release notes](https://skbase.readthedocs.io/en/latest/changelog.html).
 
 | Overview | |

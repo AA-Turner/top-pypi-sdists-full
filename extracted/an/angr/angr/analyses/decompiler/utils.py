@@ -1,17 +1,19 @@
-# pylint:disable=wrong-import-position,broad-exception-caught,ungrouped-imports,import-outside-toplevel
+# pylint:disable=broad-exception-caught,import-outside-toplevel
 from __future__ import annotations
+
 import contextlib
-import pathlib
 import copy
-from types import FunctionType
-from typing import Any, TYPE_CHECKING
-from collections.abc import Iterable
 import logging
+import pathlib
+from collections.abc import Iterable
+from types import FunctionType
+from typing import Any, cast
 
 import networkx
 
 import angr
 from angr import ailment
+from angr.ailment import Address
 from angr.ailment.block import Block
 from angr.analyses.decompiler.counters.call_counter import AILBlockCallCounter
 from angr.analyses.decompiler.peephole_optimizations.base import (
@@ -19,10 +21,18 @@ from angr.analyses.decompiler.peephole_optimizations.base import (
     PeepholeOptimizationMultiStmtBase,
 )
 from angr.utils.ail import is_phi_assignment
-from .seq_to_blocks import SequenceToBlocks
 
-if TYPE_CHECKING:
-    from angr.ailment import Address
+from .seq_to_blocks import SequenceToBlocks
+from .structurer_nodes import (
+    BaseNode,
+    CascadingConditionNode,
+    CodeNode,
+    ConditionNode,
+    LoopNode,
+    MultiNode,
+    SequenceNode,
+    SwitchCaseNode,
+)
 
 pdb = __import__("pdb")
 with contextlib.suppress(ImportError):
@@ -300,19 +310,19 @@ def switch_extract_bitwiseand_jumptable_info(last_stmt: ailment.Stmt.Jump) -> tu
     Check the last statement of the switch-case header node (whose address is loaded from a jump table and computed
     using an index) and extract necessary information for rebuilding the switch-case construct.
 
-    An example of the statement:
+    An example of the statement::
 
-    Goto(Conv(32->s64, (
-        Load(addr=(0x4530e4<64> + (Conv(32->64, (Conv(64->32, vvar_287{reg 32}) & 0x3<32>)) * 0x4<64>)),
-             size=4, endness=Iend_LE) + 0x4530e4<32>))
-    )
+        Goto(Conv(32->s64, (
+            Load(addr=(0x4530e4<64> + (Conv(32->64, (Conv(64->32, vvar_287{reg 32}) & 0x3<32>)) * 0x4<64>)),
+                 size=4, endness=Iend_LE) + 0x4530e4<32>))
+        )
 
-    Another example:
+    Another example::
 
-    Load(addr=(((vvar_9{reg 36} & 0x3<32>) * 0x4<32>) + 0x42cd28<32>), size=4, endness=Iend_LE)
+        Load(addr=(((vvar_9{reg 36} & 0x3<32>) * 0x4<32>) + 0x42cd28<32>), size=4, endness=Iend_LE)
 
     :param last_stmt:   The last statement of the switch-case header node.
-    :return:            A tuple of (index expression, lower bound, upper bound), or None
+    :return:            A tuple of ``(index expression, lower bound, upper bound)``, or None.
     """
 
     if not isinstance(last_stmt, ailment.Stmt.Jump):
@@ -767,13 +777,14 @@ def structured_node_is_simple_return(
     node: SequenceNode | MultiNode, graph: networkx.DiGraph, use_packed_successors=False
 ) -> bool:
     """
-    Will check if a "simple return" is contained within the node a simple returns looks like this:
-    if (cond) {
-      // simple return
-      ...
-      return 0;
-    }
-    ...
+    Check if a "simple return" is contained within the node. A simple return looks like this::
+
+        if (cond) {
+          // simple return
+          ...
+          return 0;
+        }
+        ...
 
     Returns true on any block ending in linear statements and a return.
     """
@@ -1157,21 +1168,18 @@ def calls_in_graph(graph: networkx.DiGraph, consider_conditions: bool = False) -
     return counter.calls
 
 
-def call_stmts_in_graph(
+def call_exprs_in_graph(
     graph: networkx.DiGraph, consider_conditions: bool = False
-) -> tuple[
-    list[tuple[tuple[Address, int], ailment.Stmt.SideEffectStatement]],
-    list[tuple[tuple[Address, int], ailment.Expr.Call]],
-]:
+) -> list[tuple[tuple[Address, int], ailment.expression.Call]]:
     """
-    Return lists of call statements and call expressions in a given AIL graph.
+    Return a list of all call expressions in a given AIL graph.
     """
     counter = AILBlockCallCounter(consider_conditions=consider_conditions)
     for node in graph.nodes:
         counter.walk(node)
     # the above has an interface which includes nullable addresses because block can be none
     # but we always specify block here so we can ignore the Nones
-    return counter.call_stmts, counter.call_exprs  # type: ignore
+    return cast(list[tuple[tuple[Address, int], ailment.expression.Call]], counter.call_exprs)
 
 
 def has_addr_dups(graph: networkx.DiGraph[Block]) -> bool:
@@ -1237,16 +1245,3 @@ def remove_edges_in_ailgraph(
     for src_addr, dst_addr in edges_to_remove:
         if src_addr in d and dst_addr in d and ail_graph.has_edge(d[src_addr], d[dst_addr]):
             ail_graph.remove_edge(d[src_addr], d[dst_addr])
-
-
-# delayed import
-from .structuring.structurer_nodes import (
-    MultiNode,
-    BaseNode,
-    CodeNode,
-    SequenceNode,
-    ConditionNode,
-    SwitchCaseNode,
-    CascadingConditionNode,
-    LoopNode,
-)

@@ -43,7 +43,8 @@ class TestTranslationUpdateParameters(unittest.TestCase):
                 unverified = True, 
                 excluded = True, 
                 autotranslate = True, 
-                reviewed = True
+                reviewed = True, 
+                minor_change = False
             )
         else :
             return TranslationUpdateParameters(

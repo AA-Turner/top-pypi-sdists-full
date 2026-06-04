@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
+import asyncio
 import json
 import math
+import os
 from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
 import grpc
 import pytest
@@ -108,6 +103,21 @@ def modify_default_endpoint_template(client):
         if ("localhost" in client._DEFAULT_ENDPOINT_TEMPLATE)
         else client._DEFAULT_ENDPOINT_TEMPLATE
     )
+
+
+@pytest.fixture(autouse=True)
+def set_event_loop():
+    try:
+        asyncio.get_running_loop()
+        yield
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            yield
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
 
 
 def test__get_default_mtls_endpoint():
@@ -1224,7 +1234,7 @@ def test_aggregated_list_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_aggregated_list_rest_unset_required_fields():
@@ -1493,7 +1503,7 @@ def test_delete_rest_required_fields(request_type=compute.DeleteUrlMapRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_rest_unset_required_fields():
@@ -1689,7 +1699,7 @@ def test_delete_unary_rest_required_fields(request_type=compute.DeleteUrlMapRequ
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_unary_rest_unset_required_fields():
@@ -1879,7 +1889,7 @@ def test_get_rest_required_fields(request_type=compute.GetUrlMapRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_rest_unset_required_fields():
@@ -2072,7 +2082,7 @@ def test_insert_rest_required_fields(request_type=compute.InsertUrlMapRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_insert_rest_unset_required_fields():
@@ -2268,7 +2278,7 @@ def test_insert_unary_rest_required_fields(request_type=compute.InsertUrlMapRequ
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_insert_unary_rest_unset_required_fields():
@@ -2472,7 +2482,7 @@ def test_invalidate_cache_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_invalidate_cache_rest_unset_required_fields():
@@ -2680,7 +2690,7 @@ def test_invalidate_cache_unary_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_invalidate_cache_unary_rest_unset_required_fields():
@@ -2883,7 +2893,7 @@ def test_list_rest_required_fields(request_type=compute.ListUrlMapsRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_rest_unset_required_fields():
@@ -3141,7 +3151,7 @@ def test_patch_rest_required_fields(request_type=compute.PatchUrlMapRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_patch_rest_unset_required_fields():
@@ -3345,7 +3355,7 @@ def test_patch_unary_rest_required_fields(request_type=compute.PatchUrlMapReques
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_patch_unary_rest_unset_required_fields():
@@ -3549,7 +3559,7 @@ def test_test_iam_permissions_rest_required_fields(
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_test_iam_permissions_rest_unset_required_fields():
@@ -3753,7 +3763,7 @@ def test_update_rest_required_fields(request_type=compute.UpdateUrlMapRequest):
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_rest_unset_required_fields():
@@ -3957,7 +3967,7 @@ def test_update_unary_rest_required_fields(request_type=compute.UpdateUrlMapRequ
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_unary_rest_unset_required_fields():
@@ -4155,7 +4165,7 @@ def test_validate_rest_required_fields(request_type=compute.ValidateUrlMapReques
 
             expected_params = []
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_validate_rest_unset_required_fields():
@@ -4814,6 +4824,41 @@ def test_insert_rest_call_success(request_type):
             "error_service": "error_service_value",
         },
         "default_route_action": {
+            "cache_policy": {
+                "cache_bypass_request_header_names": [
+                    "cache_bypass_request_header_names_value1",
+                    "cache_bypass_request_header_names_value2",
+                ],
+                "cache_key_policy": {
+                    "excluded_query_parameters": [
+                        "excluded_query_parameters_value1",
+                        "excluded_query_parameters_value2",
+                    ],
+                    "include_host": True,
+                    "include_protocol": True,
+                    "include_query_string": True,
+                    "included_cookie_names": [
+                        "included_cookie_names_value1",
+                        "included_cookie_names_value2",
+                    ],
+                    "included_header_names": [
+                        "included_header_names_value1",
+                        "included_header_names_value2",
+                    ],
+                    "included_query_parameters": [
+                        "included_query_parameters_value1",
+                        "included_query_parameters_value2",
+                    ],
+                },
+                "cache_mode": "cache_mode_value",
+                "client_ttl": {"nanos": 543, "seconds": 751},
+                "default_ttl": {},
+                "max_ttl": {},
+                "negative_caching": True,
+                "negative_caching_policy": [{"code": 411, "ttl": {}}],
+                "request_coalescing": True,
+                "serve_while_stale": {},
+            },
             "cors_policy": {
                 "allow_credentials": True,
                 "allow_headers": ["allow_headers_value1", "allow_headers_value2"],
@@ -4829,10 +4874,7 @@ def test_insert_rest_call_success(request_type):
             },
             "fault_injection_policy": {
                 "abort": {"http_status": 1219, "percentage": 0.10540000000000001},
-                "delay": {
-                    "fixed_delay": {"nanos": 543, "seconds": 751},
-                    "percentage": 0.10540000000000001,
-                },
+                "delay": {"fixed_delay": {}, "percentage": 0.10540000000000001},
             },
             "max_stream_duration": {},
             "request_mirror_policy": {
@@ -5609,6 +5651,41 @@ def test_patch_rest_call_success(request_type):
             "error_service": "error_service_value",
         },
         "default_route_action": {
+            "cache_policy": {
+                "cache_bypass_request_header_names": [
+                    "cache_bypass_request_header_names_value1",
+                    "cache_bypass_request_header_names_value2",
+                ],
+                "cache_key_policy": {
+                    "excluded_query_parameters": [
+                        "excluded_query_parameters_value1",
+                        "excluded_query_parameters_value2",
+                    ],
+                    "include_host": True,
+                    "include_protocol": True,
+                    "include_query_string": True,
+                    "included_cookie_names": [
+                        "included_cookie_names_value1",
+                        "included_cookie_names_value2",
+                    ],
+                    "included_header_names": [
+                        "included_header_names_value1",
+                        "included_header_names_value2",
+                    ],
+                    "included_query_parameters": [
+                        "included_query_parameters_value1",
+                        "included_query_parameters_value2",
+                    ],
+                },
+                "cache_mode": "cache_mode_value",
+                "client_ttl": {"nanos": 543, "seconds": 751},
+                "default_ttl": {},
+                "max_ttl": {},
+                "negative_caching": True,
+                "negative_caching_policy": [{"code": 411, "ttl": {}}],
+                "request_coalescing": True,
+                "serve_while_stale": {},
+            },
             "cors_policy": {
                 "allow_credentials": True,
                 "allow_headers": ["allow_headers_value1", "allow_headers_value2"],
@@ -5624,10 +5701,7 @@ def test_patch_rest_call_success(request_type):
             },
             "fault_injection_policy": {
                 "abort": {"http_status": 1219, "percentage": 0.10540000000000001},
-                "delay": {
-                    "fixed_delay": {"nanos": 543, "seconds": 751},
-                    "percentage": 0.10540000000000001,
-                },
+                "delay": {"fixed_delay": {}, "percentage": 0.10540000000000001},
             },
             "max_stream_duration": {},
             "request_mirror_policy": {
@@ -6236,6 +6310,41 @@ def test_update_rest_call_success(request_type):
             "error_service": "error_service_value",
         },
         "default_route_action": {
+            "cache_policy": {
+                "cache_bypass_request_header_names": [
+                    "cache_bypass_request_header_names_value1",
+                    "cache_bypass_request_header_names_value2",
+                ],
+                "cache_key_policy": {
+                    "excluded_query_parameters": [
+                        "excluded_query_parameters_value1",
+                        "excluded_query_parameters_value2",
+                    ],
+                    "include_host": True,
+                    "include_protocol": True,
+                    "include_query_string": True,
+                    "included_cookie_names": [
+                        "included_cookie_names_value1",
+                        "included_cookie_names_value2",
+                    ],
+                    "included_header_names": [
+                        "included_header_names_value1",
+                        "included_header_names_value2",
+                    ],
+                    "included_query_parameters": [
+                        "included_query_parameters_value1",
+                        "included_query_parameters_value2",
+                    ],
+                },
+                "cache_mode": "cache_mode_value",
+                "client_ttl": {"nanos": 543, "seconds": 751},
+                "default_ttl": {},
+                "max_ttl": {},
+                "negative_caching": True,
+                "negative_caching_policy": [{"code": 411, "ttl": {}}],
+                "request_coalescing": True,
+                "serve_while_stale": {},
+            },
             "cors_policy": {
                 "allow_credentials": True,
                 "allow_headers": ["allow_headers_value1", "allow_headers_value2"],
@@ -6251,10 +6360,7 @@ def test_update_rest_call_success(request_type):
             },
             "fault_injection_policy": {
                 "abort": {"http_status": 1219, "percentage": 0.10540000000000001},
-                "delay": {
-                    "fixed_delay": {"nanos": 543, "seconds": 751},
-                    "percentage": 0.10540000000000001,
-                },
+                "delay": {"fixed_delay": {}, "percentage": 0.10540000000000001},
             },
             "max_stream_duration": {},
             "request_mirror_policy": {
@@ -6660,6 +6766,41 @@ def test_validate_rest_call_success(request_type):
                 "error_service": "error_service_value",
             },
             "default_route_action": {
+                "cache_policy": {
+                    "cache_bypass_request_header_names": [
+                        "cache_bypass_request_header_names_value1",
+                        "cache_bypass_request_header_names_value2",
+                    ],
+                    "cache_key_policy": {
+                        "excluded_query_parameters": [
+                            "excluded_query_parameters_value1",
+                            "excluded_query_parameters_value2",
+                        ],
+                        "include_host": True,
+                        "include_protocol": True,
+                        "include_query_string": True,
+                        "included_cookie_names": [
+                            "included_cookie_names_value1",
+                            "included_cookie_names_value2",
+                        ],
+                        "included_header_names": [
+                            "included_header_names_value1",
+                            "included_header_names_value2",
+                        ],
+                        "included_query_parameters": [
+                            "included_query_parameters_value1",
+                            "included_query_parameters_value2",
+                        ],
+                    },
+                    "cache_mode": "cache_mode_value",
+                    "client_ttl": {"nanos": 543, "seconds": 751},
+                    "default_ttl": {},
+                    "max_ttl": {},
+                    "negative_caching": True,
+                    "negative_caching_policy": [{"code": 411, "ttl": {}}],
+                    "request_coalescing": True,
+                    "serve_while_stale": {},
+                },
                 "cors_policy": {
                     "allow_credentials": True,
                     "allow_headers": ["allow_headers_value1", "allow_headers_value2"],
@@ -6678,10 +6819,7 @@ def test_validate_rest_call_success(request_type):
                 },
                 "fault_injection_policy": {
                     "abort": {"http_status": 1219, "percentage": 0.10540000000000001},
-                    "delay": {
-                        "fixed_delay": {"nanos": 543, "seconds": 751},
-                        "percentage": 0.10540000000000001,
-                    },
+                    "delay": {"fixed_delay": {}, "percentage": 0.10540000000000001},
                 },
                 "max_stream_duration": {},
                 "request_mirror_policy": {
@@ -7017,7 +7155,6 @@ def test_aggregated_list_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.AggregatedListUrlMapsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7037,7 +7174,6 @@ def test_delete_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.DeleteUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7057,7 +7193,6 @@ def test_get_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.GetUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7077,7 +7212,6 @@ def test_insert_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.InsertUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7097,7 +7231,6 @@ def test_invalidate_cache_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.InvalidateCacheUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7117,7 +7250,6 @@ def test_list_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.ListUrlMapsRequest()
-
         assert args[0] == request_msg
 
 
@@ -7137,7 +7269,6 @@ def test_patch_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.PatchUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7159,7 +7290,6 @@ def test_test_iam_permissions_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.TestIamPermissionsUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7179,7 +7309,6 @@ def test_update_unary_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.UpdateUrlMapRequest()
-
         assert args[0] == request_msg
 
 
@@ -7199,7 +7328,6 @@ def test_validate_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = compute.ValidateUrlMapRequest()
-
         assert args[0] == request_msg
 
 

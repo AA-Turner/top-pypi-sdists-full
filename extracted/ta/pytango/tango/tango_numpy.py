@@ -5,16 +5,17 @@
 This is an internal PyTango module.
 """
 
-__all__ = ("NumpyType", "numpy_type", "numpy_spectrum", "numpy_image")
+__all__ = ("NumpyType", "numpy_image", "numpy_spectrum", "numpy_type")
 
 __docformat__ = "restructuredtext"
 
 import collections.abc
+from typing import ClassVar
+
 import numpy
 
-from tango import Except, Attribute, AttributeInfo
+from tango import Attribute, AttributeInfo, Except
 from tango import CmdArgType as ArgType
-
 from tango.attribute_proxy import AttributeProxy
 
 
@@ -38,7 +39,7 @@ class NumpyType:
     DevLong64 = numpy.int64
     DevULong64 = numpy.uint64
 
-    mapping = {
+    mapping: ClassVar[dict] = {
         ArgType.DevShort: DevShort,
         ArgType.DevLong: DevLong,
         ArgType.DevDouble: DevDouble,

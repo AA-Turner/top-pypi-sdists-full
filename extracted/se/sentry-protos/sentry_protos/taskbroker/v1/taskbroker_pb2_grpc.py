@@ -47,6 +47,11 @@ class ConsumerServiceStub(object):
                 request_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetTaskStatusRequest.SerializeToString,
                 response_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetTaskStatusResponse.FromString,
                 _registered_method=True)
+        self.SetBatchActivationStatus = channel.unary_unary(
+                '/sentry_protos.taskbroker.v1.ConsumerService/SetBatchActivationStatus',
+                request_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetBatchActivationStatusRequest.SerializeToString,
+                response_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetBatchActivationStatusResponse.FromString,
+                _registered_method=True)
 
 
 class ConsumerServiceServicer(object):
@@ -56,14 +61,21 @@ class ConsumerServiceServicer(object):
     """
 
     def GetTask(self, request, context):
-        """Fetch a new task activation to process.
+        """Fetch a new activation to process.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def SetTaskStatus(self, request, context):
-        """Update the state of a task with execution results.
+        """Update the state of an activation with execution results.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetBatchActivationStatus(self, request, context):
+        """Update the status of multiple activations
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -81,6 +93,11 @@ def add_ConsumerServiceServicer_to_server(servicer, server):
                     servicer.SetTaskStatus,
                     request_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetTaskStatusRequest.FromString,
                     response_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetTaskStatusResponse.SerializeToString,
+            ),
+            'SetBatchActivationStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetBatchActivationStatus,
+                    request_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetBatchActivationStatusRequest.FromString,
+                    response_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetBatchActivationStatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -150,6 +167,33 @@ class ConsumerService(object):
             metadata,
             _registered_method=True)
 
+    @staticmethod
+    def SetBatchActivationStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sentry_protos.taskbroker.v1.ConsumerService/SetBatchActivationStatus',
+            sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetBatchActivationStatusRequest.SerializeToString,
+            sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.SetBatchActivationStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
 
 class WorkerServiceStub(object):
     """Missing associated documentation comment in .proto file."""
@@ -171,7 +215,7 @@ class WorkerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def PushTask(self, request, context):
-        """Provide the worker with a task to execute.
+        """Provide the worker with an activation to execute.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

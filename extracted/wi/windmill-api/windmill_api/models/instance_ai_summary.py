@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.instance_ai_summary_code_completion_model import InstanceAISummaryCodeCompletionModel
     from ..models.instance_ai_summary_default_model import InstanceAISummaryDefaultModel
+    from ..models.instance_ai_summary_metadata_model import InstanceAISummaryMetadataModel
     from ..models.instance_ai_summary_providers_item import InstanceAISummaryProvidersItem
 
 
@@ -20,11 +21,13 @@ class InstanceAISummary:
     Attributes:
         providers (List['InstanceAISummaryProvidersItem']):
         default_model (Union[Unset, InstanceAISummaryDefaultModel]):
+        metadata_model (Union[Unset, InstanceAISummaryMetadataModel]):
         code_completion_model (Union[Unset, InstanceAISummaryCodeCompletionModel]):
     """
 
     providers: List["InstanceAISummaryProvidersItem"]
     default_model: Union[Unset, "InstanceAISummaryDefaultModel"] = UNSET
+    metadata_model: Union[Unset, "InstanceAISummaryMetadataModel"] = UNSET
     code_completion_model: Union[Unset, "InstanceAISummaryCodeCompletionModel"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -39,6 +42,10 @@ class InstanceAISummary:
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
 
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
+
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
             code_completion_model = self.code_completion_model.to_dict()
@@ -52,6 +59,8 @@ class InstanceAISummary:
         )
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
 
@@ -61,6 +70,7 @@ class InstanceAISummary:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.instance_ai_summary_code_completion_model import InstanceAISummaryCodeCompletionModel
         from ..models.instance_ai_summary_default_model import InstanceAISummaryDefaultModel
+        from ..models.instance_ai_summary_metadata_model import InstanceAISummaryMetadataModel
         from ..models.instance_ai_summary_providers_item import InstanceAISummaryProvidersItem
 
         d = src_dict.copy()
@@ -78,6 +88,13 @@ class InstanceAISummary:
         else:
             default_model = InstanceAISummaryDefaultModel.from_dict(_default_model)
 
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, InstanceAISummaryMetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = InstanceAISummaryMetadataModel.from_dict(_metadata_model)
+
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, InstanceAISummaryCodeCompletionModel]
         if isinstance(_code_completion_model, Unset):
@@ -88,6 +105,7 @@ class InstanceAISummary:
         instance_ai_summary = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
         )
 

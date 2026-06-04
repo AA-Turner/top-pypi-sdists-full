@@ -2,7 +2,7 @@ from __future__ import annotations
 
 # std lib
 from functools import partial
-from math import atan
+from math import atan, isnan, nan
 from typing import Optional, Union
 
 # 3rd-party
@@ -23,11 +23,12 @@ from numba import cuda
 
 # local modules
 from xrspatial.dataset_support import supports_dataset
-from xrspatial.geodesic import (INV_2R, WGS84_A2, WGS84_B2, _check_geodesic_memory,
+from xrspatial.geodesic import (INV_2R, WGS84_A2, WGS84_B2, _check_geodesic_memory_backend_aware,
                                 _cpu_geodesic_slope, _run_gpu_geodesic_slope)
 from xrspatial.utils import (Z_UNITS, ArrayTypeFunctionMapping, _boundary_to_dask,
                              _extract_latlon_coords, _pad_array, _validate_boundary,
-                             _validate_raster, cuda_args, get_dataarray_resolution, ngjit)
+                             _validate_raster, cuda_args, get_dataarray_resolution, ngjit,
+                             warn_if_unit_mismatch)
 
 
 def _geodesic_cuda_dims(shape):
@@ -52,6 +53,8 @@ def _cpu(data, cellsize_x, cellsize_y):
     rows, cols = data.shape
     for y in range(1, rows - 1):
         for x in range(1, cols - 1):
+            if np.isnan(data[y, x]):
+                continue
             a = data[y + 1, x - 1]
             b = data[y + 1, x]
             c = data[y + 1, x + 1]
@@ -112,6 +115,8 @@ def _run_dask_cupy(data: da.Array,
 
 @cuda.jit(device=True)
 def _gpu(arr, cellsize_x, cellsize_y):
+    if isnan(arr[1, 1]):
+        return nan
     a = arr[2, 0]
     b = arr[2, 1]
     c = arr[2, 2]
@@ -271,11 +276,21 @@ def _run_dask_numpy_geodesic(data, lat_2d, lon_2d, a2, b2, z_factor, boundary='n
     return out[0]
 
 
+def _to_cupy_f64(block):
+    # Only reached from the dask+cupy path, so `cupy` is the real module here,
+    # never the import-time fallback class.
+    return cupy.asarray(block, dtype=cupy.float64)
+
+
 def _run_dask_cupy_geodesic(data, lat_2d, lon_2d, a2, b2, z_factor, boundary='nan'):
-    lat_dask = da.from_array(cupy.asarray(lat_2d, dtype=cupy.float64),
-                             chunks=data.chunksize)
-    lon_dask = da.from_array(cupy.asarray(lon_2d, dtype=cupy.float64),
-                             chunks=data.chunksize)
+    # Keep lat/lon as dask-of-numpy on the (zero-stride) broadcast views, then
+    # convert each block to cupy lazily. Converting up front with
+    # cupy.asarray(lat_2d) would densify the full (H, W) grid onto a single GPU
+    # at graph-construction time and OOM on large rasters.
+    lat_dask = da.from_array(lat_2d, chunks=data.chunksize).map_blocks(
+        _to_cupy_f64, dtype=np.float64)
+    lon_dask = da.from_array(lon_2d, chunks=data.chunksize).map_blocks(
+        _to_cupy_f64, dtype=np.float64)
     stacked = da.stack([
         data.astype(cupy.float64),
         lat_dask,
@@ -336,8 +351,18 @@ def slope(agg: xr.DataArray,
         If `agg` is a DataArray, returns a DataArray of the same type.
         If `agg` is a Dataset, returns a Dataset with slope computed
         for each data variable.
-        2D array of slope values.
-        All other input attributes are preserved.
+        2D array of slope values in degrees. The output ``attrs['units']``
+        is set to ``'degrees'``; all other input attributes are preserved.
+
+    Notes
+    -----
+    The ``'planar'`` method uses the coordinate spacing directly as the cell
+    size. If the coordinates are in degrees (lat/lon) but the elevation values
+    are in meters, the result is wrong by orders of magnitude. When this
+    mismatch is detected, a ``UserWarning`` is emitted suggesting you reproject
+    to a projected CRS or use ``method='geodesic'``. The ``'planar'`` method also
+    raises a ``ValueError`` if the cell size on either axis is zero, negative, or
+    non-finite, since those values cannot produce a valid slope.
 
     References
     ----------
@@ -376,7 +401,19 @@ def slope(agg: xr.DataArray,
     _validate_boundary(boundary)
 
     if method == 'planar':
+        warn_if_unit_mismatch(agg)
         cellsize_x, cellsize_y = get_dataarray_resolution(agg)
+        # Reject negatives too (curvature() only checks == 0): a negative cell
+        # size would silently flip the slope sign rather than error out.
+        if (not np.isfinite(cellsize_x) or not np.isfinite(cellsize_y)
+                or cellsize_x <= 0 or cellsize_y <= 0):
+            raise ValueError(
+                "slope(method='planar') requires a positive, finite cell size "
+                f"on both axes; got cellsize_x={cellsize_x!r}, "
+                f"cellsize_y={cellsize_y!r}. "
+                "Set agg.attrs['res'] to a (x, y) tuple of positive floats, "
+                "or attach numeric x/y coordinates to the DataArray."
+            )
         mapper = ArrayTypeFunctionMapping(
             numpy_func=_run_numpy,
             cupy_func=_run_cupy,
@@ -388,13 +425,12 @@ def slope(agg: xr.DataArray,
     else:  # geodesic
         if z_unit not in Z_UNITS:
             raise ValueError(
-                f"z_unit must be one of {sorted(set(Z_UNITS.values()), key=str)}, "
+                f"z_unit must be one of {sorted(Z_UNITS)}, "
                 f"got {z_unit!r}"
             )
         z_factor = Z_UNITS[z_unit]
 
-        rows, cols = agg.shape[-2], agg.shape[-1]
-        _check_geodesic_memory(rows, cols, func_name='slope')
+        _check_geodesic_memory_backend_aware(agg, func_name='slope')
 
         lat_2d, lon_2d = _extract_latlon_coords(agg)
 
@@ -406,8 +442,19 @@ def slope(agg: xr.DataArray,
         )
         out = mapper(agg)(agg.data, lat_2d, lon_2d, WGS84_A2, WGS84_B2, z_factor, boundary)
 
-    return xr.DataArray(out,
-                        name=name,
-                        coords=agg.coords,
-                        dims=agg.dims,
-                        attrs=agg.attrs)
+    # slope is reported in degrees, so override the input elevation 'units'
+    # (e.g. 'm') with the angle unit the result actually carries. Other input
+    # attrs are preserved.
+    attrs = dict(agg.attrs)
+    attrs['units'] = 'degrees'
+
+    result = xr.DataArray(out,
+                          name=name,
+                          coords=agg.coords,
+                          dims=agg.dims,
+                          attrs=attrs)
+    # On dask backends, xr.DataArray keeps the dask array's internal graph
+    # token as .name when name=None, so reset it post-construction to match
+    # the numpy/cupy backends. (Same fix as zonal #2611, focal #2733.)
+    result.name = name
+    return result

@@ -131,6 +131,27 @@ def cross_fit_shared_precision_groups(
     where ``sum_q_p`` pools ``||beta_p||² + tr(Sigma_pp)`` over models where
     the selected term/column/label appears. If a model does not contain the
     selected block, it is skipped for that group.
+
+    Parameters
+    ----------
+    models:
+        Sequence or mapping of fitted :class:`gamfit.Model` objects.
+    groups:
+        Shared precision groups, either as :class:`SharedPrecisionGroup`
+        instances or mappings with ``name`` / ``shape`` / ``rate`` fields.
+
+    Returns
+    -------
+    dict
+        Rust-produced update payload keyed by shared precision group.
+
+    Raises
+    ------
+    TypeError
+        If ``models`` does not contain :class:`Model` instances or a group
+        cannot be normalized.
+    ValueError
+        If no models/groups are supplied or group names are duplicated.
     """
 
     model_items = _normalize_model_mapping(models)
@@ -192,7 +213,13 @@ def build_info() -> dict[str, Any]:
 
 
 def cuda_diagnostics() -> dict[str, object]:
-    """Return CUDA loader diagnostics without forcing Rust GPU dispatch."""
+    """Return CUDA loader diagnostics without forcing Rust GPU dispatch.
+
+    Returns
+    -------
+    dict
+        Loader paths, discovered CUDA libraries, and availability flags.
+    """
 
     return _cuda_diagnostics()
 
@@ -204,7 +231,13 @@ def cuda_subprocess_library_dirs() -> tuple[str, ...]:
 
 
 def cuda_subprocess_env(env: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Return ``env`` with packaged CUDA wheel dirs prepended to ``LD_LIBRARY_PATH``."""
+    """Return ``env`` with packaged CUDA wheel dirs prepended to ``LD_LIBRARY_PATH``.
+
+    Parameters
+    ----------
+    env:
+        Base environment mapping. ``None`` starts from an empty mapping.
+    """
 
     return _cuda_subprocess_env(env)
 
@@ -634,6 +667,15 @@ def _suggest_kwarg_typo(fn: Any) -> Any:
 
 @overload
 def fit(
+    activations: Any,
+    formula: None = ...,
+    *,
+    config: Mapping[str, Any] | None = ...,
+) -> dict[str, Any]: ...
+
+
+@overload
+def fit(
     data: Any,
     formula: str,
     *,
@@ -718,7 +760,7 @@ def fit(
 
 def fit(
     data: Any,
-    formula: str,
+    formula: str | None = None,
     *,
     family: str = "auto",
     offset: str | None = None,
@@ -754,8 +796,12 @@ def fit(
     penalties: Sequence[Any] | None = None,
     smooths: Mapping[Any, Any] | None = None,
     config: dict[str, Any] | None = None,
-) -> Model | ResponseGeometryModel:
-    """Fit a GAM model from a formula and a tabular dataset.
+) -> Model | ResponseGeometryModel | dict[str, Any]:
+    """Fit a GAM model, or fit SAE activations when ``formula`` is omitted.
+
+    ``gamfit.fit(data, formula, ...)`` keeps the formula-first GAM API.
+    ``gamfit.fit(activations, config=...)`` dispatches to the SAE research-loop
+    API and returns typed atoms, coordinates, and trust-score hooks.
 
     Parameters
     ----------
@@ -902,7 +948,15 @@ def fit(
     penalties:
         Analytic penalty wrappers such as :class:`gamfit.OrthogonalityPenalty`
         or :class:`gamfit.ARDPenalty`, targeted at latent block names or
-        indices declared in ``latents``.
+        indices declared in ``latents``. The Rust-backed public wrappers also
+        include the SAE/assignment family
+        (:class:`gamfit.SoftmaxAssignmentSparsityPenalty`,
+        :class:`gamfit.IBPAssignmentPenalty`,
+        :class:`gamfit.TopKActivationPenalty`,
+        :class:`gamfit.JumpReLUPenalty`) and newer structured penalties such
+        as :class:`gamfit.ScadMcpPenalty` and
+        :class:`gamfit.NuclearNormPenalty`. ``penalties=`` is not for smooth
+        basis descriptors; pass those through ``smooths=``.
     smooths:
         Optional mapping from formula symbol to :class:`gamfit.smooth.Smooth`
         basis descriptor (``Duchon``, ``Matern``, ``Sphere``, ``BSpline``,
@@ -932,10 +986,74 @@ def fit(
 
     Returns
     -------
-    Model
-        A fitted model object with ``predict``, ``summary``, and save/load
-        helpers.
+    Model or ResponseGeometryModel or MultinomialModel
+        A fitted scalar GAM :class:`Model` by default. When
+        ``response_geometry`` is supplied, returns a
+        :class:`ResponseGeometryModel`; when ``family`` requests the
+        multinomial/softmax path, returns a :class:`MultinomialModel`.
+
+    Raises
+    ------
+    TypeError
+        For malformed ``penalties`` / ``smooths`` containers or unexpected
+        keyword arguments.
+    ValueError
+        For missing response-geometry fields, invalid penalty targets, invalid
+        Fisher-Rao blocks, or formula/data mismatches surfaced before the Rust
+        fit.
+    GamError
+        Rust engine errors are mapped into the typed gamfit exception
+        hierarchy.
     """
+    if formula is None:
+        formula_only = {
+            "family": family,
+            "offset": offset,
+            "weights": weights,
+            "transformation_normal": transformation_normal,
+            "transformation_normal_stage1": transformation_normal_stage1,
+            "survival_likelihood": survival_likelihood,
+            "baseline_target": baseline_target,
+            "baseline_scale": baseline_scale,
+            "baseline_shape": baseline_shape,
+            "baseline_rate": baseline_rate,
+            "baseline_makeham": baseline_makeham,
+            "z_column": z_column,
+            "link": link,
+            "logslope_formula": logslope_formula,
+            "frailty_kind": frailty_kind,
+            "frailty_sd": frailty_sd,
+            "hazard_loading": hazard_loading,
+            "scale_dimensions": scale_dimensions,
+            "adaptive_regularization": adaptive_regularization,
+            "firth": firth,
+            "noise_formula": noise_formula,
+            "noise_offset": noise_offset,
+            "flexible_link": flexible_link,
+            "precision_hyperpriors": precision_hyperpriors,
+            "constraints": constraints,
+            "response_geometry": response_geometry,
+            "response_columns": response_columns,
+            "response_coordinates": response_coordinates,
+            "response_reference": response_reference,
+            "fisher_rao_w": fisher_rao_w,
+            "latents": latents,
+            "penalties": penalties,
+            "smooths": smooths,
+        }
+        active_formula_kwargs = [
+            name for name, value in formula_only.items()
+            if value is not None and not (name == "family" and value == "auto")
+        ]
+        if active_formula_kwargs:
+            raise TypeError(
+                "gamfit.fit requires formula='...' when formula-model kwargs are supplied: "
+                + ", ".join(active_formula_kwargs)
+            )
+        from ._sae_manifold import fit as _sae_research_fit
+
+        return _sae_research_fit(data, config=config)
+
     if constraints:
         # Alias normalization, smooth-term scanning, and the `shape=` rewrite all
         # live in Rust (`gam::terms::smooth::apply_shape_constraints_to_formula`);
@@ -1151,6 +1269,21 @@ def fit_array(
     ``X`` is named ``x0``, ``x1``, ... at the formula boundary. A one-column
     ``Y`` is named from the formula response; multi-column ``Y`` is named
     ``y0``, ``y1``, ...
+
+    Other keyword arguments have the same semantics as :func:`fit`, except
+    response-geometry and shape-constraint helpers are available only on the
+    table/formula entry point.
+
+    Returns
+    -------
+    Model
+        Fitted scalar model whose training table kind is recorded as
+        ``"numpy"`` for positional-array prediction.
+
+    Raises
+    ------
+    ValueError
+        If ``X`` and ``Y`` row counts differ or required arrays are malformed.
     """
     X_arr = _numeric_matrix(X, "X")
     Y_arr = _numeric_matrix(Y, "Y")
@@ -1322,8 +1455,16 @@ def validate_formula(
 ) -> FormulaValidation:
     """Validate a formula against a dataset without fitting.
 
-    Accepts every pipeline kwarg that :func:`fit` accepts, with identical
-    semantics. See :func:`fit` for parameter documentation.
+    Accepts the scalar formula pipeline kwargs present in this function's
+    signature, with the same semantics as :func:`fit`. Validation deliberately
+    does not accept fit-only objects such as ``constraints``, ``latents``,
+    ``penalties``, ``smooths``, ``precision_hyperpriors``, or
+    ``response_geometry``.
+
+    Returns
+    -------
+    FormulaValidation
+        Structured validation diagnostics from the Rust parser/materializer.
     """
     headers, rows, _table_kind = normalize_table(data)
     rust_config = dict(config or {})

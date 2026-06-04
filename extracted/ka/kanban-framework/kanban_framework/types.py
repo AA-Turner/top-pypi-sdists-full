@@ -116,7 +116,7 @@ class Task:
     priority: int = 5
     worktree_path: Optional[str] = None
     lightweight: bool = False
-    mode: str = "full"          # full | lightweight | custom
+    mode: str = "lightweight"      # lightweight | quick | custom
     control_mode: ControlMode = ControlMode.SEMI
     custom_fsm: dict | None = None  # {"phases": [...], "evaluate_agents": [...]}
     history: list[dict] = field(default_factory=list)

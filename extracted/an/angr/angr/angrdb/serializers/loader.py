@@ -1,16 +1,17 @@
 from __future__ import annotations
-from typing import Any
-from pathlib import Path
-import json
+
 import binascii
+import json
 import logging
 from io import BytesIO
-import archinfo
+from pathlib import Path
+from typing import Any
 
+import archinfo
 import cle
 
-from angr.errors import AngrCorruptDBError, AngrDBError
 from angr.angrdb.models import DbObject
+from angr.errors import AngrCorruptDBError, AngrDBError
 
 _l = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class LoaderSerializer:
     Serialize/unserialize a CLE Loader object into/from an angr DB.
 
     Corner cases:
+
     - For certain backends (e.g., CART), we do not store the data of the main object. angr will unpack the CART file
       again after loading the database.
     """

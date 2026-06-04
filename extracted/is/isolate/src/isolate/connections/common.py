@@ -4,6 +4,7 @@ import importlib
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Iterator, cast
 
 from tblib import Traceback, TracebackParseError
@@ -26,6 +27,14 @@ class SerializationError(Exception):
     """An error that happened during the serialization process."""
 
     message: str
+
+
+@dataclass
+class ExceptionDeserializationError(SerializationError):
+    """Raised when a remote exception cannot be deserialized locally (e.g. the
+    module that defines its type isn't importable here)."""
+
+    original_traceback: TracebackType | None
 
 
 # NOTE: tblib's install() will search for BaseException subclasses,
@@ -77,8 +86,19 @@ def load_serialized_object(
             importlib.import_module(serialization_method)
         )
 
-    with _step("deserializing the given object"):
-        result = serialization_backend.loads(raw_object)
+    try:
+        with _step("deserializing the given object"):
+            result = serialization_backend.loads(raw_object)
+    except SerializationError as exc:
+        if was_it_raised:
+            # We were trying to reconstruct a remote exception but its type
+            # isn't importable here, so loads() failed. Surface the genuine
+            # local cause along with the remote traceback.
+            raise ExceptionDeserializationError(
+                exc.message,
+                original_traceback=_prepare_traceback(stringized_traceback),
+            ) from exc.__cause__
+        raise
 
     if was_it_raised:
         raise prepare_exc(result, stringized_traceback=stringized_traceback)
@@ -111,18 +131,19 @@ def validate_entrypoint(entrypoint: str) -> None:
         raise ValueError(f"Invalid entrypoint {entrypoint!r}: expected 'module:attr'.")
 
 
+def _prepare_traceback(stringized_traceback: str | None) -> TracebackType | None:
+    if stringized_traceback:
+        try:
+            return Traceback.from_string(stringized_traceback).as_traceback()
+        except TracebackParseError:
+            pass
+    return None
+
+
 def prepare_exc(
     exc: BaseException,
     *,
     stringized_traceback: str | None = None,
 ) -> BaseException:
-    if stringized_traceback:
-        try:
-            traceback = Traceback.from_string(stringized_traceback).as_traceback()
-        except TracebackParseError:
-            traceback = None
-    else:
-        traceback = None
-
-    exc.__traceback__ = traceback
+    exc.__traceback__ = _prepare_traceback(stringized_traceback)
     return exc

@@ -131,7 +131,7 @@ class ExecutionInstance:
                                         f'to use this feature.')
 
         # Open the notebook that has been scheduled for execution
-        with util.safe_open(self.file_path) as f_notebook_scheduled:
+        with util.safe_open(self.file_path, encoding='utf-8') as f_notebook_scheduled:
             nb_notebook_scheduled = nbformat.read(f_notebook_scheduled, nbformat.NO_CONVERT)
 
         # Get kernel language
@@ -151,7 +151,7 @@ class ExecutionInstance:
             raise SPyRuntimeError(error_message)
 
         # Open the dummy notebook with spy.login cell
-        with util.safe_open(execution_notebook) as f_notebook_execution:
+        with util.safe_open(execution_notebook, encoding='utf-8') as f_notebook_execution:
             nb_notebook_execution = nbformat.read(f_notebook_execution, nbformat.NO_CONVERT)
 
         # Create new notebook dynamically that includes login cell first
@@ -164,7 +164,7 @@ class ExecutionInstance:
         nb_notebook_merged.metadata = nb_notebook_scheduled.metadata
 
         # Write out the new joined notebook as hidden notebook with the same name as scheduled notebook
-        with util.safe_open(self.merged_notebook_path, 'w') as f_notebook_merged:
+        with util.safe_open(self.merged_notebook_path, 'w', encoding='utf-8') as f_notebook_merged:
             nbformat.write(nb_notebook_merged, f_notebook_merged)
 
         # Log to executor
@@ -185,7 +185,7 @@ class ExecutionInstance:
                                         f'to use this feature.')
 
         # Open the notebook for execution
-        with util.safe_open(self.merged_notebook_path, 'r+') as f_notebook_merged:
+        with util.safe_open(self.merged_notebook_path, 'r+', encoding='utf-8') as f_notebook_merged:
             nb_notebook_merged = nbformat.read(f_notebook_merged, nbformat.NO_CONVERT)
 
         ksm = KernelSpecManager(ensure_native_kernel=False)
@@ -254,7 +254,7 @@ class ExecutionInstance:
             self.execution_warning = f'{num_errors} error(s) were encountered during execution.'
 
         # Write the scheduled notebook
-        with util.safe_open(self.merged_notebook_path, 'w') as f_notebook_merged:
+        with util.safe_open(self.merged_notebook_path, 'w', encoding='utf-8') as f_notebook_merged:
             nbformat.write(nb_notebook_merged, f_notebook_merged)
 
         # Log to executor
@@ -270,7 +270,7 @@ class ExecutionInstance:
             raise SPyDependencyNotFound(f'`nbformat` is not installed. Please use `pip install seeq-spy[jobs]` '
                                         f'to use this feature.')
         # Open the modified notebook that has been scheduled for execution
-        with util.safe_open(self.merged_notebook_path) as f_notebook_merged:
+        with util.safe_open(self.merged_notebook_path, encoding='utf-8') as f_notebook_merged:
             nb_notebook_merged = nbformat.read(f_notebook_merged, nbformat.NO_CONVERT)
 
         # Configure the HTML exporter and export
@@ -284,7 +284,7 @@ class ExecutionInstance:
 
         # Create parent folder if not existing and write out the exported html to file
         Path(self.job_result_path).parent.mkdir(parents=True, exist_ok=True)
-        with util.safe_open(self.job_result_path, 'w') as f_job_result_file:
+        with util.safe_open(self.job_result_path, 'w', encoding='utf-8') as f_job_result_file:
             f_job_result_file.write(job_result_html)
 
         if self.execution_warning:
@@ -458,7 +458,7 @@ def get_memory_usage() -> int:
         return 0
 
     try:
-        with util.safe_open(memory_max_usage_path, "r") as f:
+        with util.safe_open(memory_max_usage_path, "r", encoding='utf-8') as f:
             return int(f.read().strip())
     except Exception:
         return 0

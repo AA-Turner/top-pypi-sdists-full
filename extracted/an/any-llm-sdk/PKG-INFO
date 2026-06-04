@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.15.0
+Version: 1.16.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -16,7 +16,7 @@ Requires-Dist: rich
 Requires-Dist: httpx
 Requires-Dist: typing_extensions>=4.5.0
 Provides-Extra: all
-Requires-Dist: any-llm-sdk[anthropic,azure,azureanthropic,azureopenai,bedrock,cerebras,cohere,dashscope,databricks,deepinfra,deepseek,fireworks,gateway,gemini,groq,huggingface,inception,llama,llamacpp,llamafile,lmstudio,minimax,mistral,moonshot,mzai,nebius,ollama,openai,openrouter,perplexity,platform,portkey,qiniu,sagemaker,sambanova,together,vertexai,vertexaianthropic,vllm,voyage,watsonx,xai,zai]; extra == "all"
+Requires-Dist: any-llm-sdk[anthropic,azure,azureanthropic,azureopenai,bedrock,cerebras,cohere,dashscope,databricks,deepinfra,deepseek,fireworks,gateway,gemini,github,groq,huggingface,inception,llama,llamacpp,llamafile,lmstudio,minimax,mistral,moonshot,mzai,nebius,ollama,openai,openrouter,otari,perplexity,platform,portkey,qiniu,sagemaker,sambanova,together,vertexai,vertexaianthropic,vllm,voyage,watsonx,xai,zai]; extra == "all"
 Provides-Extra: platform
 Requires-Dist: any-llm-platform-client>=0.3.0; extra == "platform"
 Requires-Dist: opentelemetry-sdk>=1.30.0; extra == "platform"
@@ -27,8 +27,10 @@ Requires-Dist: mistralai>=2.0.0; extra == "mistral"
 Provides-Extra: anthropic
 Provides-Extra: gemini
 Requires-Dist: google-genai; extra == "gemini"
+Requires-Dist: google-cloud-storage; extra == "gemini"
 Provides-Extra: vertexai
 Requires-Dist: google-genai; extra == "vertexai"
+Requires-Dist: google-cloud-storage; extra == "vertexai"
 Provides-Extra: vertexaianthropic
 Requires-Dist: anthropic[vertex]>=0.83.0; extra == "vertexaianthropic"
 Provides-Extra: azureanthropic
@@ -62,6 +64,10 @@ Provides-Extra: databricks
 Provides-Extra: deepseek
 Provides-Extra: fireworks
 Provides-Extra: gateway
+Requires-Dist: otari>=0.0.1; extra == "gateway"
+Provides-Extra: otari
+Requires-Dist: otari>=0.0.1; extra == "otari"
+Provides-Extra: github
 Provides-Extra: inception
 Provides-Extra: llama
 Provides-Extra: llamacpp
@@ -107,7 +113,7 @@ Dynamic: license-file
 </a>
 
 **Communicate with any LLM provider using a single, unified interface.**
-Switch between OpenAI, Anthropic, Mistral, Ollama, and more without changing your code.
+Switch between OpenAI, Anthropic, Azure / Microsoft Foundry, Mistral, Ollama, and more without changing your code.
 
 [Documentation](https://docs.mozilla.ai/any-llm/) | [otari.ai](https://otari.ai/) | [Try the Demos](#-try-it) | [Contributing](#-contributing)
 
@@ -302,7 +308,6 @@ The landscape of LLM provider interfaces is fragmented. While OpenAI's API has b
 - **[Full Documentation](https://docs.mozilla.ai/any-llm/)** - Complete guides and API reference
 - **[Supported Providers](https://docs.mozilla.ai/any-llm/providers/)** - List of all supported LLM providers
 - **[Cookbook Examples](https://docs.mozilla.ai/any-llm/cookbooks/any-llm-getting-started)** - In-depth usage examples
-- **[Platform](https://otari.ai/)** - Managed control plane for key management, usage tracking, and cost visibility
 
 
 ## Contributing

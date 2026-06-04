@@ -3,64 +3,66 @@
 
 """Server helper classes for writing Tango device servers."""
 
-import sys
-import copy
+import contextlib
+import functools
 import inspect
 import logging
-import functools
+import sys
 import traceback
-import warnings
 import types
-
-from typing import Union, ClassVar, Any
+from typing import Any, ClassVar
 
 try:
     from docstring_parser import parse as parse_docstring
 except ImportError:
     parse_docstring = None
 
-from tango import AttrDataFormat, AttrWriteType, CmdArgType, DevState
-from tango import DevFailed, GreenMode, SerialModel
-
+from tango import AttrDataFormat, AttrWriteType, CmdArgType, DevFailed, DevState, GreenMode, SerialModel
+from tango._instrumentation import _force_tracing, _forcefully_traced_method
+from tango._telemetry import (
+    _call_tracer_provider_factory,
+    _DummyTracer,
+    _telemetry_runtime,
+)
+from tango._warnings import warn_once
+from tango.asyncio_executor import AsyncioExecutor
 from tango.attr_data import AttrData
+from tango.constants import TELEMETRY_SUPPORTED, StatusNotSet
 from tango.device_class import DeviceClass
 from tango.device_server import (
     LatestDeviceImpl,
+    _populate_device_properties,
     get_worker,
-    set_worker,
     run_in_executor,
+    set_worker,
 )
+from tango.globals import cleanup_classes
+from tango.green import get_executor, get_green_mode
+from tango.pyutil import Util
+from tango.telemetry import get_telemetry_tracer_provider_factory
 from tango.utils import (
-    is_seq,
+    _is_coroutine_function,
+    get_attribute_type_format,
+    get_tango_type_format,
     is_non_str_seq,
     is_pure_str,
-    _is_coroutine_function,
-    get_tango_type_format,
-    get_attribute_type_format,
-    set_complex_value,
+    is_seq,
     parse_type_hint,
-    _create_device_telemetry_tracer,
-    get_telemetry_tracer_provider_factory,
-    _force_tracing,
-    _forcefully_traced_method,
+    scalar_to_array_type,
+    set_complex_value,
 )
-from tango.utils import scalar_to_array_type
-from tango.green import get_green_mode, get_executor
-from tango.pyutil import Util
-from tango.asyncio_executor import AsyncioExecutor
-from tango.constants import StatusNotSet
 
 __all__ = (
-    "DeviceMeta",
     "Device",
+    "DeviceMeta",
     "LatestDeviceImpl",
+    "Server",
     "attribute",
+    "class_property",
     "command",
     "device_property",
-    "class_property",
     "run",
     "server_run",
-    "Server",
 )
 
 API_VERSION = 2
@@ -71,10 +73,7 @@ API_VERSION = 2
 def __get_in_out_types_from_method_type_hints(method):
     # If it's a bound method (has __func__), unwrap it,
     # otherwise signature will ignore self parameter
-    if isinstance(method, types.MethodType):
-        func = method.__func__
-    else:
-        func = method
+    func = method.__func__ if isinstance(method, types.MethodType) else method
 
     sig = inspect.signature(func)
     params = list(sig.parameters.values())
@@ -304,22 +303,16 @@ def __get_attribute_type_from_hint(attribute, type_hint=None, device_klass=None)
                     type_hint = list(type_hints.values())[-1]
 
         if type_hint:
-            dtype, dformat, max_x, max_y = parse_type_hint(
-                type_hint, caller="attribute"
-            )
+            dtype, dformat, max_x, max_y = parse_type_hint(type_hint, caller="attribute")
             if dformat is None:
                 if attribute.attr_format not in [
                     AttrDataFormat.IMAGE,
                     AttrDataFormat.SPECTRUM,
                 ]:
-                    raise RuntimeError(
-                        "For numpy.ndarrays AttrDataFormat has to be specified"
-                    )
+                    raise RuntimeError("For numpy.ndarrays AttrDataFormat has to be specified")
                 dformat = attribute.attr_format
 
-            dtype, dformat, enum_labels = get_attribute_type_format(
-                dtype, dformat, None
-            )
+            dtype, dformat, enum_labels = get_attribute_type_format(dtype, dformat, None)
             attribute.attr_type = dtype
             attribute.attr_format = dformat
             if enum_labels:
@@ -337,9 +330,7 @@ def __get_property_type_from_hint(property, type_hint):
         property.dtype = from_typeformat_to_type(*get_tango_type_format(dtype))
 
 
-def __patch_is_command_allowed_method(
-    tango_device_klass, is_allowed_method, cmd_name, green_mode
-):
+def __patch_is_command_allowed_method(tango_device_klass, is_allowed_method, cmd_name, green_mode):
     """
     :param tango_device_klass: a DeviceImpl class
     :type tango_device_klass: class
@@ -357,10 +348,7 @@ def __patch_is_command_allowed_method(
     method_name = getattr(is_allowed_method, "__name__", f"is_{cmd_name}_allowed")
     method_name = f"__wrapped_{method_name}__"
 
-    if green_mode:
-        wrapped_method = run_in_executor(is_allowed_method)
-    else:
-        wrapped_method = is_allowed_method
+    wrapped_method = run_in_executor(is_allowed_method) if green_mode else is_allowed_method
     if _force_tracing:
         wrapped_method = _forcefully_traced_method(wrapped_method)
     if wrapped_method is not is_allowed_method:
@@ -394,10 +382,9 @@ def __warn_if_standard_device_methods_should_be_coroutine(klass):
                 ):
                     user_method = __unwrap_method(getattr(klass, method))
                     base_method = __unwrap_method(getattr(parent, method))
-                    if user_method != base_method and not _is_coroutine_function(
-                        user_method
-                    ):
-                        warnings.warn(
+                    if user_method != base_method and not _is_coroutine_function(user_method):
+                        warn_once(
+                            f"deprecated:tango.server:sync_method:{method}",
                             f"{method} is sync: support of "
                             f"sync functions in Asyncio Servers is "
                             f"deprecated. Use 'async def' instead of 'def'.",
@@ -433,11 +420,9 @@ def __patch_standard_device_methods(klass):
                 return worker.execute(init_device_orig, self)
 
         if _force_tracing:
-            init_device = _forcefully_traced_method(
-                init_device, is_kernel_method=is_base_klass_init_device
-            )
+            init_device = _forcefully_traced_method(init_device, is_kernel_method=is_base_klass_init_device)
         init_device.__access_wrapped__ = True
-        setattr(klass, "init_device", init_device)
+        klass.init_device = init_device
 
     # delete_device
     delete_device_orig = klass.delete_device
@@ -456,11 +441,9 @@ def __patch_standard_device_methods(klass):
                 return worker.execute(delete_device_orig, self)
 
         if _force_tracing:
-            delete_device = _forcefully_traced_method(
-                delete_device, is_kernel_method=is_base_klass_delete_device
-            )
+            delete_device = _forcefully_traced_method(delete_device, is_kernel_method=is_base_klass_delete_device)
         delete_device.__access_wrapped__ = True
-        setattr(klass, "delete_device", delete_device)
+        klass.delete_device = delete_device
 
     dev_state_orig = klass.dev_state
     already_wrapped = hasattr(dev_state_orig, "__access_wrapped__")
@@ -478,11 +461,9 @@ def __patch_standard_device_methods(klass):
                 return worker.execute(dev_state_orig, self)
 
         if _force_tracing:
-            dev_state = _forcefully_traced_method(
-                dev_state, is_kernel_method=is_base_klass_dev_state
-            )
+            dev_state = _forcefully_traced_method(dev_state, is_kernel_method=is_base_klass_dev_state)
         dev_state.__access_wrapped__ = True
-        setattr(klass, "dev_state", dev_state)
+        klass.dev_state = dev_state
 
     # device_status
     dev_status_orig = klass.dev_status
@@ -501,19 +482,15 @@ def __patch_standard_device_methods(klass):
                 return worker.execute(dev_status_orig, self)
 
         if _force_tracing:
-            dev_status = _forcefully_traced_method(
-                dev_status, is_kernel_method=is_base_klass_dev_status
-            )
+            dev_status = _forcefully_traced_method(dev_status, is_kernel_method=is_base_klass_dev_status)
         dev_status.__access_wrapped__ = True
-        setattr(klass, "dev_status", dev_status)
+        klass.dev_status = dev_status
 
     # read_attr_hardware
     read_attr_hardware_orig = klass.read_attr_hardware
     already_wrapped = hasattr(read_attr_hardware_orig, "__access_wrapped__")
     if not already_wrapped:
-        is_base_klass_read_attr_hardware = (
-            read_attr_hardware_orig == BaseDevice.read_attr_hardware
-        )
+        is_base_klass_read_attr_hardware = read_attr_hardware_orig == BaseDevice.read_attr_hardware
 
         @functools.wraps(read_attr_hardware_orig)
         def read_attr_hardware(self, attr_list):
@@ -521,9 +498,7 @@ def __patch_standard_device_methods(klass):
             if isinstance(worker, AsyncioExecutor) and is_base_klass_read_attr_hardware:
                 method_helper = __async_method_helper
                 method_helper.__qualname__ = "BaseDevice.read_attr_hardware"
-                return worker.execute(
-                    method_helper, read_attr_hardware_orig, self, attr_list
-                )
+                return worker.execute(method_helper, read_attr_hardware_orig, self, attr_list)
             else:
                 return worker.execute(read_attr_hardware_orig, self, attr_list)
 
@@ -532,23 +507,18 @@ def __patch_standard_device_methods(klass):
                 read_attr_hardware, is_kernel_method=is_base_klass_read_attr_hardware
             )
         read_attr_hardware.__access_wrapped__ = True
-        setattr(klass, "read_attr_hardware", read_attr_hardware)
+        klass.read_attr_hardware = read_attr_hardware
 
     # always_executed_hook
     always_executed_hook_orig = klass.always_executed_hook
     already_wrapped = hasattr(always_executed_hook_orig, "__access_wrapped__")
     if not already_wrapped:
-        is_base_klass_always_executed_hook = (
-            always_executed_hook_orig == BaseDevice.always_executed_hook
-        )
+        is_base_klass_always_executed_hook = always_executed_hook_orig == BaseDevice.always_executed_hook
 
         @functools.wraps(always_executed_hook_orig)
         def always_executed_hook(self):
             worker = get_worker()
-            if (
-                isinstance(worker, AsyncioExecutor)
-                and is_base_klass_always_executed_hook
-            ):
+            if isinstance(worker, AsyncioExecutor) and is_base_klass_always_executed_hook:
                 method_helper = __async_method_helper
                 method_helper.__qualname__ = "BaseDevice.always_executed_hook"
                 return worker.execute(method_helper, always_executed_hook_orig, self)
@@ -561,15 +531,13 @@ def __patch_standard_device_methods(klass):
                 is_kernel_method=is_base_klass_always_executed_hook,
             )
         always_executed_hook.__access_wrapped__ = True
-        setattr(klass, "always_executed_hook", always_executed_hook)
+        klass.always_executed_hook = always_executed_hook
 
     # server_init_hook
     server_init_hook_orig = klass.server_init_hook
     already_wrapped = hasattr(server_init_hook_orig, "__access_wrapped__")
     if not already_wrapped:
-        is_base_klass_server_init_hook = (
-            server_init_hook_orig == BaseDevice.server_init_hook
-        )
+        is_base_klass_server_init_hook = server_init_hook_orig == BaseDevice.server_init_hook
 
         @functools.wraps(server_init_hook_orig)
         def server_init_hook(self):
@@ -586,7 +554,7 @@ def __patch_standard_device_methods(klass):
                 server_init_hook, is_kernel_method=is_base_klass_server_init_hook
             )
         server_init_hook.__access_wrapped__ = True
-        setattr(klass, "server_init_hook", server_init_hook)
+        klass.server_init_hook = server_init_hook
 
 
 class _DeviceClass(DeviceClass):
@@ -595,12 +563,8 @@ class _DeviceClass(DeviceClass):
         self.set_type(name)
 
         if _force_tracing:
-            orig_dyn_attr = getattr(self, "dyn_attr")
-            setattr(
-                self,
-                "dyn_attr",
-                _forcefully_traced_method(orig_dyn_attr, is_kernel_method=True),
-            )
+            orig_dyn_attr = self.dyn_attr
+            self.dyn_attr = _forcefully_traced_method(orig_dyn_attr, is_kernel_method=True)
 
     def dyn_attr(self, dev_list):
         """Invoked to create dynamic attributes for the given devices.
@@ -618,7 +582,7 @@ class _DeviceClass(DeviceClass):
                 except Exception as ex:
                     dev.warn_stream("Failed to initialize dynamic attributes")
                     dev.debug_stream("Details: " + traceback.format_exc())
-                    raise Exception(repr(ex))
+                    raise Exception(repr(ex)) from None
 
 
 def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
@@ -650,13 +614,9 @@ def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
             if not attr_obj.forward:
                 __patch_attr_methods(tango_device_klass, attr_obj)
                 if klass_attribute_name in klass_annotations:
-                    __get_attribute_type_from_hint(
-                        attr_obj, type_hint=klass_annotations[klass_attribute_name]
-                    )
+                    __get_attribute_type_from_hint(attr_obj, type_hint=klass_annotations[klass_attribute_name])
                 else:
-                    __get_attribute_type_from_hint(
-                        attr_obj, device_klass=tango_device_klass
-                    )
+                    __get_attribute_type_from_hint(attr_obj, device_klass=tango_device_klass)
 
         elif isinstance(attr_obj, device_property):
             if attr_name in klass_annotations:
@@ -692,9 +652,7 @@ def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
                 is_allowed_method_green_mode = cmd_info[2]["Is allowed green_mode"]
 
                 if is_pure_str(is_allowed_method):
-                    is_allowed_method = getattr(
-                        tango_device_klass, is_allowed_method, None
-                    )
+                    is_allowed_method = getattr(tango_device_klass, is_allowed_method, None)
 
                 if is_allowed_method is not None:
                     cmd_info[2]["Is allowed"] = __patch_is_command_allowed_method(
@@ -708,20 +666,18 @@ def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
 
     devclass_name = klass_name + "Class"
 
-    devclass_attrs = dict(
-        class_property_list=class_property_list,
-        device_property_list=device_property_list,
-        cmd_list=cmd_list,
-        attr_list=attr_list,
-    )
+    devclass_attrs = {
+        "class_property_list": class_property_list,
+        "device_property_list": device_property_list,
+        "cmd_list": cmd_list,
+        "attr_list": attr_list,
+    }
     return type(_DeviceClass)(devclass_name, (_DeviceClass,), devclass_attrs)
 
 
 def _init_tango_device_klass(tango_device_klass, attrs=None, tango_class_name=None):
     klass_name = tango_device_klass.__name__
-    tango_deviceclass_klass = __create_tango_deviceclass_klass(
-        tango_device_klass, attrs=attrs
-    )
+    tango_deviceclass_klass = __create_tango_deviceclass_klass(tango_device_klass, attrs=attrs)
     if tango_class_name is None:
         if hasattr(tango_device_klass, "TangoClassName"):
             tango_class_name = tango_device_klass.TangoClassName
@@ -749,11 +705,13 @@ def is_tango_object(arg):
 def inheritance_patch(attrs):
     """Patch tango objects before they are processed by the metaclass."""
     for key, obj in attrs.items():
-        if isinstance(obj, attribute):
-            if getattr(obj, "attr_write", None) == AttrWriteType.READ_WRITE:
-                if not getattr(obj, "fset", None):
-                    method_name = obj.write_method_name or "write_" + key
-                    obj.fset = attrs.get(method_name)
+        if (
+            isinstance(obj, attribute)
+            and getattr(obj, "attr_write", None) == AttrWriteType.READ_WRITE
+            and not getattr(obj, "fset", None)
+        ):
+            method_name = obj.write_method_name or "write_" + key
+            obj.fset = attrs.get(method_name)
 
 
 class DeviceMeta(type(LatestDeviceImpl)):
@@ -794,7 +752,7 @@ class BaseDevice(LatestDeviceImpl):
     instance of MetaDevice. Use tango.server.Device instead.
     """
 
-    DEVICE_CLASS_DESCRIPTION: ClassVar[Union[str, None]] = None
+    DEVICE_CLASS_DESCRIPTION: ClassVar[str | None] = None
     """Description of the device class (optional).
 
     If not specified, the class docstring is used.
@@ -822,6 +780,9 @@ class BaseDevice(LatestDeviceImpl):
 
     def __init__(self, cl, name):
         self._tango_properties = {}
+        self._tango_telemetry_config = None
+        self._tango_telemetry_tracer_provider = None
+        self._tango_telemetry_tracer = None
         if self.DEVICE_CLASS_DESCRIPTION is not None:
             dev_desc = self.DEVICE_CLASS_DESCRIPTION
         elif self.__doc__:
@@ -831,7 +792,7 @@ class BaseDevice(LatestDeviceImpl):
         dev_state = self.DEVICE_CLASS_INITIAL_STATE
         dev_status = self.DEVICE_CLASS_INITIAL_STATUS
         LatestDeviceImpl.__init__(self, cl, name, dev_desc, dev_state, dev_status)
-        self._configure_device_telemetry(cl.get_name(), name)
+        self.__refresh_telemetry_tracer(force=True)
         self.init_device()
 
     def init_device(self):
@@ -867,7 +828,6 @@ class BaseDevice(LatestDeviceImpl):
         - For synchronous devices: ``super().delete_device()``
         - For asyncio green mode devices: ``await super().delete_device()``
         """
-        pass
 
     def read_attr_hardware(self, attr_list):
         return LatestDeviceImpl.read_attr_hardware(self, attr_list)
@@ -879,42 +839,13 @@ class BaseDevice(LatestDeviceImpl):
         return LatestDeviceImpl.dev_status(self)
 
     def get_device_properties(self, ds_class=None):
-        if ds_class is None:
-            try:
-                # Call this method in a try/except in case this is called
-                # during the DS shutdown sequence
-                ds_class = self.get_device_class()
-            except Exception:
-                return
-        try:
-            pu = self.prop_util = ds_class.prop_util
-            self.device_property_list = copy.deepcopy(ds_class.device_property_list)
-            class_prop = ds_class.class_property_list
-            pu.get_device_properties(self, class_prop, self.device_property_list)
-            for prop_name in class_prop:
-                value = pu.get_property_values(prop_name, class_prop)
-                self._tango_properties[prop_name] = value
-            for prop_name in self.device_property_list:
-                value = self.prop_util.get_property_values(
-                    prop_name, self.device_property_list
-                )
-                self._tango_properties[prop_name] = value
-                properties = self.device_property_list[prop_name]
-                mandatory = properties[3]
-                if mandatory and value is None:
-                    msg = f"Device property {prop_name} is mandatory "
-                    raise Exception(msg)
-        except DevFailed as df:
-            print(80 * "-")
-            print(df)
-            raise df
+        _populate_device_properties(self, ds_class, is_high_level_api=True)
 
     def always_executed_hook(self):
         """
         Tango always_executed_hook. Default implementation does
         nothing
         """
-        pass
 
     def server_init_hook(self):
         """
@@ -922,7 +853,6 @@ class BaseDevice(LatestDeviceImpl):
         (DServer) is exported.
         Default implementation does nothing.
         """
-        pass
 
     def initialize_dynamic_attributes(self):
         """
@@ -936,7 +866,6 @@ class BaseDevice(LatestDeviceImpl):
             If the Init command is executed on the device, the
             initialize_dynamic_attributes() method will not be called again.
         """
-        pass
 
     @classmethod
     def run_server(cls, args=None, **kwargs):
@@ -955,46 +884,88 @@ class BaseDevice(LatestDeviceImpl):
         """
         if args is None:
             args = sys.argv[1:]
-        args = [cls.__name__] + list(args)
+        args = [cls.__name__, *args]
         green_mode = getattr(cls, "green_mode", None)
         kwargs.setdefault("green_mode", green_mode)
         return run((cls,), args, **kwargs)
 
-    def _configure_device_telemetry(self, class_name, device_name):
-        device_tracer_provider = self.create_telemetry_tracer_provider(
-            class_name, device_name
-        )
-        device_tracer = self.create_telemetry_tracer(device_tracer_provider)
-        self._tango_telemetry_tracer = device_tracer
+    def __get_telemetry_config(self) -> tuple[bool, bool, tuple]:
+        enabled = self._is_telemetry_enabled()
+        tracing_enabled = enabled and self._is_telemetry_tracing_enabled()
+        endpoints = ()
+        if tracing_enabled:
+            endpoints = tuple(self._get_telemetry_tracing_endpoints())
+        return enabled, tracing_enabled, endpoints
 
-    def create_telemetry_tracer_provider(
-        self, class_name, device_name
-    ) -> "opentelemetry.trace.TracerProvider":  # noqa: F821
+    def __refresh_telemetry_tracer(self, force=False):
+        config = self.__get_telemetry_config()
+        if not force and self._tango_telemetry_config == config:
+            return self._tango_telemetry_tracer
+
+        tracing_enabled = config[1]
+        if tracing_enabled:
+            class_name = self.get_device_class().get_name()
+            device_name = self.get_name()
+            tracer_provider = self.create_telemetry_tracer_provider(class_name, device_name)
+            tracer = self.create_telemetry_tracer(tracer_provider)
+        else:
+            tracer_provider = None
+            tracer = _DummyTracer()
+
+        self.__replace_telemetry_tracer(tracer_provider, tracer, config)
+        return tracer
+
+    def __replace_telemetry_tracer(self, tracer_provider, tracer, config):
+        self.__shutdown_telemetry_tracer_provider()
+        self._tango_telemetry_config = config
+        self._tango_telemetry_tracer_provider = tracer_provider
+        self._tango_telemetry_tracer = tracer
+
+    def __shutdown_telemetry_tracer_provider(self):
+        tracer_provider = self._tango_telemetry_tracer_provider
+        if tracer_provider is None:
+            return
+        force_flush = getattr(tracer_provider, "force_flush", None)
+        if callable(force_flush):
+            force_flush(timeout_millis=500)
+        shutdown = getattr(tracer_provider, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+
+    def create_telemetry_tracer_provider(self, class_name, device_name) -> "opentelemetry.trace.TracerProvider":  # noqa: F821
         """Factory method returning a TracerProvider for telemetry.
 
         The default implementation can be overridden.
 
         .. versionadded:: 10.0.0
         """
+        endpoints = tuple(self._get_telemetry_tracing_endpoints())
+        _telemetry_runtime.warn_if_telemetry_requested(endpoints=endpoints)
         tracer_provider_factory = get_telemetry_tracer_provider_factory()
-        return tracer_provider_factory(class_name, device_name)
+        return _call_tracer_provider_factory(
+            tracer_provider_factory,
+            class_name,
+            device_name,
+            endpoints=endpoints,
+        )
 
-    def create_telemetry_tracer(
-        self, device_tracer_provider
-    ) -> "opentelemetry.trace.Tracer":  # noqa: F821
+    def create_telemetry_tracer(self, device_tracer_provider) -> "opentelemetry.trace.Tracer":  # noqa: F821
         """Factory method returning a Tracer for telemetry.
 
         The default implementation can be overridden.
 
         .. versionadded:: 10.0.0
         """
-        return _create_device_telemetry_tracer(device_tracer_provider)
+        return _telemetry_runtime.create_device_telemetry_tracer(device_tracer_provider)
 
     def get_telemetry_tracer(self) -> "opentelemetry.trace.Tracer":  # noqa: F821
-        """Returns device telemetry tracer, or None if telemetry disabled.
+        """Returns device telemetry tracer, or None if telemetry not supported.
 
         .. versionadded:: 10.0.0
         """
+        if not TELEMETRY_SUPPORTED:
+            return None
+        self.__refresh_telemetry_tracer()
         return self._tango_telemetry_tracer
 
 
@@ -1152,12 +1123,12 @@ class attribute(AttrData):
     :type unit: str
 
     :param standard_unit:
-        The conversion factor to transform attribute’s value into SI units.
+        The conversion factor to transform attribute's value into SI units.
         `Default:` ``""`` [Note_2]_
     :type standard_unit: str | int | float | None
 
     :param display_unit:
-        The conversion factor to transform attribute’s value into value usable
+        The conversion factor to transform attribute's value into value usable
         in user interfaces (hint for clients).
         `Default:` ``""`` [Note_2]_
     :type display_unit: str | int | float | None
@@ -1261,7 +1232,8 @@ class attribute(AttrData):
 
     :param archive_event_detect:
         enable or disable filtering for archive event emitted by the code. E.g., if user emits event,
-        by the value changed less, then archive_abs_change or archive_rel_change - event will be filtered out `Default:` False
+        by the value changed less, then archive_abs_change or archive_rel_change - event will be filtered out
+        `Default:` False
     :type archive_event_detect: bool
 
     :param delta_val:
@@ -1379,9 +1351,10 @@ class attribute(AttrData):
 
     .. warning::
         The ``polling_period`` from the code is used *ONLY* if there is no polling period value stored in the Tango DB.
-        After the first run, the value from the code will be stored in the Tango DB and will used for the following runs,
-        even if the value in code is changed later. And vice versa: if the value in the Tango DB was changed (e.g. in Jive),
-        but the code was not, the new value from the DB will be used.
+        After the first run, the value from the code will be stored in the Tango DB
+        and will used for the following runs, even if the value in code is changed later.
+        And vice versa: if the value in the Tango DB was changed (e.g. in Jive), but the code was not,
+        the new value from the DB will be used.
         The value from the code will only be used again if the value in DB was deleted. Think of it like a default.
 
     .. versionadded:: 8.1.7
@@ -1402,12 +1375,9 @@ class attribute(AttrData):
         if forward:
             kwarg_copy = dict(kwargs)
             for k in ["name", "label", "forwarded"]:
-                if k in kwarg_copy:
-                    del kwarg_copy[k]
+                kwarg_copy.pop(k, None)
             if len(kwarg_copy):
-                raise TypeError(
-                    "Forwarded attributes only support 'label' and 'name' arguments"
-                )
+                raise TypeError("Forwarded attributes only support 'label' and 'name' arguments")
         else:
             green_mode = kwargs.pop("green_mode", True)
             self.read_green_mode = kwargs.pop("read_green_mode", green_mode)
@@ -1420,9 +1390,8 @@ class attribute(AttrData):
             if fget:
                 if inspect.isroutine(fget):
                     self.fget = fget
-                    if "doc" not in kwargs and "description" not in kwargs:
-                        if fget.__doc__ is not None:
-                            kwargs["doc"] = fget.__doc__
+                    if "doc" not in kwargs and "description" not in kwargs and fget.__doc__ is not None:
+                        kwargs["doc"] = fget.__doc__
                 kwargs["fget"] = fget
 
             fset = kwargs.pop("fwrite", kwargs.pop("fset", None))
@@ -1442,9 +1411,7 @@ class attribute(AttrData):
         if "dtype" in kwargs:
             dtype = kwargs["dtype"]
             dformat = kwargs.get("dformat")
-            dtype, dformat, enum_labels = get_attribute_type_format(
-                dtype, dformat, kwargs.get("enum_labels")
-            )
+            dtype, dformat, enum_labels = get_attribute_type_format(dtype, dformat, kwargs.get("enum_labels"))
             kwargs["dtype"], kwargs["dformat"] = dtype, dformat
             if enum_labels:
                 kwargs["enum_labels"] = enum_labels
@@ -1530,20 +1497,12 @@ def __build_command_doc_in(f, dtype_in):
         sig = inspect.signature(f)
         params = list(sig.parameters.values())
 
-        if len(params) > 1:
-            param_name = params[1].name
-        else:
-            param_name = "arg"
+        param_name = params[1].name if len(params) > 1 else "arg"
         dtype_in_str = str(dtype_in)
         if not isinstance(dtype_in, str):
-            try:
+            with contextlib.suppress(Exception):
                 dtype_in_str = dtype_in.__name__
-            except Exception:
-                pass
-        result = (
-            f":param {param_name}: (not documented)\n"
-            f":type {param_name}: {dtype_in_str}"
-        )
+        result = f":param {param_name}: (not documented)\n:type {param_name}: {dtype_in_str}"
     else:
         result = "No input parameter (DevVoid)"
     return result
@@ -1553,11 +1512,9 @@ def __build_command_doc_out(dtype_out):
     if dtype_out not in {CmdArgType.DevVoid, None}:
         dtype_out_str = str(dtype_out)
         if not isinstance(dtype_out, str):
-            try:
+            with contextlib.suppress(Exception):
                 dtype_out_str = dtype_out.__name__
-            except Exception:
-                pass
-        result = f":return: (not documented)\n" f":rtype: {dtype_out_str}"
+        result = f":return: (not documented)\n:rtype: {dtype_out_str}"
     else:
         result = "No output parameter (DevVoid)"
     return result
@@ -1652,19 +1609,20 @@ def command(
     :param polling_period: polling period in milliseconds (optional)
     :type polling_period: int
 
-    :param green_mode: DEPRECATED: green mode for command method. If True: run with green mode executor, if False: run directly.
-        See the green_mode parameter deprecation note below for more details.
+    :param green_mode: DEPRECATED: green mode for command method. If True: run with green mode executor,
+                       if False: run directly. See the green_mode parameter deprecation note below for more details.
     :type green_mode: bool
 
     :param fisallowed: is allowed method for command
     :type fisallowed: str or callable
 
     :param cmd_green_mode: green mode for command method. If True: run with green mode executor, if False: run directly
-        See the green_mode parameter deprecation note below for more details.
+                           See the green_mode parameter deprecation note below for more details.
     :type cmd_green_mode: bool
 
-    :param isallowed_green_mode: green mode for isallowed method. If True: run with green mode executor, if False: run directly
-        See the green_mode parameter deprecation note below for more details.
+    :param isallowed_green_mode: green mode for isallowed method. If True: run with green mode executor,
+                                 if False: run directly.
+                                 See the green_mode parameter deprecation note below for more details.
     :type isallowed_green_mode: bool
 
     .. versionadded:: 8.1.7
@@ -1677,17 +1635,20 @@ def command(
         added fisallowed option
 
     .. versionadded:: 10.0.0
-     added cmd_green_mode and isallowed_green_mode options
+        added cmd_green_mode and isallowed_green_mode options
 
     .. versionchanged:: 10.0.0
-        the way that the green_mode parameter is interpreted was changed to be consistent with the same parameter for attributes.
-        Now it expects bool, which indicates, if methods should be run with executor (green_mode=True, default) or bypass it (green_mode=False)
+        the way that the green_mode parameter is interpreted was changed
+        to be consistent with the same parameter for attributes.
+        Now it expects bool, which indicates, if methods should be run with executor
+        (green_mode=True, default) or bypass it (green_mode=False)
         Before it was either green_mode=None - use executor or green_mode=GreenMode.Synchronous - bypass it.
         However, due python by default casts GreenMode.Synchronous (which is int value 0) to False bool,
         old code is automatically backward compatible.
 
     .. deprecated:: 10.0.0
-         green_mode parameter is deprecated and may be removed in future.  Use cmd_green_mode and isallowed_green_mode parameters instead.
+         green_mode parameter is deprecated and may be removed in future.
+         Use cmd_green_mode and isallowed_green_mode parameters instead.
          The new parameters match how attributes and pipes are defined, offer more flexibility, and are clearer.
          If you use both old green_mode, and new isallowed_green_mode and cmd_green_mode - the new ones take priority.
 
@@ -1714,17 +1675,13 @@ def command(
 
     if dtype_out == _DevVoid:
         if return_type is not None:
-            dtype_out, dformat_out, _, _ = parse_type_hint(
-                return_type, caller="command"
-            )
+            dtype_out, dformat_out, _, _ = parse_type_hint(return_type, caller="command")
         else:
             dtype_out = None
 
     if dtype_in == _DevVoid:
         if first_arg_type is not None:
-            dtype_in, dformat_in, _, _ = parse_type_hint(
-                first_arg_type, caller="command"
-            )
+            dtype_in, dformat_in, _, _ = parse_type_hint(first_arg_type, caller="command")
         else:
             dtype_in = None
 
@@ -1760,9 +1717,7 @@ def command(
         config_dict["Polling period"] = polling_period
     if fisallowed is not None:
         config_dict["Is allowed"] = fisallowed
-    config_dict["Is allowed green_mode"] = (
-        isallowed_green_mode if isallowed_green_mode is not None else green_mode
-    )
+    config_dict["Is allowed green_mode"] = isallowed_green_mode if isallowed_green_mode is not None else green_mode
 
     cmd_green_mode = cmd_green_mode if cmd_green_mode is not None else green_mode
     command_method = __get_wrapped_command_method(f, cmd_green_mode)
@@ -1843,9 +1798,17 @@ class device_property(_BaseProperty):
             port = device_property(dtype=int, mandatory=True)
 
     :param dtype: Data type (see :ref:`pytango-data-types`)
+    :type dtype: type
+
     :param doc: property documentation (optional)
-    :param mandatory (optional: default is False)
+    :type doc: str
+
+    :param mandatory: Whether the property is mandatory or not [default: False]
+    :type mandatory: bool
+
     :param default_value: default value for the property (optional)
+    :type default_value: :py:obj:`typing.Any`
+
     :param update_db: tells if set value should write the value to database.
                      [default: False]
     :type update_db: bool
@@ -1855,7 +1818,12 @@ class device_property(_BaseProperty):
     """
 
     def __init__(
-        self, dtype=None, doc="", mandatory=False, default_value=None, update_db=False
+        self,
+        dtype=None,
+        doc: str = "",
+        mandatory: bool = False,
+        default_value: Any = None,
+        update_db: bool = False,
     ):
         super().__init__(dtype, doc, default_value, update_db)
         self.mandatory = mandatory
@@ -1883,8 +1851,14 @@ class class_property(_BaseProperty):
             port = class_property(dtype=int, default_value=9788)
 
     :param dtype: Data type (see :ref:`pytango-data-types`)
+    :type dtype: type
+
     :param doc: property documentation (optional)
+    :type doc: str
+
     :param default_value: default value for the property (optional)
+    :type default_value: :py:obj:`typing.Any`
+
     :param update_db: tells if set value should write the value to database.
                      [default: False]
     :type update_db: bool
@@ -1893,16 +1867,12 @@ class class_property(_BaseProperty):
         added update_db option
     """
 
-    pass
-
 
 def __to_callback(callback, cb_type, green_mode):
     if callback is None:
         return lambda: None
 
-    err_msg = (
-        f"{cb_type} must be a callable or " "sequence <callable [, args, [, kwargs]]>"
-    )
+    err_msg = f"{cb_type} must be a callable or sequence <callable [, args, [, kwargs]]>"
     if callable(callback):
         f = callback
     elif is_non_str_seq(callback):
@@ -1944,10 +1914,7 @@ def _to_classes(classes):
                     klass_klass, klass, klass_name = klass_info
             else:
                 if not hasattr(klass_info, "_api") or klass_info._api < 2:
-                    raise Exception(
-                        "When giving a single class, it must "
-                        "implement HLAPI (see tango.server)"
-                    )
+                    raise Exception("When giving a single class, it must implement HLAPI (see tango.server)")
                 klass_klass = klass_info.TangoClassClass
                 klass_name = klass_info.TangoClassName
                 klass = klass_info
@@ -1961,10 +1928,7 @@ def _to_classes(classes):
                     klass_klass, klass, klass_name = klass_info
             else:
                 if not hasattr(klass_info, "_api") or klass_info._api < 2:
-                    raise Exception(
-                        "When giving a single class, it must "
-                        "implement HLAPI (see tango.server)"
-                    )
+                    raise Exception("When giving a single class, it must implement HLAPI (see tango.server)")
                 klass_klass = klass_info.TangoClassClass
                 klass_name = klass_info.TangoClassName
                 klass = klass_info
@@ -1978,10 +1942,7 @@ def _add_classes(util, classes):
 
 
 def _get_class_green_mode(classes, green_mode):
-    if green_mode is not None:
-        default_green_mode = green_mode
-    else:
-        default_green_mode = get_green_mode()
+    default_green_mode = green_mode if green_mode is not None else get_green_mode()
 
     green_modes = set()
     for _, klass, _ in _to_classes(classes):
@@ -1995,10 +1956,7 @@ def _get_class_green_mode(classes, green_mode):
             f"server process. Modes: {green_modes}. Classes: {classes}."
         )
     elif len(green_modes) == 0:
-        raise ValueError(
-            "No device classes specified - cannot run device server "
-            "process with no classes."
-        )
+        raise ValueError("No device classes specified - cannot run device server process with no classes.")
     unanimous_green_mode = green_modes.pop()
     return unanimous_green_mode
 
@@ -2020,12 +1978,8 @@ def __server_run(
     if args is None:
         args = sys.argv
 
-    pre_init_callback = __to_callback(
-        pre_init_callback, "pre_init_callback", green_mode
-    )
-    post_init_callback = __to_callback(
-        post_init_callback, "post_init_callback", green_mode
-    )
+    pre_init_callback = __to_callback(pre_init_callback, "pre_init_callback", green_mode)
+    post_init_callback = __to_callback(post_init_callback, "post_init_callback", green_mode)
 
     if util is None:
         util = Util.init(args)
@@ -2049,11 +2003,18 @@ def __server_run(
         util.server_init()
         worker.execute(post_init_callback)
         write("Ready to accept request\n")
-        util.server_run()
-        log.debug("server loop exit")
+        try:
+            util.server_run()
+            log.debug("server loop exit")
+            util.server_cleanup()
+            log.debug("server cleaned up")
+        finally:
+            Util.cleanup()
+            log.debug("Util cleaned up")
+            cleanup_classes()
+            log.debug("classes cleaned up")
 
     worker.run(tango_loop, wait=True)
-    return util
 
 
 def run(
@@ -2131,7 +2092,8 @@ def run(
 
             | :class:`~tango.server.Device`
             | two element sequence: :class:`~tango.DeviceClass`, :class:`~tango.DeviceImpl`
-            | three element sequence: :class:`~tango.DeviceClass`, :class:`~tango.DeviceImpl`, tango class name :class:`~str`
+            | three element sequence: :class:`~tango.DeviceClass`, :class:`~tango.DeviceImpl`,
+            | tango class name :class:`~str`
     :type classes: Sequence[tango.server.Device] | dict
 
     :param args:
@@ -2148,7 +2110,7 @@ def run(
     :type util: :class:`~tango.Util`
 
     :param event_loop: event_loop callable
-    :type event_loop: callable
+    :type event_loop: :py:obj:`typing.Callable`
 
     :param pre_init_callback:
         an optional callback that is executed between the calls
@@ -2158,7 +2120,7 @@ def run(
         the second is a list of arguments (optional) and the third is a
         dictionary of keyword arguments (also optional).
     :type pre_init_callback:
-        callable or tuple
+        :py:obj:`typing.Callable` or :py:obj:`tuple`
 
     :param post_init_callback:
         an optional callback that is executed between the calls
@@ -2168,7 +2130,7 @@ def run(
         the second is a list of arguments (optional) and the third is a
         dictionary of keyword arguments (also optional).
     :type post_init_callback:
-        callable or tuple
+        :py:obj:`typing.Callable` or :py:obj:`tuple`
 
     :param raises:
         Disable error handling and propagate exceptions from the server
@@ -2176,9 +2138,6 @@ def run(
 
     :param err_stream:
         stream where to put catched exceptions [default: sys.stderr]
-
-    :return: The Util singleton object
-    :rtype: :class:`~tango.Util`
 
     .. versionadded:: 8.1.2
 
@@ -2194,6 +2153,12 @@ def run(
 
     .. versionchanged:: 10.0.0
         `err_stream` argument has been added
+
+    .. versionchanged:: 10.3.0
+        method does not return Util instance anymore,
+        since the Util cleanup was added and this destroys the Util instance.
+        If user provides its own Util object to the method, it will be left in the broken state,
+        so new Util must be created after this method
     """
     server_run = functools.partial(
         __server_run,
@@ -2266,8 +2231,13 @@ def server_run(
     .. versionchanged:: 10.0.0
         `err_stream` argument has been added
 
+    .. versionchanged:: 10.3.0
+        method does not return Util instance anymore,
+        since the Util cleanup was added and this destroys the Util instance.
+        If user provides its own Util object to the method, it will be left in the broken state,
+        so new Util must be created after this method
     """
-    return run(
+    run(
         classes,
         args=args,
         msg_stream=msg_stream,
@@ -2290,4 +2260,4 @@ class Device(BaseDevice, metaclass=DeviceMeta):
 
 
 # Avoid circular imports
-from tango.tango_object import Server  # noqa: E402
+from tango.tango_object import Server

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..clouds import CloudType
@@ -53,6 +53,7 @@ class DeviceHandler(LDict):
         self.mower = mower
         self._tz = tz
         self._decode = decode
+        self._mqtt_connected_resolver: Callable[[], bool] | None = None
 
         self.battery = Battery()
         self.blades = Blades()
@@ -115,6 +116,17 @@ class DeviceHandler(LDict):
         """Set decoded flag when dataset was decoded and handled."""
         self.__is_decoded = value
 
+    @property
+    def mqtt_connected(self) -> bool:
+        """Return whether MQTT is currently connected for this device."""
+        if self._mqtt_connected_resolver is None:
+            return False
+        return bool(self._mqtt_connected_resolver())
+
+    def set_mqtt_connected_resolver(self, resolver: Callable[[], bool] | None) -> None:
+        """Set a callback that resolves the current MQTT connection state."""
+        self._mqtt_connected_resolver = resolver
+
     def __mapinfo(self, api: Any, data: Any) -> None:
         """Map information from API."""
 
@@ -143,6 +155,7 @@ class DeviceHandler(LDict):
         self.statistics = Statistic([])
         self.in_topic = data["mqtt_topics"]["command_in"]
         self.out_topic = data["mqtt_topics"]["command_out"]
+        self.api_capabilities = data.get("capabilities")
 
         if "lawn_perimeter" in data or "lawn_size" in data:
             self.lawn = Lawn(data.get("lawn_perimeter"), data.get("lawn_size"))
@@ -389,6 +402,15 @@ class DeviceHandler(LDict):
             self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
             self.capabilities.add(DeviceCapability.EDGE_CUT)
 
+        if not self.schedules["one_time_schedule"]:
+            dat_sc = (
+                self.raw_dat.get("sc", {}) if isinstance(self.raw_dat, dict) else {}
+            )
+            if isinstance(dat_sc, dict) and "once" in dat_sc:
+                self.capabilities.add(DeviceCapability.ONE_TIME_SCHEDULE)
+                self.capabilities.add(DeviceCapability.EDGE_CUT)
+                self.schedules["one_time_schedule"] = True
+
     def _determine_updated_at(
         self,
         cfg_payload: dict[str, Any] | None,
@@ -401,7 +423,13 @@ class DeviceHandler(LDict):
             if isinstance(tm_value, str) and tm_value.endswith("Z"):
                 tm_value = f"{tm_value[:-1]}+00:00"
             try:
-                return datetime.fromisoformat(tm_value), "dat_tm"
+                timestamp = datetime.fromisoformat(tm_value)
+                return (
+                    timestamp.astimezone(
+                        ZoneInfo(self._resolve_effective_timezone(cfg_payload))
+                    ),
+                    "dat_tm",
+                )
             except ValueError:
                 pass
 
@@ -409,11 +437,14 @@ class DeviceHandler(LDict):
             dt_split = cfg_payload["dt"].split("/")
             time_value = cfg_payload.get("tm", "00:00:00")
             try:
+                timestamp = datetime.fromisoformat(
+                    f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
+                ).replace(tzinfo=timezone.utc)
                 return (
-                    datetime.fromisoformat(
-                        f"{dt_split[2]}-{dt_split[1]}-{dt_split[0]} {time_value}"
-                    ).replace(tzinfo=self._resolve_updated_timezone(cfg_payload)),
-                    "cfg_tm",
+                    timestamp.astimezone(
+                        ZoneInfo(self._resolve_effective_timezone(cfg_payload))
+                    ),
+                    "cfg_tm_utc",
                 )
             except ValueError:
                 pass
@@ -467,26 +498,6 @@ class DeviceHandler(LDict):
             if timezone_name is not None:
                 return timezone_name
         return "UTC"
-
-    def _resolve_updated_timezone(self, cfg_payload: dict[str, Any] | None) -> Any:
-        """Resolve timezone for legacy cfg date/time payloads."""
-        if (timezone_name := self._normalize_timezone_name(self._tz)) is not None:
-            return ZoneInfo(timezone_name)
-
-        local_timezone = datetime.now().astimezone().tzinfo
-        if local_timezone is not None:
-            return local_timezone
-
-        for candidate in (
-            cfg_payload.get("tz") if isinstance(cfg_payload, dict) else None,
-            self.time_zone,
-            "UTC",
-        ):
-            timezone_name = self._normalize_timezone_name(candidate)
-            if timezone_name is not None:
-                return ZoneInfo(timezone_name)
-
-        return timezone.utc
 
     def update_attribute(self, device: str, attr: str, key: str, value: Any) -> None:
         """Used as callback to update value."""

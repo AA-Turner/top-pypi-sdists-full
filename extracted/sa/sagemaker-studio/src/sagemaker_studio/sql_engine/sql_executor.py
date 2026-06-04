@@ -16,6 +16,7 @@ from .dynamodb_transformer import DynamoDBTransformer
 from .mssql_transformer import MSSQLTransformer
 from .mysql_transformer import MySQLTransformer
 from .opensearch_transformer import OpenSearchTransformer
+from .oracle_transformer import OracleTransformer
 from .postgresql_transformer import PostgreSQLTransformer
 from .redshift_transformer import RedshiftTransformer
 from .resource_fetching_definition import FetchMode, SQLAlchemyMetadataAction
@@ -80,6 +81,7 @@ class SqlExecutor:
             "SQLSERVER": MSSQLTransformer,
             "POSTGRESQL": PostgreSQLTransformer,
             "OPENSEARCH": OpenSearchTransformer,
+            "ORACLE": OracleTransformer,
             "VERTICA": VerticaTransformer,
             "WORKDAYLDQ": WorkdayTransformer,
         }
@@ -147,14 +149,9 @@ class SqlExecutor:
                 f"Transformer for {connection_type} must return 'connection_string' in config"
             )
 
-        connect_args = config.get("connect_args", {})
-        creator = config.get("creator")
+        connection_string = config.pop("connection_string")
 
-        kwargs = {"connect_args": connect_args}
-        if creator:
-            kwargs["creator"] = creator
-
-        return create_engine(config["connection_string"], **kwargs).execution_options(
+        return create_engine(connection_string, **config).execution_options(
             connection_type=connection_type
         )
 

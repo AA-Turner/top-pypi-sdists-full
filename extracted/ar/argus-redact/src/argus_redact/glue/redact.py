@@ -10,6 +10,7 @@ import re as _re
 import time
 from pathlib import Path
 
+from argus_redact._safe_io import safe_read_text as _safe_read_text
 from argus_redact._types import PatternMatch
 from argus_redact.layers import LAYER_NER, LAYER_REGEX, LAYER_SEMANTIC
 from argus_redact.lang.shared.patterns import PATTERNS as SHARED_PATTERNS
@@ -32,12 +33,7 @@ from argus_redact.telemetry import PerfRecord, emit, get_perf_hook
 logger = logging.getLogger(__name__)
 
 # Cached telemetry constants (resolved once at import, not per-call)
-try:
-    from argus_redact._core import merge_entities as _unused  # noqa: F401
-
-    _RUST_CORE = True
-except ImportError:
-    _RUST_CORE = False
+from argus_redact._core_loader import HAS_CORE as _RUST_CORE
 
 
 def _telemetry_hook_active() -> bool:
@@ -251,7 +247,9 @@ def _detect(
 
         t0 = time.perf_counter()
         en_person_names = detect_en_person(text, known_names=names)
-        timing["layer_1b_person_en_ms"] = (time.perf_counter() - t0) * 1000
+        timing["layer_1b_person_ms"] = timing.get("layer_1b_person_ms", 0) + (
+            time.perf_counter() - t0
+        ) * 1000
         entities.extend(_tag_layer(en_person_names, LAYER_REGEX))
         layer1_count += len(en_person_names)
         # Note: en detector ignores L1 hints / threshold today (uses surname
@@ -473,9 +471,9 @@ def redact(
         if config_path.suffix in (".yaml", ".yml"):
             import yaml
 
-            config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            config = yaml.safe_load(_safe_read_text(config_path))
         else:
-            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config = json.loads(_safe_read_text(config_path))
 
     # Resolve key
     existing_key: dict | None = None
@@ -484,7 +482,7 @@ def redact(
         key_file = key
         path = Path(key_file)
         existing_key = (
-            json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            json.loads(_safe_read_text(path)) if path.exists() else {}
         )
     elif isinstance(key, dict):
         existing_key = dict(key)

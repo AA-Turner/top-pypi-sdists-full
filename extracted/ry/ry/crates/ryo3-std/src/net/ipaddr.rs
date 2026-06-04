@@ -5,28 +5,25 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 use pyo3::BoundObject;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
-use ryo3_core::{PyAsciiString, PyFromStr, PyParse, py_value_error};
+use ryo3_core::{PyAsciiString, PyFromStr, py_value_error};
 use ryo3_macro_rules::{any_repr, py_type_err, py_type_error};
 
 use crate::net::ipaddr_props::IpAddrProps;
 use crate::net::{PySocketAddrV4, PySocketAddrV6};
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 #[pyclass(name = "Ipv4Addr", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PyIpv4Addr(pub Ipv4Addr);
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 #[pyclass(name = "Ipv6Addr", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PyIpv6Addr(pub Ipv6Addr);
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 #[pyclass(name = "IpAddr", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -98,20 +95,20 @@ impl PyIpv4Addr {
     // ========================================================================
     // CONSTANTS
     // ========================================================================
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn BROADCAST() -> Self {
         Self(Ipv4Addr::BROADCAST)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn LOCALHOST() -> Self {
         Self(Ipv4Addr::LOCALHOST)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn UNSPECIFIED() -> Self {
         Self(Ipv4Addr::UNSPECIFIED)
     }
@@ -235,8 +232,9 @@ impl PyIpv4Addr {
     }
 
     #[staticmethod]
-    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Self::py_parse(s)
+    #[pyo3(signature = (value, /))]
+    fn parse(value: ryo3_core::PyParseArg<Self>) -> Self {
+        value.into_inner()
     }
 
     #[staticmethod]
@@ -345,14 +343,14 @@ impl PyIpv6Addr {
     // ========================================================================
     // CONSTANTS
     // ========================================================================
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn LOCALHOST() -> Self {
         Self(Ipv6Addr::LOCALHOST)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn UNSPECIFIED() -> Self {
         Self(Ipv6Addr::UNSPECIFIED)
     }
@@ -488,8 +486,9 @@ impl PyIpv6Addr {
     }
 
     #[staticmethod]
-    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Self::py_parse(s)
+    #[pyo3(signature = (value, /))]
+    fn parse(value: ryo3_core::PyParseArg<Self>) -> Self {
+        value.into_inner()
     }
 
     #[staticmethod]
@@ -598,32 +597,32 @@ impl PyIpAddr {
     // ========================================================================
     // CONSTANTS
     // ========================================================================
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn BROADCAST() -> Self {
         Self::from(Ipv4Addr::BROADCAST)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn LOCALHOST_V4() -> Self {
         Self::from(Ipv4Addr::LOCALHOST)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn UNSPECIFIED_V4() -> Self {
         Self::from(Ipv4Addr::UNSPECIFIED)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn LOCALHOST_V6() -> Self {
         Self::from(Ipv6Addr::LOCALHOST)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case, reason = "python classattr")]
     fn UNSPECIFIED_V6() -> Self {
         Self::from(Ipv6Addr::UNSPECIFIED)
     }
@@ -754,8 +753,9 @@ impl PyIpAddr {
     }
 
     #[staticmethod]
-    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Self::py_parse(s)
+    #[pyo3(signature = (value, /))]
+    fn parse(value: ryo3_core::PyParseArg<Self>) -> Self {
+        value.into_inner()
     }
 
     // ========================================================================

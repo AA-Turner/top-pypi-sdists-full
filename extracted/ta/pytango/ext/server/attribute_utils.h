@@ -38,10 +38,8 @@ inline void _set_value_limit(Tango::Attribute &self, py::object &value, TargetVa
     __SET_ALARM_WARNING(self, c_value, target)
 }
 
-inline void _set_value_limit(Tango::Attribute &self, std::string &c_value, TargetValue &target) {
-    __SET_ALARM_WARNING(self, c_value, target)
-}
-
+inline void _set_value_limit(Tango::Attribute &self, std::string &c_value, TargetValue &target){
+    __SET_ALARM_WARNING(self, c_value, target)}
 #define __SET_VALUE(self, c_value, target)             \
     switch(target) {                                   \
     case TargetValue::VALUE_MIN:                       \
@@ -75,8 +73,7 @@ void set_value_limit(AttrType &self, py::object &value, TargetValue target) {
         long tango_type = self.get_data_type();
         // TODO: the below line is a neat trick to properly raise a Tango exception if a property is set
         // for one of the forbidden attribute data types; code dependent on Tango C++ implementation
-        if(tango_type == Tango::DEV_STRING || tango_type == Tango::DEV_BOOLEAN ||
-           tango_type == Tango::DEV_STATE) {
+        if(tango_type == Tango::DEV_STRING || tango_type == Tango::DEV_BOOLEAN || tango_type == Tango::DEV_STATE) {
             tango_type = Tango::DEV_DOUBLE;
         } else if(tango_type == Tango::DEV_ENCODED) {
             tango_type = Tango::DEV_UCHAR;

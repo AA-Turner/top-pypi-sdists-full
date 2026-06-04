@@ -16,7 +16,7 @@ from ..app import Application
 from .authentication import authentication_headers
 from .env_keys import BASE_URL_KEY, SKIP_TIMEOUT_RETRY
 from .gzipgen import compress as gzipgen_compress
-from .logger import AUDIT_LOG_FORMAT, Logger
+from .logger import Logger
 
 DEFAULT_BASE_URL = "https://api.mercury.launchableinc.com"
 

@@ -18,7 +18,7 @@ def _get_kwargs(
     *,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
-    filterevent_id: None | str | Unset = UNSET,
+    filterevent: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListForwarderDeliveriesSort | Unset = "-created_at",
@@ -40,12 +40,12 @@ def _get_kwargs(
         json_filtercreated_at = filtercreated_at
     params["filter[created_at]"] = json_filtercreated_at
 
-    json_filterevent_id: None | str | Unset
-    if isinstance(filterevent_id, Unset):
-        json_filterevent_id = UNSET
+    json_filterevent: None | str | Unset
+    if isinstance(filterevent, Unset):
+        json_filterevent = UNSET
     else:
-        json_filterevent_id = filterevent_id
-    params["filter[event_id]"] = json_filterevent_id
+        json_filterevent = filterevent
+    params["filter[event]"] = json_filterevent
 
     json_pagesize: int | None | Unset
     if isinstance(pagesize, Unset):
@@ -111,7 +111,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
-    filterevent_id: None | str | Unset = UNSET,
+    filterevent: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListForwarderDeliveriesSort | Unset = "-created_at",
@@ -121,7 +121,7 @@ def sync_detailed(
      List delivery log entries for a forwarder.
 
     Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
     `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
@@ -129,7 +129,7 @@ def sync_detailed(
         forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
-        filterevent_id (None | str | Unset):
+        filterevent (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
@@ -148,7 +148,7 @@ def sync_detailed(
         forwarder_id=forwarder_id,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
-        filterevent_id=filterevent_id,
+        filterevent=filterevent,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -167,7 +167,7 @@ def sync(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
-    filterevent_id: None | str | Unset = UNSET,
+    filterevent: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListForwarderDeliveriesSort | Unset = "-created_at",
@@ -177,7 +177,7 @@ def sync(
      List delivery log entries for a forwarder.
 
     Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
     `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
@@ -185,7 +185,7 @@ def sync(
         forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
-        filterevent_id (None | str | Unset):
+        filterevent (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
@@ -205,7 +205,7 @@ def sync(
         client=client,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
-        filterevent_id=filterevent_id,
+        filterevent=filterevent,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -218,7 +218,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
-    filterevent_id: None | str | Unset = UNSET,
+    filterevent: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListForwarderDeliveriesSort | Unset = "-created_at",
@@ -228,7 +228,7 @@ async def asyncio_detailed(
      List delivery log entries for a forwarder.
 
     Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
     `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
@@ -236,7 +236,7 @@ async def asyncio_detailed(
         forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
-        filterevent_id (None | str | Unset):
+        filterevent (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
@@ -255,7 +255,7 @@ async def asyncio_detailed(
         forwarder_id=forwarder_id,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
-        filterevent_id=filterevent_id,
+        filterevent=filterevent,
         pagesize=pagesize,
         pageafter=pageafter,
         sort=sort,
@@ -272,7 +272,7 @@ async def asyncio(
     client: AuthenticatedClient,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
-    filterevent_id: None | str | Unset = UNSET,
+    filterevent: None | str | Unset = UNSET,
     pagesize: int | None | Unset = UNSET,
     pageafter: None | str | Unset = UNSET,
     sort: ListForwarderDeliveriesSort | Unset = "-created_at",
@@ -282,7 +282,7 @@ async def asyncio(
      List delivery log entries for a forwarder.
 
     Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
     `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
@@ -290,7 +290,7 @@ async def asyncio(
         forwarder_id (str):
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
-        filterevent_id (None | str | Unset):
+        filterevent (None | str | Unset):
         pagesize (int | None | Unset):
         pageafter (None | str | Unset):
         sort (ListForwarderDeliveriesSort | Unset): Field to sort by. Prefix with `-` for
@@ -311,7 +311,7 @@ async def asyncio(
             client=client,
             filterstatus=filterstatus,
             filtercreated_at=filtercreated_at,
-            filterevent_id=filterevent_id,
+            filterevent=filterevent,
             pagesize=pagesize,
             pageafter=pageafter,
             sort=sort,

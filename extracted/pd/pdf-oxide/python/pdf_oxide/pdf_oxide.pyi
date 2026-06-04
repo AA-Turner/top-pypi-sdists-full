@@ -442,6 +442,33 @@ class PdfDocument:
         text = doc.extract_text(0, exclude_inks=['Spot Varnish', 'Die Cut'])
         """
 
+    def get_page_inks_deep(self, page: int) -> list[str]:
+        """
+        List ink / separation names declared on a page, INCLUDING those
+        declared inside Form XObjects reached through the page's content
+        stream `Do` operators.
+
+        Unlike :py:meth:`get_page_inks`, which only walks the page's own
+        ``/Resources/ColorSpace`` dictionary, this method recurses into
+        each invoked Form XObject and accumulates ink names from every
+        visited resource tree. This is the method the separation renderer
+        uses internally to allocate plates, so its result matches the
+        plate list returned by :py:meth:`render_separations`.
+
+        Args:
+        page (int): Page index (0-based)
+
+        Returns:
+        list[str]: Ink names from Separation/DeviceN color spaces in
+        the page resources and every nested Form XObject reached
+        via Do operators. Recursion is bounded; cycles are
+        deduplicated by object reference.
+
+        Example:
+        inks = doc.get_page_inks_deep(0)
+        # ['Cut', 'PANTONE 186 C', 'yellow fluorescent']
+        """
+
     def signatures(self) -> list[Signature]:
         """
         Enumerate existing PDF signatures. Returns a list of
@@ -468,6 +495,7 @@ class PdfDocument:
         region: tuple[float, float, float, float] | None = None,
         exclude_layers: list[str] | None = None,
         exclude_inks: list[str] | None = None,
+        extract_tables: bool = True,
     ) -> str:
         """
         Extract text from a page.
@@ -477,6 +505,13 @@ class PdfDocument:
         region (tuple, optional): Bounding box (x, y, width, height) to restrict extraction
         exclude_layers (list[str], optional): OCG layer names to exclude from extraction
         exclude_inks (list[str], optional): Separation/DeviceN ink names to exclude
+        extract_tables (bool): When ``False``, skip the table-detection sweep
+        for faster speed-first raw-text extraction (default ``True``).
+        Applies to **whole-page** extraction only — i.e. when neither
+        ``region`` nor ``exclude_layers`` / ``exclude_inks`` is given.
+        The scoped (``region``) and filtered (``exclude_*``) paths run
+        their normal pipeline and ignore this flag, since those surfaces
+        are already scoped and lack a table-detection hot spot.
 
         Note:
         When ``exclude_layers`` or ``exclude_inks`` are specified, the same

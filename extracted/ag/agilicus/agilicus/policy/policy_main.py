@@ -157,7 +157,7 @@ def cli_command_find_duplicate_resource_policies(ctx, **kwargs):
 @click.option("--clear-default-actions", is_flag=True, default=None)
 @click.option("--default-action", multiple=True, default=None)
 @click.pass_context
-def cli_update_resource_policies(ctx, **kwargs):
+def cli_command_update_resource_policies(ctx, **kwargs):
     result = policies.update_resource_policy(ctx, **kwargs)
     output_entry(ctx, result.to_dict())
 

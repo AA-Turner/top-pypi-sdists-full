@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: google-cloud-vectorsearch
-Version: 0.10.0
+Version: 0.11.0
 Summary: Google Cloud Vectorsearch API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-vectorsearch
 Author: Google LLC
 Author-email: googleapis-packages@google.com
-License: Apache 2.0
+License: Apache-2.0
 Platform: Posix; MacOS X; Windows
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,11 +19,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: google-api-core[grpc]<3.0.0,>=2.11.0
+Requires-Dist: google-api-core[grpc]<3.0.0,>=2.17.1
 Requires-Dist: google-auth!=2.24.0,!=2.25.0,<3.0.0,>=2.14.1
-Requires-Dist: grpcio<2.0.0,>=1.33.2
+Requires-Dist: grpcio<2.0.0,>=1.59.0
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
 Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
@@ -41,12 +40,12 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-Python Client for Vector Search API
-===================================
+Python Client for Vector Search
+===============================
 
 |preview| |pypi| |versions|
 
-`Vector Search API`_: The Vector Search API provides a fully-managed, highly performant, and
+`Vector Search`_: The Vector Search API provides a fully-managed, highly performant, and
 scalable vector database designed to power next-generation search,
 recommendation, and generative AI applications. It allows you to store,
 index, and query your data and its corresponding vector embeddings through
@@ -65,9 +64,9 @@ items at scale.
    :target: https://pypi.org/project/google-cloud-vectorsearch/
 .. |versions| image:: https://img.shields.io/pypi/pyversions/google-cloud-vectorsearch.svg
    :target: https://pypi.org/project/google-cloud-vectorsearch/
-.. _Vector Search API: https://docs.cloud.google.com/vertex-ai/docs/vector-search-2/overview
+.. _Vector Search: https://docs.cloud.google.com/vertex-ai/
 .. _Client Library Documentation: https://cloud.google.com/python/docs/reference/google-cloud-vectorsearch/latest/summary_overview
-.. _Product Documentation:  https://docs.cloud.google.com/vertex-ai/docs/vector-search-2/overview
+.. _Product Documentation:  https://docs.cloud.google.com/vertex-ai/
 
 Quick Start
 -----------
@@ -76,12 +75,12 @@ In order to use this library, you first need to go through the following steps:
 
 1. `Select or create a Cloud Platform project.`_
 2. `Enable billing for your project.`_
-3. `Enable the Vector Search API.`_
+3. `Enable the Vector Search.`_
 4. `Set up Authentication.`_
 
 .. _Select or create a Cloud Platform project.: https://console.cloud.google.com/project
 .. _Enable billing for your project.: https://cloud.google.com/billing/docs/how-to/modify-project#enable_billing_for_a_project
-.. _Enable the Vector Search API.:  https://docs.cloud.google.com/vertex-ai/docs/vector-search-2/overview
+.. _Enable the Vector Search.:  https://docs.cloud.google.com/vertex-ai/
 .. _Set up Authentication.: https://googleapis.dev/python/google-api-core/latest/auth.html
 
 Installation
@@ -112,14 +111,15 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.9, including 3.14
+Python >= 3.10, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.8
+Python <= 3.9
+
 
 If you are using an `end-of-life`_
 version of Python, we recommend that you update as soon as possible to an actively supported version.
@@ -148,14 +148,14 @@ Windows
 Next Steps
 ~~~~~~~~~~
 
--  Read the `Client Library Documentation`_ for Vector Search API
+-  Read the `Client Library Documentation`_ for Vector Search
    to see other available methods on the client.
--  Read the `Vector Search API Product documentation`_ to learn
+-  Read the `Vector Search Product documentation`_ to learn
    more about the product and see How-to Guides.
 -  View this `README`_ to see the full list of Cloud
    APIs that we cover.
 
-.. _Vector Search API Product documentation:  https://docs.cloud.google.com/vertex-ai/docs/vector-search-2/overview
+.. _Vector Search Product documentation:  https://docs.cloud.google.com/vertex-ai/
 .. _README: https://github.com/googleapis/google-cloud-python/blob/main/README.rst
 
 Logging

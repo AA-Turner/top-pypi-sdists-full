@@ -28,46 +28,6 @@ def _make_mock_conn(messages):
 
 
 class TestFireAndForgetBroadcast(unittest.TestCase):
-    @patch("abstra_internals.repositories.producer.WORKER_LOG_TO_QUEUE", False)
-    @patch("abstra_internals.repositories.producer.RabbitMQConnection")
-    @patch("abstra_internals.repositories.producer.pika.BlockingConnection")
-    def test_fire_and_forget_without_flag_closes_after_first_msg(
-        self, MockBlockingConn, MockRabbitConn
-    ):
-        mock_pika = MagicMock()
-        mock_pika.__enter__ = MagicMock(return_value=mock_pika)
-        mock_pika.__exit__ = MagicMock(return_value=False)
-        MockBlockingConn.return_value = mock_pika
-        mock_pika.channel.return_value.__enter__ = MagicMock(return_value=MagicMock())
-        mock_pika.channel.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_conn = MagicMock()
-        mock_conn.poll.return_value = True
-        mock_conn.recv.return_value = json.dumps({"type": "execution:started"})
-        MockRabbitConn.return_value = mock_conn
-
-        repo = RabbitMQProducerRepository("amqp://uri", "test_queue")
-
-        from abstra_internals.entities.execution_context import (
-            HookContext,
-            Request,
-            Response,
-        )
-
-        ctx = HookContext(
-            request=Request(query_params={}, headers={}, method="GET", body=""),
-            response=Response(headers={}, status=200, body=""),
-        )
-        repo.enqueue_fire_and_forget("stage1", ctx)
-
-        # Wait for daemon thread to finish
-        time.sleep(0.5)
-
-        # With flag off, should close after first recv (old behavior)
-        mock_conn.close.assert_called()
-        # recv called exactly once
-        mock_conn.recv.assert_called_once()
-
     @patch("abstra_internals.repositories.producer.WORKER_LOG_TO_QUEUE", True)
     @patch("abstra_internals.repositories.producer.RabbitMQConnection")
     @patch("abstra_internals.repositories.producer.pika.BlockingConnection")

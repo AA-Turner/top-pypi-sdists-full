@@ -65,17 +65,16 @@ inline void scalar_value_from_cpp_into_python<Tango::DEV_ENCODED>(Tango::DeviceA
     Tango::DevEncoded *buffer = value_ptr->get_buffer();
     Tango::DevEncoded &read_buffer = buffer[0];
 
-    py_value.attr(value_attr_name) = cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(read_buffer,
-                                                                                       extract_as);
+    py_value.attr(value_attr_name) = cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(read_buffer, extract_as);
 
     if(self.get_written_dim_x() > 0) {
         if(value_ptr->length() < 2) {
-            py_value.attr(w_value_attr_name) = cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(read_buffer,
-                                                                                                 extract_as);
+            py_value.attr(w_value_attr_name) =
+                cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(read_buffer, extract_as);
         } else {
             Tango::DevEncoded &write_buffer = buffer[1];
-            py_value.attr(w_value_attr_name) = cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(write_buffer,
-                                                                                                 extract_as);
+            py_value.attr(w_value_attr_name) =
+                cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(write_buffer, extract_as);
         }
     } else {
         py_value.attr(w_value_attr_name) = py::none();
@@ -92,8 +91,7 @@ inline void scalar_value_from_cpp_into_python<Tango::DEV_PIPE_BLOB>([[maybe_unus
 
 namespace PyWAttribute {
 template <int tangoTypeConst>
-inline void scalar_value_from_cpp_into_python(Tango::WAttribute &att,
-                                              py::object &py_value) {
+inline void scalar_value_from_cpp_into_python(Tango::WAttribute &att, py::object &py_value) {
     using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
     TangoScalarType value;
@@ -102,8 +100,7 @@ inline void scalar_value_from_cpp_into_python(Tango::WAttribute &att,
 }
 
 template <>
-inline void scalar_value_from_cpp_into_python<Tango::DEV_STRING>(Tango::WAttribute &att,
-                                                                 py::object &py_value) {
+inline void scalar_value_from_cpp_into_python<Tango::DEV_STRING>(Tango::WAttribute &att, py::object &py_value) {
     Tango::DevString value = nullptr;
     att.get_write_value(value);
 

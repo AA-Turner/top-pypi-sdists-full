@@ -5,8 +5,11 @@
 # ------------------------------------------------------
 import dataclasses
 import inspect
+import sys
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from enum import Enum
+from types import UnionType
+from typing import Any, Generic, TypeVar, Union, overload
 
 from reflex_base.components.component import Component
 from reflex_base.event import EventType, PointerEventInfo
@@ -14,35 +17,72 @@ from reflex_base.vars.base import Var
 from reflex_base.vars.function import ArgsFunctionOperation, FunctionVar
 from reflex_components_core.core.breakpoints import Breakpoints
 
+EMPTY_VAR_COMPONENT: Var[Component]
+
+class MemoParamKind(str, Enum):
+    VALUE = "value"
+    CHILDREN = "children"
+    REST = "rest"
+    EVENT_TRIGGER = "event_trigger"
+
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
 class MemoParam:
     name: str
+    kind: MemoParamKind
     annotation: Any
-    kind: inspect._ParameterKind
-    default: Any
-    js_prop_name: str | None
+    parameter_kind: inspect._ParameterKind
+    js_prop_name: str
     placeholder_name: str
-    is_children: bool
-    is_rest: bool
+    kind_data: Any
+    default: Any
+
+    @property
+    def spec(self) -> _MemoParamSpec: ...
+    def make_placeholder(self) -> Any: ...
+    def bind_call_value(self, binding: _MemoCallBinding) -> None: ...
+    def signature_field(self) -> str | None: ...
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class ExperimentalMemoDefinition:
+class _MemoParamSpec:
+    kind: MemoParamKind
+    classify: Callable[[Any, str], tuple[bool, Any]]
+    validate: Callable[[inspect.Parameter, str, bool], None]
+    placeholder_name: Callable[[str, str, bool], str]
+    make_placeholder: Callable[[MemoParam], Any]
+    bind_call_value: Callable[[MemoParam, _MemoCallBinding], None]
+    signature_field: Callable[[MemoParam], str | None]
+
+_BodyT = TypeVar("_BodyT")
+
+class _LazyBody(Generic[_BodyT]):
+    __slots__ = ("_busy", "_placeholder", "_ready", "_thunk", "_value")
+
+    @classmethod
+    def ready(cls, value: _BodyT) -> _LazyBody[_BodyT]: ...
+    def get(self) -> _BodyT: ...
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class MemoDefinition:
     fn: Callable[..., Any]
     python_name: str
     params: tuple[MemoParam, ...]
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class ExperimentalMemoFunctionDefinition(ExperimentalMemoDefinition):
-    function: ArgsFunctionOperation
+class MemoFunctionDefinition(MemoDefinition):
     imported_var: FunctionVar
 
+    @property
+    def function(self) -> ArgsFunctionOperation: ...
+
 @dataclasses.dataclass(frozen=True, slots=True)
-class ExperimentalMemoComponentDefinition(ExperimentalMemoDefinition):
+class MemoComponentDefinition(MemoDefinition):
     export_name: str
-    component: Component
     passthrough_hole_child: Component | None
 
-class ExperimentalMemoComponent(Component):
+    @property
+    def component(self) -> Component: ...
+
+class MemoComponent(Component):
     @classmethod
     def create(
         cls,
@@ -74,7 +114,7 @@ class ExperimentalMemoComponent(Component):
         on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
-    ) -> ExperimentalMemoComponent:
+    ) -> MemoComponent:
         """Create the component.
 
         Args:
@@ -107,29 +147,51 @@ class ExperimentalMemoComponent(Component):
             The component.
         """
 
-EXPERIMENTAL_MEMOS: dict[str, ExperimentalMemoDefinition]
+MEMOS: dict[str, MemoDefinition]
+_UNION_ORIGINS = (Union, UnionType)
+_GET_TYPE_HINTS_WRAPS_NONE_DEFAULT = sys.version_info < (3, 11)
 
-class _ExperimentalMemoFunctionWrapper:
+class _MemoCallBinding:
+    __slots__ = ("_event_triggers", "_props", "raw_kwargs")
+
+    def take(self, key: str) -> Any: ...
+    def add_prop(self, js_prop_name: str, value: Any) -> None: ...
+    def add_event_trigger(
+        self, js_prop_name: str, value: Any, args_spec: Any
+    ) -> None: ...
+    def take_rest(self, component_fields: Mapping[str, Any]) -> dict[str, Any]: ...
+    def build_super_kwargs(self) -> dict[str, Any]: ...
+    def finalize(
+        self, component: Component, rest_props: dict[str, Any]
+    ) -> tuple[str, ...]: ...
+
+class _MemoFunctionWrapper:
     def __call__(self, *args: Any, **kwargs: Any) -> Var: ...
     def call(self, *args: Any, **kwargs: Any) -> Var: ...
     def partial(self, *args: Any, **kwargs: Any) -> FunctionVar: ...
 
-class _ExperimentalMemoComponentWrapper:
-    def __call__(self, *children: Any, **props: Any) -> ExperimentalMemoComponent: ...
+class _MemoComponentWrapper:
+    def __call__(self, *children: Any, **props: Any) -> MemoComponent: ...
 
 def create_passthrough_component_memo(
     component: Component,
-) -> tuple[
-    Callable[..., ExperimentalMemoComponent], ExperimentalMemoComponentDefinition
-]: ...
-def memo(fn: Callable[..., Any]) -> Callable[..., Any]: ...
+) -> tuple[Callable[..., MemoComponent], MemoComponentDefinition]: ...
+
+_MemoVarT = TypeVar("_MemoVarT")
+
+@overload
+def memo(fn: Callable[..., Component]) -> _MemoComponentWrapper: ...
+@overload
+def memo(fn: Callable[..., Var[_MemoVarT]]) -> _MemoFunctionWrapper: ...
+def memo(fn: Callable[..., Any]) -> _MemoComponentWrapper | _MemoFunctionWrapper: ...
 
 __all__ = [
-    "EXPERIMENTAL_MEMOS",
-    "ExperimentalMemoComponent",
-    "ExperimentalMemoComponentDefinition",
-    "ExperimentalMemoDefinition",
-    "ExperimentalMemoFunctionDefinition",
+    "EMPTY_VAR_COMPONENT",
+    "MEMOS",
+    "MemoComponent",
+    "MemoComponentDefinition",
+    "MemoDefinition",
+    "MemoFunctionDefinition",
     "create_passthrough_component_memo",
     "memo",
 ]

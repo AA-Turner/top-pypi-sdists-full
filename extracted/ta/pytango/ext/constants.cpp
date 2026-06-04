@@ -21,8 +21,7 @@ long TANGO_VERSION_HEX;
 // could missing we must define a dummy fallback value of the type specified
 // below, in the global namespace. This type is later used to detect missing
 // constants using a template specialization.
-struct PyTangoFallbackConstant {
-};
+struct PyTangoFallbackConstant { };
 
 [[maybe_unused]] static const PyTangoFallbackConstant MIN_POLL_PERIOD;
 static const PyTangoFallbackConstant DELTA_T;
@@ -89,7 +88,7 @@ void export_constants(py::module &m) {
     py::module consts_module = py::reinterpret_borrow<py::module>(py_constants_module);
     m.attr("constants") = consts_module;
 
-    consts_module.attr("__doc__") = "module containing several Tango constants.\n\nNew in PyTango 7.0.0";
+    consts_module.attr("__doc__") = "module containing several Tango constants.\n\n.. versionadded:: 7.0.0";
 
     consts_module.attr("NUMPY_VERSION") = xstr(PYTANGO_NUMPY_VERSION);
 
@@ -257,7 +256,7 @@ void export_constants(py::module &m) {
     // Telemetry related defines
     //
 
-#if defined(TANGO_USE_TELEMETRY)
+#if defined(PYTANGO_USE_TELEMETRY)
     consts_module.attr("TELEMETRY_SUPPORTED") = true;
 #else
     consts_module.attr("TELEMETRY_SUPPORTED") = false;

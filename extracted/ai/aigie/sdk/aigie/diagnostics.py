@@ -64,6 +64,14 @@ _C003 = DiagnosticMessage(
     fix="Set KYTTE_URL and KYTTE_TOKEN env vars, or pass them to Aigie()",
 )
 
+_C004 = DiagnosticMessage(
+    code="AIGIE-C004",
+    message="Internal telemetry endpoint not configured",
+    consequence="SDK-internal OTel export disabled (agent tracing is unaffected)",
+    fix="Set KYTTE_URL/AIGIE_URL or AIGIE_INTERNAL_OTEL_ENDPOINT, "
+    "or silence this with AIGIE_INTERNAL_OTEL_ENABLED=false",
+)
+
 # ── Network Codes ────────────────────────────────────────────────────
 
 _N001 = DiagnosticMessage(
@@ -113,6 +121,27 @@ _N007 = DiagnosticMessage(
     message="Gateway reconnection attempts exhausted",
     consequence="Real-time validation disabled until next SDK restart",
     fix="Check that your platform URL is reachable and supports WebSocket connections",
+)
+
+_N008 = DiagnosticMessage(
+    code="AIGIE-N008",
+    message="Control-plane gRPC stream unreachable",
+    consequence=(
+        "Autonomous directives from the platform are inactive; "
+        "the SDK keeps working and will retry quietly in the background"
+    ),
+    fix=(
+        "The gRPC control plane requires Kytte platform v0.1.45 or newer — "
+        "upgrade the platform and ensure the port is reachable "
+        "(AIGIE_GRPC_PORT, default 50051)"
+    ),
+)
+
+_N009 = DiagnosticMessage(
+    code="AIGIE-N009",
+    message="Remote SDK config endpoint unavailable",
+    consequence="Using built-in defaults / last-good configuration; will retry quietly",
+    fix="/v1/sdk/config requires Kytte platform v0.1.45 or newer — upgrade the platform",
 )
 
 # ── Auth / License Codes ─────────────────────────────────────────────
@@ -241,6 +270,7 @@ CODES: dict[str, DiagnosticMessage] = {
         _C001,
         _C002,
         _C003,
+        _C004,
         _N001,
         _N002,
         _N003,
@@ -248,6 +278,8 @@ CODES: dict[str, DiagnosticMessage] = {
         _N005,
         _N006,
         _N007,
+        _N008,
+        _N009,
         _A001,
         _A002,
         _A003,
@@ -268,8 +300,9 @@ CODES: dict[str, DiagnosticMessage] = {
 }
 
 # Convenience aliases for import
-C001, C002, C003 = _C001, _C002, _C003
+C001, C002, C003, C004 = _C001, _C002, _C003, _C004
 N001, N002, N003, N004, N005, N006, N007 = _N001, _N002, _N003, _N004, _N005, _N006, _N007
+N008, N009 = _N008, _N009
 A001, A002, A003, A004 = _A001, _A002, _A003, _A004
 I001, I002, I003, I004, I005, I006 = _I001, _I002, _I003, _I004, _I005, _I006
 R001, R002, R003, R004, R005, R006 = _R001, _R002, _R003, _R004, _R005, _R006

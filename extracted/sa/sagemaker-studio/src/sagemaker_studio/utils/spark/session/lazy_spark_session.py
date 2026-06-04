@@ -35,6 +35,7 @@ class LazySparkSession:
         *,
         connection_name: str = None,
         config=None,
+        spark_conf: dict = None,
     ):
         """
         Initialize the lazy Spark session.
@@ -49,6 +50,7 @@ class LazySparkSession:
         # Deferred resolution params — used only when session_manager is None.
         self._connection_name = connection_name
         self._config = config
+        self._spark_conf = spark_conf
 
     # TO-DO: Handle race condition with user executed code.
     def _async_auto_mount_catalogs(self):
@@ -89,6 +91,7 @@ class LazySparkSession:
                     self._session_manager = _resolve_connection_and_create_session_manager(
                         connection_name=self._connection_name,
                         config=self._config,
+                        spark_conf=self._spark_conf,
                     )
 
                 # Use the session manager to create the session

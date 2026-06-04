@@ -15,11 +15,13 @@ import xarray as xr
 from numba import cuda
 
 from xrspatial.dataset_support import supports_dataset
-from xrspatial.geodesic import (INV_2R, WGS84_A2, WGS84_B2, _check_geodesic_memory,
+from xrspatial.geodesic import (INV_2R, WGS84_A2, WGS84_B2,
+                                _check_geodesic_memory_backend_aware,
                                 _cpu_geodesic_aspect, _run_gpu_geodesic_aspect)
 from xrspatial.utils import (Z_UNITS, ArrayTypeFunctionMapping, _boundary_to_dask,
                              _extract_latlon_coords, _pad_array, _validate_boundary,
-                             _validate_raster, cuda_args, ngjit)
+                             _validate_raster, cuda_args, get_dataarray_resolution,
+                             ngjit, warn_if_unit_mismatch)
 
 
 def _geodesic_cuda_dims(shape):
@@ -47,7 +49,7 @@ RADIAN = 180 / np.pi
 # =====================================================================
 
 @ngjit
-def _cpu(data: np.ndarray):
+def _cpu(data: np.ndarray, cellsize_x, cellsize_y):
     data = data.astype(np.float32)
     out = np.empty(data.shape, dtype=np.float32)
     out[:] = np.nan
@@ -64,8 +66,8 @@ def _cpu(data: np.ndarray):
             h = data[y+1, x]
             i = data[y+1, x+1]
 
-            dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / 8
-            dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / 8
+            dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cellsize_x)
+            dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / (8 * cellsize_y)
 
             if dz_dx == 0 and dz_dy == 0:
                 # flat surface, slope = 0, thus invalid aspect
@@ -83,16 +85,19 @@ def _cpu(data: np.ndarray):
     return out
 
 
-def _run_numpy(data: np.ndarray, boundary: str = 'nan') -> np.ndarray:
+def _run_numpy(data: np.ndarray,
+               cellsize_x,
+               cellsize_y,
+               boundary: str = 'nan') -> np.ndarray:
     if boundary == 'nan':
-        return _cpu(data)
+        return _cpu(data, cellsize_x, cellsize_y)
     padded = _pad_array(data, 1, boundary)
-    result = _cpu(padded)
+    result = _cpu(padded, cellsize_x, cellsize_y)
     return result[1:-1, 1:-1]
 
 
 @cuda.jit(device=True)
-def _gpu(arr):
+def _gpu(arr, cellsize_x, cellsize_y):
 
     a = arr[0, 0]
     b = arr[0, 1]
@@ -103,14 +108,18 @@ def _gpu(arr):
     h = arr[2, 1]
     i = arr[2, 2]
 
-    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / 8
-    dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / 8
+    dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cellsize_x[0])
+    dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / (8 * cellsize_y[0])
 
     if dz_dx == 0 and dz_dy == 0:
         # flat surface, slope = 0, thus invalid aspect
         _aspect = -1
     else:
-        _aspect = atan2(dz_dy, -dz_dx) * 57.29578
+        # Reuse the numpy kernel's RADIAN constant (180 / pi) so the branch
+        # below selects the same way on both backends; a coarser constant can
+        # push _aspect across the 90 boundary and yield 360 where numpy yields
+        # 0 (issue #2827).
+        _aspect = atan2(dz_dy, -dz_dx) * RADIAN
         # convert to compass direction values (0-360 degrees)
         if _aspect < 0:
             _aspect = 90 - _aspect
@@ -118,15 +127,18 @@ def _gpu(arr):
             _aspect = 360 - _aspect + 90
         else:
             _aspect = 90 - _aspect
+        # Keep the output in [0, 360) to match the numpy kernel. The numpy
+        # kernel needs no equivalent wrap: its `elif _aspect > 90` excludes an
+        # exact-90 tie, which then yields 0 via the else branch. The GPU's
+        # 450 - 90 = 360 case is folded back to 0 here so the two agree.
+        if _aspect >= 360.0:
+            _aspect -= 360.0
 
-    if _aspect > 359.999:  # lame float equality check...
-        return 0
-    else:
-        return _aspect
+    return _aspect
 
 
 @cuda.jit
-def _run_gpu(arr, out):
+def _run_gpu(arr, cellsize_x_arr, cellsize_y_arr, out):
     i, j = cuda.grid(2)
     di = 1
     dj = 1
@@ -134,26 +146,36 @@ def _run_gpu(arr, out):
         i+di < out.shape[0] and
             j-dj >= 0 and
             j+dj < out.shape[1]):
-        out[i, j] = _gpu(arr[i-di:i+di+1, j-dj:j+dj+1])
+        out[i, j] = _gpu(arr[i-di:i+di+1, j-dj:j+dj+1],
+                         cellsize_x_arr,
+                         cellsize_y_arr)
 
 
-def _run_cupy(data: cupy.ndarray, boundary: str = 'nan') -> cupy.ndarray:
+def _run_cupy(data: cupy.ndarray,
+              cellsize_x,
+              cellsize_y,
+              boundary: str = 'nan') -> cupy.ndarray:
     if boundary != 'nan':
         padded = _pad_array(data, 1, boundary)
-        result = _run_cupy(padded)
+        result = _run_cupy(padded, cellsize_x, cellsize_y)
         return result[1:-1, 1:-1]
 
+    cellsize_x_arr = cupy.array([float(cellsize_x)], dtype='f4')
+    cellsize_y_arr = cupy.array([float(cellsize_y)], dtype='f4')
     data = data.astype(cupy.float32)
     griddim, blockdim = cuda_args(data.shape)
     out = cupy.empty(data.shape, dtype='f4')
     out[:] = cupy.nan
-    _run_gpu[griddim, blockdim](data, out)
+    _run_gpu[griddim, blockdim](data, cellsize_x_arr, cellsize_y_arr, out)
     return out
 
 
-def _run_dask_numpy(data: da.Array, boundary: str = 'nan') -> da.Array:
+def _run_dask_numpy(data: da.Array,
+                    cellsize_x,
+                    cellsize_y,
+                    boundary: str = 'nan') -> da.Array:
     data = data.astype(np.float32)
-    _func = partial(_cpu)
+    _func = partial(_cpu, cellsize_x=cellsize_x, cellsize_y=cellsize_y)
     out = data.map_overlap(_func,
                            depth=(1, 1),
                            boundary=_boundary_to_dask(boundary),
@@ -161,9 +183,12 @@ def _run_dask_numpy(data: da.Array, boundary: str = 'nan') -> da.Array:
     return out
 
 
-def _run_dask_cupy(data: da.Array, boundary: str = 'nan') -> da.Array:
+def _run_dask_cupy(data: da.Array,
+                   cellsize_x,
+                   cellsize_y,
+                   boundary: str = 'nan') -> da.Array:
     data = data.astype(cupy.float32)
-    _func = partial(_run_cupy)
+    _func = partial(_run_cupy, cellsize_x=cellsize_x, cellsize_y=cellsize_y)
     out = data.map_overlap(_func,
                            depth=(1, 1),
                            boundary=_boundary_to_dask(boundary, is_cupy=True),
@@ -333,8 +358,9 @@ def aspect(agg: xr.DataArray,
     From 67.5  to 112.5: East
     From 112.5 to 157.5: Southeast
     From 157.5 to 202.5: South
-    From 202.5 to 247.5: West
-    From 247.5 to 292.5: Northwest
+    From 202.5 to 247.5: Southwest
+    From 247.5 to 292.5: West
+    From 292.5 to 337.5: Northwest
     From 337.5 to 360:   North
 
     Note that values of -1 denote flat areas.
@@ -349,7 +375,8 @@ def aspect(agg: xr.DataArray,
     name : str, default='aspect'
         Name of ouput DataArray.
     method : str, default='planar'
-        ``'planar'`` uses the classic Horn algorithm with uniform cell size.
+        ``'planar'`` uses the classic Horn algorithm, scaling the gradients
+        by the x and y cell sizes so non-square cells are handled correctly.
         ``'geodesic'`` converts cells to Earth-Centered Earth-Fixed (ECEF)
         coordinates and fits a 3D plane, yielding accurate results for
         geographic (lat/lon) coordinate systems.
@@ -372,6 +399,14 @@ def aspect(agg: xr.DataArray,
         for each data variable.
         2D aggregate array of calculated aspect values.
         All other input attributes are preserved.
+
+    Notes
+    -----
+    The ``'planar'`` method uses the coordinate spacing directly as the cell
+    size. If the coordinates are in degrees (lat/lon) but the elevation values
+    are in meters, the result is wrong by orders of magnitude. When this
+    mismatch is detected, a ``UserWarning`` is emitted suggesting you reproject
+    to a projected CRS or use ``method='geodesic'``.
 
     References
     ----------
@@ -407,24 +442,25 @@ def aspect(agg: xr.DataArray,
     _validate_boundary(boundary)
 
     if method == 'planar':
+        warn_if_unit_mismatch(agg)
+        cellsize_x, cellsize_y = get_dataarray_resolution(agg)
         mapper = ArrayTypeFunctionMapping(
             numpy_func=_run_numpy,
             dask_func=_run_dask_numpy,
             cupy_func=_run_cupy,
             dask_cupy_func=_run_dask_cupy,
         )
-        out = mapper(agg)(agg.data, boundary=boundary)
+        out = mapper(agg)(agg.data, cellsize_x, cellsize_y, boundary=boundary)
 
     else:  # geodesic
         if z_unit not in Z_UNITS:
             raise ValueError(
-                f"z_unit must be one of {sorted(set(Z_UNITS.values()), key=str)}, "
+                f"z_unit must be one of {sorted(Z_UNITS)}, "
                 f"got {z_unit!r}"
             )
         z_factor = Z_UNITS[z_unit]
 
-        rows, cols = agg.shape[-2], agg.shape[-1]
-        _check_geodesic_memory(rows, cols, func_name='aspect')
+        _check_geodesic_memory_backend_aware(agg, func_name='aspect')
 
         lat_2d, lon_2d = _extract_latlon_coords(agg)
 
@@ -436,11 +472,17 @@ def aspect(agg: xr.DataArray,
         )
         out = mapper(agg)(agg.data, lat_2d, lon_2d, WGS84_A2, WGS84_B2, z_factor, boundary)
 
-    return xr.DataArray(out,
-                        name=name,
-                        coords=agg.coords,
-                        dims=agg.dims,
-                        attrs=agg.attrs)
+    result = xr.DataArray(out,
+                          name=name,
+                          coords=agg.coords,
+                          dims=agg.dims,
+                          attrs=agg.attrs)
+    # On dask backends, xr.DataArray keeps the dask array's internal graph
+    # token as .name when name=None, so reset it post-construction to match
+    # the numpy/cupy backends. (Same fix as zonal #2611, focal #2733,
+    # slope #2838.)
+    result.name = name
+    return result
 
 
 @supports_dataset
@@ -516,11 +558,15 @@ def northness(agg: xr.DataArray,
     else:
         trig = np.cos(np.deg2rad(asp_data))
         out = np.where(asp_data == -1, np.nan, trig)
-    return xr.DataArray(out,
-                        name=name,
-                        coords=agg.coords,
-                        dims=agg.dims,
-                        attrs=agg.attrs)
+    result = xr.DataArray(out,
+                          name=name,
+                          coords=agg.coords,
+                          dims=agg.dims,
+                          attrs=agg.attrs)
+    # Reset .name post-construction so dask backends don't leak the graph
+    # token when name=None, matching aspect()/slope() (#2841, #2838).
+    result.name = name
+    return result
 
 
 @supports_dataset
@@ -596,8 +642,12 @@ def eastness(agg: xr.DataArray,
     else:
         trig = np.sin(np.deg2rad(asp_data))
         out = np.where(asp_data == -1, np.nan, trig)
-    return xr.DataArray(out,
-                        name=name,
-                        coords=agg.coords,
-                        dims=agg.dims,
-                        attrs=agg.attrs)
+    result = xr.DataArray(out,
+                          name=name,
+                          coords=agg.coords,
+                          dims=agg.dims,
+                          attrs=agg.attrs)
+    # Reset .name post-construction so dask backends don't leak the graph
+    # token when name=None, matching aspect()/slope() (#2841, #2838).
+    result.name = name
+    return result

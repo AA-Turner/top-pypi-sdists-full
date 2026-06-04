@@ -132,7 +132,8 @@ class ItemWithOwnerAndAcl(Item):
                 Status.log_if(status,
                               f'Moving {self.type} "{item_output.name}" ({item_output.id}) to folder {folder_id}')
                 safely(lambda: folders_api.move_item_to_folder(folder_id=folder_id, item_id=item_output.id),
-                       action_description=f'change Folder of {item_output.id} to {folder_id}',
+                       action_description=(f'change parent Folder of {self.type} "{item_output.name}" '
+                                           f'({item_output.id}) to {folder_id}'),
                        status=status)
             else:
                 Status.log_if(
@@ -174,7 +175,8 @@ class ItemWithOwnerAndAcl(Item):
                 'Manage': acl_to_push['Permissions']['Manage']
             }])], ignore_index=True)
 
-        _metadata.push_access_control(session, pushed_id, acl_df, replace, status=status, dry_run=context.dry_run)
+        if item_map.is_real_id(pushed_id):
+            _metadata.push_access_control(session, pushed_id, acl_df, replace, status=status, dry_run=context.dry_run)
 
     @staticmethod
     def parse_access_control_str(access_control):

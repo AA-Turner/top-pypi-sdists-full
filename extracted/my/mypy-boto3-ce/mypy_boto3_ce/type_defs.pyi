@@ -1141,6 +1141,7 @@ class SavingsPlansPurchaseAnalysisConfigurationOutputTypeDef(TypedDict):
     AccountScope: NotRequired[AccountScopeType]
     AccountId: NotRequired[str]
     SavingsPlansToExclude: NotRequired[list[str]]
+    SavingsPlansTargetCoverage: NotRequired[int]
 
 class SavingsPlansPurchaseAnalysisConfigurationTypeDef(TypedDict):
     AnalysisType: AnalysisTypeType
@@ -1149,6 +1150,7 @@ class SavingsPlansPurchaseAnalysisConfigurationTypeDef(TypedDict):
     AccountScope: NotRequired[AccountScopeType]
     AccountId: NotRequired[str]
     SavingsPlansToExclude: NotRequired[Sequence[str]]
+    SavingsPlansTargetCoverage: NotRequired[int]
 
 class SavingsPlansUtilizationAggregatesTypeDef(TypedDict):
     Utilization: SavingsPlansUtilizationTypeDef

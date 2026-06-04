@@ -2,47 +2,47 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # -*- coding: utf-8 -*-
 
+import operator
+from threading import Event
+
 import pytest
 
-from typing import List
-
-import operator
-
 from tango import (
-    StdStringVector,
-    StdDoubleVector,
-    DbDevInfos,
-    DbDevInfo,
-    DbDevImportInfos,
-    DbDevImportInfo,
-    DbDevExportInfo,
-    DbDevExportInfos,
-    DbHistory,
-    DbHistoryList,
     DbData,
     DbDatum,
+    DbDevExportInfo,
+    DbDevExportInfos,
+    DbDevImportInfo,
+    DbDevImportInfos,
+    DbDevInfo,
+    DbDevInfos,
+    DbHistory,
+    DbHistoryList,
     DeviceData,
-    DeviceDataList,
     DeviceDataHistory,
     DeviceDataHistoryList,
+    DeviceDataList,
+    StdDoubleVector,
+    StdStringVector,
+    is_omni_thread,
 )
-
+from tango._instrumentation import _traced_coverage_run_active
 from tango.utils import (
+    TO_TANGO_TYPE,
+    InvalidTangoHostTrlError,
+    PyTangoThread,
+    StdDoubleVector_2_seq,
+    StdStringVector_2_seq,
     _clear_test_context_tango_host_fqtrl,
     _get_device_fqtrl_if_necessary,
     _get_test_context_tango_host_fqtrl,
     _set_test_context_tango_host_fqtrl,
-    _traced_coverage_run_active,
-    InvalidTangoHostTrlError,
-    StdStringVector_2_seq,
-    StdDoubleVector_2_seq,
-    seq_2_StdStringVector,
-    seq_2_StdDoubleVector,
-    seq_2_DbDevInfos,
-    seq_2_DbDevExportInfos,
-    seq_2_DbData,
     get_tango_type,
-    TO_TANGO_TYPE,
+    seq_2_DbData,
+    seq_2_DbDevExportInfos,
+    seq_2_DbDevInfos,
+    seq_2_StdDoubleVector,
+    seq_2_StdStringVector,
 )
 
 
@@ -68,9 +68,7 @@ def restore_global():
         ("tango://127.0.0.1:12", "a/b/c", "tango://127.0.0.1:12/a/b/c"),
     ],
 )
-def test_get_trl_with_test_fqtrl_success(
-    override_trl, input_trl, expected_trl, restore_global
-):
+def test_get_trl_with_test_fqtrl_success(override_trl, input_trl, expected_trl, restore_global):
     _set_test_context_tango_host_fqtrl(override_trl)
     actual_trl = _get_device_fqtrl_if_necessary(input_trl)
     assert actual_trl == expected_trl
@@ -112,7 +110,7 @@ def test_clear_global_var_without_set_does_not_raise():
 
 
 def test_get_tango_type_valid():
-    from tango import DevString, DevLong64, AttrDataFormat
+    from tango import AttrDataFormat, DevLong64, DevString
 
     assert get_tango_type("abc") == (DevString, AttrDataFormat.SCALAR)
     assert get_tango_type(123) == (DevLong64, AttrDataFormat.SCALAR)
@@ -131,9 +129,7 @@ def test_get_tango_type_invalid_raises_type_error():
     # TODO: check data type for all nested items.  E.g., this doesn't raise TypeError:  ["abc", 123, {"k": "v"}]
 
 
-def check_vector_to_seq_conversion(
-    vec_type, seq_type, vec_2_seq_func, seq_2_vec_func, elem, equal_op=operator.eq
-):
+def check_vector_to_seq_conversion(vec_type, seq_type, vec_2_seq_func, seq_2_vec_func, elem, equal_op=operator.eq):
 
     vec = vec_type()
 
@@ -155,19 +151,18 @@ def check_vector_to_seq_conversion(
         seq_2_vec_func([], [])
 
     if vec_2_seq_func is not None:
-
         vec = vec_type()
         vec.append(elem)
 
         ret = vec_2_seq_func(vec)
-        assert isinstance(ret, List)
+        assert isinstance(ret, list)
         assert len(ret) == 1
         assert equal_op(ret[0], elem)
 
         seq = []
         ret = vec_2_seq_func(vec, seq=seq)
         assert seq is ret
-        assert isinstance(ret, List)
+        assert isinstance(ret, list)
         assert len(ret) == 1
         assert equal_op(ret[0], elem)
 
@@ -177,16 +172,12 @@ def check_vector_to_seq_conversion(
 
 def test_sequence_to_string_vector_and_back():
 
-    check_vector_to_seq_conversion(
-        StdStringVector, List, StdStringVector_2_seq, seq_2_StdStringVector, "abcd"
-    )
+    check_vector_to_seq_conversion(StdStringVector, list, StdStringVector_2_seq, seq_2_StdStringVector, "abcd")
 
 
 def test_sequence_to_double_vector_and_back():
 
-    check_vector_to_seq_conversion(
-        StdDoubleVector, List, StdDoubleVector_2_seq, seq_2_StdDoubleVector, 123.0
-    )
+    check_vector_to_seq_conversion(StdDoubleVector, list, StdDoubleVector_2_seq, seq_2_StdDoubleVector, 123.0)
 
 
 def test_sequence_to_dbdevinfo_vector_and_back():
@@ -197,15 +188,9 @@ def test_sequence_to_dbdevinfo_vector_and_back():
     info.server = "c"
 
     def equal_op(left, right):
-        return (
-            left.klass == right.klass
-            and left.name == right.name
-            and left.server == right.server
-        )
+        return left.klass == right.klass and left.name == right.name and left.server == right.server
 
-    check_vector_to_seq_conversion(
-        DbDevInfos, List, None, seq_2_DbDevInfos, info, equal_op=equal_op
-    )
+    check_vector_to_seq_conversion(DbDevInfos, list, None, seq_2_DbDevInfos, info, equal_op=equal_op)
 
 
 def test_sequence_to_dbdevexportinfo_vector_and_back():
@@ -226,9 +211,7 @@ def test_sequence_to_dbdevexportinfo_vector_and_back():
             and left.pid == right.pid
         )
 
-    check_vector_to_seq_conversion(
-        DbDevExportInfos, List, None, seq_2_DbDevExportInfos, info, equal_op=equal_op
-    )
+    check_vector_to_seq_conversion(DbDevExportInfos, list, None, seq_2_DbDevExportInfos, info, equal_op=equal_op)
 
 
 def test_sequence_to_dbdata_vector_and_back():
@@ -239,9 +222,7 @@ def test_sequence_to_dbdata_vector_and_back():
     def equal_op(left, right):
         return left.name == right.name
 
-    check_vector_to_seq_conversion(
-        DbData, List, None, seq_2_DbData, info, equal_op=equal_op
-    )
+    check_vector_to_seq_conversion(DbData, list, None, seq_2_DbData, info, equal_op=equal_op)
 
 
 def seq_2_x(vec_type, seq, vec=None):
@@ -272,9 +253,7 @@ def test_sequence_to_dbdevimport_vector_and_back():
             and left.version == right.version
         )
 
-    check_vector_to_seq_conversion(
-        DbDevImportInfos, List, None, seq_2_DbDevImportInfos, info, equal_op=equal_op
-    )
+    check_vector_to_seq_conversion(DbDevImportInfos, list, None, seq_2_DbDevImportInfos, info, equal_op=equal_op)
 
 
 def seq_2_DbHistoryList(seq, vec=None):
@@ -294,9 +273,7 @@ def test_sequence_to_dbhistorylist_vector_and_back():
             and left.get_value().name == right.get_value().name
         )
 
-    check_vector_to_seq_conversion(
-        DbHistoryList, List, None, seq_2_DbHistoryList, hist, equal_op=equal_op
-    )
+    check_vector_to_seq_conversion(DbHistoryList, list, None, seq_2_DbHistoryList, hist, equal_op=equal_op)
 
 
 def seq_2_DeviceDataList(seq, vec=None):
@@ -311,9 +288,7 @@ def test_sequence_to_devicedatalist_vector_and_back():
     def equal_op(left, right):
         return left.is_empty() == right.is_empty()
 
-    check_vector_to_seq_conversion(
-        DeviceDataList, List, None, seq_2_DeviceDataList, dd, equal_op=equal_op
-    )
+    check_vector_to_seq_conversion(DeviceDataList, list, None, seq_2_DeviceDataList, dd, equal_op=equal_op)
 
 
 def seq_2_DeviceDataHistoryList(seq, vec=None):
@@ -329,7 +304,7 @@ def test_sequence_to_devicedatahistorylist_vector_and_back():
 
     check_vector_to_seq_conversion(
         DeviceDataHistoryList,
-        List,
+        list,
         None,
         seq_2_DeviceDataHistoryList,
         ddh,
@@ -344,3 +319,32 @@ def test_report_coverage_tracing_enabled():
     if not _traced_coverage_run_active:
         pytest.skip("Coverage tracing is disabled")
     assert _traced_coverage_run_active
+
+
+def test_pytango_thread_runs_with_omni():
+
+    my_event = Event()
+
+    def target(event):
+        if is_omni_thread():
+            event.set()
+
+    thread = PyTangoThread(target=target, args=(my_event,))
+    thread.start()
+    thread.join()
+    assert my_event.is_set()
+    my_event.clear()
+
+    class myTangoTask(PyTangoThread):
+        def __init__(self, event):
+            super().__init__(target=self.run)
+            self.event = event
+
+        def run(self):
+            if is_omni_thread():
+                self.event.set()
+
+    task = myTangoTask(my_event)
+    task.start()
+    task.join()
+    assert my_event.is_set()

@@ -2,14 +2,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import pytest
 
-
 from tango import (
     Attribute,
-    MultiAttrProp,
     DevEncoded,
+    MultiAttrProp,
 )
-from tango.server import Device
-from tango.server import command, attribute
+from tango.server import Device, attribute, command
 from tango.test_utils import (
     DeviceTestContext,
 )
@@ -40,9 +38,7 @@ class SimpleDevice(Device):
         assert isinstance(prop, MultiAttrProp)
         assert prop is ret
 
-        with pytest.raises(
-            TypeError, match="attr_cfg must be an instance of MultiAttrProp"
-        ):
+        with pytest.raises(TypeError, match="attr_cfg must be an instance of MultiAttrProp"):
             attr.get_properties([])
 
         assert prop.label == attr_name
@@ -52,9 +48,7 @@ class SimpleDevice(Device):
 
         attr.set_properties(prop)
 
-        with pytest.raises(
-            TypeError, match="attr_cfg must be an instance of MultiAttrProp"
-        ):
+        with pytest.raises(TypeError, match="attr_cfg must be an instance of MultiAttrProp"):
             attr.set_properties([])
 
     @command

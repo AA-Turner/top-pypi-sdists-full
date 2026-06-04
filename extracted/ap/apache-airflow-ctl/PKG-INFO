@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-ctl
-Version: 0.1.4
+Version: 0.1.5
 Summary: Apache Airflow command line tool for communicating with an Apache Airflow, using the API.
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-ctl/stable/index.html

@@ -1,17 +1,19 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 import claripy
 
-from angr.code_location import CodeLocation
-from angr.project import Project
 from angr.analyses.propagator.vex_vars import VEXReg
+from angr.code_location import CodeLocation
+
 from .propagator_utils import PropagatorLoadCallback
 
 if TYPE_CHECKING:
     from angr import SimState
     from angr.knowledge_plugins import Function
+    from angr.project import Project
 
 
 l = logging.getLogger(name=__name__)

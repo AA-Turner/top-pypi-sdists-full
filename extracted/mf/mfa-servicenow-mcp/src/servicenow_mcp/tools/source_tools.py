@@ -2568,265 +2568,96 @@ _ADMIN_SCRIPT_TYPES = [
 ]
 
 
-# --- 1. download_script_includes ---
+# Consolidated targeted source-family download. The former six per-family tools
+# (download_script_includes/server_scripts/ui_components/api_sources/
+# security_sources/admin_scripts) were byte-identical but for their source-type
+# list — collapsed into one tool with a `families` param to cut the LLM context
+# cost of `full` without losing the targeted-refresh capability. download_app_sources
+# still orchestrates a FULL dump; both call _download_source_types directly.
+
+# family name -> source types. Short, intent-clear names for the LLM.
+_SOURCE_FAMILIES: Dict[str, List[str]] = {
+    "script_includes": _SCRIPT_INCLUDE_TYPES,
+    "server_scripts": _SERVER_SCRIPT_TYPES,  # business rules, client + catalog client scripts
+    "ui": _UI_COMPONENT_TYPES,  # UI actions/scripts/pages/macros
+    "api": _API_SOURCE_TYPES,  # scripted REST + processors
+    "security": _SECURITY_SOURCE_TYPES,  # ACLs
+    "admin": _ADMIN_SCRIPT_TYPES,  # fix scripts, scheduled jobs, script actions, notifications, transforms
+}
+_SOURCE_FAMILY_NAMES = sorted(_SOURCE_FAMILIES)
 
 
-class DownloadScriptIncludesParams(_ScopeDownloadParams):
-    pass
+class DownloadSourcesParams(_ScopeDownloadParams):
+    families: List[str] = Field(
+        ...,
+        description="Families: script_includes, server_scripts, ui, api, security, admin.",
+    )
+    acl_script_only: bool = Field(
+        default=True, description="security family: only ACLs that have a script."
+    )
 
 
 @register_tool(
-    "download_script_includes",
-    params=DownloadScriptIncludesParams,
-    description="Download Script Includes for a scope (subset of download_app_sources).",
+    "download_sources",
+    params=DownloadSourcesParams,
+    description="Targeted source-family refresh (script_includes/server_scripts/ui/api/security/admin). Full dump: download_app_sources.",
     serialization="raw_dict",
     return_type=dict,
 )
-def download_script_includes(
+def download_sources(
     config: ServerConfig,
     auth_manager: AuthManager,
-    params: DownloadScriptIncludesParams,
+    params: DownloadSourcesParams,
 ) -> Dict[str, Any]:
+    if not params.families:
+        return {"success": False, "message": "Specify at least one source family."}
+    unknown = [f for f in params.families if f not in _SOURCE_FAMILIES]
+    if unknown:
+        return {
+            "success": False,
+            "message": (
+                f"Unknown source families: {unknown}. Valid: {', '.join(_SOURCE_FAMILY_NAMES)}."
+            ),
+        }
+
     params, scope_resolution = apply_scope_namespace(config, auth_manager, params)
     started = time.perf_counter()
     root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
-    dl = _download_source_types(
-        config,
-        auth_manager,
-        scope=params.scope,
-        source_types=_SCRIPT_INCLUDE_TYPES,
-        scope_root=scope_root,
-        root=root,
-        max_per_type=params.max_records_per_type,
-        page_size=params.page_size,
-        only_active=params.only_active,
-    )
-    return _build_download_result(
-        params.scope,
-        scope_root,
-        dl,
-        int((time.perf_counter() - started) * 1000),
-        "download_script_includes",
-        scope_resolution=scope_resolution,
-    )
 
+    # Preserve request order, de-dupe (families don't overlap today, but be safe).
+    source_types: List[str] = []
+    for fam in params.families:
+        for t in _SOURCE_FAMILIES[fam]:
+            if t not in source_types:
+                source_types.append(t)
 
-# --- 2. download_server_scripts ---
-
-
-class DownloadServerScriptsParams(_ScopeDownloadParams):
-    pass
-
-
-@register_tool(
-    "download_server_scripts",
-    params=DownloadServerScriptsParams,
-    description="Download BR/Client Scripts/Catalog Client Scripts for a scope (subset of download_app_sources).",
-    serialization="raw_dict",
-    return_type=dict,
-)
-def download_server_scripts(
-    config: ServerConfig,
-    auth_manager: AuthManager,
-    params: DownloadServerScriptsParams,
-) -> Dict[str, Any]:
-    params, scope_resolution = apply_scope_namespace(config, auth_manager, params)
-    started = time.perf_counter()
-    root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
-    dl = _download_source_types(
-        config,
-        auth_manager,
-        scope=params.scope,
-        source_types=_SERVER_SCRIPT_TYPES,
-        scope_root=scope_root,
-        root=root,
-        max_per_type=params.max_records_per_type,
-        page_size=params.page_size,
-        only_active=params.only_active,
-    )
-    return _build_download_result(
-        params.scope,
-        scope_root,
-        dl,
-        int((time.perf_counter() - started) * 1000),
-        "download_server_scripts",
-        scope_resolution=scope_resolution,
-    )
-
-
-# --- 3. download_ui_components ---
-
-
-class DownloadUIComponentsParams(_ScopeDownloadParams):
-    pass
-
-
-@register_tool(
-    "download_ui_components",
-    params=DownloadUIComponentsParams,
-    description="Download UI Actions/Scripts/Pages/Macros for a scope (subset of download_app_sources).",
-    serialization="raw_dict",
-    return_type=dict,
-)
-def download_ui_components(
-    config: ServerConfig,
-    auth_manager: AuthManager,
-    params: DownloadUIComponentsParams,
-) -> Dict[str, Any]:
-    params, scope_resolution = apply_scope_namespace(config, auth_manager, params)
-    started = time.perf_counter()
-    root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
-    dl = _download_source_types(
-        config,
-        auth_manager,
-        scope=params.scope,
-        source_types=_UI_COMPONENT_TYPES,
-        scope_root=scope_root,
-        root=root,
-        max_per_type=params.max_records_per_type,
-        page_size=params.page_size,
-        only_active=params.only_active,
-    )
-    return _build_download_result(
-        params.scope,
-        scope_root,
-        dl,
-        int((time.perf_counter() - started) * 1000),
-        "download_ui_components",
-        scope_resolution=scope_resolution,
-    )
-
-
-# --- 4. download_api_sources ---
-
-
-class DownloadAPISourcesParams(_ScopeDownloadParams):
-    pass
-
-
-@register_tool(
-    "download_api_sources",
-    params=DownloadAPISourcesParams,
-    description="Download Scripted REST APIs/Processors for a scope (subset of download_app_sources).",
-    serialization="raw_dict",
-    return_type=dict,
-)
-def download_api_sources(
-    config: ServerConfig,
-    auth_manager: AuthManager,
-    params: DownloadAPISourcesParams,
-) -> Dict[str, Any]:
-    params, scope_resolution = apply_scope_namespace(config, auth_manager, params)
-    started = time.perf_counter()
-    root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
-    dl = _download_source_types(
-        config,
-        auth_manager,
-        scope=params.scope,
-        source_types=_API_SOURCE_TYPES,
-        scope_root=scope_root,
-        root=root,
-        max_per_type=params.max_records_per_type,
-        page_size=params.page_size,
-        only_active=params.only_active,
-    )
-    return _build_download_result(
-        params.scope,
-        scope_root,
-        dl,
-        int((time.perf_counter() - started) * 1000),
-        "download_api_sources",
-        scope_resolution=scope_resolution,
-    )
-
-
-# --- 5. download_security_sources ---
-
-
-class DownloadSecuritySourcesParams(_ScopeDownloadParams):
-    acl_script_only: bool = Field(default=True, description="Only download ACLs with scripts.")
-
-
-@register_tool(
-    "download_security_sources",
-    params=DownloadSecuritySourcesParams,
-    description="Download ACLs for a scope (subset of download_app_sources). Script-only by default.",
-    serialization="raw_dict",
-    return_type=dict,
-)
-def download_security_sources(
-    config: ServerConfig,
-    auth_manager: AuthManager,
-    params: DownloadSecuritySourcesParams,
-) -> Dict[str, Any]:
-    params, scope_resolution = apply_scope_namespace(config, auth_manager, params)
-    started = time.perf_counter()
-    root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
     extra_q: Dict[str, str] = {}
-    if params.acl_script_only:
-        extra_q["acl"] = "scriptISNOTEMPTY"
+    skip_empty_source_retry: Set[str] = set()
+    if "security" in params.families:
+        if params.acl_script_only:
+            extra_q["acl"] = "scriptISNOTEMPTY"
+        else:
+            skip_empty_source_retry = {"acl"}
+
     dl = _download_source_types(
         config,
         auth_manager,
         scope=params.scope,
-        source_types=_SECURITY_SOURCE_TYPES,
+        source_types=source_types,
         scope_root=scope_root,
         root=root,
         max_per_type=params.max_records_per_type,
         page_size=params.page_size,
         only_active=params.only_active,
-        extra_query=extra_q,
-        skip_empty_source_retry=set() if params.acl_script_only else {"acl"},
+        extra_query=extra_q or None,
+        skip_empty_source_retry=skip_empty_source_retry or None,
     )
     return _build_download_result(
         params.scope,
         scope_root,
         dl,
         int((time.perf_counter() - started) * 1000),
-        "download_security_sources",
-        scope_resolution=scope_resolution,
-    )
-
-
-# --- 6. download_admin_scripts ---
-
-
-class DownloadAdminScriptsParams(_ScopeDownloadParams):
-    pass
-
-
-@register_tool(
-    "download_admin_scripts",
-    params=DownloadAdminScriptsParams,
-    description="Download Fix Scripts/Scheduled Jobs/Script Actions/Email Notifications (subset of download_app_sources).",
-    serialization="raw_dict",
-    return_type=dict,
-)
-def download_admin_scripts(
-    config: ServerConfig,
-    auth_manager: AuthManager,
-    params: DownloadAdminScriptsParams,
-) -> Dict[str, Any]:
-    params, scope_resolution = apply_scope_namespace(config, auth_manager, params)
-    started = time.perf_counter()
-    root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
-    dl = _download_source_types(
-        config,
-        auth_manager,
-        scope=params.scope,
-        source_types=_ADMIN_SCRIPT_TYPES,
-        scope_root=scope_root,
-        root=root,
-        max_per_type=params.max_records_per_type,
-        page_size=params.page_size,
-        only_active=params.only_active,
-    )
-    return _build_download_result(
-        params.scope,
-        scope_root,
-        dl,
-        int((time.perf_counter() - started) * 1000),
-        "download_admin_scripts",
+        "download_sources",
         scope_resolution=scope_resolution,
     )
 
@@ -3059,9 +2890,39 @@ class DownloadAppSourcesParams(BaseModel):
 _BG_JOBS: Dict[str, Dict[str, Any]] = {}
 _BG_JOBS_LOCK = threading.Lock()
 
+# Server-side long-poll: when a poll lands on a still-running job, block here up
+# to _BG_POLL_MAX_BLOCK_SECONDS (re-checking every _BG_POLL_TICK_SECONDS) instead
+# of returning instantly. Without this, a client busy-spins identical "still
+# running" polls — wasted round-trips + context churn while the disk progress
+# counter is flat across a long stage (schema/graph build). The wait is bounded
+# (never indefinite) and well under the client's 120s call timeout, and it
+# returns the moment the job finishes mid-wait. The cap is deterministic here so
+# correct cadence does not depend on the LLM choosing to sleep between polls.
+_BG_POLL_MAX_BLOCK_SECONDS = 20.0
+_BG_POLL_TICK_SECONDS = 2.0
+
 
 def _bg_job_key(instance_host: str, scope: str, fingerprint: str) -> str:
     return f"{instance_host}|{scope}|{fingerprint}"
+
+
+def _read_job(key: str) -> Optional[Dict[str, Any]]:
+    """Snapshot a job's terminal-relevant fields under the lock.
+
+    A job marked running whose thread has died was interrupted (server restart /
+    kill); mark it so the caller restarts a resume rather than reporting a dead
+    thread as alive. Returns a fresh dict (never the shared one) so callers read
+    status/result without holding the lock; None means no job for this key.
+    """
+    with _BG_JOBS_LOCK:
+        job = _BG_JOBS.get(key)
+        if job is None:
+            return None
+        if job["status"] == "running":
+            thread = job.get("thread")
+            if thread is None or not thread.is_alive():
+                job["status"] = "interrupted"
+        return {"status": job["status"], "result": job.get("result"), "error": job.get("error")}
 
 
 def _bg_progress_snapshot(scope_root: Path, fingerprint: str) -> Dict[str, Any]:
@@ -3086,37 +2947,67 @@ def _run_or_poll_background(
     """
     instance_host = urlparse(config.instance_url).hostname or config.instance_url
     key = _bg_job_key(instance_host, params.scope, fingerprint)
+
+    job = _read_job(key)
+
+    # In-flight: block server-side up to the cap so each client poll is productive
+    # instead of busy-spinning identical snapshots. Bounded loop, lock never held
+    # across the sleep; returns early the moment the worker finishes.
+    if job is not None and job["status"] == "running":
+        waited = 0.0
+        while waited < _BG_POLL_MAX_BLOCK_SECONDS and job["status"] == "running":
+            tick = min(_BG_POLL_TICK_SECONDS, _BG_POLL_MAX_BLOCK_SECONDS - waited)
+            time.sleep(tick)
+            waited += tick
+            job = _read_job(key) or {"status": "interrupted", "result": None, "error": None}
+
     snapshot = _bg_progress_snapshot(scope_root, fingerprint)
 
-    with _BG_JOBS_LOCK:
-        job = _BG_JOBS.get(key)
-        # A job marked running whose thread has died was interrupted (server
-        # restart / kill). Disk progress survived, so allow a restart that
-        # resumes — never report a dead thread as still running.
-        if job and job["status"] == "running":
-            thread = job.get("thread")
-            if thread is None or not thread.is_alive():
-                job["status"] = "interrupted"
+    if job is not None and job["status"] == "running":
+        return {
+            "success": True,
+            "background": True,
+            "status": "running",
+            "scope": params.scope,
+            "progress": snapshot,
+            "next_poll_after_seconds": 0,
+            "message": (
+                "Download still running. This poll already waited "
+                f"~{int(_BG_POLL_MAX_BLOCK_SECONDS)}s server-side — call again (same "
+                "args) immediately to keep polling; no client-side sleep needed."
+            ),
+        }
+    if job is not None and job["status"] == "done":
+        return job["result"]
+    if job is not None and job["status"] == "failed":
+        return {
+            "success": False,
+            "background": True,
+            "status": "failed",
+            "scope": params.scope,
+            "error": job.get("error"),
+            "progress": snapshot,
+        }
 
-        if job is not None and job["status"] == "running":
+    with _BG_JOBS_LOCK:
+        # Re-check under the lock: a concurrent poll may have (re)started a job
+        # between the lock-free _read_job above and here. If one is now in flight
+        # or finished, report it rather than starting a duplicate.
+        existing = _BG_JOBS.get(key)
+        if (
+            existing is not None
+            and existing["status"] == "running"
+            and existing.get("thread") is not None
+            and existing["thread"].is_alive()
+        ):
             return {
                 "success": True,
                 "background": True,
                 "status": "running",
                 "scope": params.scope,
                 "progress": snapshot,
+                "next_poll_after_seconds": 0,
                 "message": "Download still running. Call again (same args) to poll.",
-            }
-        if job is not None and job["status"] == "done":
-            return job["result"]
-        if job is not None and job["status"] == "failed":
-            return {
-                "success": False,
-                "background": True,
-                "status": "failed",
-                "scope": params.scope,
-                "error": job.get("error"),
-                "progress": snapshot,
             }
 
         # No job, or a prior one was interrupted → (re)start. Resume picks up any

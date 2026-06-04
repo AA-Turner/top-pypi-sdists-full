@@ -1,42 +1,42 @@
 # pylint:disable=too-many-boolean-expressions
 from __future__ import annotations
-import os
-import logging
-import itertools
-from collections import defaultdict, UserDict
-from collections.abc import Iterable, Iterator
+
 import contextlib
+import itertools
 import json
+import logging
+import os
+import re
+from collections import UserDict, defaultdict
+from collections.abc import Iterable, Iterator
 from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING
-import re
 
+import claripy
 import networkx
 import pydemumble
 import rust_demangler
-
-from cle.backends.symbol import Symbol
 from archinfo.arch_arm import get_real_address_if_arm
-import claripy
+from cle.backends.symbol import Symbol
 
-from angr.knowledge_plugins.cfg.memory_data import MemoryDataSort
-from angr.codenode import CodeNode, BlockNode, HookNode, SyscallNode, FuncNode
-from angr.knowledge_plugins.xrefs.xref import XRef
-from angr.serializable import Serializable
+from angr.calling_conventions import DEFAULT_CC, SimCC, default_cc
+from angr.codenode import BlockNode, CodeNode, FuncNode, HookNode, SyscallNode
 from angr.errors import AngrValueError, SimEngineError, SimMemoryError
+from angr.knowledge_plugins.cfg.memory_data import MemoryDataSort
+from angr.knowledge_plugins.xrefs.xref import XRef
 from angr.procedures import SIM_LIBRARIES
 from angr.procedures.definitions import SimLibrary, SimSyscallLibrary
 from angr.protos import function_pb2
-from angr.calling_conventions import DEFAULT_CC, default_cc
+from angr.serializable import Serializable
 from angr.sim_type import SimTypeFunction, parse_defns
-from angr.calling_conventions import SimCC
-from angr.project import Project
 from angr.utils.library import get_cpp_function_name_and_metadata
+
 from .function_parser import FunctionParser
 
 if TYPE_CHECKING:
     from angr.knowledge_plugins.functions.function_manager import FunctionManager
+    from angr.project import Project
 
 l = logging.getLogger(name=__name__)
 
@@ -188,9 +188,6 @@ class Function(Serializable):
         the creation of a Function object.
 
         :param addr:            The address of the function.
-
-        The following parameters are optional.
-
         :param str name:        The name of the function.
         :param bool syscall:    Whether this function is a syscall or not.
         :param bool is_simprocedure:    Whether this function is a SimProcedure or not.
@@ -1905,10 +1902,6 @@ class Function(Serializable):
 
     @staticmethod
     def _addr_to_funcloc(addr):
-        # FIXME
-        if isinstance(addr, tuple):
-            return addr[0]
-        # int, long
         return addr
 
     def is_rust_function(self):
@@ -2029,11 +2022,12 @@ class Function(Serializable):
         Get a disambiguated function name.
 
         :param display_name: Name to display, otherwise the function name.
-        :return: The function name in the form:
-            ::<name>           when the function binary is the main object.
-            ::<obj>::<name>    when the function binary is not the main object.
-            ::<addr>::<name>   when the function binary is an unnamed non-main object, or when multiple functions with
-                               the same name are defined in the function binary.
+        :return: The function name in one of the following forms:
+
+            - ``::<name>`` when the function binary is the main object.
+            - ``::<obj>::<name>`` when the function binary is not the main object.
+            - ``::<addr>::<name>`` when the function binary is an unnamed non-main object, or when multiple functions
+              with the same name are defined in the function binary.
         """
         assert self.project is not None
         must_disambiguate_by_addr = self.binary is not self.project.loader.main_object and self.binary_name is None

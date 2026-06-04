@@ -13,12 +13,13 @@ if TYPE_CHECKING:
 
 from pinecone._internal.adapters.imports_adapter import ImportsAdapter
 from pinecone._internal.adapters.vectors_adapter import VectorsAdapter, extract_response_info
+from pinecone._internal.adaptive import _AdaptiveLimiterRegistry
 from pinecone._internal.batch import async_batch_execute
 from pinecone._internal.batching import validate_batch_size
 from pinecone._internal.config import PineconeConfig
 from pinecone._internal.constants import DATA_PLANE_API_VERSION
 from pinecone._internal.data_plane_helpers import (
-    _normalize_search_vector_dict,
+    _build_search_records_body,
     _validate_host,
     _vector_to_dict,
 )
@@ -40,7 +41,12 @@ from pinecone.models.vectors.responses import (
     UpsertRecordsResponse,
     UpsertResponse,
 )
-from pinecone.models.vectors.search import RerankConfig, SearchInputs, SearchRecordsResponse
+from pinecone.models.vectors.search import (
+    RerankConfig,
+    SearchInputs,
+    SearchQuery,
+    SearchRecordsResponse,
+)
 from pinecone.models.vectors.sparse import SparseValues
 from pinecone.models.vectors.vector import Vector
 
@@ -91,6 +97,7 @@ class AsyncIndex:
         ssl_verify: bool = True,
         source_tag: str | None = None,
         connection_pool_maxsize: int = 0,
+        _limiter_registry: _AdaptiveLimiterRegistry | None = None,
     ) -> None:
         # Resolve API key: explicit arg > env var (check BEFORE host per unified-ord-0001)
         resolved_key = api_key or os.environ.get("PINECONE_API_KEY", "")
@@ -116,6 +123,7 @@ class AsyncIndex:
             connection_pool_maxsize=connection_pool_maxsize,
         )
         self._config = config
+        self._limiter_registry = _limiter_registry
 
         from pinecone._internal.http_client import AsyncHTTPClient
 
@@ -655,8 +663,47 @@ class AsyncIndex:
             result = await self.query(namespace=ns, **query_kwargs)
             return (ns, result)
 
-        results = await asyncio.gather(*[_query_ns(ns) for ns in namespaces])
-        for ns, response in results:
+        # Limiter-bounded fan-out. Internal ceiling = 10 (hardcoded by design;
+        # users hitting this limit can split their call across multiple invocations).
+        _internal_concurrency_ceiling = 10
+        limiter = (
+            self._limiter_registry.get(self._host, _internal_concurrency_ceiling)
+            if self._limiter_registry is not None
+            else None
+        )
+
+        if limiter is None:
+            sem = asyncio.Semaphore(_internal_concurrency_ceiling)
+
+            async def _gated_sem(idx: int, ns: str) -> tuple[int, str, QueryResponse]:
+                async with sem:
+                    ns_back, resp = await _query_ns(ns)
+                    return idx, ns_back, resp
+
+            indexed = await asyncio.gather(*[_gated_sem(i, ns) for i, ns in enumerate(namespaces)])
+        else:
+            inflight = 0
+            inflight_lock = asyncio.Lock()
+
+            async def _gated_lim(idx: int, ns: str) -> tuple[int, str, QueryResponse]:
+                nonlocal inflight
+                while True:
+                    async with inflight_lock:
+                        if inflight < limiter.current_limit():
+                            inflight += 1
+                            break
+                    await asyncio.sleep(0.05)
+                try:
+                    ns_back, resp = await _query_ns(ns)
+                    return idx, ns_back, resp
+                finally:
+                    async with inflight_lock:
+                        inflight -= 1
+
+            indexed = await asyncio.gather(*[_gated_lim(i, ns) for i, ns in enumerate(namespaces)])
+
+        indexed.sort(key=lambda t: t[0])
+        for _idx, ns, response in indexed:
             aggregator.add_results(ns, response)
 
         return aggregator.get_results()
@@ -926,7 +973,7 @@ class AsyncIndex:
         self,
         *,
         namespace: str,
-        top_k: int,
+        top_k: int | None = None,
         inputs: SearchInputs | Mapping[str, Any] | None = None,
         vector: Sequence[float] | Mapping[str, Any] | None = None,
         id: str | None = None,
@@ -934,6 +981,7 @@ class AsyncIndex:
         fields: Sequence[str] | None = None,
         rerank: RerankConfig | Mapping[str, Any] | None = None,
         match_terms: Mapping[str, Any] | None = None,
+        query: SearchQuery | Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
         """Search records by text, vector, or ID with optional reranking.
@@ -967,6 +1015,9 @@ class AsyncIndex:
                 ``"all"``) and ``"terms"`` (list of strings). Only supported
                 for sparse indexes using ``pinecone-sparse-english-v0``.
                 ``None`` disables term matching.
+            query (dict[str, Any] | None): Legacy query body containing
+                ``top_k`` plus one of ``inputs``, ``vector``, or ``id``. Prefer
+                passing these fields directly.
 
         Returns:
             :class:`SearchRecordsResponse` with hits and usage statistics.
@@ -995,40 +1046,20 @@ class AsyncIndex:
             raise ValidationError("namespace must be a string")
         if not namespace or not namespace.strip():
             raise ValidationError("namespace must be a non-empty string")
-        if top_k < 1:
-            raise ValidationError(f"top_k must be a positive integer, got {top_k}")
-        if rerank is not None:
-            if "model" not in rerank:
-                raise ValidationError("rerank requires 'model' to be specified")
-            if "rank_fields" not in rerank:
-                raise ValidationError("rerank requires 'rank_fields' to be specified")
-        if inputs is None and vector is None and id is None:
-            raise ValidationError(
-                "At least one of inputs, vector, or id must be provided as a query source"
-            )
+        body = _build_search_records_body(
+            method_name="AsyncIndex.search",
+            top_k=top_k,
+            inputs=inputs,
+            vector=vector,
+            id=id,
+            filter=filter,
+            fields=fields,
+            rerank=rerank,
+            match_terms=match_terms,
+            query=query,
+        )
 
-        query_body: dict[str, Any] = {"top_k": top_k}
-        if inputs is not None:
-            query_body["inputs"] = inputs
-        if vector is not None:
-            if isinstance(vector, Mapping):
-                query_body["vector"] = _normalize_search_vector_dict(vector)
-            else:
-                query_body["vector"] = {"values": list(vector)}
-        if id is not None:
-            query_body["id"] = id
-        if filter is not None:
-            query_body["filter"] = filter
-        if match_terms is not None:
-            query_body["match_terms"] = match_terms
-
-        body: dict[str, Any] = {"query": query_body}
-        if fields is not None:
-            body["fields"] = fields
-        if rerank is not None:
-            body["rerank"] = rerank
-
-        logger.info("Searching namespace %r with top_k=%d", namespace, top_k)
+        logger.info("Searching namespace %r with top_k=%d", namespace, body["query"]["top_k"])
         response = await self._http.post(
             f"/records/namespaces/{namespace}/search", timeout=timeout, json=body
         )
@@ -1040,7 +1071,7 @@ class AsyncIndex:
         self,
         *,
         namespace: str,
-        top_k: int,
+        top_k: int | None = None,
         inputs: SearchInputs | Mapping[str, Any] | None = None,
         vector: Sequence[float] | Mapping[str, Any] | None = None,
         id: str | None = None,
@@ -1048,6 +1079,7 @@ class AsyncIndex:
         fields: Sequence[str] | None = None,
         rerank: RerankConfig | Mapping[str, Any] | None = None,
         match_terms: Mapping[str, Any] | None = None,
+        query: SearchQuery | Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
         """Alias for :meth:`search`.
@@ -1063,6 +1095,7 @@ class AsyncIndex:
             fields=fields,
             rerank=rerank,
             match_terms=match_terms,
+            query=query,
             timeout=timeout,
         )
 

@@ -11,7 +11,7 @@ description = "Music + sound-effect generation backends for Blazen (MusicGen, Au
 [dependencies]
 async-trait.workspace = true
 blazen-audio = { workspace = true }
-blazen-audio-codec = { version = "0.6.3", path = "../blazen-audio-codec", optional = true }
+blazen-audio-codec = { version = "0.6.4", path = "../blazen-audio-codec", optional = true }
 blazen-audio-core = { workspace = true, optional = true }
 candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }

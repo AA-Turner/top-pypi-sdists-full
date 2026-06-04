@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.31                                                                                #
-# Generated on 2026-06-01T01:50:49.620051                                                            #
+# MF version: 2.19.32                                                                                #
+# Generated on 2026-06-03T21:26:43.603129                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from ...exception import MetaflowException as MetaflowException
 from ..kubernetes.kubernetes_client import KubernetesClient as KubernetesClient
 
 ARGO_EVENTS_SENSOR_NAMESPACE: str
+
+ARGO_WORKFLOWS_USE_SCHEDULES: bool
 
 class ArgoClientException(metaflow.exception.MetaflowException, metaclass=type):
     ...
@@ -31,6 +33,8 @@ class ArgoClient(object, metaclass=type):
     def get_workflow(self, name):
         ...
     def get_workflow_template(self, name):
+        ...
+    def get_cronworkflow(self, name):
         ...
     def get_workflow_templates(self, page_size = 100):
         ...

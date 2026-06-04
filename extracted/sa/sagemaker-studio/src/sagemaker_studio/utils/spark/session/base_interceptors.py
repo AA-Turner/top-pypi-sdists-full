@@ -62,8 +62,9 @@ class BaseSparkConnectGRPCInterceptor(
         initial_auth_token: str = None,
         initial_token_expiry=None,
         early_refresh_seconds: int = _DEFAULT_EARLY_REFRESH_SECONDS,
+        logger_name: str = "SparkConnect",
     ):
-        self.logger = _logging.getLogger("SparkConnect")
+        self.logger = _logging.getLogger(logger_name)
         self.session_id = session_id
         self._early_refresh_seconds = early_refresh_seconds
 

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..models.edit_copilot_config_json_body_custom_prompts import EditCopilotConfigJsonBodyCustomPrompts
     from ..models.edit_copilot_config_json_body_default_model import EditCopilotConfigJsonBodyDefaultModel
     from ..models.edit_copilot_config_json_body_max_tokens_per_model import EditCopilotConfigJsonBodyMaxTokensPerModel
+    from ..models.edit_copilot_config_json_body_metadata_model import EditCopilotConfigJsonBodyMetadataModel
     from ..models.edit_copilot_config_json_body_providers import EditCopilotConfigJsonBodyProviders
 
 
@@ -24,6 +25,7 @@ class EditCopilotConfigJsonBody:
     Attributes:
         providers (Union[Unset, EditCopilotConfigJsonBodyProviders]):
         default_model (Union[Unset, EditCopilotConfigJsonBodyDefaultModel]):
+        metadata_model (Union[Unset, EditCopilotConfigJsonBodyMetadataModel]):
         code_completion_model (Union[Unset, EditCopilotConfigJsonBodyCodeCompletionModel]):
         custom_prompts (Union[Unset, EditCopilotConfigJsonBodyCustomPrompts]):
         max_tokens_per_model (Union[Unset, EditCopilotConfigJsonBodyMaxTokensPerModel]):
@@ -31,6 +33,7 @@ class EditCopilotConfigJsonBody:
 
     providers: Union[Unset, "EditCopilotConfigJsonBodyProviders"] = UNSET
     default_model: Union[Unset, "EditCopilotConfigJsonBodyDefaultModel"] = UNSET
+    metadata_model: Union[Unset, "EditCopilotConfigJsonBodyMetadataModel"] = UNSET
     code_completion_model: Union[Unset, "EditCopilotConfigJsonBodyCodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "EditCopilotConfigJsonBodyCustomPrompts"] = UNSET
     max_tokens_per_model: Union[Unset, "EditCopilotConfigJsonBodyMaxTokensPerModel"] = UNSET
@@ -44,6 +47,10 @@ class EditCopilotConfigJsonBody:
         default_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
+
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
 
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
@@ -64,6 +71,8 @@ class EditCopilotConfigJsonBody:
             field_dict["providers"] = providers
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
@@ -83,6 +92,7 @@ class EditCopilotConfigJsonBody:
         from ..models.edit_copilot_config_json_body_max_tokens_per_model import (
             EditCopilotConfigJsonBodyMaxTokensPerModel,
         )
+        from ..models.edit_copilot_config_json_body_metadata_model import EditCopilotConfigJsonBodyMetadataModel
         from ..models.edit_copilot_config_json_body_providers import EditCopilotConfigJsonBodyProviders
 
         d = src_dict.copy()
@@ -99,6 +109,13 @@ class EditCopilotConfigJsonBody:
             default_model = UNSET
         else:
             default_model = EditCopilotConfigJsonBodyDefaultModel.from_dict(_default_model)
+
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, EditCopilotConfigJsonBodyMetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = EditCopilotConfigJsonBodyMetadataModel.from_dict(_metadata_model)
 
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, EditCopilotConfigJsonBodyCodeCompletionModel]
@@ -124,6 +141,7 @@ class EditCopilotConfigJsonBody:
         edit_copilot_config_json_body = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
             max_tokens_per_model=max_tokens_per_model,

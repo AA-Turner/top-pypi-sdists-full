@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
 from collections import defaultdict
 from collections.abc import MutableMapping
+from typing import TYPE_CHECKING
 
 from angr.ailment.expression import StackBaseOffset
 from angr.code_location import AILCodeLocation
@@ -16,8 +17,9 @@ type Value = "set[tuple[int | None, int]]"
 
 def has_conflicting_value_types(vs: Value) -> bool:
     """
-    Value contains two types of entries: (int, *) that indicates a stack offset, and (None, int) that indicates a
-    constant value. This method returns True if a set of Values contains both types of entries, otherwise False.
+    Value contains two types of entries: ``(int, *)`` that indicates a stack offset, and ``(None, int)`` that
+    indicates a constant value. This method returns True if a set of Values contains both types of entries, otherwise
+    False.
 
     """
 

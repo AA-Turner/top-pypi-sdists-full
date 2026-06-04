@@ -140,20 +140,20 @@ struct cpp_to_python_scalar<Tango::DEV_ENCODED> {
         case PyTango::ExtractAsTuple:
         case PyTango::ExtractAsList:
         case PyTango::ExtractAsBytes: {
-            py::bytes encoded_data(reinterpret_cast<const char *>(value.encoded_data.get_buffer()),
-                                   value.encoded_data.length());
+            py::bytes encoded_data(
+                reinterpret_cast<const char *>(value.encoded_data.get_buffer()), value.encoded_data.length());
             py_value = py::make_tuple(encoded_format, encoded_data);
             break;
         }
         case PyTango::ExtractAsByteArray: {
-            py::bytearray encoded_data(reinterpret_cast<const char *>(value.encoded_data.get_buffer()),
-                                       value.encoded_data.length());
+            py::bytearray encoded_data(
+                reinterpret_cast<const char *>(value.encoded_data.get_buffer()), value.encoded_data.length());
             py_value = py::make_tuple(encoded_format, encoded_data);
             break;
         }
         case PyTango::ExtractAsString: {
-            py::str encoded_data(reinterpret_cast<const char *>(value.encoded_data.get_buffer()),
-                                 value.encoded_data.length());
+            py::str encoded_data(
+                reinterpret_cast<const char *>(value.encoded_data.get_buffer()), value.encoded_data.length());
             py_value = py::make_tuple(encoded_format, encoded_data);
             break;
         }

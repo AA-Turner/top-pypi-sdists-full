@@ -140,16 +140,17 @@ def build_argparse():
     parser.add_argument('--bert_finetune_layers', default=None, type=int, help='Only finetune this many layers from the transformer')
     parser.add_argument('--bert_learning_rate', default=1.0, type=float, help='Scale the learning rate for transformer finetuning by this much')
     parser.add_argument('--second_bert_learning_rate', default=1e-3, type=float, help='Secondary stage transformer finetuning learning rate scale')
-    parser.add_argument('--bert_start_finetuning', default=200, type=int, help='When to start finetuning the transformer')
-    parser.add_argument('--bert_warmup_steps', default=200, type=int, help='How many steps for a linear warmup when finetuning the transformer')
+    parser.add_argument('--bert_start_finetuning', default=500, type=int, help='When to start finetuning the transformer')
+    parser.add_argument('--bert_warmup_steps', default=500, type=int, help='How many steps for a linear warmup when finetuning the transformer')
     parser.add_argument('--bert_weight_decay', default=0.0, type=float, help='Weight decay bert parameters by this much')
+    parser.add_argument('--enable_gradient_checkpointing', default=False, action='store_true', help='Enable gradient checkpointing when training')
 
     parser.add_argument('--no_pretrain', dest='pretrain', action='store_false', help="Turn off pretrained embeddings.")
     parser.add_argument('--no_linearization', dest='linearization', action='store_false', help="Turn off linearization term.")
     parser.add_argument('--no_distance', dest='distance', action='store_false', help="Turn off distance term.")
 
     # Originally, we used a single adam optimizer, stopping after 1000 stalled iterations,
-    # with a couple other hyperparameters corresponding to:  TODO
+    # with a couple other hyperparameters corresponding to:
     #   --max_steps_before_stop 1000
     #   --beta2 0.95
     #   --lr 3e-3
@@ -213,6 +214,11 @@ def build_argparse():
     parser.add_argument('--eval_interval', type=int, default=100)
     parser.add_argument('--checkpoint_interval', type=int, default=500)
     parser.add_argument('--max_steps_before_stop', type=int, default=2000)
+
+    parser.add_argument('--plateau_decay', type=float, default=0.8, help='If set, decay the learning rate of the first optimizer every plateau_steps by plateau_decay')
+    parser.add_argument('--plateau_steps', type=int, default=500, help='If set, decay the learning rate of the first optimizer every plateau_steps by plateau_decay')
+    parser.add_argument('--no_plateau', action='store_false', dest='use_plateau', default=True, help="Don't use a plateau scheduler")
+
     parser.add_argument('--batch_size', type=int, default=5000)
     parser.add_argument('--second_batch_size', type=int, default=None, help='Use a different batch size for the second optimizer.  Can be relevant for models with different transformer finetuning settings between optimizers, for example, where the larger batch size is impossible for FT the transformer"')
     parser.add_argument('--max_grad_norm', type=float, default=1.0, help='Gradient clipping.')
@@ -459,7 +465,8 @@ def train(args):
                 force_checkpoint = True
 
             for scheduler_name, scheduler in trainer.scheduler.items():
-                logger.info('scheduler %s learning rate: %s', scheduler_name, scheduler.get_last_lr())
+                scheduler.step(num_steps=args['eval_interval'], metrics=dev_score)
+                logger.info('scheduler %s: %s', scheduler_name, scheduler.status())
             if args['log_norms']:
                 trainer.model.log_norms()
 

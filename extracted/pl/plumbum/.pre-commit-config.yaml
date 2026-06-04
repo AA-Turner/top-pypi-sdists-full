@@ -20,27 +20,32 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: "v0.14.2"
+  rev: "v0.15.5"
   hooks:
     - id: ruff-check
-      args: ["--fix", "--show-fixes"]
+      args: ["--fix", "--unsafe-fixes"]
     - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: "v1.18.2"
+  rev: "v1.19.1"
   hooks:
   - id: mypy
-    files: plumbum
+    files: ^(plumbum|examples)
     args: []
-    additional_dependencies: [types-paramiko, types-setuptools, pytest, importlib-resources]
+    additional_dependencies:
+      - types-paramiko
+      - types-colorama
+      - pytest<9  # pytest 9 requires Python 3.10+
+      - ipython
+      - pillow
 
 - repo: https://github.com/abravalheri/validate-pyproject
-  rev: "v0.24.1"
+  rev: "v0.25"
   hooks:
   - id: validate-pyproject
 
 - repo: https://github.com/codespell-project/codespell
-  rev: "v2.4.1"
+  rev: "v2.4.2"
   hooks:
   - id: codespell
     args: ["-w"]
@@ -53,3 +58,10 @@ repos:
   - id: rst-backticks
   - id: rst-directive-colons
   - id: rst-inline-touching-normal
+
+- repo: https://github.com/henryiii/flake8-lazy
+  rev: v0.8.1
+  hooks:
+    - id: flake8-lazy
+      args: [--apply=set]
+      files: "^plumbum"

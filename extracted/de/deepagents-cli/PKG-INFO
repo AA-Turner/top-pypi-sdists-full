@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-cli
-Version: 0.2.0
+Version: 0.2.1
 Summary: Deployment tooling for Deep Agents - bundle, run, and ship agents to LangGraph Platform.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -24,12 +24,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.11
-Requires-Dist: deepagents>=0.6.1
+Requires-Dist: deepagents>=0.6.8
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain<2.0.0,>=1.3.0
-Requires-Dist: langgraph-sdk<1.0.0,>=0.3.13
-Requires-Dist: langgraph<2.0.0,>=1.2.0
-Requires-Dist: langsmith>=0.8.0
+Requires-Dist: langchain<2.0.0,>=1.3.4
+Requires-Dist: langgraph-sdk<1.0.0,>=0.4.2
+Requires-Dist: langgraph<2.0.0,>=1.2.4
+Requires-Dist: langsmith>=0.8.9
 Requires-Dist: python-dotenv<2.0.0,>=1.2.2
 Description-Content-Type: text/markdown
 

@@ -250,6 +250,7 @@ class ControlStreamClient:
         self._stream_thread: threading.Thread | None = None
         self._gauge_thread: threading.Thread | None = None
         self._backoff = BackoffPolicy()
+        self._stream_failure_warned = False
 
     # ------------------------------------------------------------------
     # StreamSink protocol
@@ -314,6 +315,7 @@ class ControlStreamClient:
             with self._gauge_lock:
                 self._disconnected_at_ref[0] = None
             kytte_platform_unreachable_seconds.set(0)
+            self._stream_failure_warned = False
             self._fire_on_connected()
         else:
             with self._gauge_lock:
@@ -378,12 +380,30 @@ class ControlStreamClient:
                 self._codec,
             )
 
+    def _log_stream_failure(self, exc: grpc.RpcError) -> None:
+        """Log a stream failure: one coded WARNING per outage, then DEBUG.
+
+        Against platforms that do not expose the gRPC control plane, the
+        reconnect loop fails forever — a full Rendezvous dump per attempt
+        floods customer logs. Emit a one-line coded diagnostic once, then
+        stay quiet until the stream recovers (see _set_connected).
+        """
+        from aigie.diagnostics import N008, format_diagnostic
+
+        code = exc.code().name if callable(getattr(exc, "code", None)) else "UNKNOWN"
+        summary = f"{code} target={self._grpc_target}"
+        if self._stream_failure_warned:
+            logger.debug("[AIGIE-N008] control stream still unreachable: %s", summary)
+            return
+        self._stream_failure_warned = True
+        logger.warning(format_diagnostic(N008, summary))
+
     def _run_session_with_cleanup(self, channel: grpc.Channel) -> None:
         """Run one session and ensure channel is closed + connected=False on exit."""
         try:
             self._run_one_session(channel)
         except grpc.RpcError as exc:
-            logger.warning("gRPC error on control stream: %s", exc)
+            self._log_stream_failure(exc)
         except Exception:
             logger.exception("unexpected error on control stream")
         finally:

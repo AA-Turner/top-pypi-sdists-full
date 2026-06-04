@@ -23,7 +23,6 @@ from kanban_framework.domain.steps import (  # noqa: F401
     KNOWLEDGE_SEARCH_PROTOCOL,
     _resolve_workflow_prompt,
     _inject_knowledge_json,
-    FULL_STEPS,
     LIGHTWEIGHT_STEPS,
     QUICK_STEPS,
     _get_steps,
@@ -98,7 +97,7 @@ class NextStepResult:
 
 def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
     """Determine the exact next action for a task."""
-    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
+    mode = task.mode if task.mode not in Scheduler.BUILTIN_MODE_NAMES else ("quick" if task.mode == "quick" else "lightweight")
     ext = _load_extension(config)
     base_order = _get_phase_order(task.lightweight, quick=(task.mode == "quick"),
                                     mode=task.mode, kanban_dir=config._fs.kanban_dir)

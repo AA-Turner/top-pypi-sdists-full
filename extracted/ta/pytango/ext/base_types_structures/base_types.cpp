@@ -61,8 +61,7 @@ inline bool operator==(const Tango::DeviceDataHistory &ddh1_, const Tango::Devic
     auto &ddh1 = const_cast<Tango::DeviceDataHistory &>(ddh1_);
     auto &ddh2 = const_cast<Tango::DeviceDataHistory &>(ddh2_);
 
-    return operator==(static_cast<Tango::DeviceData>(ddh1),
-                      static_cast<Tango::DeviceData>(ddh2)) &&
+    return operator==(static_cast<Tango::DeviceData>(ddh1), static_cast<Tango::DeviceData>(ddh2)) &&
            ddh1.failed() == ddh2.failed() && ddh1.date() == ddh2.date();
     //&& ddh1.errors() == ddh2.errors();
 }

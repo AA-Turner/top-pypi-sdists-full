@@ -2,29 +2,31 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 # Imports
-import sys
-import os
 import functools
+import os
+import sys
+import threading
 from collections import namedtuple
 
 # Gevent imports
 import gevent.event
-import gevent.queue
 import gevent.monkey
+import gevent.queue
 import gevent.threadpool
 
 # Bypass gevent monkey patching
 ThreadSafeEvent = gevent.monkey.get_original("threading", "Event")
 
 # Tango imports
+from tango._instrumentation import _get_non_tango_source_location
+from tango._telemetry import _telemetry_runtime
 from tango.green import AbstractExecutor, get_ident
-from tango.utils import _get_current_otel_context, _get_non_tango_source_location
 
 __all__ = (
     "GeventExecutor",
+    "_switch_global_executor_to_thread",
     "get_global_executor",
     "set_global_executor",
-    "_switch_global_executor_to_thread",
 )
 
 # Global executor
@@ -32,6 +34,11 @@ __all__ = (
 _MAIN_EXECUTOR = None
 _THREAD_POOL = None
 _THREAD_EXECUTORS = {}
+
+# Thread-local storage to track which GeventExecutor owns the current thread's work.
+# Set by GeventExecutor.delegate() so that nested Tango calls from pool threads
+# (which have a different ident than the asyncio loop thread) can find the right executor.
+_delegate_thread_local = threading.local()
 
 
 def _switch_global_executor_to_thread():
@@ -59,6 +66,12 @@ def get_global_executor():
         ident = get_ident(), os.getpid()
         if ident in _THREAD_EXECUTORS:
             return _THREAD_EXECUTORS[ident]
+
+        # If running in a pool thread spawned by an GeventExecutor's delegate(),
+        # recover the owning executor from the thread-local set by that delegate().
+        thread_executor = getattr(_delegate_thread_local, "executor", None)
+        if thread_executor is not None:
+            return thread_executor
 
     return _MAIN_EXECUTOR
 
@@ -167,8 +180,16 @@ class GeventExecutor(AbstractExecutor):
         """Return the given operation as a gevent future."""
         if hasattr(fn, "__trace_kwargs__"):
             kwargs["trace_location"] = _get_non_tango_source_location()
-            kwargs["trace_context"] = _get_current_otel_context()
-        return self.subexecutor.spawn(fn, *args, **kwargs)
+            kwargs["trace_context"] = _telemetry_runtime.get_current_otel_context()
+
+        callback = functools.partial(fn, *args, **kwargs)
+        executor_ref = self
+
+        def _callback_with_executor():
+            _delegate_thread_local.executor = executor_ref
+            return callback()
+
+        return self.subexecutor.spawn(_callback_with_executor)
 
     def access(self, accessor, timeout=None):
         """Return a result from an gevent future."""

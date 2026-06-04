@@ -199,6 +199,31 @@ class InterceptionContext:
     retry_count: int = 0
     """Number of retries attempted."""
 
+    # Interception flow results (set by intercept_pre_call / intercept_post_call).
+    # These MUST be declared fields with safe defaults: wrappers read them on
+    # every intercepted call, and dynamically-attached attributes caused
+    # AttributeError crashes that broke customer LLM calls (0.2.41).
+    decision: InterceptionDecision | None = None
+    """Decision from the interception chain (None until a chain has run)."""
+
+    block_reason: str | None = None
+    """Reason the request was blocked, if decision is BLOCK."""
+
+    modified_messages: list[dict[str, Any]] | None = None
+    """Messages modified by pre-call hooks, if any."""
+
+    modified_kwargs: dict[str, Any] | None = None
+    """Request kwargs modified by pre-call hooks, if any."""
+
+    modified_response: dict[str, Any] | None = None
+    """Response content modified by post-call auto-fix, if any."""
+
+    retry_kwargs: dict[str, Any] | None = None
+    """Modified kwargs to use when retrying, if a retry was requested."""
+
+    should_retry: bool = False
+    """Whether post-call interception requested a retry."""
+
     def compute_context_hash(self) -> str:
         """Compute a hash of the current context for drift detection."""
         context_data = {
@@ -319,7 +344,7 @@ class PreCallResult:
     """Name of the hook that produced this result."""
 
     @classmethod
-    def allow(cls, hook_name: str = None, latency_ms: float = 0.0) -> "PreCallResult":
+    def allow(cls, hook_name: str | None = None, latency_ms: float = 0.0) -> "PreCallResult":
         """Create an ALLOW result."""
         return cls(
             decision=InterceptionDecision.ALLOW,
@@ -331,7 +356,7 @@ class PreCallResult:
     def block(
         cls,
         reason: str,
-        hook_name: str = None,
+        hook_name: str | None = None,
         latency_ms: float = 0.0,
     ) -> "PreCallResult":
         """Create a BLOCK result."""
@@ -345,10 +370,10 @@ class PreCallResult:
     @classmethod
     def modify(
         cls,
-        messages: list[dict[str, Any]] = None,
-        kwargs: dict[str, Any] = None,
-        reason: str = None,
-        hook_name: str = None,
+        messages: list[dict[str, Any]] | None = None,
+        kwargs: dict[str, Any] | None = None,
+        reason: str | None = None,
+        hook_name: str | None = None,
         latency_ms: float = 0.0,
     ) -> "PreCallResult":
         """Create a MODIFY result."""
@@ -364,8 +389,8 @@ class PreCallResult:
     @classmethod
     def consult(
         cls,
-        reason: str = None,
-        hook_name: str = None,
+        reason: str | None = None,
+        hook_name: str | None = None,
         latency_ms: float = 0.0,
     ) -> "PreCallResult":
         """Create a CONSULT result (need backend decision)."""
@@ -377,7 +402,7 @@ class PreCallResult:
         )
 
     @classmethod
-    def defer(cls, hook_name: str = None, latency_ms: float = 0.0) -> "PreCallResult":
+    def defer(cls, hook_name: str | None = None, latency_ms: float = 0.0) -> "PreCallResult":
         """Create a DEFER result (let next hook decide)."""
         return cls(
             decision=InterceptionDecision.DEFER,
@@ -421,7 +446,7 @@ class PostCallResult:
     """Name of the hook that produced this result."""
 
     @classmethod
-    def allow(cls, hook_name: str = None, latency_ms: float = 0.0) -> "PostCallResult":
+    def allow(cls, hook_name: str | None = None, latency_ms: float = 0.0) -> "PostCallResult":
         """Create an ALLOW result."""
         return cls(
             decision=InterceptionDecision.ALLOW,
@@ -433,10 +458,10 @@ class PostCallResult:
     def modify(
         cls,
         response: Any = None,
-        content: str = None,
-        reason: str = None,
-        fixes: list[FixAction] = None,
-        hook_name: str = None,
+        content: str | None = None,
+        reason: str | None = None,
+        fixes: list[FixAction] | None = None,
+        hook_name: str | None = None,
         latency_ms: float = 0.0,
     ) -> "PostCallResult":
         """Create a MODIFY result."""
@@ -454,9 +479,9 @@ class PostCallResult:
     def retry(
         cls,
         reason: str,
-        instruction: str = None,
-        retry_kwargs: dict[str, Any] = None,
-        hook_name: str = None,
+        instruction: str | None = None,
+        retry_kwargs: dict[str, Any] | None = None,
+        hook_name: str | None = None,
         latency_ms: float = 0.0,
     ) -> "PostCallResult":
         """Create a result indicating retry is needed with corrective instruction.
@@ -491,8 +516,8 @@ class PostCallResult:
     @classmethod
     def consult(
         cls,
-        reason: str = None,
-        hook_name: str = None,
+        reason: str | None = None,
+        hook_name: str | None = None,
         latency_ms: float = 0.0,
     ) -> "PostCallResult":
         """Create a CONSULT result (need backend decision)."""
@@ -504,7 +529,7 @@ class PostCallResult:
         )
 
     @classmethod
-    def defer(cls, hook_name: str = None, latency_ms: float = 0.0) -> "PostCallResult":
+    def defer(cls, hook_name: str | None = None, latency_ms: float = 0.0) -> "PostCallResult":
         """Create a DEFER result (let next hook decide)."""
         return cls(
             decision=InterceptionDecision.DEFER,

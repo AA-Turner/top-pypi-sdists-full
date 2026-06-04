@@ -1,7 +1,11 @@
+import importlib
+import sys
+import traceback
 from functools import partial
 
 import pytest
 from isolate.connections.common import (
+    ExceptionDeserializationError,
     SerializationError,
     load_serialized_object,
     serialize_object,
@@ -35,6 +39,38 @@ def test_deserialize_raised_exception():
     with pytest.raises(ValueError) as exc_info:
         load_serialized_object("pickle", serialized, was_it_raised=True)
     assert exc_info.value.args == ("some error",)
+
+
+def test_deserialize_raised_exception_with_unimportable_type_preserves_traceback(
+    tmp_path,
+    monkeypatch,
+):
+    module_name = "remote_only_exc_for_isolate_test"
+    module_path = tmp_path / f"{module_name}.py"
+    module_path.write_text("class RemoteOnlyError(Exception):\n    pass\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    remote_module = importlib.import_module(module_name)
+
+    try:
+        raise remote_module.RemoteOnlyError("remote boom")
+    except remote_module.RemoteOnlyError as exc:
+        serialized = serialize_object("pickle", exc)
+        stringized_traceback = traceback.format_exc()
+
+    sys.modules.pop(module_name, None)
+    sys.path.remove(str(tmp_path))
+
+    with pytest.raises(ExceptionDeserializationError) as exc_info:
+        load_serialized_object(
+            "pickle",
+            serialized,
+            was_it_raised=True,
+            stringized_traceback=stringized_traceback,
+        )
+
+    assert exc_info.value.message == "Error while deserializing the given object"
+    assert exc_info.value.original_traceback is not None
+    assert isinstance(exc_info.value.__cause__, ModuleNotFoundError)
 
 
 def error_while_serializing():

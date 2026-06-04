@@ -109,17 +109,13 @@ class Guard:
     # Hardcoded fallback when workflow.json lacks required_artifacts
     _DEFAULT_ARTIFACTS: dict[str, list[str]] = {
         "plan": ["spec.md", "task_breakdown.json", "plan/index.md", "plan/knowledge_used.json"],
-        "plan_review": ["plan_review_report.json"],
-        "qa_spec": ["test_spec.md"],
-        "spec_review": ["spec_review_report.json"],
         "execute": ["execution_summary.md", "execution_pitfalls.md", "execution_decisions.md"],
-        "retrospective": ["retrospective.md", "acceptance.md"],
     }
 
     # Hardcoded checks per phase — fallback when workflow.json lacks guard.checks
     _HARDCODED_CHECKS: dict[str, list[str]] = {
         "plan": ["knowledge_references"],
-        "execute": ["test_files", "tdd_evidence", "test_spec_coverage", "knowledge_artifact"],
+        "execute": ["test_files", "knowledge_artifact"],
         "retrospective": ["knowledge_artifact"],
     }
 
@@ -168,18 +164,7 @@ class Guard:
             return guard_cfg["checks"]
         # For custom modes, auto-derive relevant checks from step definitions
         if mode and mode not in Scheduler.BUILTIN_MODE_NAMES:
-            from kanban_framework.domain.steps import _get_steps
-            mode_steps = _get_steps(mode)
-            phase_steps = mode_steps.get(phase_str, [])
             checks = list(self._HARDCODED_CHECKS.get(phase_str, []))
-            if phase_str == "execute":
-                has_tdd = any("test" in (s.description or "").lower() or
-                              "TDD" in (s.spawn_prompt or "") for s in phase_steps)
-                if not has_tdd:
-                    checks = [c for c in checks if c != "tdd_evidence"]
-                has_test_step = any("test" in (s.description or "").lower() for s in phase_steps)
-                if not has_test_step:
-                    checks = [c for c in checks if c not in ("test_files", "test_spec_coverage")]
             return checks
         # All modes: execute checks are user-controlled via workflow
         if phase_str == "execute":
@@ -238,20 +223,17 @@ class Guard:
         return artifacts
 
     def _mode_has_score_step(self, task: Task, mode: str | None) -> bool:
-        """Check whether the task's mode has a score collection step in evaluate phase."""
+        """Check whether the task's mode has score collection in evaluate phase."""
         if not mode or mode == "quick":
             return False  # quick mode has no evaluate phase
         try:
             from kanban_framework.domain.steps import _get_steps
             mode_steps = _get_steps(mode)
             evaluate_steps = mode_steps.get("evaluate", [])
-            for s in evaluate_steps:
-                if s.id.endswith(("collect_score", "collect_scores")):
-                    return True
-            return False
+            # Any evaluate phase with spawn_review steps produces scores via complete-phase
+            return any(s.spawn_prompt for s in evaluate_steps)
         except (OSError, ValueError, KeyError):
-            # If we can't load steps, fall back to builtin behavior
-            return mode in ("full", "lightweight")
+            return mode == "lightweight"
 
     _KNOWLEDGE_ARTIFACT_HINTS: dict[str, tuple[str, str]] = {
         "execute":        ("execution_pitfalls.md",
@@ -393,7 +375,7 @@ class Guard:
     def check_phase_completeness(self, task: Task, lightweight: bool = False) -> CheckResult:
         """Verify no phases were skipped in the task's history."""
         from kanban_framework.infra.scheduler import Scheduler
-        mode = getattr(task, 'mode', 'full')
+        mode = getattr(task, 'mode', 'lightweight')
         order = Scheduler.dispatch_order(
             lightweight=lightweight, quick=(mode == 'quick'),
             mode=mode, workflow=self._cfg.workflow,

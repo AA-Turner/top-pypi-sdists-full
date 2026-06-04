@@ -6,12 +6,10 @@ try:
 except ImportError:
     from typing_extensions import deprecated
 
-__all__ = ("loads", "dumps")
+__all__ = ("dumps", "loads")
 
 
-@deprecated(
-    "loads function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("loads function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def loads(fmt, data):
     if fmt.startswith("pickle"):
         import pickle
@@ -26,9 +24,7 @@ def loads(fmt, data):
     return loads(data)
 
 
-@deprecated(
-    "dumps function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("dumps function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def dumps(fmt, obj):
     if fmt.startswith("pickle"):
         import pickle

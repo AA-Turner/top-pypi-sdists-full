@@ -25,10 +25,12 @@ void export_attribute_proxy(py::module_ &m) {
         .def(py::pickle(
             [](Tango::AttributeProxy &self) { // __getstate__
                 Tango::DeviceProxy *dev = self.get_device_proxy();
+                // clang-format off
                 std::string ret = dev->get_db_host() + ":" +
                                   dev->get_db_port() + "/" +
                                   dev->dev_name() + "/" +
                                   self.name();
+                // clang-format on
                 return py::make_tuple(ret);
             },
             [](py::tuple py_tuple) { // __setstate__
@@ -46,22 +48,14 @@ void export_attribute_proxy(py::module_ &m) {
         .def("name",
              &Tango::AttributeProxy::name,
              R"doc(
-                name(self) -> str
-
-                    Get attribute name
-
-                :return: the attribute name
-                :rtype: str)doc")
+                Get attribute name
+             )doc")
 
         .def("get_device_proxy",
              &Tango::AttributeProxy::get_device_proxy,
              R"doc(
-                get_device_proxy(self) -> DeviceProxy
-
-                    Get associated DeviceProxy instance
-
-                :return: the DeviceProxy instance used to communicate with the device to which the attributes belongs
-                :rtype: DeviceProxy)doc",
+                Get DeviceProxy instance used to communicate with the device to which the attributes belongs
+             )doc",
              py::return_value_policy::reference_internal)
 
         //

@@ -291,6 +291,7 @@ class HttpEtagConfigProvider(ConfigProvider):
         self._stop_event = threading.Event()
         self._subscribers: list[Callable[[ResolvedConfig], None]] = []
         self._thread: threading.Thread | None = None
+        self._unavailable_warned = False
 
     def subscribe(self, callback: Callable[[ResolvedConfig], None]) -> None:
         with self._lock:
@@ -332,6 +333,24 @@ class HttpEtagConfigProvider(ConfigProvider):
             headers["If-None-Match"] = self._etag
         return headers
 
+    def _log_unavailable(self, detail: str) -> None:
+        """Log endpoint unavailability: one coded WARNING per outage, then DEBUG.
+
+        Old platform versions (404), IAP-protected deployments (302), and
+        network outages would otherwise warn on every poll cycle, forever.
+        """
+        if self._unavailable_warned:
+            logger.debug("[AIGIE-N009] config endpoint still unavailable: %s", detail)
+            return
+        self._unavailable_warned = True
+        from aigie.diagnostics import N009, format_diagnostic
+
+        logger.warning(format_diagnostic(N009, detail))
+
+    def _mark_available(self) -> None:
+        """Reset the once-per-outage warning latch after any successful poll."""
+        self._unavailable_warned = False
+
     def _notify_subscribers(self, cfg: ResolvedConfig) -> None:
         with self._lock:
             subs = list(self._subscribers)
@@ -361,36 +380,41 @@ class HttpEtagConfigProvider(ConfigProvider):
         with tracer.start_as_current_span("config.fetch") as span:
             return self._fetch_once_inner(span)
 
-    def _fetch_once_inner(self, span: object) -> float:
+    def _fetch_once_inner(self, span: Any) -> float:
         headers = self._build_headers()
-        span.set_attribute("etag", self._etag or "")  # type: ignore[union-attr]
+        span.set_attribute("etag", self._etag or "")
         t0 = time.monotonic()
         try:
             response = self._client.get(self._url, headers=headers)
-        except Exception:
-            logger.warning("Config fetch failed (network error); retaining last-good config")
-            span.set_attribute("http_status", 0)  # type: ignore[union-attr]
-            span.set_attribute("changed", False)  # type: ignore[union-attr]
-            span.set_attribute("duration_ms", int((time.monotonic() - t0) * 1000))  # type: ignore[union-attr]
+        except Exception as exc:
+            self._log_unavailable(f"network error: {exc}")
+            span.set_attribute("http_status", 0)
+            span.set_attribute("changed", False)
+            span.set_attribute("duration_ms", int((time.monotonic() - t0) * 1000))
             return self._poll_interval
         duration_ms = int((time.monotonic() - t0) * 1000)
-        span.set_attribute("http_status", response.status_code)  # type: ignore[union-attr]
-        span.set_attribute("duration_ms", duration_ms)  # type: ignore[union-attr]
+        span.set_attribute("http_status", response.status_code)
+        span.set_attribute("duration_ms", duration_ms)
+        return self._handle_traced_response(response, span)
+
+    def _handle_traced_response(self, response: httpx.Response, span: Any) -> float:
+        """Apply a polled response to state, recording span attributes."""
         if response.status_code == 304:
-            span.set_attribute("changed", False)  # type: ignore[union-attr]
+            self._mark_available()
+            span.set_attribute("changed", False)
             return self._poll_interval
         if response.status_code == 200:
+            self._mark_available()
             old_etag = self._etag
             self._apply_update(response)
             changed = self._etag != old_etag
-            span.set_attribute("changed", changed)  # type: ignore[union-attr]
-            span.set_attribute("sections", str(list(self._resolved.raw.keys())))  # type: ignore[union-attr]
+            span.set_attribute("changed", changed)
+            span.set_attribute("sections", str(list(self._resolved.raw.keys())))
             return self._poll_interval
-        if response.status_code >= 500:
-            span.set_attribute("changed", False)  # type: ignore[union-attr]
-            return self._poll_interval  # caller handles backoff
-        logger.warning("Config endpoint returned %s; retaining last-good", response.status_code)
-        span.set_attribute("changed", False)  # type: ignore[union-attr]
+        # 4xx/3xx/5xx — endpoint unavailable on this platform; 5xx backoff is
+        # handled by the caller.
+        self._log_unavailable(f"HTTP {response.status_code}")
+        span.set_attribute("changed", False)
         return self._poll_interval
 
     def _poll_loop(self) -> None:
@@ -401,9 +425,9 @@ class HttpEtagConfigProvider(ConfigProvider):
                 response = self._client.get(self._url, headers=headers)
                 ok = self._handle_response(response)
                 backoff = _BACKOFF_INITIAL  # reset on any successful communication
-            except Exception:
+            except Exception as exc:
                 ok = False
-                logger.warning("Config fetch failed (network); retaining last-good config")
+                self._log_unavailable(f"network error: {exc}")
             sleep_secs = self._poll_interval if ok else min(backoff, _BACKOFF_MAX)
             if not ok:
                 backoff = min(backoff * 2, _BACKOFF_MAX)
@@ -412,16 +436,16 @@ class HttpEtagConfigProvider(ConfigProvider):
     def _handle_response(self, response: httpx.Response) -> bool:
         """Process HTTP response. Returns True if no backoff needed."""
         if response.status_code == 304:
+            self._mark_available()
             return True
         if response.status_code == 200:
+            self._mark_available()
             self._apply_update(response)
             return True
         if response.status_code >= 500:
-            logger.warning(
-                "Config endpoint returned %s; retaining last-good config", response.status_code
-            )
+            self._log_unavailable(f"HTTP {response.status_code}")
             return False
-        logger.warning("Config endpoint returned unexpected %s", response.status_code)
+        self._log_unavailable(f"HTTP {response.status_code}")
         return True
 
 

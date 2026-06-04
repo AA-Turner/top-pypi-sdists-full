@@ -3,6 +3,7 @@ from typing import List
 
 from abstra_internals.repositories.linter.models import LinterRule
 
+from .abstra_dir_reference import AbstraDirReference
 from .big_py_files import BigPyFiles
 from .conflicting_name import ConflictingName
 from .conflicting_path import ConflictingPath
@@ -53,6 +54,7 @@ _imports_analyzer = ImportsRequirementsAnalyzer()
 _html_and_jinja2_syntax = HtmlAndJinja2Syntax()
 _css_syntax = CssSyntax()
 _js_syntax = JsSyntax()
+_abstra_dir_reference = AbstraDirReference()
 
 _new_version: List[LinterRule] = []
 if not os.getenv("ABSTRA_RUNNING_IN_BUNDLED_APP"):
@@ -75,6 +77,7 @@ run_after_py_change: List[LinterRule] = [
     _missing_entrypoint,
     _file_outside_project,
     _imports_analyzer,
+    _abstra_dir_reference,
     *_new_version,
 ]
 

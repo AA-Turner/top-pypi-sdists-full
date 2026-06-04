@@ -44,6 +44,7 @@ class Session:
     client_configuration: ClientConfiguration = None
     _client: Optional[ApiClient] = None
     _user: Optional[UserOutputV1] = None
+    _user_tz: Optional[str] = None
     _public_url: Optional[str] = None
     _private_url: Optional[str] = None
     _server_version: Optional[str] = None
@@ -186,6 +187,7 @@ class Session:
         self.https_cert_file = None
         self._datasources = dict()
         self._user_folders = None
+        self._user_tz = None
 
     # Prior to the advent of Session objects, the spy.client, spy.user and spy.server_version module-level variables
     # were exposed to end-users as a convenience. The setters below copy those (now) Session variables to those
@@ -216,6 +218,7 @@ class Session:
     @user.setter
     def user(self, value):
         self._user = value
+        self._user_tz = None
         if self is spy.session:
             spy.user = self._user
 
@@ -443,20 +446,34 @@ class Session:
         offset = 0
         limit = self.options.search_page_size
         self._user_folders = dict()
+        candidates = dict()
         while True:
             folders_output = folders_api.get_folders(filter='Users', folder_id='users', limit=limit, offset=offset)
             for content in folders_output.content:
+                if content.type != 'Folder' or not getattr(content, 'is_unmodifiable', False):
+                    # Non-Home Folders (e.g., Data Lab Projects) can appear under /users (CRAB-60205)
+                    continue
+
                 if content.owner is not None:
-                    self._user_folders[content.owner.id] = content
+                    candidates.setdefault(content.owner.id, list()).append(content)
 
             if len(folders_output.content) < limit:
                 break
 
             offset += limit
 
+        for owner_id, folder_list in candidates.items():
+            if len(folder_list) > 1 and owner_id == user_id:
+                folder_str = '\n'.join(f'"{c.name}" ({c.id})' for c in folder_list)
+                raise SPyRuntimeError(f'Multiple candidate folders found when trying to find home folder for user '
+                                      f'{owner_id}. Contact Seeq Support to remediate. Folders found:\n{folder_str}')
+
+            if len(folder_list) == 1:
+                self._user_folders[owner_id] = folder_list[0]
+
         return self._user_folders.get(user_id)
 
-    def get_user_timezone(self, default_tz='UTC'):
+    def get_user_timezone(self, default_tz: str = 'UTC') -> str:
         """
         Returns the preferred timezone of the user currently logged in, or default_tz if there is no user currently
         logged in.
@@ -466,13 +483,19 @@ class Session:
         :return: The user's preferred timezone, in IANA Time Zone Database format (e.g., 'America/New York')
         :rtype: str
         """
-        _common.validate_timezone_arg(default_tz)
+        if self._user_tz is not None:
+            return self._user_tz
+
         try:
             workbench_dict = json.loads(self.user.workbench)
-            return workbench_dict['state']['stores']['sqWorkbenchStore']['userTimeZone']
+            _tz = workbench_dict['state']['stores']['sqWorkbenchStore']['userTimeZone']
         except (AttributeError, KeyError, TypeError):
             # This can happen if the user has never logged in interactively (e.g., agent_api_key)
-            return default_tz
+            _common.validate_timezone_arg(default_tz)
+            _tz = default_tz
+
+        self._user_tz = _tz
+        return _tz
 
     def get_session_timezone(self):
         """

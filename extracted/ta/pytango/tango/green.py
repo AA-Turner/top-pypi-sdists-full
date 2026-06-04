@@ -3,26 +3,26 @@
 
 
 # Imports
-import os
 import inspect
-import textwrap
+import os
 import re
-
+import textwrap
 from functools import wraps
-
 from threading import get_ident
+
+from tango._instrumentation import _forcefully_traced_method
 
 # Tango imports
 from tango._tango import GreenMode
-from tango.utils import _forcefully_traced_method
+from tango.utils import PyTangoThreadPoolExecutor
 
 __all__ = (
+    "get_executor",
     "get_green_mode",
-    "set_green_mode",
+    "get_object_executor",
     "green",
     "green_callback",
-    "get_executor",
-    "get_object_executor",
+    "set_green_mode",
     "switch_existing_global_executors_to_thread",
 )
 
@@ -34,17 +34,27 @@ try:
 except ImportError:
     _gevent_available = False
 
+_PYTANGOTHREADPOOLEXECUTOR = None
+
+
+def get_thread_pool_executor(max_workers=20):
+    global _PYTANGOTHREADPOOLEXECUTOR
+    if _PYTANGOTHREADPOOLEXECUTOR is None:
+        _PYTANGOTHREADPOOLEXECUTOR = PyTangoThreadPoolExecutor(
+            thread_name_prefix="_PyTangoThreadPoolExecutor", max_workers=max_workers
+        )
+    return _PYTANGOTHREADPOOLEXECUTOR
+
+
 # Handle current green mode
 
 try:
-    _CURRENT_GREEN_MODE = getattr(
-        GreenMode, os.environ["PYTANGO_GREEN_MODE"].capitalize()
-    )
+    _CURRENT_GREEN_MODE = getattr(GreenMode, os.environ["PYTANGO_GREEN_MODE"].capitalize())
 except Exception:
     _CURRENT_GREEN_MODE = GreenMode.Synchronous
 
 
-def set_green_mode(green_mode=None):
+def set_green_mode(green_mode: GreenMode = None):
     """Sets the global default PyTango green mode.
 
     Advice: Use only in your final application. Don't use this in a python
@@ -61,12 +71,8 @@ def set_green_mode(green_mode=None):
     _CURRENT_GREEN_MODE = green_mode
 
 
-def get_green_mode():
-    """Returns the current global default PyTango green mode.
-
-    :returns: the current global default PyTango green mode
-    :rtype: GreenMode
-    """
+def get_green_mode() -> GreenMode:
+    """Returns the current global default PyTango green mode."""
     return _CURRENT_GREEN_MODE
 
 
@@ -78,6 +84,7 @@ class AbstractExecutor:
     default_wait = NotImplemented
 
     def __init__(self):
+        self.subexecutor = None
         self.ident = get_ident(), os.getpid()
 
     def get_ident(self):
@@ -110,7 +117,9 @@ class AbstractExecutor:
             return fn(*args, **kwargs)
         raise NotImplementedError
 
-    def run(self, fn, args=(), kwargs={}, wait=None, timeout=None):
+    def run(self, fn, args=(), kwargs=None, wait=None, timeout=None):
+        if kwargs is None:
+            kwargs = {}
         if wait is None:
             wait = self.default_wait
         # Wait and timeout are not supported in synchronous mode
@@ -177,8 +186,7 @@ def switch_existing_global_executors_to_thread():
     checks which global executor existing, and if they are belong to the caller thread
     if not - creates a new executor, linked to thread, and set it as global
     """
-    from tango import asyncio_executor
-    from tango import futures_executor
+    from tango import asyncio_executor, futures_executor
 
     if _gevent_available:
         from tango import gevent_executor
@@ -222,7 +230,7 @@ def green(fn=None, consume_green_mode=True, update_signature_and_docstring=False
     def decorator(fn):
         @wraps(fn)
         def greener(obj, *args, **kwargs):
-            args = (obj,) + args
+            args = (obj, *args)
             wait = kwargs.pop("wait", None)
             timeout = kwargs.pop("timeout", None)
             access = kwargs.pop if consume_green_mode else kwargs.get
@@ -233,27 +241,26 @@ def green(fn=None, consume_green_mode=True, update_signature_and_docstring=False
         sig = inspect.signature(fn)
 
         if update_signature_and_docstring:
-
             # Build green parameters
             green_mode_param = inspect.Parameter(
                 "green_mode",
                 kind=inspect.Parameter.KEYWORD_ONLY,
                 default=None,
-                annotation=None,
+                annotation=GreenMode,
             )
 
             wait_param = inspect.Parameter(
                 "wait",
                 kind=inspect.Parameter.KEYWORD_ONLY,
                 default=None,
-                annotation=None,
+                annotation=bool,
             )
 
             timeout_param = inspect.Parameter(
                 "timeout",
                 kind=inspect.Parameter.KEYWORD_ONLY,
                 default=None,
-                annotation=None,
+                annotation=int,
             )
 
             # Append it to the existing parameters
@@ -264,14 +271,12 @@ def green(fn=None, consume_green_mode=True, update_signature_and_docstring=False
                 add_kwargs = True
 
             if "green_mode" in [param.name for param in old_params]:
-                new_params = old_params + [wait_param, timeout_param]
+                new_params = [*old_params, wait_param, timeout_param]
             else:
-                new_params = old_params + [green_mode_param, wait_param, timeout_param]
+                new_params = [*old_params, green_mode_param, wait_param, timeout_param]
 
             if add_kwargs:
-                new_params += [
-                    inspect.Parameter("kwargs", kind=inspect.Parameter.VAR_KEYWORD)
-                ]
+                new_params += [inspect.Parameter("kwargs", kind=inspect.Parameter.VAR_KEYWORD)]
 
             new_sig = sig.replace(parameters=new_params)
 
@@ -301,35 +306,41 @@ def green_callback(fn, obj=None, green_mode=None):
     return greener
 
 
-__GREEN_KWARGS__ = "green_mode=None, wait=True, timeout=None"
+__GREEN_KWARGS__ = "green_mode: GreenMode=None, wait: bool=True, timeout: float=None"
 __GREEN_KWARGS_DESCRIPTION__ = """
-:param green_mode: Defaults to the current tango GreenMode. Refer to :meth:`~tango.DeviceProxy.get_green_mode` and :meth:`~tango.DeviceProxy.set_green_mode` for more details.
-:type green_mode: :obj:`tango.GreenMode`, optional
+:param green_mode: Defaults to the current tango GreenMode.
+                   Refer to :meth:`~tango.DeviceProxy.get_green_mode`
+                   and :meth:`~tango.DeviceProxy.set_green_mode` for more details.
+:type green_mode: :py:obj:`~tango.GreenMode`, optional
 
-:param wait: Specifies whether to wait for the result. If `green_mode` is *Synchronous*, this parameter is ignored as the operation always waits for the result. This parameter is also ignored when `green_mode` is Synchronous.
+:param wait: Specifies whether to wait for the result.
+             If `green_mode` is *Synchronous*, this parameter is ignored as the operation always waits for the result.
+             This parameter is also ignored when `green_mode` is Synchronous.
 :type wait: bool, optional
 
-:param timeout: The number of seconds to wait for the result. If set to `None`, there is no limit on the wait time. This parameter is ignored when `green_mode` is Synchronous or when `wait` is False.
+:param timeout: The number of seconds to wait for the result.
+                If set to `None`, there is no limit on the wait time.
+                This parameter is ignored when `green_mode` is Synchronous or when `wait` is False.
 :type timeout: float, optional
 """
 __GREEN_RAISES__ = """
-:throws: :obj:`TimeoutError`: (green_mode == Futures) If the future didn't finish executing before the given timeout.
-:throws: :obj:`Timeout`: (green_mode == Gevent) If the async result didn't finish executing before the given timeout.
+:throws:
+    :py:obj:`TimeoutError`: (green_mode == Futures) If the future didn't finish executing before the given timeout \n
+    :py:obj:`gevent.Timeout`: (green_mode == Gevent) If the async result
+                              didn't finish executing before the given timeout. \n\n
 """
 
 
 def fill_green_doc(method):
     """
     Replace the __GREEN_KWARGS__ __GREEN_KWARGS_DESCRIPTION__ placeholders in `doc`
-    preserving the placeholder’s indentation.
+    preserving the placeholder's indentation.
     """
 
     dedented = textwrap.dedent(method.__doc__)
     dedented = dedented.replace("__GREEN_KWARGS__", __GREEN_KWARGS__)
 
-    m = re.search(
-        r"^(?P<indent>[ \t]*)__GREEN_KWARGS_DESCRIPTION__", dedented, flags=re.MULTILINE
-    )
+    m = re.search(r"^(?P<indent>[ \t]*)__GREEN_KWARGS_DESCRIPTION__", dedented, flags=re.MULTILINE)
     if not m:
         return
 
@@ -345,6 +356,4 @@ def fill_green_doc(method):
         flags=re.MULTILINE,
     )
 
-    method.__doc__ = re.sub(
-        r"^[ \t]*__GREEN_RAISES__", indented_raises, dedented, flags=re.MULTILINE
-    )
+    method.__doc__ = re.sub(r"^[ \t]*__GREEN_RAISES__", indented_raises, dedented, flags=re.MULTILINE)

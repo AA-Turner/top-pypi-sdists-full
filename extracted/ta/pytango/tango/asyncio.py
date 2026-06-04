@@ -7,19 +7,16 @@
 from functools import partial
 
 from tango import GreenMode
-from tango.device_proxy import get_device_proxy
 from tango.attribute_proxy import get_attribute_proxy
+from tango.device_proxy import get_device_proxy
 
-__all__ = ("DeviceProxy", "AttributeProxy")
+__all__ = ("AttributeProxy", "DeviceProxy")
 
 
 DeviceProxy = partial(get_device_proxy, green_mode=GreenMode.Asyncio)
 DeviceProxy.__doc__ = """
-    DeviceProxy(self, dev_name, wait=False, timeout=None)
-        -> DeviceProxy
-
-    DeviceProxy(self, dev_name, need_check_acc, wait=False, timeout=None)
-        -> DeviceProxy
+    DeviceProxy(self, dev_name: str, wait: bool=False, timeout: float=None) -> DeviceProxy
+    DeviceProxy(self, dev_name: str, need_check_acc: bool, wait: bool=False, timeout: float=None) -> DeviceProxy
 
     Creates a *asyncio* enabled :class:`~PyTango.DeviceProxy`.
 
@@ -34,7 +31,7 @@ DeviceProxy.__doc__ = """
 
     :param dev_name: the device name or alias
     :type dev_name: str
-    :param need_check_acc: in first version of the function it defaults to True
+    :param need_check_acc: (optional, default is True)
                            Determines if at creation time of DeviceProxy it
                            should check for channel access (rarely used)
     :type need_check_acc: bool
@@ -49,22 +46,17 @@ DeviceProxy.__doc__ = """
             :class:`~PyTango.DeviceProxy`
         else:
             :class:`concurrent.futures.Future`
-    :throws:
-        * a *DevFailed* if wait is True and there is an error creating
-          the device.
-        * an *asyncio.TimeoutError* if wait is False, timeout is not
-          None and the time to create the device has expired.
+    :throws: :obj:`~tango.DevFailed` if wait is True and there is an error creating the device. \n
+             :obj:`asyncio.TimeoutError` if wait is False, timeout is not None and the time to create the
+             device has expired.
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
 """
 
 AttributeProxy = partial(get_attribute_proxy, green_mode=GreenMode.Asyncio)
 AttributeProxy.__doc__ = """
-    AttributeProxy(self, full_attr_name, wait=False, timeout=False)
-        -> AttributeProxy
-
-    AttributeProxy(self, device_proxy, attr_name, wait=False, timeout=False)
-        -> AttributeProxy
+    AttributeProxy(self, full_attr_name: str, wait: bool=False, timeout: float=None) -> AttributeProxy
+    AttributeProxy(self, device_proxy: DeviceProxy, attr_name: str, wait: bool=False, timeout: float=None) -> AttributeProxy
 
     Creates a *futures* enabled :class:`~PyTango.AttributeProxy`.
 
@@ -90,13 +82,11 @@ AttributeProxy.__doc__ = """
             :class:`~PyTango.AttributeProxy`
         else:
             :class:`concurrent.futures.Future`
-    :throws:
-        * a *DevFailed* if wait is True  and there is an error creating the
-          attribute.
-        * a *asyncio.TimeoutError* if wait is False, timeout is not
-          None and the time to create the attribute has expired.
+    :throws: :obj:`~tango.DevFailed` if wait is True  and there is an error creating the attribute. \n
+             :obj:`asyncio.TimeoutError` if wait is False, timeout is not None and the time to create
+             the attribute has expired.
 
-    New in PyTango 8.1.0
+    .. versionadded:: 8.1.0
 """
 
 Device = DeviceProxy

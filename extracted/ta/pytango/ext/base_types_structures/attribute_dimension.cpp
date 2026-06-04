@@ -14,8 +14,8 @@ void export_attribute_dimension(py::module &m) {
     A structure containing x and y attribute data dimensions with
     the following members:
 
-        - dim_x : (int) x dimension
-        - dim_y : (int) y dimension
+    - dim_x : (int) x dimension
+    - dim_y : (int) y dimension
 )doc")
         .def(py::init<>())
         .def_readonly("dim_x", &Tango::AttributeDimension::dim_x)

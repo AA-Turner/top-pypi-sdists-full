@@ -9,7 +9,6 @@ from kanban_framework.types import Phase
 from kanban_framework.infra.scheduler import Scheduler
 
 from kanban_framework.domain.steps_types import StepDef  # noqa: F401
-from kanban_framework.domain.steps_full import FULL_STEPS  # noqa: F401
 from kanban_framework.domain.steps_lightweight import LIGHTWEIGHT_STEPS  # noqa: F401
 from kanban_framework.domain.steps_quick import QUICK_STEPS  # noqa: F401
 
@@ -48,7 +47,8 @@ _KNOWLEDGE_PROTOCOL = (
 
 # Step types that should NOT get knowledge auto-injection
 _KNOWLEDGE_SKIP_PREFIXES = (
-    "plan.complete", "execute.complete", "evaluate.complete",
+    "plan.complete", "plan.knowledge_search", "plan.plan_B",
+    "execute.complete", "evaluate.complete",
     "retrospective.complete", "spec_review.complete", "plan_review.complete",
     "qa_spec.complete", "user_decision.", "archive.",
 )
@@ -63,10 +63,9 @@ KNOWLEDGE_SEARCH_PROTOCOL = (
 )
 
 _EXECUTOR_SUBTASK_PROMPT = (
-    "你是 kanban 任务 $task_id 的执行器。"
-    "按 TDD 方式实现分配给你的 subtask。\n\n"
+    "你是 kanban 任务 $task_id 的执行器，负责实现分配给你的 subtask。\n\n"
     "你的 subtask: $subtask_id — $subtask_title\n"
-    "参考文件：$task_dir/plan/$subtask_plan（你的 subtask plan）、$task_dir/test_spec.md\n"
+    "参考文件：$task_dir/plan/$subtask_plan（你的 subtask plan）\n"
     "技术方案选择：$task_dir/tech_choice.md（如有，优先按此方案执行）\n\n"
     "实时知识库贡献（执行中发现通用模式/踩坑时立即写入，不要等到归档）：\n"
     "- **何时写**：发现通用技术模式、框架 API 的坑、跨项目可复用的方案时\n"
@@ -78,7 +77,6 @@ _EXECUTOR_SUBTASK_PROMPT = (
     "- **注意**：如果知识库中已有类似条目（同 title+domain），add_entry 会自动去重跳过\n\n"
     "任务边界：\n"
     "- 实现代码并保存到 $output_dir\n"
-    "- 编写测试并确保通过\n"
     "- 产出 execution_summary.md 保存到 $report_dir/execute/\n"
     "- 完成后立即停止\n"
     "- 除 `kanban knowledge add` 外不要调用其他 kanban CLI 命令\n"
@@ -89,11 +87,6 @@ _EXECUTOR_SUBTASK_PROMPT = (
     "- 如果知识库有相关踩坑记录，按记录中的方案优先尝试\n"
     "- 同问题尝试 3 次仍未解决，记录到 execution_pitfalls.md 并标记为需人工介入\n"
     "- 不要反复尝试同样的方案——每次尝试前先查知识库找新思路\n\n"
-    "【test_spec.md 覆盖硬约束】\n"
-    "- 你必须逐一实现 $task_dir/test_spec.md 中与当前 subtask 相关的 UT-xxx 测试用例\n"
-    "- 每个测试函数名或 docstring 中标注对应的 UT-xxx 编号（如 test_xxx_ut001 或 # UT-001）\n"
-    "- execution_summary.md 的 TDD 证据表中标注每个 UT-xxx 的实现状态\n"
-    "- Guard 会自动检查覆盖率：覆盖率 < 50% 将阻塞流程\n\n"
     "完成标志：$report_dir/execute/execution_summary.md 文件存在且非空。"
 )
 
@@ -110,42 +103,6 @@ def _inject_knowledge_json(actions: list[str]) -> list[str]:
                 a = a + ' --summary-only'
         result.append(a)
     return result
-
-
-_EXECUTOR_SUBTASK_PROMPT = (
-    "你是 kanban 任务 $task_id 的执行器。"
-    "按 TDD 方式实现分配给你的 subtask。\n\n"
-    "你的 subtask: $subtask_id — $subtask_title\n"
-    "参考文件：$task_dir/plan/$subtask_plan（你的 subtask plan）、$task_dir/test_spec.md\n"
-    "技术方案选择：$task_dir/tech_choice.md（如有，优先按此方案执行）\n\n"
-    "实时知识库贡献（执行中发现通用模式/踩坑时立即写入，不要等到归档）：\n"
-    "- **何时写**：发现通用技术模式、框架 API 的坑、跨项目可复用的方案时\n"
-    "- **如何写**：`kanban knowledge add --domain <对应领域> --category <架构|踩坑|反模式|最佳实践|优化|流程|接口|工具> --severity <high|medium|low> --ttl 90 --title \"<简短标题>\" --content \"<问题+方案>\" --source '{\"type\":\"executor_realtime\",\"task_id\":\"$task_id\"}'`\n"
-    "- category 和 severity 必须从标准枚举中选，否则写入失败。`kanban knowledge categories` 查看完整列表\n"
-    "  --source 标记来源为 executor_realtime，便于后续审计和质量检查\n"
-    "- 知识条目写入后状态为 pending，需人工审核后正式入库。\n"
-    "- **不要写**：本项目特有的业务逻辑、一次性的配置值\n"
-    "- **注意**：如果知识库中已有类似条目（同 title+domain），add_entry 会自动去重跳过\n\n"
-    "任务边界：\n"
-    "- 实现代码并保存到 $output_dir\n"
-    "- 编写测试并确保通过\n"
-    "- 产出 execution_summary.md 保存到 $report_dir/execute/\n"
-    "- 完成后立即停止\n"
-    "- 除 `kanban knowledge add` 外不要调用其他 kanban CLI 命令\n"
-    "- 不要进入 evaluate 或后续阶段\n\n"
-    "【遇到错误时先查知识库（重要）】\n"
-    "- 遇到报错、异常、环境问题、依赖冲突等，先搜索知识库：\n"
-    "  kanban knowledge hybrid \"<错误关键词>\" --json --summary-only\n"
-    "- 如果知识库有相关踩坑记录，按记录中的方案优先尝试\n"
-    "- 同问题尝试 3 次仍未解决，记录到 execution_pitfalls.md 并标记为需人工介入\n"
-    "- 不要反复尝试同样的方案——每次尝试前先查知识库找新思路\n\n"
-    "【test_spec.md 覆盖硬约束】\n"
-    "- 你必须逐一实现 $task_dir/test_spec.md 中与当前 subtask 相关的 UT-xxx 测试用例\n"
-    "- 每个测试函数名或 docstring 中标注对应的 UT-xxx 编号（如 test_xxx_ut001 或 # UT-001）\n"
-    "- execution_summary.md 的 TDD 证据表中标注每个 UT-xxx 的实现状态\n"
-    "- Guard 会自动检查覆盖率：覆盖率 < 50% 将阻塞流程\n\n"
-    "完成标志：$report_dir/execute/execution_summary.md 文件存在且非空。"
-)
 
 
 def _resolve_workflow_prompt(workflow: dict | None, key: str, default: str) -> str:
@@ -182,9 +139,7 @@ def _get_steps(mode: str, custom_steps: dict[str, list[StepDef]] | None = None) 
         pass
     if mode == "quick":
         return QUICK_STEPS
-    if mode == "lightweight":
-        return LIGHTWEIGHT_STEPS
-    return FULL_STEPS
+    return LIGHTWEIGHT_STEPS
 
 
 def _get_phase_order(lightweight: bool, quick: bool = False,

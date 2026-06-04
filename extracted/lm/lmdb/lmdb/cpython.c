@@ -82,6 +82,13 @@
 #endif
 
 
+/* Overflow-safe size_t arithmetic for sizes derived from on-disk values.
+ * LMDB files are routinely passed between hosts; any field read out of one
+ * (notably MDB_val::mv_size) must be assumed attacker-controlled. */
+#define SIZE_ADD_OVERFLOW(a, b) ((b) > SIZE_MAX - (a))
+#define SIZE_MUL_OVERFLOW(a, b) ((a) != 0 && (b) > SIZE_MAX / (a))
+
+
 /**
  * On Win32, Environment.copyfd() needs _get_osfmodule() from the C library,
  * except that function performs no input validation. So instead we import
@@ -194,6 +201,14 @@ struct EnvObject {
     PyThread_type_lock active_ops_lock;
     /** 1 if a thread is blocked waiting for active_ops to reach 0. */
     int active_ops_waiter;
+    /** Lock used to block-wait in close() for another thread to release
+     *  an active write transaction (so its robust write mutex is unlocked
+     *  on the owning thread before the lock file is unmapped).  Allocated
+     *  in locked state; released by the owning thread after it aborts or
+     *  commits the write txn, when write_txn_waiter is set.  Issue #465. */
+    PyThread_type_lock write_txn_lock;
+    /** 1 if a thread is blocked in close() waiting for the write txn. */
+    int write_txn_waiter;
 };
 
 /** TransObject.flags bitfield values. */
@@ -584,10 +599,17 @@ dict_from_fields(void *o, const struct dict_field *fields)
 static PyObject *
 obj_from_val(MDB_val *val, int as_buffer)
 {
-    if(as_buffer) {
-        return PyMemoryView_FromMemory(val->mv_data, val->mv_size, PyBUF_READ);
+    if(val->mv_size > (size_t) PY_SSIZE_T_MAX) {
+        PyErr_SetString(PyExc_OverflowError,
+            "value too large to convert (corrupt database?)");
+        return NULL;
     }
-    return PyBytes_FromStringAndSize(val->mv_data, val->mv_size);
+    if(as_buffer) {
+        return PyMemoryView_FromMemory(val->mv_data,
+                                       (Py_ssize_t) val->mv_size, PyBUF_READ);
+    }
+    return PyBytes_FromStringAndSize(val->mv_data,
+                                     (Py_ssize_t) val->mv_size);
 }
 
 /* Track Py_buffer views acquired during argument parsing so they can be
@@ -691,6 +713,20 @@ val_from_buffer(MDB_val *val, PyObject *buf, BufViewList *bvl)
         if(--(_env)->active_ops == 0 && (_env)->active_ops_waiter) { \
             (_env)->active_ops_waiter = 0; \
             PyThread_release_lock((_env)->active_ops_lock); \
+        } \
+    } while(0)
+
+/* NOTIFY_WRITE_TXN_DONE: wake a thread blocked in env_clear waiting for
+ * this (owning) thread to release its write transaction.  MUST be called
+ * with the GIL held and only AFTER the write txn's mutex has been
+ * released (i.e. after mdb_txn_abort/commit completes), so the waiter
+ * does not unmap the lock file while the robust mutex is still held.
+ * Issue #465. */
+#define NOTIFY_WRITE_TXN_DONE(_env) \
+    do { \
+        if((_env)->write_txn_waiter) { \
+            (_env)->write_txn_waiter = 0; \
+            PyThread_release_lock((_env)->write_txn_lock); \
         } \
     } while(0)
 
@@ -1043,6 +1079,8 @@ make_trans(EnvObject *env, DbObject *db, TransObject *parent, int write,
         mdb_txn_abort(txn);
         if(write && !parent) {
             env->write_txn_tid = 0;
+            /* Mutex released; wake any close() waiting on it.  #465. */
+            NOTIFY_WRITE_TXN_DONE(env);
         }
         return NULL;
     }
@@ -1216,6 +1254,8 @@ db_flags(DbObject *self, PyObject *args, PyObject *kwds)
     }
 
     dct = PyDict_New();
+    if(! dct)
+        return NULL;
     f = self->flags;
     dict_set_bool(dct, "reverse_key", f & MDB_REVERSEKEY);
     dict_set_bool(dct, "dupsort", f & MDB_DUPSORT);
@@ -1306,6 +1346,32 @@ env_clear(EnvObject *self)
         PyThread_acquire_lock(self->active_ops_lock, NOWAIT_LOCK);
     }
 
+    /* LMDB requires all transactions to be closed before mdb_env_close,
+     * and a write transaction belongs to the OS thread that began it
+     * (with MDB_NOTLS, lmdb.h: "serialize the write transactions in an
+     * OS thread, since LMDB's write locking is unaware of the user
+     * threads").  On Linux the write mutex is a robust process-shared
+     * pthread mutex linked into that thread's robust list, and can only
+     * be unlocked by that thread.  If another thread closes the env
+     * while a write txn is still open elsewhere, aborting it here (the
+     * wrong thread) cannot release the mutex, and unmapping the lock
+     * file underneath it strands a dangling entry on the owning thread's
+     * robust list -> SIGSEGV in a later mdb_txn_begin on aarch64 (glibc
+     * tolerates this on x86_64).  Honor the contract: block until the
+     * owning thread releases the write txn (it signals write_txn_lock
+     * after its abort/commit unlocks the mutex on the correct thread),
+     * then tear the mapping down.  We check write_txn_tid under the GIL
+     * and set the waiter flag before releasing it, so the owning thread
+     * (which needs the GIL to run its teardown) cannot signal before we
+     * are registered -- no lost wakeup, no polling.  Issue #465. */
+    if(self->write_txn_tid &&
+       self->write_txn_tid != (unsigned long) PyThread_get_thread_ident()) {
+        self->write_txn_waiter = 1;
+        Py_BEGIN_ALLOW_THREADS
+        PyThread_acquire_lock(self->write_txn_lock, WAIT_LOCK);
+        Py_END_ALLOW_THREADS
+    }
+
     /* Phase 2: actual cleanup (may release GIL for txn_abort etc.) */
     INVALIDATE(self)
     Py_CLEAR(self->main_db);
@@ -1369,6 +1435,10 @@ env_dealloc(EnvObject *self)
     if(self->active_ops_lock) {
         PyThread_free_lock(self->active_ops_lock);
         self->active_ops_lock = NULL;
+    }
+    if(self->write_txn_lock) {
+        PyThread_free_lock(self->write_txn_lock);
+        self->write_txn_lock = NULL;
     }
     PyObject_Del(self);
 }
@@ -1458,6 +1528,8 @@ env_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->write_txn_tid = 0;
     self->active_ops = 0;
     self->active_ops_waiter = 0;
+    self->write_txn_waiter = 0;
+    self->write_txn_lock = NULL;
     self->active_ops_lock = PyThread_allocate_lock();
     if(! self->active_ops_lock) {
         PyErr_SetString(PyExc_MemoryError, "unable to allocate lock");
@@ -1466,6 +1538,16 @@ env_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
     /* Acquire immediately so waiters will block until signaled. */
     PyThread_acquire_lock(self->active_ops_lock, NOWAIT_LOCK);
+
+    self->write_txn_lock = PyThread_allocate_lock();
+    if(! self->write_txn_lock) {
+        PyErr_SetString(PyExc_MemoryError, "unable to allocate lock");
+        Py_DECREF(self);
+        return NULL;
+    }
+    /* Acquire immediately so a close() waiter blocks until the owning
+     * thread releases its write transaction. */
+    PyThread_acquire_lock(self->write_txn_lock, NOWAIT_LOCK);
 
     if((rc = mdb_env_create(&self->env))) {
         err_set("mdb_env_create", rc);
@@ -1825,6 +1907,8 @@ env_flags(EnvObject *self, PyObject *Py_UNUSED(ignored))
     }
 
     dct = PyDict_New();
+    if(! dct)
+        return NULL;
     dict_set_bool(dct, "subdir", !(flags & MDB_NOSUBDIR));
     dict_set_bool(dct, "readonly", flags & MDB_RDONLY);
     dict_set_bool(dct, "metasync", !(flags & MDB_NOMETASYNC));
@@ -2007,6 +2091,19 @@ env_dbs(EnvObject *self, PyObject *args, PyObject *kwds)
     }
 
     while((rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT)) == 0) {
+        if(SIZE_ADD_OVERFLOW(key.mv_size, 1)) {
+            /* Sub-database name from a (possibly adversarial) on-disk record
+             * is so large that the NUL-terminator allocation would wrap. */
+            Py_DECREF(list);
+            mdb_cursor_close(cursor);
+            if(own_txn) {
+                mdb_txn_reset(txn);
+                self->spare_txn = txn;
+            }
+            PyErr_SetString(PyExc_OverflowError,
+                "sub-database name size overflow (corrupt database?)");
+            return NULL;
+        }
         name = malloc(key.mv_size + 1);
         if(! name) {
             Py_DECREF(list);
@@ -2558,7 +2655,8 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
         int values;
     } arg = {Py_None, 0, 0, 0, 1};
 
-    int i, as_buffer;
+    int as_buffer;
+    size_t i;
     PyObject *iter, *item, *tup, *key, *val;
     PyObject *pylist = NULL;
     MDB_cursor_op get_op, next_op;
@@ -2608,6 +2706,10 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
     val_size = arg.dupfixed_bytes;
     if (!arg.keyfixed){ /* Init list */
         pylist = PyList_New(0);
+        if(! pylist) {
+            Py_DECREF(iter);
+            return NULL;
+        }
     }
     first = true;
     while((item = PyIter_Next(iter))) {
@@ -2672,12 +2774,28 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
                     }
                 } else {
                     /* dupfixed, MDB_GET_MULTIPLE returns batch, iterate values */
-                    int items = (int) self->val.mv_size/val_size;
+                    size_t items = self->val.mv_size / val_size;
                     if (first) {
                         key_size = (size_t) self->key.mv_size;
+                        /* key_size is from a (possibly adversarial) on-disk
+                         * record; guard size arithmetic against overflow. */
+                        if (SIZE_ADD_OVERFLOW(key_size, val_size)) {
+                            PyErr_SetString(PyExc_OverflowError,
+                                "key+value size overflow in getmulti "
+                                "(corrupt database?)");
+                            goto failiter;
+                        }
                         item_size = key_size + val_size;
                         if (arg.keyfixed) { /* Init structured array buffer */
+                            if (SIZE_MUL_OVERFLOW(buffer_size, item_size)) {
+                                PyErr_NoMemory();
+                                goto failiter;
+                            }
                             buffer = malloc(buffer_size * item_size);
+                            if (! buffer) {
+                                PyErr_NoMemory();
+                                goto failiter;
+                            }
                         }
                         first = false;
                     }
@@ -2688,8 +2806,27 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
                             /* Add to array buffer */
                             char *k, *v;
                             if (buffer_pos >= buffer_size) { // Grow buffer
-                                buffer_size = buffer_size * 2;
-                                buffer = realloc(buffer, buffer_size * item_size);
+                                char *new_buffer;
+                                size_t new_size;
+                                if (buffer_size > SIZE_MAX / 2) {
+                                    PyErr_NoMemory();
+                                    goto failiter;
+                                }
+                                new_size = buffer_size * 2;
+                                if (SIZE_MUL_OVERFLOW(new_size, item_size)) {
+                                    PyErr_NoMemory();
+                                    goto failiter;
+                                }
+                                new_buffer = realloc(buffer,
+                                                     new_size * item_size);
+                                if (! new_buffer) {
+                                    /* Original `buffer` still valid; the
+                                     * failiter cleanup frees it. */
+                                    PyErr_NoMemory();
+                                    goto failiter;
+                                }
+                                buffer = new_buffer;
+                                buffer_size = new_size;
                             }
                             k = buffer + (buffer_pos * item_size);
                             v = k + key_size;
@@ -2716,7 +2853,7 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
                             } else {
                                 Py_XDECREF(val);
                                 Py_XDECREF(tup);
-                                Py_DECREF(key);
+                                Py_XDECREF(key);
                                 goto failiter;
                             }
                         }
@@ -2743,13 +2880,21 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
     }
 
     if (arg.keyfixed){
-        size_t newsize = buffer_pos * item_size;
+        size_t newsize;
+        char *new_buffer;
         PyObject *owner, *mv;
-        buffer = realloc(buffer, newsize);
-        if(! buffer && newsize) {
+        if (SIZE_MUL_OVERFLOW(buffer_pos, item_size)) {
             PyErr_NoMemory();
             goto fail;
         }
+        newsize = buffer_pos * item_size;
+        new_buffer = realloc(buffer, newsize);
+        if(! new_buffer && newsize) {
+            /* Original buffer still allocated; fail cleanup frees it. */
+            PyErr_NoMemory();
+            goto fail;
+        }
+        buffer = new_buffer;
         /* Wrap the buffer in a bytes object that owns the memory.
          * PyBytes_FromStringAndSize copies the data, then we free
          * the original buffer. */
@@ -3833,6 +3978,9 @@ trans_dealloc(TransObject *self)
                     self->env->active_ops++;
                     txn_abort(txn);
                     ACTIVE_OPS_DEC(self->env);
+                    /* Mutex released on this (owning) thread; wake a
+                     * close() blocked waiting for it.  Issue #465. */
+                    NOTIFY_WRITE_TXN_DONE(self->env);
                 }
             }
         }
@@ -3933,6 +4081,9 @@ trans_abort(TransObject *self, PyObject *Py_UNUSED(ignored))
                 mdb_txn_abort(txn);
                 Py_END_ALLOW_THREADS
                 ACTIVE_OPS_DEC(env);
+                /* Mutex released on this (owning) thread; wake a close()
+                 * blocked waiting for it.  Issue #465. */
+                NOTIFY_WRITE_TXN_DONE(env);
             } else if(txn) {
                 mdb_txn_abort(txn);
             }
@@ -3981,6 +4132,9 @@ trans_commit(TransObject *self, PyObject *Py_UNUSED(ignored))
         rc = mdb_txn_commit(txn);
         Py_END_ALLOW_THREADS
         ACTIVE_OPS_DEC(env);
+        /* Mutex released on this (owning) thread; wake a close() blocked
+         * waiting for it.  Issue #465. */
+        NOTIFY_WRITE_TXN_DONE(env);
         Py_DECREF((PyObject *) env);
         if(rc) {
             return err_set("mdb_txn_commit", rc);

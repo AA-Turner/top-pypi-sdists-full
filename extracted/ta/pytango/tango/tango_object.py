@@ -3,13 +3,15 @@
 
 """Server for tango objects."""
 
+import contextlib
+import functools
+import inspect
+import logging
 import os
 import sys
-import logging
 import weakref
 from inspect import getfullargspec
-import inspect
-import functools
+
 import numpy
 
 try:
@@ -17,14 +19,13 @@ try:
 except ImportError:
     from typing_extensions import deprecated
 
-from tango.codec import loads, dumps
+from tango import AttrDataFormat, CmdArgType, Database, DbDevInfo, DevState, GreenMode
 from tango.attr_data import AttrData
-from tango.utils import TO_TANGO_TYPE
-from tango import AttrDataFormat, CmdArgType, GreenMode
-from tango import DbDevInfo, Database, DevState
-from tango.server import Device, _to_classes, _add_classes
+from tango.codec import dumps, loads
 from tango.device_server import get_worker, set_worker
 from tango.green import get_executor
+from tango.server import Device, _add_classes, _to_classes
+from tango.utils import TO_TANGO_TYPE
 
 __all__ = ("Server",)
 
@@ -68,9 +69,7 @@ def __to_tango_type_fmt(value):
     return dtype, dfmt, max_dim_x, max_dim_y
 
 
-@deprecated(
-    "create_tango_class function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("create_tango_class function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def create_tango_class(server, obj, tango_class_name=None, member_filter=None):
     slog = server.server_instance.replace("/", ".")
     log = logging.getLogger("tango.Server." + slog)
@@ -196,9 +195,7 @@ def create_tango_class(server, obj, tango_class_name=None, member_filter=None):
             read.__name__ = "_read_" + name
             setattr(DeviceDispatcher, read.__name__, read)
 
-            pars = dict(
-                name=name, dtype=dtype, dformat=fmt, max_dim_x=x, max_dim_y=y, fget=read
-            )
+            pars = {"name": name, "dtype": dtype, "dformat": fmt, "max_dim_x": x, "max_dim_y": y, "fget": read}
             if not read_only:
                 write.__name__ = "_write_" + name
                 pars["fset"] = write
@@ -208,9 +205,7 @@ def create_tango_class(server, obj, tango_class_name=None, member_filter=None):
     return DeviceDispatcher
 
 
-@deprecated(
-    "Server class was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("Server class was an experimental API - scheduled for removal in PyTango 11.0.0")
 class Server:
     """
     Server helper
@@ -345,10 +340,8 @@ class Server:
 
         for device in db_devices_remove:
             db.delete_device(device)
-            try:
+            with contextlib.suppress(Exception):
                 db.delete_device_alias(db.get_alias(device))
-            except Exception:
-                pass
 
         # register devices in database
 
@@ -360,7 +353,7 @@ class Server:
 
         db_dev_infos = [db_dev_info]
         aliases = []
-        for obj_name, obj in db_devices_add.items():
+        for obj in db_devices_add.values():
             db_dev_info = DbDevInfo()
             db_dev_info.server = server_instance
             db_dev_info._class = obj.tango_class_name
@@ -393,9 +386,8 @@ class Server:
         util = self.tango_util
         u_instance = util.instance()
 
-        if async_mode:
-            if event_loop:
-                event_loop = functools.partial(self.worker.execute, event_loop)
+        if async_mode and event_loop:
+            event_loop = functools.partial(self.worker.execute, event_loop)
         if event_loop:
             u_instance.server_set_event_loop(event_loop)
 
@@ -494,7 +486,7 @@ class Server:
         server = self.server_instance
         dev_list = db.get_device_class_list(server)
         class_map, dev_map = {}, {}
-        for class_name, dev_name in zip(dev_list[1::2], dev_list[::2]):
+        for class_name, dev_name in zip(dev_list[1::2], dev_list[::2], strict=False):
             dev_names = class_map.get(class_name)
             if dev_names is None:
                 class_map[class_name] = dev_names = []
@@ -523,9 +515,7 @@ class Server:
 
     def register_tango_class(self, klass):
         if self._phase > Server.Phase1:
-            raise RuntimeError(
-                "Cannot add new class after phase 1 (i.e. after server_init)"
-            )
+            raise RuntimeError("Cannot add new class after phase 1 (i.e. after server_init)")
         self.__tango_classes.append(klass)
 
     def unregister_object(self, name):
@@ -556,14 +546,10 @@ class Server:
         tango_class = self.get_tango_class(class_name)
 
         if tango_class is None:
-            tango_class = create_tango_class(
-                self, obj, class_name, member_filter=member_filter
-            )
+            tango_class = create_tango_class(self, obj, class_name, member_filter=member_filter)
             self.register_tango_class(tango_class)
 
-        tango_object = self.TangoObjectAdapter(
-            self, obj, full_name, alias, tango_class_name=class_name
-        )
+        tango_object = self.TangoObjectAdapter(self, obj, full_name, alias, tango_class_name=class_name)
         self.__objects[full_name.lower()] = tango_object
         if self._phase > Server.Phase1:
             import tango

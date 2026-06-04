@@ -5,56 +5,61 @@
 This is an internal PyTango module.
 """
 
-from dataclasses import dataclass
-
 import copy
 import functools
 import inspect
+import numbers
 import os
 import types
-import numbers
+from collections.abc import Callable
+from dataclasses import dataclass
 
-from tango._tango import (
-    AttrQuality,
-    AttributeConfig,
-    AttributeConfig_2,
-    AttributeConfig_3,
-    DeviceImpl,
-    Device_2Impl,
-    Device_3Impl,
-    Device_6Impl,
-    DevFailed,
-    Attribute,
-    AttrWriteType,
-    Attr,
-    Logger,
-    AttrDataFormat,
-    DispLevel,
-    UserDefaultAttrProp,
-    StdStringVector,
-    EventType,
-    constants,
-    CmdArgType,
-    EncodedAttribute,
-)
-from tango.pyutil import Util
-from tango.release import Release
-from tango.utils import (
-    get_latest_device_class,
-    set_complex_value,
-    is_pure_str,
-    parse_type_hint,
-    get_attribute_type_format,
+from tango._instrumentation import (
     _force_tracing,
     _forcefully_traced_method,
     _get_non_tango_source_location,
+)
+from tango._tango import (
+    Attr,
+    AttrDataFormat,
+    Attribute,
+    AttributeConfig,
+    AttributeConfig_2,
+    AttributeConfig_3,
+    AttributeConfig_5,
+    AttrQuality,
+    AttrWriteType,
+    CmdArgType,
+    DevFailed,
+    Device_2Impl,
+    Device_3Impl,
+    Device_6Impl,
+    DeviceImpl,
+    DispLevel,
+    EncodedAttribute,
+    EventType,
+    LevelLevel,
+    Logger,
+    StdStringVector,
+    UserDefaultAttrProp,
+    constants,
+)
+from tango._telemetry import _telemetry_runtime
+from tango.attr_data import AttrData
+from tango.device_class import DeviceClass
+from tango.green import get_executor
+from tango.log4tango import TangoStream
+from tango.pyutil import TimedAttrData, TimedCmdData, Util
+from tango.release import Release
+from tango.utils import (
     _exception_converter,
     _InterfaceDefinedByIDL,
+    get_attribute_type_format,
+    get_latest_device_class,
+    is_pure_str,
+    parse_type_hint,
+    set_complex_value,
 )
-from tango.green import get_executor
-from tango.attr_data import AttrData
-
-from tango.log4tango import TangoStream
 
 __docformat__ = "restructuredtext"
 
@@ -126,9 +131,7 @@ class LatestDeviceImpl(Device_6Impl):
         self.add_version_info("Build.PyTango.Python", constants.Compile.PY_VERSION)
         self.add_version_info("Build.PyTango.cppTango", constants.Compile.TANGO_VERSION)
         self.add_version_info("Build.PyTango.NumPy", constants.Compile.NUMPY_VERSION)
-        self.add_version_info(
-            "Build.PyTango.Pybind11", constants.Compile.PYBIND11_VERSION
-        )
+        self.add_version_info("Build.PyTango.Pybind11", constants.Compile.PYBIND11_VERSION)
         self.add_version_info("Python", constants.Runtime.PY_VERSION)
         self.add_version_info("NumPy", constants.Runtime.NUMPY_VERSION)
 
@@ -163,24 +166,25 @@ class MultiAttrProp(_InterfaceDefinedByIDL):
         self._initialized = True
 
 
-def __Attribute__get_properties(self, attr_cfg=None):
+def __Attribute__get_properties(
+    self,
+    attr_cfg: AttributeConfig | AttributeConfig_2 | AttributeConfig_3 | AttributeConfig_5 | MultiAttrProp = None,
+) -> AttributeConfig:
     """
-    get_properties(self: Attribute, attr_cfg: AttributeConfig = None) -> AttributeConfig
+    Get attribute properties.
 
-        Get attribute properties.
+    :param conf: the config object to be filled with
+                 the attribute configuration. Default is None meaning the
+                 method will create internally a new :obj:`~tango.AttributeConfig_5`
+                 and return it.
+    :type conf:  :obj:`~tango.AttributeConfig` or :obj:`~tango.AttributeConfig_2` or
+                 :obj:`~tango.AttributeConfig_3` or :obj:`~tango.AttributeConfig_5` or
+                 :obj:`~tango.MultiAttrProp`
 
-        :param conf: the config object to be filled with
-                     the attribute configuration. Default is None meaning the
-                     method will create internally a new :obj:`tango.AttributeConfig_5`
-                     and return it.
-                     Can be :obj:`tango.AttributeConfig`, :obj:`tango.AttributeConfig_2`,
-                     :obj:`tango.AttributeConfig_3`, :obj:`tango.AttributeConfig_5` or
-                     :obj:`tango.MultiAttrProp`
+    :returns: the config object filled with attribute configuration information
+    :rtype: :obj:`~tango.AttributeConfig`
 
-        :returns: the config object filled with attribute configuration information
-        :rtype: :obj:`tango.AttributeConfig`
-
-        New in PyTango 7.1.4
+    .. versionadded:: 7.1.4
     """
 
     if attr_cfg is None:
@@ -190,22 +194,20 @@ def __Attribute__get_properties(self, attr_cfg=None):
     return self._get_properties_multi_attr_prop(attr_cfg)
 
 
-def __Attribute__set_properties(self, attr_cfg, dev=None):
+def __Attribute__set_properties(self, attr_cfg: AttributeConfig | AttributeConfig_3, dev: DeviceImpl = None):
     """
-    set_properties(self: Attribute, attr_cfg: AttributeConfig, dev: DeviceImpl = None)
+    Set attribute properties.
 
-        Set attribute properties.
+    This method sets the attribute properties value with the content
+    of the fields in the :obj:`~tango.AttributeConfig`/ :obj:`~tango.AttributeConfig_3` object
 
-        This method sets the attribute properties value with the content
-        of the fields in the :obj:`tango.AttributeConfig`/ :obj:`tango.AttributeConfig_3` object
+    :param conf: the config object.
+    :type conf: :obj:`~tango.AttributeConfig` or :obj:`~tango.AttributeConfig_3`
 
-        :param conf: the config object.
-        :type conf: :obj:`tango.AttributeConfig` or :obj:`tango.AttributeConfig_3`
-        :param dev: the device (not used, maintained
-                    for backward compatibility)
-        :type dev: :obj:`tango.DeviceImpl`
+    :param dev: the device (not used, maintained for backward compatibility)
+    :type dev: :obj:`~tango.DeviceImpl`
 
-        New in PyTango 7.1.4
+    .. versionadded:: 7.1.4
     """
 
     if not isinstance(attr_cfg, MultiAttrProp):
@@ -219,9 +221,8 @@ def __Attribute__str(self):
 
 def __Attribute__set_value(self, *args):
     """
-    .. function:: set_value(self, data)
-                  set_value(self, str_data, data)
-        :noindex:
+    set_value(self, data: Any) -> None
+    set_value(self, str_data: str, data: str) -> None
 
     Set internal attribute value.
 
@@ -234,12 +235,13 @@ def __Attribute__set_value(self, *args):
                  for IMAGE attributes.
                  The recommended sequence is a C continuous and aligned numpy
                  array, as it can be optimized.
+    :type data: :py:obj:`Any` | :py:obj:`str`
+
     :param str_data: special variation for DevEncoded data type. In this case 'data' must
                      be a str or an object with the buffer interface.
-    :type str_data: str
+    :type str_data: :py:obj:`str`
 
-    .. versionchanged:: 10.1.0
-        The dim_x and dim_y parameters were removed.
+    .. versionchanged:: 10.1.0 The dim_x and dim_y parameters were removed.
     """
 
     if not len(args):
@@ -249,29 +251,20 @@ def __Attribute__set_value(self, *args):
         if arg is None:
             raise TypeError("set_value method cannot be called with None!")
 
-    if self.get_data_type() == CmdArgType.DevEncoded and not isinstance(
-        args[0], EncodedAttribute
-    ):
+    if self.get_data_type() == CmdArgType.DevEncoded and not isinstance(args[0], EncodedAttribute):
         if len(args) > 2:
-            raise TypeError(
-                "Too many arguments. "
-                "Note, that dim_x and dim_y arguments are no longer supported."
-            )
+            raise TypeError("Too many arguments. Note, that dim_x and dim_y arguments are no longer supported.")
     else:
         if len(args) > 1:
-            raise TypeError(
-                "Too many arguments. "
-                "Note, that dim_x and dim_y arguments are no longer supported."
-            )
+            raise TypeError("Too many arguments. Note, that dim_x and dim_y arguments are no longer supported.")
 
     self._set_value(*args)
 
 
 def __Attribute__set_value_date_quality(self, *args):
     """
-    .. function::   set_value_date_quality(self, data, time_stamp, quality)
-                    set_value_date_quality(self, str_data, data, time_stamp, quality)
-        :noindex:
+    set_value_date_quality(self, data: Any, time_stamp: float, quality: AttrQuality) -> None
+    set_value_date_quality(self, str_data: str, data: str, time_stamp: float, quality: AttrQuality) -> None
 
     Set internal attribute value, date and quality factor.
 
@@ -285,38 +278,29 @@ def __Attribute__set_value_date_quality(self, *args):
                  array, as it can be optimized.
     :param str_data: special variation for DevEncoded data type. In this case 'data' must
                      be a str or an object with the buffer interface.
-    :type str_data: str
+    :type str_data: :py:obj:`str`
+
     :param time_stamp: the time stamp
-    :type time_stamp: double
+    :type time_stamp: :py:obj:`float`
+
     :param quality: the attribute quality factor
-    :type quality: AttrQuality
+    :type quality: :py:obj:`~tango.AttrQuality`
 
     .. versionchanged:: 10.1.0
         The dim_x and dim_y parameters were removed.
     """
 
     if len(args) < 3:
-        raise TypeError(
-            "set_value_date_quality method must be called with at least three arguments!"
-        )
+        raise TypeError("set_value_date_quality method must be called with at least three arguments!")
 
     for arg in args:
         if arg is None:
             raise TypeError("set_value_date_quality method cannot be called with None!")
 
-    if self.get_data_type() == CmdArgType.DevEncoded and not isinstance(
-        args[0], EncodedAttribute
-    ):
+    if self.get_data_type() == CmdArgType.DevEncoded and not isinstance(args[0], EncodedAttribute):
         if len(args) > 4:
-            raise TypeError(
-                "Too many arguments. "
-                "Note, that dim_x and dim_y arguments are no longer supported."
-            )
-        elif (
-            len(args) == 4
-            and not isinstance(args[-1], AttrQuality)
-            and isinstance(args[-1], numbers.Number)
-        ):
+            raise TypeError("Too many arguments. Note, that dim_x and dim_y arguments are no longer supported.")
+        elif len(args) == 4 and not isinstance(args[-1], AttrQuality) and isinstance(args[-1], numbers.Number):
             raise TypeError(
                 f"Last argument, {args[3]}, has the incorrect type: {type(args[3])}. "
                 "It must be AttrQuality. "
@@ -324,15 +308,8 @@ def __Attribute__set_value_date_quality(self, *args):
             )
     else:
         if len(args) > 3:
-            raise TypeError(
-                "Too many arguments. "
-                "Note, that dim_x and dim_y arguments are no longer supported."
-            )
-        elif (
-            len(args) == 3
-            and not isinstance(args[-1], AttrQuality)
-            and isinstance(args[-1], numbers.Number)
-        ):
+            raise TypeError("Too many arguments. Note, that dim_x and dim_y arguments are no longer supported.")
+        elif len(args) == 3 and not isinstance(args[-1], AttrQuality) and isinstance(args[-1], numbers.Number):
             raise TypeError(
                 f"Last argument, {args[2]}, has the incorrect type: {type(args[2])}. "
                 "It must be AttrQuality. "
@@ -352,15 +329,9 @@ def __init_Attribute():
     Attribute.set_value_date_quality = __Attribute__set_value_date_quality
 
 
-def __DeviceImpl__get_device_class(self):
+def __DeviceImpl__get_device_class(self) -> DeviceClass:
     """
-    get_device_class(self)
-
-        Get device class singleton.
-
-        :returns: the device class singleton (device_class field)
-        :rtype: DeviceClass
-
+    Get device class singleton.
     """
     try:
         return self._device_class_instance
@@ -368,19 +339,15 @@ def __DeviceImpl__get_device_class(self):
         return None
 
 
-def __DeviceImpl__get_device_properties(self, ds_class=None):
+def _populate_device_properties(self, ds_class, is_high_level_api=False):
     """
-    get_device_properties(self, ds_class = None)
+    Shared implementation for ``DeviceImpl.get_device_properties`` and
+    ``BaseDevice.get_device_properties``.
 
-        Utility method that fetches all the device properties from the database
-        and converts them into members of this DeviceImpl.
-
-        :param ds_class: the DeviceClass object. Optional. Default value is
-                         None meaning that the corresponding DeviceClass object for this
-                         DeviceImpl will be used
-        :type ds_class: DeviceClass
-
-        :raises DevFailed:
+    When ``is_high_level_api`` is True (the BaseDevice / HLAPI path), property
+    values are stored in ``self._tango_properties`` and mandatory device
+    properties are enforced. Otherwise, they are written as plain attributes
+    via ``setattr``.
     """
     if ds_class is None:
         try:
@@ -392,116 +359,99 @@ def __DeviceImpl__get_device_properties(self, ds_class=None):
         pu = self.prop_util = ds_class.prop_util
         self.device_property_list = copy.deepcopy(ds_class.device_property_list)
         class_prop = ds_class.class_property_list
-        pu.get_device_properties(self, class_prop, self.device_property_list)
+        pu.merge_class_prop_to_dev_prop(self, class_prop, self.device_property_list)
+
+        def _store(name, value):
+            if is_high_level_api:
+                self._tango_properties[name] = value
+            else:
+                setattr(self, name, value)
+
         for prop_name in class_prop:
-            setattr(self, prop_name, pu.get_property_values(prop_name, class_prop))
+            _store(prop_name, pu.get_property_values(prop_name, class_prop))
         for prop_name in self.device_property_list:
-            setattr(
-                self,
-                prop_name,
-                self.prop_util.get_property_values(
-                    prop_name, self.device_property_list
-                ),
-            )
+            value = pu.get_property_values(prop_name, self.device_property_list)
+            _store(prop_name, value)
+            if is_high_level_api:
+                mandatory = self.device_property_list[prop_name][3]
+                if mandatory and value is None:
+                    raise Exception(f"Device property {prop_name} is mandatory ")
     except DevFailed as df:
         print(80 * "-")
         print(df)
         raise df
 
 
+def __DeviceImpl__get_device_properties(self, ds_class: DeviceClass = None) -> None:
+    """
+    Utility method that fetches all the device properties from the database
+    and converts them into members of this DeviceImpl.
+
+    :param ds_class: the DeviceClass object. Optional. Default value is
+                     None meaning that the corresponding DeviceClass object for this
+                     DeviceImpl will be used
+    :type ds_class: :py:obj:`~tango.DeviceClass`
+
+    :raises: :py:obj:`~tango.DevFailed`:
+    """
+    _populate_device_properties(self, ds_class)
+
+
 def __DeviceImpl__add_attribute(
-    self, attr, r_meth=None, w_meth=None, is_allo_meth=None
-):
+    self,
+    attr,
+    r_meth: Callable | None = None,
+    w_meth: Callable | None = None,
+    is_allo_meth: Callable | None = None,
+) -> Attr:
     """
-    add_attribute(self, attr, r_meth=None, w_meth=None, is_allo_meth=None) -> Attr
+    Add a new attribute to the device attribute list.
 
-        Add a new attribute to the device attribute list.
+    Please, note that if you add
+    an attribute to a device at device creation time, this attribute will be added
+    to the device class attribute list. Therefore, all devices belonging to the
+    same class created after this attribute addition will also have this attribute.
 
-        Please, note that if you add
-        an attribute to a device at device creation time, this attribute will be added
-        to the device class attribute list. Therefore, all devices belonging to the
-        same class created after this attribute addition will also have this attribute.
+    If you pass a reference to unbound method for read, write or is_allowed method
+    (e.g. DeviceClass.read_function or self.__class__.read_function),
+    during execution the corresponding bound method (self.read_function) will be used.
 
-        If you pass a reference to unbound method for read, write or is_allowed method
-        (e.g. DeviceClass.read_function or self.__class__.read_function),
-        during execution the corresponding bound method (self.read_function) will be used.
+    Note: Calling the synchronous add_attribute method from a coroutine function in
+    an asyncio server may cause a deadlock.
+    Use ``await`` :meth:`async_add_attribute` instead.
+    However, if overriding the synchronous method ``initialize_dynamic_attributes``,
+    then the synchronous add_attribute method must be used, even in asyncio servers.
 
-        Note: Calling the synchronous add_attribute method from a coroutine function in
-        an asyncio server may cause a deadlock.
-        Use ``await`` :meth:`async_add_attribute` instead.
-        However, if overriding the synchronous method ``initialize_dynamic_attributes``,
-        then the synchronous add_attribute method must be used, even in asyncio servers.
+    :param attr: the new attribute to be added to the list.
+    :type attr: :py:obj:`~tango.server.attribute` or :py:obj:`~tango.Attr` or :py:obj:`~tango.AttrData`
+    :param r_meth: the read method to be called on a read request
+                   (if attr is of type server.attribute, then use the
+                   fget field in the attr object instead)
+    :type r_meth: :py:obj:`typing.Callable`
+    :param w_meth: the write method to be called on a write request
+                   (if attr is writable)
+                   (if attr is of type server.attribute, then use the
+                   fset field in the attr object instead)
+    :type w_meth: :py:obj:`typing.Callable`
+    :param is_allo_meth: the method that is called to check if it
+                         is possible to access the attribute or not
+                         (if attr is of type server.attribute, then use the
+                         fisallowed field in the attr object instead)
+    :type is_allo_meth: :py:obj:`typing.Callable`
 
-        :param attr: the new attribute to be added to the list.
-        :type attr: server.attribute or Attr or AttrData
-        :param r_meth: the read method to be called on a read request
-                       (if attr is of type server.attribute, then use the
-                       fget field in the attr object instead)
-        :type r_meth: callable
-        :param w_meth: the write method to be called on a write request
-                       (if attr is writable)
-                       (if attr is of type server.attribute, then use the
-                       fset field in the attr object instead)
-        :type w_meth: callable
-        :param is_allo_meth: the method that is called to check if it
-                             is possible to access the attribute or not
-                             (if attr is of type server.attribute, then use the
-                             fisallowed field in the attr object instead)
-        :type is_allo_meth: callable
-
-        :returns: the newly created attribute.
-        :rtype: Attr
-
-        :raises DevFailed:
+    :raises: :py:obj:`~tango.DevFailed`
     """
 
-    return __DeviceImpl__add_attribute_realization(
-        self, attr, r_meth, w_meth, is_allo_meth
-    )
+    return __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_meth)
 
 
 async def __DeviceImpl__async_add_attribute(
-    self, attr, r_meth=None, w_meth=None, is_allo_meth=None
+    self,
+    attr,
+    r_meth: Callable | None = None,
+    w_meth: Callable | None = None,
+    is_allo_meth: Callable | None = None,
 ):
-    """
-    async_add_attribute(self, attr, r_meth=None, w_meth=None, is_allo_meth=None) -> Attr
-
-        Add a new attribute to the device attribute list.
-
-        Please, note that if you add
-        an attribute to a device at device creation time, this attribute will be added
-        to the device class attribute list. Therefore, all devices belonging to the
-        same class created after this attribute addition will also have this attribute.
-
-        If you pass a reference to unbound method for read, write or is_allowed method
-        (e.g. DeviceClass.read_function or self.__class__.read_function),
-        during execution the corresponding bound method (self.read_function) will be used.
-
-        :param attr: the new attribute to be added to the list.
-        :type attr: server.attribute or Attr or AttrData
-        :param r_meth: the read method to be called on a read request
-                       (if attr is of type server.attribute, then use the
-                       fget field in the attr object instead)
-        :type r_meth: callable
-        :param w_meth: the write method to be called on a write request
-                       (if attr is writable)
-                       (if attr is of type server.attribute, then use the
-                       fset field in the attr object instead)
-        :type w_meth: callable
-        :param is_allo_meth: the method that is called to check if it
-                             is possible to access the attribute or not
-                             (if attr is of type server.attribute, then use the
-                             fisallowed field in the attr object instead)
-        :type is_allo_meth: callable
-
-        :returns: the newly created attribute.
-        :rtype: Attr
-
-        :raises DevFailed:
-
-        .. versionadded:: 10.0.0
-    """
-
     return await get_worker().delegate(
         __DeviceImpl__add_attribute_realization,
         self,
@@ -510,6 +460,9 @@ async def __DeviceImpl__async_add_attribute(
         w_meth,
         is_allo_meth,
     )
+
+
+__DeviceImpl__async_add_attribute.__doc__ = __DeviceImpl__add_attribute.__doc__ + "\n\n.. versionadded:: 10.0.0\n\n"
 
 
 def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_meth):
@@ -543,9 +496,7 @@ def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_
         type_hint = dict(r_meth.__annotations__).get("return", None)
         r_name = f"__wrapped_read_{att_name}_{r_name}__"
         r_meth_green_mode = getattr(attr_data, "read_green_mode", True)
-        __patch_device_with_dynamic_attribute_read_method(
-            self, r_name, r_meth, r_meth_green_mode
-        )
+        __patch_device_with_dynamic_attribute_read_method(self, r_name, r_meth, r_meth_green_mode)
 
     # get write method and its name
     w_name = f"write_{att_name}"
@@ -571,9 +522,7 @@ def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_
 
         w_name = f"__wrapped_write_{att_name}_{w_name}__"
         w_meth_green_mode = getattr(attr_data, "write_green_mode", True)
-        __patch_device_with_dynamic_attribute_write_method(
-            self, w_name, w_meth, w_meth_green_mode
-        )
+        __patch_device_with_dynamic_attribute_write_method(self, w_name, w_meth, w_meth_green_mode)
 
     # get is allowed method and its name
     ia_name = f"is_{att_name}_allowed"
@@ -591,47 +540,36 @@ def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_
     if is_allo_meth is not None:
         ia_name = f"__wrapped_is_allowed_{att_name}_{ia_name}__"
         ia_meth_green_mode = getattr(attr_data, "isallowed_green_mode", True)
-        __patch_device_with_dynamic_attribute_is_allowed_method(
-            self, ia_name, is_allo_meth, ia_meth_green_mode
-        )
+        __patch_device_with_dynamic_attribute_is_allowed_method(self, ia_name, is_allo_meth, ia_meth_green_mode)
 
-    if attr_data and type_hint:
-        if not attr_data.has_dtype_kword:
-            dtype, dformat, max_x, max_y = parse_type_hint(
-                type_hint, caller="attribute"
-            )
-            if dformat is None:
-                if attr_data.attr_format not in [
-                    AttrDataFormat.IMAGE,
-                    AttrDataFormat.SPECTRUM,
-                ]:
-                    raise RuntimeError(
-                        "For numpy.ndarrays AttrDataFormat has to be specified"
-                    )
-                dformat = attr_data.attr_format
+    if attr_data and type_hint and not attr_data.has_dtype_kword:
+        dtype, dformat, max_x, max_y = parse_type_hint(type_hint, caller="attribute")
+        if dformat is None:
+            if attr_data.attr_format not in [
+                AttrDataFormat.IMAGE,
+                AttrDataFormat.SPECTRUM,
+            ]:
+                raise RuntimeError("For numpy.ndarrays AttrDataFormat has to be specified")
+            dformat = attr_data.attr_format
 
-            dtype, dformat, enum_labels = get_attribute_type_format(
-                dtype, dformat, None
-            )
-            attr_data.attr_type = dtype
-            attr_data.attr_format = dformat
-            if enum_labels:
-                attr_data.set_enum_labels_to_attr_prop(enum_labels)
-            if not attr_data.has_size_kword:
-                if max_x:
-                    attr_data.dim_x = max_x
-                if max_y:
-                    attr_data.dim_y = max_y
+        dtype, dformat, enum_labels = get_attribute_type_format(dtype, dformat, None)
+        attr_data.attr_type = dtype
+        attr_data.attr_format = dformat
+        if enum_labels:
+            attr_data.set_enum_labels_to_attr_prop(enum_labels)
+        if not attr_data.has_size_kword:
+            if max_x:
+                attr_data.dim_x = max_x
+            if max_y:
+                attr_data.dim_y = max_y
 
-            attr = attr_data.to_attr()
+        attr = attr_data.to_attr()
 
     self._add_attribute(attr, r_name, w_name, ia_name)
     return attr
 
 
-def __patch_device_with_dynamic_attribute_read_method(
-    device, name, r_meth, r_meth_green_mode
-):
+def __patch_device_with_dynamic_attribute_read_method(device, name, r_meth, r_meth_green_mode):
     if __is_device_method(device, r_meth):
         if r_meth_green_mode:
 
@@ -681,9 +619,7 @@ def __patch_device_with_dynamic_attribute_read_method(
     setattr(device, name, bound_method)
 
 
-def __patch_device_with_dynamic_attribute_write_method(
-    device, name, w_meth, w_meth_green_mode
-):
+def __patch_device_with_dynamic_attribute_write_method(device, name, w_meth, w_meth_green_mode):
     if __is_device_method(device, w_meth):
         if w_meth_green_mode:
 
@@ -718,9 +654,7 @@ def __patch_device_with_dynamic_attribute_write_method(
     setattr(device, name, bound_method)
 
 
-def __patch_device_with_dynamic_attribute_is_allowed_method(
-    device, name, is_allo_meth, ia_meth_green_mode
-):
+def __patch_device_with_dynamic_attribute_is_allowed_method(device, name, is_allo_meth, ia_meth_green_mode):
     if __is_device_method(device, is_allo_meth):
         if ia_meth_green_mode:
 
@@ -760,79 +694,62 @@ def __is_device_method(device, func):
     return inspect.ismethod(func) and func.__self__ is device
 
 
-def __DeviceImpl__remove_attribute(self, attr_name, free_it=False, clean_db=True):
-    """
-    remove_attribute(self, attr_name)
-
-        Remove one attribute from the device attribute list.
-
-        Note: Call of synchronous remove_attribute method from a coroutine function in
-        an asyncio server may cause a deadlock.
-        Use ``await`` :meth:`async_remove_attribute` instead.
-        However, if overriding the synchronous method ``initialize_dynamic_attributes``,
-        then the synchronous remove_attribute method must be used, even in asyncio servers.
-
-        :param attr_name: attribute name
-        :type attr_name: str
-
-        :param free_it: free Attr object flag. Default False
-        :type free_it: bool
-
-        :param clean_db: clean attribute related info in db. Default True
-        :type clean_db: bool
-
-        :raises DevFailed:
-
-        .. versionadded:: 9.5.0
-            *free_it* parameter.
-            *clean_db* parameter.
-
-    """
+def __DeviceImpl__remove_attribute(self, attr_name: str, free_it: bool = False, clean_db: bool = True) -> None:
 
     self._remove_attribute(attr_name, free_it, clean_db)
 
 
-async def __DeviceImpl__async_remove_attribute(
-    self, attr_name, free_it=False, clean_db=True
-):
-    """
+__base_remove_attribute_doc = """
+Remove one attribute from the device attribute list.
 
-    async_remove_attribute(self, attr_name, free_it=False, clean_db=True)
+Note: Call of synchronous remove_attribute method from a coroutine function in
+an asyncio server may cause a deadlock.
+Use ``await`` :meth:`async_remove_attribute` instead.
+However, if overriding the synchronous method ``initialize_dynamic_attributes``,
+then the synchronous remove_attribute method must be used, even in asyncio servers.
 
-        Remove one attribute from the device attribute list.
+:param attr_name: attribute name
+:type attr_name: :py:obj:`str`
 
-        :param attr_name: attribute name
-        :type attr_name: str
+:param free_it: free Attr object flag. Default False
+:type free_it: :py:obj:`bool`
 
-        :param free_it: free Attr object flag. Default False
-        :type free_it: bool
+:param clean_db: clean attribute related info in db. Default True
+:type clean_db: :py:obj:`bool`
 
-        :param clean_db: clean attribute related info in db. Default True
-        :type clean_db: bool
+:raises: :py:obj:`~tango.DevFailed`
+"""
 
-        :raises DevFailed:
+__DeviceImpl__remove_attribute.__doc__ = (
+    __base_remove_attribute_doc
+    + """
+    .. versionadded:: 9.5.0
+        *free_it* parameter.
+        *clean_db* parameter.
 
-        .. versionadded:: 10.0.0
+"""
+)
 
-    """
 
+async def __DeviceImpl__async_remove_attribute(self, attr_name: str, free_it: bool = False, clean_db: bool = True):
     await get_worker().delegate(self._remove_attribute, attr_name, free_it, clean_db)
 
 
-def __DeviceImpl__add_command(self, cmd, device_level=True):
+__DeviceImpl__async_remove_attribute.__doc__ = __base_remove_attribute_doc + "\n\n.. versionadded:: 10.0.0\n"
+
+
+def __DeviceImpl__add_command(self, cmd, device_level: bool = True):
     """
-    add_command(self, cmd, device_level=True) -> cmd
+    Add a new command to the device command list.
 
-        Add a new command to the device command list.
+    :param cmd: the new command to be added to the list
+    :type cmd: :py:obj:`server.command`
 
-        :param cmd: the new command to be added to the list
-        :param device_level: Set this flag to true if the command must be added
-                             for only this device
+    :param device_level: Set this flag to true if the command must be added
+                         for only this device
+    :type device_level: :py:obj:`bool`
 
-        :returns: The command to add
-        :rtype: Command
-
-        :raises DevFailed:
+    :raises: :py:obj:`~tango.DevFailed`
     """
     config = dict(cmd.__tango_command__[1][2])
     disp_level = DispLevel.OPERATOR
@@ -840,7 +757,7 @@ def __DeviceImpl__add_command(self, cmd, device_level=True):
     cmd_name = cmd.__name__
 
     # default values
-    fisallowed = "is_{0}_allowed".format(cmd_name)
+    fisallowed = f"is_{cmd_name}_allowed"
     fisallowed_green_mode = True
 
     if config:
@@ -856,20 +773,14 @@ def __DeviceImpl__add_command(self, cmd, device_level=True):
         fisallowed = getattr(self, fisallowed, None)
 
     if fisallowed is not None:
-        fisallowed_name = (
-            f"__wrapped_{getattr(fisallowed, '__name__', f'is_{cmd_name}_allowed')}__"
-        )
-        __patch_device_with_dynamic_command_is_allowed_method(
-            self, fisallowed_name, fisallowed, fisallowed_green_mode
-        )
+        fisallowed_name = f"__wrapped_{getattr(fisallowed, '__name__', f'is_{cmd_name}_allowed')}__"
+        __patch_device_with_dynamic_command_is_allowed_method(self, fisallowed_name, fisallowed, fisallowed_green_mode)
     else:
         fisallowed_name = ""
 
     setattr(self, cmd_name, cmd)
 
-    self._add_command(
-        cmd_name, cmd.__tango_command__[1], fisallowed_name, disp_level, device_level
-    )
+    self._add_command(cmd_name, cmd.__tango_command__[1], fisallowed_name, disp_level, device_level)
     return cmd
 
 
@@ -894,9 +805,7 @@ def __patch_device_with_dynamic_command_method(device, name, method):
     setattr(device, name, bound_method)
 
 
-def __patch_device_with_dynamic_command_is_allowed_method(
-    device, name, is_allo_meth, green_mode
-):
+def __patch_device_with_dynamic_command_is_allowed_method(device, name, is_allo_meth, green_mode):
     if __is_device_method(device, is_allo_meth):
         if green_mode:
 
@@ -932,44 +841,41 @@ def __patch_device_with_dynamic_command_is_allowed_method(
     setattr(device, name, bound_method)
 
 
-def __DeviceImpl__remove_command(self, cmd_name, free_it=False, clean_db=True):
+def __DeviceImpl__remove_command(self, cmd_name: str, free_it: bool = False, clean_db: bool = True) -> None:
     """
-    remove_command(self, cmd_name, free_it=False, clean_db=True)
+    Remove one command from the device command list.
 
-        Remove one command from the device command list.
+    :param cmd_name: command name to be removed from the list
+    :type cmd_name: :py:obj:`str`
+    :param free_it: set to true if the command object must be freed.
+    :type free_it: :py:obj:`bool`
+    :param clean_db: Clean command related information (included polling info
+                     if the command is polled) from database.
+    :type clean_db: :py:obj:`bool`
 
-        :param cmd_name: command name to be removed from the list
-        :type cmd_name: str
-        :param free_it: set to true if the command object must be freed.
-        :type free_it: bool
-        :param clean_db: Clean command related information (included polling info
-                         if the command is polled) from database.
-
-        :raises DevFailed:
+    :raises: :py:obj:`~tango.DevFailed`
     """
     self._remove_command(cmd_name, free_it, clean_db)
 
 
-def __DeviceImpl__debug_stream(self, msg, *args, source=None):
+def __DeviceImpl__debug_stream(self, msg: str, *args, source: Callable | None = None) -> None:
     """
-    debug_stream(self, msg, *args, source=None)
+    Sends the given message to the tango debug stream.
 
-        Sends the given message to the tango debug stream.
+    Since PyTango 7.1.3, the same can be achieved with::
 
-        Since PyTango 7.1.3, the same can be achieved with::
+        print(msg, file=self.log_debug)
 
-            print(msg, file=self.log_debug)
+    :param msg: the message to be sent to the debug stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the debug stream
-        :type msg: str
+    :param \\*args: Arguments to format a message string.
 
-        :param \\*args: Arguments to format a message string.
+    :param source: Function that will be inspected for filename and lineno in the log message.
+    :type source: :py:obj:`typing.Callable`
 
-        :param source: Function that will be inspected for filename and lineno in the log message.
-        :type source: Callable
-
-        .. versionadded:: 9.4.2
-            added *source* parameter
+    .. versionadded:: 9.4.2
+        added *source* parameter
     """
     filename, line = get_source_location(source)
     if args:
@@ -977,26 +883,25 @@ def __DeviceImpl__debug_stream(self, msg, *args, source=None):
     self.__debug_stream(filename, line, msg)
 
 
-def __DeviceImpl__info_stream(self, msg, *args, source=None):
+def __DeviceImpl__info_stream(self, msg: str, *args, source: Callable | None = None) -> None:
     """
-    info_stream(self, msg, *args, source=None)
 
-        Sends the given message to the tango info stream.
+    Sends the given message to the tango info stream.
 
-        Since PyTango 7.1.3, the same can be achieved with::
+    Since PyTango 7.1.3, the same can be achieved with::
 
-            print(msg, file=self.log_info)
+        print(msg, file=self.log_info)
 
-        :param msg: the message to be sent to the info stream
-        :type msg: str
+    :param msg: the message to be sent to the info stream
+    :type msg: :py:obj:`str`
 
-        :param \\*args: Arguments to format a message string.
+    :param \\*args: Arguments to format a message string.
 
-        :param source: Function that will be inspected for filename and lineno in the log message.
-        :type source: Callable
+    :param source: Function that will be inspected for filename and lineno in the log message.
+    :type source: :py:obj:`typing.Callable`
 
-        .. versionadded:: 9.4.2
-            added *source* parameter
+    .. versionadded:: 9.4.2
+        added *source* parameter
     """
     filename, line = get_source_location(source)
     if args:
@@ -1004,26 +909,24 @@ def __DeviceImpl__info_stream(self, msg, *args, source=None):
     self.__info_stream(filename, line, msg)
 
 
-def __DeviceImpl__warn_stream(self, msg, *args, source=None):
+def __DeviceImpl__warn_stream(self, msg: str, *args, source: Callable | None = None) -> None:
     """
-    warn_stream(self, msg, *args, source=None)
+    Sends the given message to the tango warn stream.
 
-        Sends the given message to the tango warn stream.
+    Since PyTango 7.1.3, the same can be achieved with::
 
-        Since PyTango 7.1.3, the same can be achieved with::
+        print(msg, file=self.log_warn)
 
-            print(msg, file=self.log_warn)
+    :param msg: the message to be sent to the warn stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the warn stream
-        :type msg: str
+    :param \\*args: Arguments to format a message string.
 
-        :param \\*args: Arguments to format a message string.
+    :param source: Function that will be inspected for filename and lineno in the log message.
+    :type source: :py:obj:`typing.Callable`
 
-        :param source: Function that will be inspected for filename and lineno in the log message.
-        :type source: Callable
-
-        .. versionadded:: 9.4.2
-            added *source* parameter
+    .. versionadded:: 9.4.2
+        added *source* parameter
     """
     filename, line = get_source_location(source)
     if args:
@@ -1031,26 +934,24 @@ def __DeviceImpl__warn_stream(self, msg, *args, source=None):
     self.__warn_stream(filename, line, msg)
 
 
-def __DeviceImpl__error_stream(self, msg, *args, source=None):
+def __DeviceImpl__error_stream(self, msg: str, *args, source: Callable | None = None) -> None:
     """
-    error_stream(self, msg, *args, source=None)
+    Sends the given message to the tango error stream.
 
-        Sends the given message to the tango error stream.
+    Since PyTango 7.1.3, the same can be achieved with::
 
-        Since PyTango 7.1.3, the same can be achieved with::
+        print(msg, file=self.log_error)
 
-            print(msg, file=self.log_error)
+    :param msg: the message to be sent to the error stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the error stream
-        :type msg: str
+    :param \\*args: Arguments to format a message string.
 
-        :param \\*args: Arguments to format a message string.
+    :param source: Function that will be inspected for filename and lineno in the log message.
+    :type source: :py:obj:`typing.Callable`
 
-        :param source: Function that will be inspected for filename and lineno in the log message.
-        :type source: Callable
-
-        .. versionadded:: 9.4.2
-            added *source* parameter
+    .. versionadded:: 9.4.2
+        added *source* parameter
     """
     filename, line = get_source_location(source)
     if args:
@@ -1058,26 +959,24 @@ def __DeviceImpl__error_stream(self, msg, *args, source=None):
     self.__error_stream(filename, line, msg)
 
 
-def __DeviceImpl__fatal_stream(self, msg, *args, source=None):
+def __DeviceImpl__fatal_stream(self, msg: str, *args, source: Callable | None = None) -> None:
     """
-    fatal_stream(self, msg, *args, source=None)
+    Sends the given message to the tango fatal stream.
 
-        Sends the given message to the tango fatal stream.
+    Since PyTango 7.1.3, the same can be achieved with::
 
-        Since PyTango 7.1.3, the same can be achieved with::
+        print(msg, file=self.log_fatal)
 
-            print(msg, file=self.log_fatal)
+    :param msg: the message to be sent to the fatal stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the fatal stream
-        :type msg: str
+    :param \\*args: Arguments to format a message string.
 
-        :param \\*args: Arguments to format a message string.
+    :param source: Function that will be inspected for filename and lineno in the log message.
+    :type source: :py:obj:`typing.Callable`
 
-        :param source: Function that will be inspected for filename and lineno in the log message.
-        :type source: Callable
-
-        .. versionadded:: 9.4.2
-            added *source* parameter
+    .. versionadded:: 9.4.2
+        added *source* parameter
     """
     filename, line = get_source_location(source)
     if args:
@@ -1152,10 +1051,7 @@ def __check_removed_dim_parameters(*args, **kwargs):
     if len(args) < 2:
         return
     elif len(args) > 4:
-        raise TypeError(
-            "Too many arguments. "
-            "Note, that dim_x and dim_y arguments are no longer supported."
-        )
+        raise TypeError("Too many arguments. Note, that dim_x and dim_y arguments are no longer supported.")
     last_arg = args[-1]
     if not isinstance(last_arg, AttrQuality) and isinstance(last_arg, numbers.Number):
         if len(args) == 2:
@@ -1170,34 +1066,34 @@ def __check_removed_dim_parameters(*args, **kwargs):
         )
 
 
-def __DeviceImpl__push_change_event(self, attr_name, *args, **kwargs):
+def __DeviceImpl__push_change_event(self, attr_name: str, *args, **kwargs):
     """
-    .. function:: push_change_event(self, attr_name, except)
-                  push_change_event(self, attr_name, data)
-                  push_change_event(self, attr_name, data, time_stamp, quality)
-                  push_change_event(self, attr_name, str_data, data)
-                  push_change_event(self, attr_name, str_data, data, time_stamp, quality)
-        :noindex:
+    push_change_event(self, attr_name: str, except: Exception)
+    push_change_event(self, attr_name: str, data: Any)
+    push_change_event(self, attr_name: str, data: Any, time_stamp: float, quality: AttrQuality)
+    push_change_event(self, attr_name: str, str_data: str, data: Any)
+    push_change_event(self, attr_name: str, str_data: str, data: Any, time_stamp: float, quality: AttrQuality)
 
     Push a change event for the given attribute name.
 
     :param attr_name: attribute name
-    :type attr_name: str
+    :type attr_name: :py:obj:`str`
     :param data: the data to be sent as attribute event data. Data must be compatible with the
                  attribute type and format.
                  for SPECTRUM and IMAGE attributes, data can be any type of sequence of elements
                  compatible with the attribute type
+    :type data: :py:obj:`typing.Any`
     :param str_data: special variation for DevEncoded data type. In this case 'data' must
                      be a str or an object with the buffer interface.
-    :type str_data: str
+    :type str_data: :py:obj:`str`
     :param except: Instead of data, you may want to send an exception.
-    :type except: DevFailed
+    :type except: :py:obj:`Exception` | :py:obj:`~tango.DevFailed`
     :param time_stamp: the time stamp
-    :type time_stamp: double
+    :type time_stamp: :py:obj:`float`
     :param quality: the attribute quality factor
     :type quality: AttrQuality
 
-    :raises DevFailed: If the attribute data type is not coherent.
+    :raises: :py:obj:`~tango.DevFailed`: If the attribute data type is not coherent.
 
      .. versionchanged:: 10.1.0
         Removed optional 'dim_x' and 'dim_y' arguments. The dimensions are automatically
@@ -1208,34 +1104,34 @@ def __DeviceImpl__push_change_event(self, attr_name, *args, **kwargs):
     self.__generic_push_event(attr_name, EventType.CHANGE_EVENT, *args, **kwargs)
 
 
-def __DeviceImpl__push_alarm_event(self, attr_name, *args, **kwargs):
+def __DeviceImpl__push_alarm_event(self, attr_name: str, *args, **kwargs):
     """
-    .. function:: push_alarm_event(self, attr_name, except)
-                  push_alarm_event(self, attr_name, data)
-                  push_alarm_event(self, attr_name, data, time_stamp, quality)
-                  push_alarm_event(self, attr_name, str_data, data)
-                  push_alarm_event(self, attr_name, str_data, data, time_stamp, quality)
-        :noindex:
+    push_alarm_event(self, attr_name: str, except: Exception)
+    push_alarm_event(self, attr_name: str, data: Any)
+    push_alarm_event(self, attr_name: str, data: Any, time_stamp: float, quality: AttrQuality)
+    push_alarm_event(self, attr_name: str, str_data: str, data: Any)
+    push_alarm_event(self, attr_name: str, str_data: str, data: Any, time_stamp: float, quality: AttrQuality)
 
     Push an alarm event for the given attribute name.
 
     :param attr_name: attribute name
-    :type attr_name: str
+    :type attr_name: :py:obj:`str`
     :param data: the data to be sent as attribute event data. Data must be compatible with the
                  attribute type and format.
                  for SPECTRUM and IMAGE attributes, data can be any type of sequence of elements
                  compatible with the attribute type
+    :type data: :py:obj:`typing.Any`
     :param str_data: special variation for DevEncoded data type. In this case 'data' must
                      be a str or an object with the buffer interface.
-    :type str_data: str
+    :type str_data: :py:obj:`str`
     :param except: Instead of data, you may want to send an exception.
-    :type except: DevFailed
+    :type except: :py:obj:`Exception` | :py:obj:`~tango.DevFailed`
     :param time_stamp: the time stamp
-    :type time_stamp: double
+    :type time_stamp: :py:obj:`float`
     :param quality: the attribute quality factor
     :type quality: AttrQuality
 
-    :raises DevFailed: If the attribute data type is not coherent.
+    :raises: :py:obj:`~tango.DevFailed`: If the attribute data type is not coherent.
 
      .. versionchanged:: 10.1.0
         Removed optional 'dim_x' and 'dim_y' arguments. The dimensions are automatically
@@ -1246,34 +1142,34 @@ def __DeviceImpl__push_alarm_event(self, attr_name, *args, **kwargs):
     self.__generic_push_event(attr_name, EventType.ALARM_EVENT, *args, **kwargs)
 
 
-def __DeviceImpl__push_archive_event(self, attr_name, *args, **kwargs):
+def __DeviceImpl__push_archive_event(self, attr_name: str, *args, **kwargs):
     """
-    .. function:: push_archive_event(self, attr_name, except)
-                  push_archive_event(self, attr_name, data)
-                  push_archive_event(self, attr_name, data, time_stamp, quality)
-                  push_archive_event(self, attr_name, str_data, data)
-                  push_archive_event(self, attr_name, str_data, data, time_stamp, quality)
-        :noindex:
+    push_archive_event(self, attr_name: str, except: Exception)
+    push_archive_event(self, attr_name: str, data: Any)
+    push_archive_event(self, attr_name: str, data: Any, time_stamp: float, quality: AttrQuality)
+    push_archive_event(self, attr_name: str, str_data: str, data: Any)
+    push_archive_event(self, attr_name: str, str_data: str, data: Any, time_stamp: float, quality: AttrQuality)
 
     Push an archive event for the given attribute name.
 
     :param attr_name: attribute name
-    :type attr_name: str
+    :type attr_name: :py:obj:`str`
     :param data: the data to be sent as attribute event data. Data must be compatible with the
                  attribute type and format.
                  for SPECTRUM and IMAGE attributes, data can be any type of sequence of elements
                  compatible with the attribute type
+    :type data: :py:obj:`typing.Any`
     :param str_data: special variation for DevEncoded data type. In this case 'data' must
                      be a str or an object with the buffer interface.
-    :type str_data: str
+    :type str_data: :py:obj:`str`
     :param except: Instead of data, you may want to send an exception.
-    :type except: DevFailed
+    :type except: :py:obj:`Exception` | :py:obj:`~tango.DevFailed`
     :param time_stamp: the time stamp
-    :type time_stamp: double
+    :type time_stamp: :py:obj:`float`
     :param quality: the attribute quality factor
     :type quality: AttrQuality
 
-    :raises DevFailed: If the attribute data type is not coherent.
+    :raises: :py:obj:`~tango.DevFailed`: If the attribute data type is not coherent.
 
      .. versionchanged:: 10.1.0
         Removed optional 'dim_x' and 'dim_y' arguments. The dimensions are automatically
@@ -1284,38 +1180,38 @@ def __DeviceImpl__push_archive_event(self, attr_name, *args, **kwargs):
     self.__generic_push_event(attr_name, EventType.ARCHIVE_EVENT, *args, **kwargs)
 
 
-def __DeviceImpl__push_event(self, attr_name, filt_names, filt_vals, *args, **kwargs):
+def __DeviceImpl__push_event(self, attr_name: str, filt_names, filt_vals, *args, **kwargs):
     """
-    .. function:: push_event(self, attr_name, filt_names, filt_vals, except)
-                  push_event(self, attr_name, filt_names, filt_vals, data)
-                  push_event(self, attr_name, filt_names, filt_vals, str_data, data)
-                  push_event(self, attr_name, filt_names, filt_vals, data, time_stamp, quality)
-                  push_event(self, attr_name, filt_names, filt_vals, str_data, data, time_stamp, quality)
-        :noindex:
+    push_event(self, attr_name: str, filt_names, filt_vals, except: Exception)
+    push_event(self, attr_name: str, filt_names, filt_vals, data: Any)
+    push_event(self, attr_name: str, filt_names, filt_vals, str_data: str, data: Any)
+    push_event(self, attr_name: str, filt_names, filt_vals, data: Any, time_stamp: float, quality: AttrQuality)
+    push_event(self, attr_name: str, filt_names, filt_vals, str_data: str, data: Any, time_stamp: float, quality: AttrQuality)
 
     Push a user event for the given attribute name.
 
     :param attr_name: attribute name
-    :type attr_name: str
+    :type attr_name: :py:obj:`str`
     :param filt_names: unused (kept for backwards compatibility) - pass an empty list.
-    :type filt_names: Sequence[str]
+    :type filt_names: :py:obj:list\\[:py:obj:`str`]
     :param filt_vals: unused (kept for backwards compatibility) - pass an empty list.
-    :type filt_vals: Sequence[double]
+    :type filt_vals: :py:obj:list\\[:py:obj:`float`]
     :param data: the data to be sent as attribute event data. Data must be compatible with the
                  attribute type and format.
                  for SPECTRUM and IMAGE attributes, data can be any type of sequence of elements
                  compatible with the attribute type
+    :type data: :py:obj:`typing.Any`
     :param str_data: special variation for DevEncoded data type. In this case 'data' must
                      be a str or an object with the buffer interface.
-    :type str_data: str
+    :type str_data: :py:obj:`str`
     :param except: Instead of data, you may want to send an exception.
-    :type except: DevFailed
+    :type except: :py:obj:`Exception` | :py:obj:`~tango.DevFailed`
     :param time_stamp: the time stamp
-    :type time_stamp: double
+    :type time_stamp: :py:obj:`float`
     :param quality: the attribute quality factor
     :type quality: AttrQuality
 
-    :raises DevFailed: If the attribute data type is not coherent.
+    :raises: :py:obj:`~tango.DevFailed`: If the attribute data type is not coherent.
 
      .. versionchanged:: 10.1.0
         Removed optional 'dim_x' and 'dim_y' arguments. The dimensions are automatically
@@ -1326,55 +1222,28 @@ def __DeviceImpl__push_event(self, attr_name, filt_names, filt_vals, *args, **kw
     self.__push_event(attr_name, filt_names, filt_vals, *args, **kwargs)
 
 
-def __DeviceImpl__set_telemetry_enabled(self, enabled: bool):
-    """
-    set_telemetry_enabled(self, enabled) -> None
+def __DeviceImpl___telemetry_reconfigured(self):
+    """Callback from cppTango after telemetry runtime configuration changes."""
+    if self._is_telemetry_enabled() and self._is_telemetry_tracing_enabled():
+        warn_now, message = _telemetry_runtime.warn_if_telemetry_requested(
+            endpoints=tuple(self._get_telemetry_tracing_endpoints())
+        )
+        if warn_now and message:
+            self.warn_stream(message)
 
-        Enable or disable the device's telemetry interface.
-
-        This is a no-op if telemetry support isn't compiled into cppTango.
-
-        :param enabled: True to enable telemetry tracing
-        :type enabled: bool
-
-        .. versionadded:: 10.0.0
-    """
-    if enabled:
-        self._enable_telemetry()
-    else:
-        self._disable_telemetry()
-
-
-def __DeviceImpl__set_kernel_tracing_enabled(self, enabled: bool):
-    """
-    set_kernel_tracing_enabled(self, enabled) -> None
-
-        Enable or disable telemetry tracing of cppTango kernel methods, and
-        for high-level PyTango devices, tracing of the PyTango kernel (BaseDevice)
-        methods.
-
-        This is a no-op if telemetry support isn't compiled into cppTango.
-
-        :param enabled: True to enable kernel tracing
-        :type enabled: bool
-
-        .. versionadded:: 10.0.0
-    """
-    if enabled:
-        self._enable_kernel_traces()
-    else:
-        self._disable_kernel_traces()
+    if hasattr(self, "_BaseDevice__refresh_telemetry_tracer"):
+        self._BaseDevice__refresh_telemetry_tracer()
 
 
 def __DeviceImpl__get_attribute_config(self, attr_names) -> list[AttributeConfig]:
     """
-    Returns the list of :obj:`tango.AttributeConfig` for the requested names
+    Returns the list of :obj:`~tango.AttributeConfig` for the requested names
 
     :param attr_names: sequence of str with attribute names, or single attribute name
-    :type attr_names: list[str] | str
+    :type attr_names: :py:obj:`list`\\[:py:obj:`str`] | :py:obj:`str`
 
     :returns: :class:`tango.AttributeConfig` for each requested attribute name
-    :rtype: list[:class:`tango.AttributeConfig`]
+    :rtype: :py:obj:`list`\\[:class:`tango.AttributeConfig`]
 
     """
     if is_pure_str(attr_names):
@@ -1382,49 +1251,47 @@ def __DeviceImpl__get_attribute_config(self, attr_names) -> list[AttributeConfig
     return self._get_attribute_config(attr_names)
 
 
-def __DeviceImpl__fill_attr_polling_buffer(self, attribute_name, attr_history_stack):
+def __DeviceImpl__fill_attr_polling_buffer(
+    self, attribute_name: str, attr_history_stack: TimedAttrData | list[TimedAttrData]
+) -> None:
     """
-    fill_attr_polling_buffer(self, attribute_name, attr_history_stack) -> None
+    Fill attribute polling buffer with your own data. E.g.:
 
-        Fill attribute polling buffer with your own data. E.g.:
+    .. code-block:: python
 
-        .. code-block:: python
+        def fill_history(self):
+            # note is such case quality will ATTR_VALID, and time_stamp will be time.time()
+            self.fill_attr_polling_buffer(attribute_name, TimedAttrData(my_new_value))
 
-            def fill_history(self):
-                # note is such case quality will ATTR_VALID, and time_stamp will be time.time()
-                self.fill_attr_polling_buffer(attribute_name, TimedAttrData(my_new_value))
+    or:
 
-        or:
+    .. code-block:: python
 
-        .. code-block:: python
+        def fill_history(self):
+            data = TimedAttrData(value=my_new_value,
+                                 quality=AttrQuality.ATTR_WARNING,
+                                 w_value=my_new_w_value,
+                                 time_stamp=my_time)
 
-            def fill_history(self):
-                data = TimedAttrData(value=my_new_value,
-                                     quality=AttrQuality.ATTR_WARNING,
-                                     w_value=my_new_w_value,
-                                     time_stamp=my_time)
+            self.fill_attr_polling_buffer(attribute_name, data)
 
-                self.fill_attr_polling_buffer(attribute_name, data)
+    or:
 
-        or:
+    .. code-block:: python
 
-        .. code-block:: python
+        def fill_history(self):
+            data = [TimedAttrData(my_new_value),
+                    TimedAttrData(error=RuntimeError("Cannot read value")]
 
-            def fill_history(self):
-                data = [TimedAttrData(my_new_value),
-                        TimedAttrData(error=RuntimeError("Cannot read value")]
-
-                self.fill_attr_polling_buffer(attribute_name, data)
+            self.fill_attr_polling_buffer(attribute_name, data)
 
     :param attribute_name: name of the attribute to fill polling buffer
     :type attribute_name: :obj:`str`
 
     :param attr_history_stack: data to be inserted.
-    :type attr_history_stack: :obj:`tango.TimedAttrData` or list[:obj:`tango.TimedAttrData`]
+    :type attr_history_stack: :obj:`~tango.TimedAttrData` or :py:obj:`list`\\[:obj:`~tango.TimedAttrData`]
 
-    :return: None
-
-    :raises: :obj:`tango.DevFailed`
+    :raises: :obj:`~tango.DevFailed`
 
     .. versionadded:: 10.1.0
     """
@@ -1433,49 +1300,47 @@ def __DeviceImpl__fill_attr_polling_buffer(self, attribute_name, attr_history_st
     util.fill_attr_polling_buffer(self, attribute_name, attr_history_stack)
 
 
-def __DeviceImpl__fill_cmd_polling_buffer(self, command_name, cmd_history_stack):
+def __DeviceImpl__fill_cmd_polling_buffer(
+    self, command_name: str, cmd_history_stack: TimedCmdData | list[TimedCmdData]
+) -> None:
     """
-    fill_cmd_polling_buffer(self, device, command_name, cmd_history_stack) -> None
-
-        Fill command polling buffer with your own data. E.g.:
+    Fill command polling buffer with your own data. E.g.:
 
 
-        .. code-block:: python
+    .. code-block:: python
 
-            def fill_history(self):
-                # note is such case time_stamp will be set to time.time()
-                self.fill_cmd_polling_buffer(command_name, TimedCmdData(my_new_value))
+        def fill_history(self):
+            # note is such case time_stamp will be set to time.time()
+            self.fill_cmd_polling_buffer(command_name, TimedCmdData(my_new_value))
 
-        or:
+    or:
 
-        .. code-block:: python
+    .. code-block:: python
 
-            def fill_history(self):
-                data = TimedCmdData(value=my_new_value,
-                                     time_stamp=my_time)
+        def fill_history(self):
+            data = TimedCmdData(value=my_new_value,
+                                 time_stamp=my_time)
 
-                self.fill_cmd_polling_buffer(command_name, data)
+            self.fill_cmd_polling_buffer(command_name, data)
 
-        or:
+    or:
 
-        .. code-block:: python
+    .. code-block:: python
 
-            def fill_history(self):
-                data = [TimedCmdData(my_new_value),
-                        TimedCmdData(error=RuntimeError("Cannot read value")]
+        def fill_history(self):
+            data = [TimedCmdData(my_new_value),
+                    TimedCmdData(error=RuntimeError("Cannot read value")]
 
-                self.fill_cmd_polling_buffer(command_name, data)
+            self.fill_cmd_polling_buffer(command_name, data)
 
 
     :param command_name: name of the command to fill polling buffer
     :type command_name: :obj:`str`
 
     :param cmd_history_stack: data to be inserted
-    :type cmd_history_stack: :obj:`tango.TimedCmdData` or list[:obj:`tango.TimedCmdData`]
+    :type cmd_history_stack: :obj:`~tango.TimedCmdData` or :py:obj:`list`\\[:obj:`~tango.TimedCmdData`]
 
-    :return: None
-
-    :raises: :obj:`tango.DevFailed`
+    :raises: :obj:`~tango.DevFailed`
 
     .. versionadded:: 10.1.0
     """
@@ -1484,30 +1349,28 @@ def __DeviceImpl__fill_cmd_polling_buffer(self, command_name, cmd_history_stack)
     util.fill_cmd_polling_buffer(self, command_name, cmd_history_stack)
 
 
-def __Device_2Impl__get_attribute_config_2(self, attr_names) -> list[AttributeConfig_2]:
+def __Device_2Impl__get_attribute_config_2(self, attr_names: str | list[str]) -> list[AttributeConfig_2]:
     """
-    Returns the list of :obj:`tango.AttributeConfig_2` for the requested names
+    Returns the list of :obj:`~tango.AttributeConfig_2` for the requested names
 
     :param attr_names: sequence of str with attribute names, or single attribute name
-    :type attr_names: list[str] | str
+    :type attr_names: :py:obj:`list`\\[:py:obj:`str`] | :py:obj:`str`
 
     :returns: :class:`tango.AttributeConfig_2` for each requested attribute name
-    :rtype: list[:class:`tango.AttributeConfig_2`]
     """
     if is_pure_str(attr_names):
         attr_names = [attr_names]
     return self._get_attribute_config_2(attr_names)
 
 
-def __Device_3Impl__get_attribute_config_3(self, attr_names) -> list[AttributeConfig_3]:
+def __Device_3Impl__get_attribute_config_3(self, attr_names: str | list[str]) -> list[AttributeConfig_3]:
     """
-    Returns the list of :obj:`tango.AttributeConfig_3` for the requested names
+    Returns the list of :obj:`~tango.AttributeConfig_3` for the requested names
 
     :param attr_names: sequence of str with attribute names, or single attribute name
-    :type attr_names: list[str] | str
+    :type attr_names: :py:obj:`list`\\[str] | :py:obj:`str`
 
     :returns: :class:`tango.AttributeConfig_3` for each requested attribute name
-    :rtype: list[:class:`tango.AttributeConfig_3`]
     """
     if is_pure_str(attr_names):
         attr_names = [attr_names]
@@ -1540,8 +1403,7 @@ def __init_DeviceImpl():
     DeviceImpl.push_alarm_event = __DeviceImpl__push_alarm_event
     DeviceImpl.push_archive_event = __DeviceImpl__push_archive_event
     DeviceImpl.push_event = __DeviceImpl__push_event
-    DeviceImpl.set_telemetry_enabled = __DeviceImpl__set_telemetry_enabled
-    DeviceImpl.set_kernel_tracing_enabled = __DeviceImpl__set_kernel_tracing_enabled
+    DeviceImpl._telemetry_reconfigured = __DeviceImpl___telemetry_reconfigured
     DeviceImpl.get_attribute_config = __DeviceImpl__get_attribute_config
     DeviceImpl.fill_attr_polling_buffer = __DeviceImpl__fill_attr_polling_buffer
     DeviceImpl.fill_cmd_polling_buffer = __DeviceImpl__fill_cmd_polling_buffer
@@ -1555,18 +1417,18 @@ def __init_Device_3Impl():
     Device_3Impl.get_attribute_config_3 = __Device_3Impl__get_attribute_config_3
 
 
-def __Logger__log(self, level, msg, *args):
+def __Logger__log(self, level: LevelLevel, msg: str, *args) -> None:
     """
-    log(self, level, msg, *args)
+    Sends the given message to the tango the selected stream.
 
-        Sends the given message to the tango the selected stream.
+    :param level: Log level
+    :type level: :py:obj:`~tango.LevelLevel`
 
-        :param level: Log level
-        :type level: Level.LevelLevel
-        :param msg: the message to be sent to the stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param msg: the message to be sent to the stream
+    :type msg: :py:obj:`str`
+
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1574,19 +1436,19 @@ def __Logger__log(self, level, msg, *args):
     self.__log(filename, line, level, msg)
 
 
-def __Logger__log_unconditionally(self, level, msg, *args):
+def __Logger__log_unconditionally(self, level: LevelLevel, msg: str, *args) -> None:
     """
-    log_unconditionally(self, level, msg, *args)
+    Sends the given message to the tango the selected stream,
+    without checking the level.
 
-        Sends the given message to the tango the selected stream,
-        without checking the level.
+    :param level: Log level
+    :type level: :py:obj:`~tango.LevelLevel`
 
-        :param level: Log level
-        :type level: Level.LevelLevel
-        :param msg: the message to be sent to the stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param msg: the message to be sent to the stream
+    :type msg: :py:obj:`str`
+
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1594,16 +1456,15 @@ def __Logger__log_unconditionally(self, level, msg, *args):
     self.__log_unconditionally(filename, line, level, msg)
 
 
-def __Logger__debug(self, msg, *args):
+def __Logger__debug(self, msg: str, *args) -> None:
     """
-    debug(self, msg, *args)
+    Sends the given message to the tango debug stream.
 
-        Sends the given message to the tango debug stream.
+    :param msg: the message to be sent to the debug stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the debug stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1611,16 +1472,15 @@ def __Logger__debug(self, msg, *args):
     self.__debug(filename, line, msg)
 
 
-def __Logger__info(self, msg, *args):
+def __Logger__info(self, msg: str, *args) -> None:
     """
-    info(self, msg, *args)
+    Sends the given message to the tango info stream.
 
-        Sends the given message to the tango info stream.
+    :param msg: the message to be sent to the info stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the info stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1628,16 +1488,15 @@ def __Logger__info(self, msg, *args):
     self.__info(filename, line, msg)
 
 
-def __Logger__warn(self, msg, *args):
+def __Logger__warn(self, msg: str, *args) -> None:
     """
-    warn(self, msg, *args)
+    Sends the given message to the tango warn stream.
 
-        Sends the given message to the tango warn stream.
+    :param msg: the message to be sent to the warn stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the warn stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1645,16 +1504,15 @@ def __Logger__warn(self, msg, *args):
     self.__warn(filename, line, msg)
 
 
-def __Logger__error(self, msg, *args):
+def __Logger__error(self, msg: str, *args) -> None:
     """
-    error(self, msg, *args)
+    Sends the given message to the tango error stream.
 
-        Sends the given message to the tango error stream.
+    :param msg: the message to be sent to the error stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the error stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1662,16 +1520,15 @@ def __Logger__error(self, msg, *args):
     self.__error(filename, line, msg)
 
 
-def __Logger__fatal(self, msg, *args):
+def __Logger__fatal(self, msg: str, *args) -> None:
     """
-    fatal(self, msg, *args)
+    Sends the given message to the tango fatal stream.
 
-        Sends the given message to the tango fatal stream.
+    :param msg: the message to be sent to the fatal stream
+    :type msg: :py:obj:`str`
 
-        :param msg: the message to be sent to the fatal stream
-        :type msg: str
-        :param args: list of optional message arguments
-        :type args: Sequence[str]
+    :param args: list of optional message arguments
+    :type args: :py:obj:list\\[:py:obj:`str`]
     """
     filename, line = get_source_location()
     if args:
@@ -1679,16 +1536,14 @@ def __Logger__fatal(self, msg, *args):
     self.__fatal(filename, line, msg)
 
 
-def __UserDefaultAttrProp_set_enum_labels(self, enum_labels):
+def __UserDefaultAttrProp_set_enum_labels(self, enum_labels: list[str]):
     """
-    set_enum_labels(self, enum_labels)
+    Set default enumeration labels.
 
-        Set default enumeration labels.
+    :param enum_labels: list of enumeration labels
+    :type enum_labels: :py:obj:list\\[:py:obj:`str`]
 
-        :param enum_labels: list of enumeration labels
-        :type enum_labels: Sequence[str]
-
-        New in PyTango 9.2.0
+    .. versionadded:: 9.2.0
     """
     elbls = StdStringVector()
     for enu in enum_labels:

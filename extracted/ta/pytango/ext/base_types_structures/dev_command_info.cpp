@@ -8,21 +8,21 @@
 #include "convertors/type_casters.h"
 
 void export_dev_command_info(py::module &m) {
-    typedef Tango::CmdArgType Tango::_DevCommandInfo::*MemCmdArgType;
+    typedef Tango::CmdArgType Tango::DevCommandInfo::*MemCmdArgType;
 
     py::class_<Tango::DevCommandInfo>(m,
                                       "DevCommandInfo",
                                       R"doc(
     A device command info with the following members:
 
-        - cmd_name : (str) command name
-        - cmd_tag : command as binary value (for TACO)
-        - in_type : (CmdArgType) input type
-        - out_type : (CmdArgType) output type
-        - in_type_desc : (str) description of input type
-        - out_type_desc : (str) description of output type
+    - cmd_name : (str) command name
+    - cmd_tag : command as binary value (for TACO)
+    - in_type : (CmdArgType) input type
+    - out_type : (CmdArgType) output type
+    - in_type_desc : (str) description of input type
+    - out_type_desc : (str) description of output type
 
-    New in PyTango 7.0.0
+    .. versionadded:: 7.0.0
 )doc")
         .def(py::init<>())
         .def_readonly("cmd_name", &Tango::DevCommandInfo::cmd_name)

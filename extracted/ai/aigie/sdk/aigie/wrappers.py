@@ -449,9 +449,23 @@ class OpenAIWrapper:
                         kwargs.update(interception_ctx.modified_kwargs)
                         model = kwargs.get("model", model)
 
-                except ImportError:
-                    # Interception modules not available
-                    pass
+                except Exception as intercept_error:
+                    # Intentional blocks must propagate; everything else fails
+                    # open — an SDK-internal interception bug must never
+                    # prevent the customer's LLM call.
+                    try:
+                        from .interceptor.protocols import InterceptionBlockedError
+
+                        if isinstance(intercept_error, InterceptionBlockedError):
+                            raise
+                    except ImportError:
+                        pass
+                    logger.warning(
+                        "[wrapper] Pre-call interception failed (%s); "
+                        "proceeding with original request",
+                        intercept_error,
+                    )
+                    interception_ctx = None
 
             # ==================== CALL OPENAI ====================
             response = await func(*args, **kwargs)
@@ -543,8 +557,22 @@ class OpenAIWrapper:
                         }
                         run_ctx.metadata["interception_modified"] = True
 
-                except ImportError:
-                    pass
+                except Exception as intercept_error:
+                    # Intentional retry requests must propagate to the retry
+                    # handler below; everything else fails open — an
+                    # SDK-internal interception bug must never destroy the
+                    # customer's successful LLM response.
+                    try:
+                        from .interceptor.protocols import InterceptionRetryError
+
+                        if isinstance(intercept_error, InterceptionRetryError):
+                            raise
+                    except ImportError:
+                        pass
+                    logger.warning(
+                        "[wrapper] Post-call interception failed (%s); returning original response",
+                        intercept_error,
+                    )
 
             return response
 
@@ -781,7 +809,7 @@ class OpenAIWrapper:
 
             # Calculate streaming metrics
             streaming_metrics = {}
-            if first_chunk_time and last_chunk_time:
+            if first_chunk_time and last_chunk_time and run_ctx.start_time:
                 time_to_first_token_ms = (first_chunk_time - run_ctx.start_time.timestamp()) * 1000
                 streaming_duration_ms = (last_chunk_time - first_chunk_time) * 1000
                 streaming_metrics["time_to_first_token_ms"] = time_to_first_token_ms
@@ -880,7 +908,7 @@ class OpenAIWrapper:
 
             # Calculate streaming metrics (same as async version)
             streaming_metrics = {}
-            if first_chunk_time and last_chunk_time:
+            if first_chunk_time and last_chunk_time and run_ctx.start_time:
                 time_to_first_token_ms = (first_chunk_time - run_ctx.start_time.timestamp()) * 1000
                 streaming_duration_ms = (last_chunk_time - first_chunk_time) * 1000
                 streaming_metrics["time_to_first_token_ms"] = time_to_first_token_ms

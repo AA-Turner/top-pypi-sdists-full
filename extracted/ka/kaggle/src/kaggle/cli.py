@@ -62,6 +62,7 @@ def main() -> None:
     parse_benchmarks(subparsers)
     parse_config(subparsers)
     parse_auth(subparsers)
+    parse_quota(subparsers)
     args = parser.parse_args()
     command_args = {}
     command_args.update(vars(args))
@@ -303,6 +304,27 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_leaderboard._action_groups.append(parser_competitions_leaderboard_optional)
     parser_competitions_leaderboard.set_defaults(func=api.competition_leaderboard_cli)
+
+    # Competitions list team public submissions
+    parser_competitions_team_submissions = subparsers_competitions.add_parser(
+        "team-submissions",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_team_submissions,
+    )
+    parser_competitions_team_submissions_optional = parser_competitions_team_submissions._action_groups.pop()
+    parser_competitions_team_submissions_optional.add_argument(
+        "team_id",
+        type=int,
+        help='Team ID (find these with "kaggle competitions leaderboard <competition> --show")',
+    )
+    parser_competitions_team_submissions_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_team_submissions_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_team_submissions._action_groups.append(parser_competitions_team_submissions_optional)
+    parser_competitions_team_submissions.set_defaults(func=api.competition_team_submissions_cli)
 
     # Competitions list episodes
     parser_competitions_episodes = subparsers_competitions.add_parser(
@@ -1713,6 +1735,12 @@ def parse_auth(subparsers) -> None:
     parser_auth_revoke_token.set_defaults(func=api.auth_revoke_token)
 
 
+def parse_quota(subparsers) -> None:
+    parser_quota = subparsers.add_parser("quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_quota)
+    parser_quota.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    parser_quota.set_defaults(func=api.quota_view_cli)
+
+
 # ------------------------------------------------------------------
 # Shared helpers for discussion topics across entity types
 # ------------------------------------------------------------------
@@ -1825,6 +1853,7 @@ class Help(object):
         "b",
         "config",
         "auth",
+        "quota",
     ]
     competitions_choices = [
         "list",
@@ -1833,6 +1862,7 @@ class Help(object):
         "submit",
         "submissions",
         "leaderboard",
+        "team-submissions",
         "episodes",
         "replay",
         "logs",
@@ -1924,6 +1954,7 @@ class Help(object):
         + "}"
     )
     kaggle += "\nauth {" + ", ".join(auth_choices) + "}"
+    kaggle += "\nquota"
 
     group_competitions = "Commands related to Kaggle competitions"
     group_datasets = "Commands related to Kaggle datasets"
@@ -1937,6 +1968,7 @@ class Help(object):
     group_benchmarks_tasks = "Commands related to benchmark tasks"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
+    group_quota = "Show the current user's weekly GPU and TPU accelerator quota"
 
     # Entity topics commands (shared across entity types)
     command_entity_topics_show = "Display a topic with all its comments in tree form"
@@ -1948,6 +1980,7 @@ class Help(object):
     command_competitions_submit = "Make a new competition submission"
     command_competitions_submissions = "Show your competition submissions"
     command_competitions_leaderboard = "Get competition leaderboard information"
+    command_competitions_team_submissions = "List a team's public submissions (every active submission for simulation competitions, or the public leaderboard submission for regular competitions)"
     command_competitions_episodes = "List episodes for a submission in a simulation competition"
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
@@ -2137,7 +2170,11 @@ class Help(object):
     param_dataset_minsize = "Specify the minimum size of the dataset to return (bytes)"
 
     # Kernels params
-    param_kernel = 'Kernel URL suffix in format <owner>/<kernel-name> (use "kaggle ' 'kernels list" to show options)'
+    param_kernel = (
+        'Kernel URL suffix in format <owner>/<kernel-name> or <owner>/<kernel-name>/<version> (use "kaggle '
+        'kernels list" to show options)'
+    )
+
     param_kernel_init = (
         "Create a metadata file for an existing kernel URL suffix in format "
         '<owner>/<kernel-name> (use "kaggle kernels list" to show options)'

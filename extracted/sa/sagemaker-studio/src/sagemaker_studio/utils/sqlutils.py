@@ -80,7 +80,9 @@ def _get_or_create_connection(
             return cached
 
     # Create new engine
-    engine = _get_engine_from_connection(dz_conn, **kwargs)
+    engine = _get_engine_from_connection(
+        dz_conn, connection_id=connection_id, connection_name=connection_name, **kwargs
+    )
 
     if not engine:
         return None
@@ -346,33 +348,17 @@ def get_engine(
     if provided_params > 1:
         raise ValueError("Only one of connection_id or connection_name should be provided")
 
-    project = _ensure_project()
-    if not project:
-        raise RuntimeError("Project is not initialized.")
+    conn = _resolve_connection(connection_id, connection_name)
+    return _get_engine_from_connection(
+        conn, connection_id=connection_id, connection_name=connection_name, **kwargs
+    )
 
-    # Helper to get connection by id or name
-    def get_connection():
-        if connection_name:
-            return project.connection(connection_name)
-        else:
-            return project.connection(id=connection_id)
 
-    # Get initial connection for config
-    connection = get_connection()
+def _create_credential_provider(credential_getter):
+    """Factory that creates a credential provider from a getter function."""
 
-    sql_executor = _ensure_sql_executor()
-
-    if connection.type not in sql_executor.get_supported_connection_types():
-        raise RuntimeError(
-            f"SQL is not supported for connection type {connection.type}. Supported types are {', '.join(sql_executor.get_supported_connection_types())}."
-        )
-
-    sql_helper = HelperFactory.get_sql_helper(connection.type)
-
-    # Pass credential provider that fetches fresh connection
     def credential_provider():
-        """Fetch fresh credentials by re-fetching connection"""
-        creds = get_connection().connection_creds
+        creds = credential_getter()
         expiry = creds.expiration
 
         if not expiry:
@@ -386,11 +372,7 @@ def get_engine(
             "expiration": expiry.isoformat(),
         }
 
-    kwargs["credential_provider"] = credential_provider
-
-    connection_config = sql_helper.to_sql_config(connection, **kwargs)
-
-    return sql_executor.create_engine(connection.type, connection_config)
+    return credential_provider
 
 
 def _resolve_connection(connection_id: str, connection_name: str):
@@ -405,7 +387,12 @@ def _resolve_connection(connection_id: str, connection_name: str):
     return project.connection(id=connection_id)
 
 
-def _get_engine_from_connection(conn: Connection, **kwargs):
+def _get_engine_from_connection(
+    conn: Connection,
+    connection_id: Optional[str] = None,
+    connection_name: Optional[str] = None,
+    **kwargs,
+):
     """Create a SQL engine from an already-resolved connection. Returns None if conn is None."""
     if conn is None:
         return None
@@ -419,24 +406,18 @@ def _get_engine_from_connection(conn: Connection, **kwargs):
 
     sql_helper = HelperFactory.get_sql_helper(conn.type)
 
-    # Pass credential provider that fetches fresh connection
-    def credential_provider():
-        """Fetch fresh credentials by re-fetching connection"""
-        creds = conn.connection_creds
-        expiry = creds.expiration
+    # Create credential provider that refreshes credentials
+    if connection_id or connection_name:
+        # Re-fetch connection for fresh credentials
+        def credential_getter():
+            return _resolve_connection(connection_id, connection_name).connection_creds
 
-        if not expiry:
-            # Default to 15 min from now if no expiry provided
-            expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+    else:
+        # Fall back to cached credentials when identifiers not available
+        def credential_getter():
+            return conn.connection_creds
 
-        return {
-            "access_key_id": creds.access_key_id,
-            "secret_access_key": creds.secret_access_key,
-            "session_token": creds.session_token,
-            "expiration": expiry.isoformat(),
-        }
-
-    kwargs["credential_provider"] = credential_provider
+    kwargs["credential_provider"] = _create_credential_provider(credential_getter)
 
     connection_config = sql_helper.to_sql_config(conn, **kwargs)
 

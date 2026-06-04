@@ -21,6 +21,9 @@ from abstra_internals.contracts_generated import (
     CloudApiCliModelsNfseResponse as NfseResponse,
 )
 from abstra_internals.contracts_generated import (
+    CloudApiCliModelsOficiosResponse as OficiosResponse,
+)
+from abstra_internals.contracts_generated import (
     CloudApiCliModelsUsDriverLicenseResponse as UsDriverLicenseResponse,
 )
 from abstra_internals.contracts_generated import (
@@ -33,6 +36,7 @@ from abstra_internals.interface.sdk.ai import (
     parse_invoice,
     parse_nfe,
     parse_nfse,
+    parse_oficios,
     parse_us_driver_license,
     parse_us_passport,
     prompt,
@@ -46,6 +50,7 @@ __all__ = [
     "parse_invoice",
     "parse_nfe",
     "parse_nfse",
+    "parse_oficios",
     "parse_us_driver_license",
     "parse_us_passport",
     "prompt",
@@ -64,6 +69,7 @@ __all__ = [
     "InvoiceResponse",
     "NfeResponse",
     "NfseResponse",
+    "OficiosResponse",
     "UsDriverLicenseResponse",
     "UsPassportResponse",
 ]

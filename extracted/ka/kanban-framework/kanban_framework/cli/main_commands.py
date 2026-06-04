@@ -128,14 +128,11 @@ def _cmd_help(args: list[str], cmd_map: dict) -> dict:
     return {"commands": sorted(cmd_map.keys())}
 
 
-_STABLE_VERSION = "0.123.0"
-
 def _cmd_update(args: list[str]) -> dict:
     """Upgrade kanban-framework and sync skill files.
 
     Channels:
-      --channel stable (default) → v0.115.0
-      --channel latest           → latest PyPI version
+      --channel stable (default) → latest stable PyPI version
       --channel dev              → latest pre-release
     """
     import subprocess as _sp
@@ -184,7 +181,7 @@ def _cmd_update(args: list[str]) -> dict:
     if target:
         cmd = [sys.executable, "-m", "pip", "install", f"kanban-framework=={target}"]
     elif channel == "stable":
-        cmd = [sys.executable, "-m", "pip", "install", f"kanban-framework=={_STABLE_VERSION}"]
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "kanban-framework"]
     elif use_pre:
         cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--pre", "kanban-framework"]
     else:

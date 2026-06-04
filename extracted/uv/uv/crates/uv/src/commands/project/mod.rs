@@ -405,11 +405,11 @@ impl uv_errors::Hint for ProjectError {
 #[derive(Debug)]
 pub(crate) struct ConflictError {
     /// The set from which the conflict was derived.
-    pub(crate) set: ConflictSet,
+    set: ConflictSet,
     /// The items from the set that were enabled, and thus create the conflict.
-    pub(crate) conflicts: Vec<ConflictItem>,
+    conflicts: Vec<ConflictItem>,
     /// Enabled dependency groups with defaults applied.
-    pub(crate) groups: DependencyGroupsWithDefaults,
+    groups: DependencyGroupsWithDefaults,
 }
 
 impl std::fmt::Display for ConflictError {
@@ -534,12 +534,12 @@ impl std::ops::Deref for PlatformState {
 
 impl PlatformState {
     /// Fork the [`PlatformState`] to create a [`UniversalState`].
-    pub(crate) fn fork(&self) -> UniversalState {
+    fn fork(&self) -> UniversalState {
         UniversalState(self.0.fork())
     }
 
     /// Create a [`SharedState`] from the [`PlatformState`].
-    pub(crate) fn into_inner(self) -> SharedState {
+    fn into_inner(self) -> SharedState {
         self.0
     }
 }
@@ -690,7 +690,7 @@ impl ScriptInterpreter {
     /// If `--active` is set, the active virtual environment will be preferred.
     ///
     /// See: [`Workspace::venv`].
-    pub(crate) fn root(script: Pep723ItemRef<'_>, active: Option<bool>, cache: &Cache) -> PathBuf {
+    fn root(script: Pep723ItemRef<'_>, active: Option<bool>, cache: &Cache) -> PathBuf {
         /// Resolve the `VIRTUAL_ENV` variable, if any.
         fn from_virtual_env_variable() -> Option<PathBuf> {
             let value = std::env::var_os(EnvVars::VIRTUAL_ENV)?;
@@ -783,7 +783,6 @@ impl ScriptInterpreter {
         active: Option<bool>,
         cache: &Cache,
         printer: Printer,
-        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // For now, we assume that scripts are never evaluated in the context of a workspace.
         let workspace = None;
@@ -837,7 +836,6 @@ impl ScriptInterpreter {
             install_mirrors.python_install_mirror.as_deref(),
             install_mirrors.pypy_install_mirror.as_deref(),
             install_mirrors.python_downloads_json_url.as_deref(),
-            preview,
         )
         .await?
         .into_interpreter();
@@ -864,7 +862,7 @@ impl ScriptInterpreter {
     }
 
     /// Consume the [`PythonInstallation`] and return the [`Interpreter`].
-    pub(crate) fn into_interpreter(self) -> Interpreter {
+    fn into_interpreter(self) -> Interpreter {
         match self {
             Self::Interpreter(interpreter) => interpreter,
             Self::Environment(venv) => venv.into_interpreter(),
@@ -872,7 +870,7 @@ impl ScriptInterpreter {
     }
 
     /// Grab a file lock for the script to prevent concurrent writes across processes.
-    pub(crate) async fn lock(script: Pep723ItemRef<'_>) -> Result<LockedFile, LockedFileError> {
+    async fn lock(script: Pep723ItemRef<'_>) -> Result<LockedFile, LockedFileError> {
         match script {
             Pep723ItemRef::Script(script) => {
                 LockedFile::acquire(
@@ -903,7 +901,7 @@ impl ScriptInterpreter {
 }
 
 #[derive(Debug)]
-pub(crate) enum EnvironmentKind {
+enum EnvironmentKind {
     Script,
     Project,
 }
@@ -918,7 +916,7 @@ impl std::fmt::Display for EnvironmentKind {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum EnvironmentIncompatibilityError {
+enum EnvironmentIncompatibilityError {
     #[error("The {0} environment's Python version does not satisfy the request: `{1}`")]
     PythonRequest(EnvironmentKind, PythonRequest),
 
@@ -1017,7 +1015,6 @@ impl ProjectInterpreter {
         active: Option<bool>,
         cache: &Cache,
         printer: Printer,
-        preview: Preview,
     ) -> Result<Self, ProjectError> {
         let WorkspacePython {
             source,
@@ -1117,7 +1114,6 @@ impl ProjectInterpreter {
             install_mirrors.python_install_mirror.as_deref(),
             install_mirrors.pypy_install_mirror.as_deref(),
             install_mirrors.python_downloads_json_url.as_deref(),
-            preview,
         )
         .await?;
 
@@ -1166,7 +1162,7 @@ impl ProjectInterpreter {
     }
 
     /// Grab a file lock for the environment to prevent concurrent writes across processes.
-    pub(crate) async fn lock(workspace: &Workspace) -> Result<LockedFile, LockedFileError> {
+    async fn lock(workspace: &Workspace) -> Result<LockedFile, LockedFileError> {
         LockedFile::acquire(
             std::env::temp_dir().join(format!(
                 "uv-{}.lock",
@@ -1181,7 +1177,7 @@ impl ProjectInterpreter {
 
 /// The source of a `Requires-Python` specifier.
 #[derive(Debug, Clone)]
-pub(crate) enum RequiresPythonSource {
+enum RequiresPythonSource {
     /// From the PEP 723 inline script metadata.
     Script,
     /// From a `pyproject.toml` in a workspace.
@@ -1294,21 +1290,21 @@ impl WorkspacePython {
 
 /// The resolved Python request and requirement for a [`Pep723Script`]
 #[derive(Debug, Clone)]
-pub(crate) struct ScriptPython {
+struct ScriptPython {
     /// The source of the Python request.
-    pub(crate) source: PythonRequestSource,
+    source: PythonRequestSource,
     /// The resolved Python request, computed by considering (1) any explicit request from the user
     /// via `--python`, (2) any implicit request from the user via `.python-version`, (3) any
     /// `Requires-Python` specifier in the script metadata, and (4) any `Requires-Python` specifier
     /// in the `pyproject.toml`.
-    pub(crate) python_request: Option<PythonRequest>,
+    python_request: Option<PythonRequest>,
     /// The resolved Python requirement for the script and its source.
-    pub(crate) requires_python: Option<(RequiresPython, RequiresPythonSource)>,
+    requires_python: Option<(RequiresPython, RequiresPythonSource)>,
 }
 
 impl ScriptPython {
     /// Determine the [`ScriptPython`] for the current [`Pep723Script`].
-    pub(crate) async fn from_request(
+    async fn from_request(
         python_request: Option<PythonRequest>,
         workspace: Option<&Workspace>,
         script: Pep723ItemRef<'_>,
@@ -1444,7 +1440,6 @@ impl ProjectEnvironment {
         cache: &Cache,
         dry_run: DryRun,
         printer: Printer,
-        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // Lock the project environment to avoid synchronization issues.
         let _lock = ProjectInterpreter::lock(workspace)
@@ -1480,7 +1475,6 @@ impl ProjectEnvironment {
             active,
             cache,
             printer,
-            preview,
         )
         .await?
         {
@@ -1608,7 +1602,7 @@ impl ProjectEnvironment {
     ///
     /// Returns an error if the environment was created in `--dry-run` mode, as dropping the
     /// associated temporary directory could lead to errors downstream.
-    pub(crate) fn into_environment(self) -> Result<PythonEnvironment, ProjectError> {
+    fn into_environment(self) -> Result<PythonEnvironment, ProjectError> {
         match self {
             Self::Existing(environment) => Ok(environment),
             Self::Replaced(environment) => Ok(environment),
@@ -1619,7 +1613,7 @@ impl ProjectEnvironment {
     }
 
     /// Return the path to the actual target, if this was a dry run environment.
-    pub(crate) fn dry_run_target(&self) -> Option<&Path> {
+    fn dry_run_target(&self) -> Option<&Path> {
         match self {
             Self::WouldReplace(path, _, _) | Self::WouldCreate(path, _, _) => Some(path),
             Self::Created(_) | Self::Existing(_) | Self::Replaced(_) => None,
@@ -1670,7 +1664,7 @@ enum ScriptEnvironment {
 
 impl ScriptEnvironment {
     /// Initialize a virtual environment for a PEP 723 script.
-    pub(crate) async fn get_or_init(
+    async fn get_or_init(
         script: Pep723ItemRef<'_>,
         python_request: Option<PythonRequest>,
         client_builder: &BaseClientBuilder<'_>,
@@ -1683,7 +1677,6 @@ impl ScriptEnvironment {
         cache: &Cache,
         dry_run: DryRun,
         printer: Printer,
-        preview: Preview,
     ) -> Result<Self, ProjectError> {
         // Lock the script environment to avoid synchronization issues.
         let _lock = ScriptInterpreter::lock(script)
@@ -1709,7 +1702,6 @@ impl ScriptEnvironment {
             active,
             cache,
             printer,
-            preview,
         )
         .await?
         {
@@ -1797,7 +1789,7 @@ impl ScriptEnvironment {
     ///
     /// Returns an error if the environment was created in `--dry-run` mode, as dropping the
     /// associated temporary directory could lead to errors downstream.
-    pub(crate) fn into_environment(self) -> Result<PythonEnvironment, ProjectError> {
+    fn into_environment(self) -> Result<PythonEnvironment, ProjectError> {
         match self {
             Self::Existing(environment) => Ok(environment),
             Self::Replaced(environment) => Ok(environment),
@@ -1808,7 +1800,7 @@ impl ScriptEnvironment {
     }
 
     /// Return the path to the actual target, if this was a dry run environment.
-    pub(crate) fn dry_run_target(&self) -> Option<&Path> {
+    fn dry_run_target(&self) -> Option<&Path> {
         match self {
             Self::WouldReplace(path, _, _) | Self::WouldCreate(path, _, _) => Some(path),
             Self::Created(_) | Self::Existing(_) | Self::Replaced(_) => None,
@@ -2019,7 +2011,7 @@ impl From<RequirementsSpecification> for EnvironmentSpecification<'_> {
 impl<'lock> EnvironmentSpecification<'lock> {
     /// Set the [`PreferenceLocation`] for the specification.
     #[must_use]
-    pub(crate) fn with_preferences(self, preferences: PreferenceLocation<'lock>) -> Self {
+    fn with_preferences(self, preferences: PreferenceLocation<'lock>) -> Self {
         Self {
             preferences: Some(preferences),
             ..self
@@ -2691,7 +2683,6 @@ pub(crate) async fn init_script_python_requirement(
     client_builder: &BaseClientBuilder<'_>,
     cache: &Cache,
     reporter: &PythonDownloadReporter,
-    preview: Preview,
 ) -> anyhow::Result<RequiresPython> {
     let python_request = if let Some(request) = python {
         // (1) Explicit request from user
@@ -2723,7 +2714,6 @@ pub(crate) async fn init_script_python_requirement(
         install_mirrors.python_install_mirror.as_deref(),
         install_mirrors.pypy_install_mirror.as_deref(),
         install_mirrors.python_downloads_json_url.as_deref(),
-        preview,
     )
     .await?
     .into_interpreter();

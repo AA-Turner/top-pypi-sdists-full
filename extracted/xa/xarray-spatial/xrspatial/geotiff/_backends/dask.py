@@ -126,12 +126,16 @@ def read_geotiff_dask(source: str, *,
         ``InvalidIntegerNodataError`` at graph-build time. See
         ``open_geotiff`` for the full description.
     stable_only : bool, default False
-        [advanced] Read-side opt-in for stable-tier sources only.
-        Forwarded to ``read_vrt`` when the source ends in ``.vrt`` so
-        the rejection fires at graph-build time. Non-VRT sources on
-        this entry point already ride the stable ``reader.local_file``
-        path, so the flag is a no-op for them. See ``open_geotiff`` for
-        the full description.
+        [advanced] Read-side opt-in that restricts the read to the
+        stable-tier local-file path. Forwarded to ``read_vrt`` when the
+        source ends in ``.vrt`` so the rejection fires at graph-build
+        time. Advanced-tier sources (VRT, and HTTP / fsspec sources
+        such as ``http(s)://`` or ``s3://``) are rejected; only a
+        local-file source on the stable ``reader.local_file`` path is
+        accepted. The VRT rejection is enforced today; the HTTP /
+        fsspec rejection is the documented contract being rolled out
+        (tracked in issue #2820). See ``open_geotiff`` for the full
+        description.
     allow_experimental_codecs : bool, default False
         [advanced] Read-side opt-in for Tier 3 experimental codecs
         (``lerc``, ``jpeg2000`` / ``j2k``, ``lz4``). Fires at graph
@@ -222,6 +226,18 @@ def read_geotiff_dask(source: str, *,
             mask_nodata=mask_nodata,
             **vrt_kwargs,
         )
+
+    # ``open_geotiff`` gates ``stable_only=True`` for remote sources before
+    # dispatching here, but ``read_geotiff_dask`` is also a direct entry
+    # point. Apply the same gate so a direct caller cannot read an
+    # advanced-tier HTTP / fsspec source under ``stable_only=True``. The VRT
+    # branch above already forwards ``stable_only`` to ``read_vrt``.
+    from .._validation import _validate_stable_only_remote
+    _validate_stable_only_remote(
+        source,
+        stable_only=stable_only,
+        allow_experimental_codecs=allow_experimental_codecs,
+    )
 
     # HTTP COG sources used to fire one IFD/header GET per chunk
     # task. Parse metadata once here so every delayed task can reuse it.

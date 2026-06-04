@@ -14,7 +14,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use uv_fs::Simplified;
 use uv_static::EnvVars;
 
-use uv_test::{TestContext, download_to_disk, packse_index_url, uv_snapshot, venv_bin_path};
+use uv_test::{TestContext, download_to_disk, uv_snapshot, venv_bin_path};
 
 #[test]
 fn sync() -> Result<()> {
@@ -45,6 +45,95 @@ fn sync() -> Result<()> {
     ");
 
     assert!(context.temp_dir.child("uv.lock").exists());
+
+    Ok(())
+}
+
+/// Ensure that `uv sync` reuses remote wheels cached by `uv pip install`.
+#[test]
+fn sync_reuses_pip_install_wheel_cache() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0"]
+        "#,
+    )?;
+
+    // Create a lockfile with hashes, but populate the wheel cache via `uv pip install`.
+    context.lock().assert().success();
+    context
+        .pip_install()
+        .arg("iniconfig==2.0.0")
+        .assert()
+        .success();
+    fs_err::remove_dir_all(&context.venv)?;
+
+    uv_snapshot!(context.filters(), context.sync().arg("--offline"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    Creating virtual environment at: .venv
+    Resolved 2 packages in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
+
+    Ok(())
+}
+
+/// Ensure that `uv sync` reuses remote source distributions cached by `uv pip install`.
+#[test]
+fn sync_reuses_pip_install_sdist_cache() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0"]
+        "#,
+    )?;
+
+    // Create a lockfile with hashes, but populate the source distribution cache via `uv pip
+    // install`.
+    context.lock().assert().success();
+    context
+        .pip_install()
+        .arg("iniconfig==2.0.0")
+        .arg("--no-binary")
+        .arg("iniconfig")
+        .assert()
+        .success();
+    fs_err::remove_dir_all(&context.venv)?;
+
+    uv_snapshot!(context.filters(), context
+        .sync()
+        .arg("--offline")
+        .arg("--no-binary-package")
+        .arg("iniconfig"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    Creating virtual environment at: .venv
+    Resolved 2 packages in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
 
     Ok(())
 }
@@ -9932,7 +10021,6 @@ fn sync_all_extras() -> Result<()> {
 
     ----- stderr -----
     Resolved 8 packages in [TIME]
-    Prepared 1 package in [TIME]
     Uninstalled 2 packages in [TIME]
     Installed 1 package in [TIME]
      + packaging==24.0
@@ -10231,7 +10319,6 @@ fn sync_all_groups() -> Result<()> {
 
     ----- stderr -----
     Resolved 8 packages in [TIME]
-    Prepared 1 package in [TIME]
     Uninstalled 2 packages in [TIME]
     Installed 1 package in [TIME]
      + packaging==24.0
@@ -10617,7 +10704,7 @@ fn sync_stale_egg_info() -> Result<()> {
 
     ----- stderr -----
     Resolved 4 packages in [TIME]
-    Prepared 3 packages in [TIME]
+    Prepared 2 packages in [TIME]
     Installed 3 packages in [TIME]
      + member==0.1.dev5+gfea1041 (from git+https://github.com/astral-sh/uv-stale-egg-info-test.git@fea10416b9c479ac88fb217e14e40249b63bfbee#subdirectory=member)
      + root==0.1.dev5+gfea1041 (from git+https://github.com/astral-sh/uv-stale-egg-info-test.git@fea10416b9c479ac88fb217e14e40249b63bfbee)
@@ -13807,6 +13894,8 @@ fn direct_url_dependency_metadata() -> Result<()> {
 
 #[test]
 fn sync_required_environment_hint() -> Result<()> {
+    let server =
+        uv_test::packse::PackseServer::new("wheels/no-sdist-no-wheels-with-matching-platform.toml");
     let context = uv_test::test_context!("3.13");
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
@@ -13815,14 +13904,14 @@ fn sync_required_environment_hint() -> Result<()> {
         name = "example"
         version = "0.1.0"
         requires-python = ">=3.13"
-        dependencies = ["no-sdist-no-wheels-with-matching-platform-a"]
+        dependencies = ["a"]
 
         [[tool.uv.index]]
         name = "packse"
-        url = "{}"
+        url = "{index_url}"
         default = true
         "#,
-        packse_index_url()
+        index_url = server.index_url()
     })?;
 
     uv_snapshot!(context.filters(), context.lock().env_remove(EnvVars::UV_EXCLUDE_NEWER), @"
@@ -13851,9 +13940,9 @@ fn sync_required_environment_hint() -> Result<()> {
 
     ----- stderr -----
     Resolved 2 packages in [TIME]
-    error: Distribution `no-sdist-no-wheels-with-matching-platform-a==1.0.0 @ registry+https://astral-sh.github.io/packse/PACKSE_VERSION/simple-html/` can't be installed because it doesn't have a source distribution or wheel for the current platform
+    error: Distribution `a==1.0.0 @ registry+http://[LOCALHOST]/simple/` can't be installed because it doesn't have a source distribution or wheel for the current platform
 
-    hint: You're on [PLATFORM] (`[TAG]`), but `no-sdist-no-wheels-with-matching-platform-a` (v1.0.0) only has wheels for the following platform: `macosx_10_0_ppc64`; consider adding "sys_platform == '[PLATFORM]' and platform_machine == '[MACHINE]'" to `tool.uv.required-environments` to ensure uv resolves to a version with compatible wheels
+    hint: You're on [PLATFORM] (`[TAG]`), but `a` (v1.0.0) only has wheels for the following platform: `macosx_10_0_ppc64`; consider adding "sys_platform == '[PLATFORM]' and platform_machine == '[MACHINE]'" to `tool.uv.required-environments` to ensure uv resolves to a version with compatible wheels
     "#);
 
     Ok(())

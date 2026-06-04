@@ -22,19 +22,17 @@ void export_device_info(py::module &m) {
     py::class_<Tango::DeviceInfo>(m,
                                   "DeviceInfo",
                                   R"doc(
-A structure containing available information for a device with the"
-    following members:
+        A structure containing available information for a device with the following members:
 
         - dev_class : (str) device class
         - server_id : (str) server ID
         - server_host : (str) host name
         - server_version : (str) server version
         - doc_url : (str) document url
-        - version_info : (dict<str, str>) version info dict
+        - version_info : (dict[str, str]) version info dict
 
-    .. versionchanged:: 10.0.0
-        Added `version_info` field
-)doc")
+        .. versionchanged:: 10.0.0 Added `version_info` field
+        )doc")
         .def(py::init<>())
         .def_readonly("dev_class", &Tango::DeviceInfo::dev_class)
         .def_readonly("server_id", &Tango::DeviceInfo::server_id)

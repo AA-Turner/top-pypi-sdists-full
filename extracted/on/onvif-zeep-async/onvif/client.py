@@ -31,6 +31,7 @@ from .util import (
     normalize_url,
     obscure_user_pass_url,
     path_isfile,
+    replace_host_port,
     strip_user_pass_url,
     utcnow,
 )
@@ -121,6 +122,23 @@ _NO_VERIFY_SSL_CONTEXT = create_no_verify_ssl_context()
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+
+
+def _resolve_active_prefix(namespaces: dict[str, str], namespace: str) -> str:
+    """Return the prefix bound to *namespace* in *namespaces*.
+
+    Falls back to ``"ns0"`` when the namespace is not present or is bound to an
+    empty prefix. The single-pass ``next()`` form replaces an older
+    ``list(keys)[list(values).index(...)]`` lookup that built two parallel lists
+    and raised ``ValueError`` on a miss instead of using the documented fallback.
+    """
+    return (
+        next(
+            (prefix for prefix, uri in namespaces.items() if uri == namespace),
+            "",
+        )
+        or "ns0"
+    )
 
 
 def safe_func(func: Callable[_P, _R]) -> Callable[_P, _R]:
@@ -247,7 +265,7 @@ async def _cached_document(url: str) -> Document:
     """Load external XML document from disk."""
     if url in _DOCUMENT_CACHE:
         return _DOCUMENT_CACHE[url]
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _load_document() -> DocumentWithDeferredLoad:
         document = DocumentWithDeferredLoad(
@@ -329,18 +347,20 @@ class ONVIFService:
         PTZ Receiver RemoteDiscovery Recording Replay Search Extension
 
     >>> from onvif import ONVIFService
-    >>> device_service = ONVIFService('http://192.168.0.112/onvif/device_service',
-    ...                           'admin', 'foscam',
-    ...                           '/etc/onvif/wsdl/devicemgmt.wsdl')
-    >>> ret = device_service.GetHostname()
-    >>> print ret.FromDHCP
-    >>> print ret.Name
-    >>> device_service.SetHostname(dict(Name='newhostname'))
-    >>> ret = device_service.GetSystemDateAndTime()
-    >>> print ret.DaylightSavings
-    >>> print ret.TimeZone
+    >>> device_service = ONVIFService(
+    ...     'http://192.168.0.112/onvif/device_service',
+    ...     'admin', 'foscam',
+    ...     '/path/to/wsdl/devicemgmt.wsdl',
+    ... )
+    >>> ret = await device_service.GetHostname()
+    >>> print(ret.FromDHCP)
+    >>> print(ret.Name)
+    >>> await device_service.SetHostname(dict(Name='newhostname'))
+    >>> ret = await device_service.GetSystemDateAndTime()
+    >>> print(ret.DaylightSavings)
+    >>> print(ret.TimeZone)
     >>> dict_ret = device_service.to_dict(ret)
-    >>> print dict_ret['TimeZone']
+    >>> print(dict_ret['TimeZone'])
 
     There are two ways to pass parameter to services methods
     1. Dict
@@ -418,7 +438,6 @@ class ONVIFService:
         self.zeep_client: ZeepAsyncClient | None = None
         self.ws_client: AsyncServiceProxy | None = None
         self.create_type: Callable | None = None
-        self.loop = asyncio.get_event_loop()
 
     async def setup(self):
         """Setup the transport."""
@@ -448,12 +467,8 @@ class ONVIFService:
         )
         self.ws_client = self.zeep_client.create_service(binding_name, self.xaddr)
         namespace = binding_name[binding_name.find("{") + 1 : binding_name.find("}")]
-        available_ns = self.zeep_client.namespaces
-        active_ns = (
-            list(available_ns.keys())[list(available_ns.values()).index(namespace)]
-            or "ns0"
-        )
-        self.create_type = lambda x: self.zeep_client.get_element(active_ns + ":" + x)()
+        active_ns = _resolve_active_prefix(self.zeep_client.namespaces, namespace)
+        self.create_type = lambda x: self.zeep_client.get_element(f"{active_ns}:{x}")()
 
     async def close(self):
         """Close the transport."""
@@ -507,13 +522,14 @@ class ONVIFCamera:
 
     >>> from onvif import ONVIFCamera
     >>> mycam = ONVIFCamera('192.168.0.112', 80, 'admin', '12345')
-    >>> mycam.devicemgmt.GetServices(False)
+    >>> await mycam.update_xaddrs()
+    >>> await mycam.devicemgmt.GetServices(False)
     >>> media_service = mycam.create_media_service()
     >>> ptz_service = mycam.create_ptz_service()
     # Get PTZ Configuration:
-    >>> mycam.ptz.GetConfiguration()
+    >>> await mycam.ptz.GetConfiguration()
     # Another way:
-    >>> ptz_service.GetConfiguration()
+    >>> await ptz_service.GetConfiguration()
     """
 
     def __init__(
@@ -526,6 +542,7 @@ class ONVIFCamera:
         encrypt=True,
         no_cache=False,
         adjust_time=False,
+        nat_override: bool = False,
     ) -> None:
         os.environ.pop("http_proxy", None)
         os.environ.pop("https_proxy", None)
@@ -537,6 +554,17 @@ class ONVIFCamera:
         self.encrypt = encrypt
         self.no_cache = no_cache
         self.adjust_time = adjust_time
+        # When True, URLs the device returns (XAddrs, subscription addresses,
+        # snapshot URI) have their host:port rewritten to the host:port passed
+        # to this constructor. Required for cameras behind NAT, which advertise
+        # their LAN address in responses -- unreachable from outside the NAT.
+        #
+        # Assumes a single port-forward to the device: every advertised URL is
+        # forced to the constructor host:port, so a camera that serves services
+        # on separately-forwarded ports gets the wrong port for the others.
+        # RTSP stream URIs (GetStreamUri on the media service) are not covered;
+        # a NAT caller fetching the stream URI still gets the LAN address.
+        self.nat_override = nat_override
         self.dt_diff = None
         self.xaddrs = {}
         self._has_broken_relative_timestamps: bool = False
@@ -550,6 +578,19 @@ class ONVIFCamera:
         self._snapshot_uris = {}
         self._snapshot_connector = TCPConnector(ssl=_NO_VERIFY_SSL_CONTEXT)
         self._snapshot_client = ClientSession(connector=self._snapshot_connector)
+
+    def rewrite_url(self, url: str | None) -> str | None:
+        """Rewrite ``url`` to use this camera's host:port when nat_override is set.
+
+        No-op when ``nat_override`` is disabled (default), so existing callers
+        that connect on the LAN keep the device-advertised URL verbatim.
+
+        Public because ``managers.py`` calls it across the class boundary to
+        rewrite subscription reference addresses.
+        """
+        if not self.nat_override:
+            return url
+        return replace_host_port(url, self.host, self.port)
 
     async def get_capabilities(self) -> dict[str, Any] | None:
         """Get device capabilities.
@@ -684,7 +725,7 @@ class ONVIFCamera:
                 )
                 continue
             if namespace and xaddr:
-                self.xaddrs[namespace] = normalize_url(xaddr)
+                self.xaddrs[namespace] = self.rewrite_url(normalize_url(xaddr))
                 found = True
         return found
 
@@ -704,7 +745,9 @@ class ONVIFCamera:
             try:
                 if name.lower() in SERVICES and capability is not None:
                     namespace = SERVICES[name.lower()]["ns"]
-                    self.xaddrs[namespace] = normalize_url(capability["XAddr"])
+                    self.xaddrs[namespace] = self.rewrite_url(
+                        normalize_url(capability["XAddr"])
+                    )
             except (KeyError, TypeError, AttributeError) as err:
                 # Narrow to the parse-error shapes a malformed capability
                 # entry can produce (missing XAddr, non-string key, non-dict
@@ -831,7 +874,7 @@ class ONVIFCamera:
                 )
             else:
                 try:
-                    uri = normalize_url(result.Uri)
+                    uri = self.rewrite_url(normalize_url(result.Uri))
                 except (AttributeError, KeyError):
                     # AttributeError is raised when result.Uri is missing
                     # https://github.com/home-assistant/core/issues/135494

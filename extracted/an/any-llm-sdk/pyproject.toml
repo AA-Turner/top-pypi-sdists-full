@@ -7,7 +7,7 @@ name = "any-llm-sdk"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-version = "1.15.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
+version = "1.16.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
 dependencies = [
   "pydantic>2,<3",
   "openai>=1.99.3",
@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 
 all = [
-  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,groq,bedrock,azure,azureanthropic,azureopenai,watsonx,together,sambanova,ollama,moonshot,nebius,xai,databricks,deepseek,inception,openai,openrouter,portkey,qiniu,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,gateway,zai,minimax,mzai,vllm,dashscope,deepinfra]"
+  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,groq,bedrock,azure,azureanthropic,azureopenai,watsonx,together,sambanova,ollama,moonshot,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,gateway,github,zai,minimax,mzai,vllm,dashscope,deepinfra]"
 ]
 
 platform = [
@@ -40,10 +40,12 @@ anthropic = []
 
 gemini = [
   "google-genai",
+  "google-cloud-storage",
 ]
 
 vertexai = [
   "google-genai",
+  "google-cloud-storage",
 ]
 
 vertexaianthropic = [
@@ -108,7 +110,13 @@ azureopenai = []
 databricks = []
 deepseek = []
 fireworks = []
-gateway = []
+gateway = [
+  "otari>=0.0.1",
+]
+otari = [
+  "otari>=0.0.1",
+]
+github = []
 inception = []
 llama = []
 llamacpp = []

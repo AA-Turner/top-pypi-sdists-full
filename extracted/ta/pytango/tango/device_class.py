@@ -5,27 +5,42 @@
 This is an internal PyTango module.
 """
 
-
 __all__ = ("DeviceClass", "device_class_init")
 
 __docformat__ = "restructuredtext"
 
 import collections.abc
+from collections.abc import Callable
+from typing import Any
 
 from tango._tango import (
-    Except,
+    CmdArgType,
     DevFailed,
     DeviceClass,
-    CmdArgType,
     DispLevel,
+    Except,
     UserDefaultAttrProp,
 )
-from tango.pyutil import Util
-
-from tango.utils import is_pure_str, is_non_str_seq, seqStr_2_obj, obj_2_str, is_array
-
-from tango.globals import get_class, get_class_by_class, get_constructed_class_by_class
 from tango.attr_data import AttrData
+from tango.globals import get_class, get_class_by_class, get_constructed_class_by_class
+from tango.pyutil import Util
+from tango.utils import is_array, is_non_str_seq, is_pure_str, obj_2_str, seqStr_2_obj
+
+
+def _seqStr_2_obj_with_context(argin, argout_type, where, prop_name):
+    """Wraps seqStr_2_obj with property/owner context for clearer error messages.
+
+    :param where: short description of where the property lives, e.g.
+                  ``"device 'sys/dev/1'"`` or ``"class 'MyDeviceClass'"``;
+                  ``None`` when no owner is available.
+    """
+    try:
+        return seqStr_2_obj(argin, argout_type)
+    except Exception as e:
+        context = f" of {where}" if where else ""
+        raise ValueError(
+            f"Failed to convert property '{prop_name}'{context} (value={argin!r}) to type {argout_type}: {e}"
+        ) from e
 
 
 class PropUtil:
@@ -70,73 +85,70 @@ class PropUtil:
 
     def set_default_property_values(self, dev_class, class_prop, dev_prop):
         """
-        set_default_property_values(self, dev_class, class_prop, dev_prop) -> None
+        Sets the default property values
 
-            Sets the default property values
+        :param dev_class: the device class
+        :type dev_class: :obj:`~tango.DeviceClass`
 
-        Parameters :
-            - dev_class : (DeviceClass) device class object
-            - class_prop : (dict<str,>) class properties
-            - dev_prop : (dict<str,>) device properties
+        :param class_prop: the class property
+        :type class_prop: :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
 
-        Return     : None
+        :param dev_prop: the device property
+        :type dev_prop: :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
         """
         for name in class_prop:
             type = self.get_property_type(name, class_prop)
             val = self.get_property_values(name, class_prop)
-            val = self.values2string(val, type)
+            val = obj_2_str(val, type)
             desc = self.get_property_description(name, class_prop)
             dev_class.add_wiz_class_prop(name, desc, val)
 
         for name in dev_prop:
             type = self.get_property_type(name, dev_prop)
             val = self.get_property_values(name, dev_prop)
-            val = self.values2string(val, type)
+            val = obj_2_str(val, type)
             desc = self.get_property_description(name, dev_prop)
             dev_class.add_wiz_dev_prop(name, desc, val)
 
     def get_class_properties(self, dev_class, class_prop):
         """
-        get_class_properties(self, dev_class, class_prop) -> None
+        Returns the class properties
 
-                Returns the class properties
+        :param dev_class: the device class
+        :type dev_class: :obj:`~tango.DeviceClass`
 
-            Parameters :
-                - dev_class : (DeviceClass) the DeviceClass object
-                - class_prop : [in, out] (dict<str, None>) the property names. Will be filled
-                               with property values
-
-            Return     : None"""
+        :param class_prop: [in, out] the property names. Will be filled with property values
+        :type class_prop: :py:obj:`dict`\\[:py:obj:`str`, None]
+        """
         # initialize default values
         if class_prop == {} or not Util._UseDb:
             return
 
         # call database to get properties
-        props = self.db.get_class_property(
-            dev_class.get_name(), list(class_prop.keys())
-        )
+        props = self.db.get_class_property(dev_class.get_name(), list(class_prop.keys()))
 
         # if value defined in database, store it
         for name in class_prop:
             if props[name]:
                 type = self.get_property_type(name, class_prop)
-                values = self.stringArray2values(props[name], type)
+                values = _seqStr_2_obj_with_context(props[name], type, f"class '{dev_class.get_name()}'", name)
                 self.set_property_values(name, class_prop, values)
             else:
                 print(name + " property NOT found in database")
 
-    def get_device_properties(self, dev, class_prop, dev_prop):
+    def merge_class_prop_to_dev_prop(self, dev, class_prop, dev_prop):
         """
-        get_device_properties(self, dev, class_prop, dev_prop) -> None
+        Adds devices properties to the class one
 
-                Returns the device properties
+        :param dev_class: the device object
+        :type dev_class: :obj:`~tango.DeviceImpl`
 
-            Parameters :
-                - dev : (DeviceImpl) the device object
-                - class_prop : (dict<str, obj>) the class properties
-                - dev_prop : [in,out] (dict<str, None>) the device property names
+        :param class_prop: the class property
+        :type class_prop: :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
 
-            Return     : None"""
+        :param dev_prop: the device property names. Will be filled with property values
+        :type dev_prop: :py:obj:`dict`\\[:py:obj:`str`, None]
+        """
         #    initialize default properties
         if dev_prop == {} or not Util._UseDb:
             return
@@ -144,11 +156,12 @@ class PropUtil:
         # Call database to get properties
         props = self.db.get_device_property(dev.get_name(), list(dev_prop.keys()))
         #    if value defined in database, store it
+        where = f"device '{dev.get_name()}'"
         for name in dev_prop:
             prop_value = props[name]
             if len(prop_value):
                 data_type = self.get_property_type(name, dev_prop)
-                values = self.stringArray2values(prop_value, data_type)
+                values = _seqStr_2_obj_with_context(prop_value, data_type, where, name)
                 if not self.is_empty_seq(values):
                     self.set_property_values(name, dev_prop, values)
                 else:
@@ -158,7 +171,7 @@ class PropUtil:
                         if not self.is_seq(values):
                             values = [values]
                         data_type = self.get_property_type(name, class_prop)
-                        values = self.stringArray2values(values, data_type)
+                        values = _seqStr_2_obj_with_context(values, data_type, where, name)
                         if not self.is_empty_seq(values):
                             self.set_property_values(name, dev_prop, values)
             else:
@@ -168,47 +181,40 @@ class PropUtil:
                     if not self.is_seq(values):
                         values = [values]
                     data_type = self.get_property_type(name, class_prop)
-                    values = self.stringArray2values(values, data_type)
+                    values = _seqStr_2_obj_with_context(values, data_type, where, name)
                     if not self.is_empty_seq(values):
                         self.set_property_values(name, dev_prop, values)
 
-    def is_seq(self, v):
+    def is_seq(self, v) -> bool:
         """
-        is_seq(self, v) -> bool
+        Helper method. Determines if the object is a sequence
 
-                Helper method. Determines if the object is a sequence
-
-            Parameters :
-                - v : (object) the object to be analysed
-
-            Return     : (bool) True if the object is a sequence or False otherwise"""
+        :param v: object to be analysed
+        :type v: object
+        """
         return isinstance(v, collections.abc.Sequence)
 
-    def is_empty_seq(self, v):
+    def is_empty_seq(self, v) -> bool:
         """
-        is_empty_seq(self, v) -> bool
+        Helper method. Determines if the object is an empty sequence
 
-                Helper method. Determines if the object is an empty sequence
-
-            Parameters :
-                - v : (object) the object to be analysed
-
-            Return     : (bool) True if the object is a sequence which is empty or False otherwise
+        :param v: object to be analysed
+        :type v: obj
         """
         return self.is_seq(v) and not len(v)
 
-    def get_property_type(self, prop_name, properties):
+    def get_property_type(self, prop_name, properties) -> CmdArgType:
         """
-        get_property_type(self, prop_name, properties) -> CmdArgType
 
-                Gets the property type for the given property name using the
-                information given in properties
+        Gets the property type for the given property name using the
+        information given in properties
 
-            Parameters :
-                - prop_name : (str) property name
-                - properties : (dict<str,data>) property data
+        :param prop_name: the property name
+        :type prop_name: :py:obj:`str`
 
-            Return     : (CmdArgType) the tango type for the given property"""
+        :param properties: the properties
+        :type properties: :py:obj:`dict`\\[:py:obj:`str`, object]
+        """
         try:
             tg_type = properties[prop_name][0]
         except Exception:
@@ -217,29 +223,33 @@ class PropUtil:
 
     def set_property_values(self, prop_name, properties, values):
         """
-        set_property_values(self, prop_name, properties, values) -> None
+        Sets the property value in the properties
 
-                Sets the property value in the properties
+        :param prop_name: the property name
+        :type prop_name: :py:obj:`str`
 
-            Parameters :
-                - prop_name : (str) property name
-                - properties : (dict<str,obj>) [in,out] dict which will contain the value
-                - values : (seq) the new property value
+        :param properties: [in,out] :py:obj:`dict`\\ which will contain the value
+        :type properties: :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
 
-            Return     : None"""
+        :param values: the new property value
+        :type values: list[:py:obj:`str`]
+        """
 
         properties[prop_name][2] = values
 
-    def get_property_values(self, prop_name, properties):
+    def get_property_values(self, prop_name, properties) -> Any:
         """
-        get_property_values(self, prop_name, properties) -> obj
+        Gets the property value
 
-                Gets the property value
+        :param prop_name: the property name
+        :type prop_name: :py:obj:`str`
 
-            Parameters :
-                - prop_name : (str) property name
-                - properties : (dict<str,obj>) properties
-            Return     : (obj) the value for the given property name"""
+        :param properties: properties
+        :type properties: :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
+
+        :return: the property value in the given property
+        :rtype: :py:obj:`typing.Any`
+        `"""
         tg_type = self.get_property_type(prop_name, properties)
 
         try:
@@ -248,11 +258,9 @@ class PropUtil:
             val = []
 
         if is_pure_str(val):
-            val = self.stringArray2values(val, tg_type)
+            val = _seqStr_2_obj_with_context(val, tg_type, None, prop_name)
 
-        if is_array(tg_type) or (
-            isinstance(val, collections.abc.Sequence) and not len(val)
-        ):
+        if is_array(tg_type) or (isinstance(val, collections.abc.Sequence) and not len(val)):
             return val
         else:
             if is_non_str_seq(val):
@@ -262,23 +270,18 @@ class PropUtil:
 
     def get_property_description(self, prop_name, properties):
         """
-        get_property_description(self, prop_name, properties) -> obj
+        Gets the property description
 
-                Gets the property description
+        :param prop_name: the property name
+        :type prop_name: :py:obj:`str`
 
-            Parameters :
-                - prop_name : (str) property name
-                - properties : (dict<str,obj>) properties
-            Return     : (str) the description for the given property name"""
+        :param properties: properties
+        :type properties: :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
+
+        :return: the description for the given property name
+        :rtype: :py:obj:`str`
+        """
         return properties[prop_name][1]
-
-    def stringArray2values(self, argin, argout_type):
-        """internal helper method"""
-        return seqStr_2_obj(argin, argout_type)
-
-    def values2string(self, argin, argout_type):
-        """internal helper method"""
-        return obj_2_str(argin, argout_type)
 
 
 def __DeviceClass__init__(self, name):
@@ -286,9 +289,7 @@ def __DeviceClass__init__(self, name):
     try:
         pu = self.prop_util = PropUtil()
         self.py_dev_list = []
-        pu.set_default_property_values(
-            self, self.class_property_list, self.device_property_list
-        )
+        pu.set_default_property_values(self, self.class_property_list, self.device_property_list)
         pu.get_class_properties(self, self.class_property_list)
         for prop_name in self.class_property_list:
             if not hasattr(self, prop_name):
@@ -360,14 +361,9 @@ def __DeviceClass__attribute_factory(self, attr_list_wrapper):
     """
 
     for attr_name, attr_info in self.attr_list.items():
-        if isinstance(attr_info, AttrData):
-            attr_data = attr_info
-        else:
-            attr_data = AttrData(attr_name, self.get_name(), attr_info)
+        attr_data = attr_info if isinstance(attr_info, AttrData) else AttrData(attr_name, self.get_name(), attr_info)
         if attr_data.forward:
-            self._create_fwd_attribute(
-                attr_list_wrapper, attr_data.attr_name, attr_data.att_prop
-            )
+            self._create_fwd_attribute(attr_list_wrapper, attr_data.attr_name, attr_data.att_prop)
         else:
             self._create_attribute(
                 attr_list_wrapper,
@@ -402,10 +398,7 @@ def __DeviceClass__command_factory(self):
     deviceimpl_class = class_info[1]
 
     if not hasattr(deviceimpl_class, "init_device"):
-        msg = (
-            f"Wrong definition of class {name}\n"
-            f"The init_device() method does not exist!"
-        )
+        msg = f"Wrong definition of class {name}\nThe init_device() method does not exist!"
         Except.throw_exception("PyDs_WrongCommandDefinition", msg, "command_factory()")
 
     for cmd_name, cmd_info in self.cmd_list.items():
@@ -572,9 +565,9 @@ def __create_command(self, deviceimpl_class, cmd_name, cmd_info):
                 is_allowed = info_value
                 if not is_pure_str(is_allowed):
                     msg = (
-                        "Wrong data type in command information for command %s in "
-                        "class %s\nCommand information for is allowed function name"
-                        "is not an string" % (cmd_name, name)
+                        f"Wrong data type in command information for command {cmd_name} in "
+                        f"class {name}\nCommand information for is allowed function name"
+                        f"is not an string"
                     )
                     __throw_create_command_exception(msg)
             elif info_name_lower == "is allowed green_mode":
@@ -598,16 +591,10 @@ def __create_command(self, deviceimpl_class, cmd_name, cmd_info):
             )
             __throw_create_command_exception(msg)
     except AttributeError:
-        msg = (
-            f"Wrong definition of command {cmd_name} in "
-            f"class {name}\nThe command method does not exist!"
-        )
+        msg = f"Wrong definition of command {cmd_name} in class {name}\nThe command method does not exist!"
         __throw_create_command_exception(msg)
 
-    if is_allowed is None:
-        is_allowed_name = f"is_{cmd_name}_allowed"
-    else:
-        is_allowed_name = is_allowed
+    is_allowed_name = f"is_{cmd_name}_allowed" if is_allowed is None else is_allowed
 
     try:
         is_allowed_function = getattr(deviceimpl_class, is_allowed_name)
@@ -651,7 +638,7 @@ def __DeviceClass__device_factory(self, device_list):
     if klass is None:
         raise RuntimeError(f"Device class '{klass_name}' as not been constructed")
 
-    deviceClassClass, deviceImplClass, deviceImplName = info
+    _, deviceImplClass, _deviceImplName = info
     deviceImplClass._device_class_instance = klass
 
     tmp_dev_list = []
@@ -670,73 +657,69 @@ def __DeviceClass__device_factory(self, device_list):
     self.py_dev_list += tmp_dev_list
 
 
-def __DeviceClass__create_device(self, device_name, alias=None, cb=None):
+def __DeviceClass__create_device(self, device_name: str, alias: str | None = None, cb: Callable | None = None) -> None:
     """
-    create_device(self, device_name, alias=None, cb=None) -> None
+    Creates a new device of the given class in the database, creates a new
+    DeviceImpl for it and calls init_device (just like it is done for
+    existing devices when the DS starts up)
 
-        Creates a new device of the given class in the database, creates a new
-        DeviceImpl for it and calls init_device (just like it is done for
-        existing devices when the DS starts up)
+    An optional parameter callback is called AFTER the device is
+    registered in the database and BEFORE the init_device for the
+    newly created device is called
 
-        An optional parameter callback is called AFTER the device is
-        registered in the database and BEFORE the init_device for the
-        newly created device is called
+    :param device_name: name of the new device
+    :type device_name: :py:obj:`str`
 
-    Throws tango.DevFailed:
-        - the device name exists already or
-        - the given class is not registered for this DS.
-        - the cb is not a callable
+    :param alias: optional alias. Default value is None meaning do not create device alias
+    :type alias: :py:obj:`str`
 
-    New in PyTango 7.1.2
-
-    Parameters :
-        - device_name : (str) the device name
-        - alias : (str) optional alias. Default value is None meaning do not create device alias
-        - cb : (callable) a callback that is called AFTER the device is registered
+    :param cb: a callback that is called AFTER the device is registered
                in the database and BEFORE the init_device for the newly created
                device is called. Typically you may want to put device and/or attribute
-               properties in the database here. The callback must receive a parameter
-               device_name (str). Default value is None meaning no callback
+               properties in the database here. The callback must receive a parameter:
+               device name (str). Default value is None meaning no callback
+    :type cb: :py:obj:`typing.Callable`
 
-    Return     : None"""
+    :throws: :obj:`~tango.DevFailed`: \n
+             - the device name exists already
+             - the given class is not registered for this DS
+             - the cb is not a callable
+
+    .. versionadded:: 7.1.2
+    """
     util = Util.instance()
     util.create_device(self.get_name(), device_name, alias=alias, cb=cb)
 
 
-def __DeviceClass__delete_device(self, device_name):
+def __DeviceClass__delete_device(self, device_name: str) -> None:
     """
-    delete_device(self, klass_name, device_name) -> None
+    Deletes an existing device from the database and from this running
+    server
 
-        Deletes an existing device from the database and from this running
-        server
+    :param klass_name: the device class name
+    :type klass_name: :py:obj:`str`
 
-        Throws tango.DevFailed:
-            - the device name doesn't exist in the database
-            - the device name doesn't exist in this DS.
+    :param device_name: name of the new device
+    :type device_name: :py:obj:`str`
 
-    New in PyTango 7.1.2
+    :throws: :obj:`~tango.DevFailed`: \n
+             - the device name doesn't exist in the database \n
+             - the device name doesn't exist in this DS.
 
-    Parameters :
-        - klass_name : (str) the device class name
-        - device_name : (str) the device name
-
-    Return     : None"""
+    .. versionadded:: 7.1.2
+    """
     util = Util.instance()
     util.delete_device(self.get_name(), device_name)
 
 
 def __DeviceClass__dyn_attr(self, device_list):
     """
-    dyn_attr(self,device_list) -> None
+    Default implementation does not do anything
+    Overwrite in order to provide dynamic attributes
 
-        Default implementation does not do anything
-        Overwrite in order to provide dynamic attributes
-
-    Parameters :
-        - device_list : (seq<DeviceImpl>) sequence of devices of this class
-
-    Return     : None"""
-    pass
+    :param device_list: sequence of devices of this class
+    :type device_list: list[:obj:`~tango.DeviceImpl`]
+    """
 
 
 def __DeviceClass__device_destroyer(self, name):
@@ -753,25 +736,19 @@ def __DeviceClass__device_destroyer(self, name):
             self.py_dev_list.remove(d)
             return
     err_mess = "Device " + name + " not in Tango class device list!"
-    Except.throw_exception(
-        "PyAPI_CantDestroyDevice", err_mess, "DeviceClass.device_destroyer"
-    )
+    Except.throw_exception("PyAPI_CantDestroyDevice", err_mess, "DeviceClass.device_destroyer")
 
 
-def __DeviceClass__device_name_factory(self, dev_name_list):
+def __DeviceClass__device_name_factory(self, dev_name_list: list[str]) -> None:
     """
-    device_name_factory(self, dev_name_list) ->  None
+    Create device(s) name list (for no database device server).
+    This method can be re-defined in DeviceClass sub-class for
+    device server started without database. Its rule is to
+    initialise class device name. The default method does nothing.
 
-        Create device(s) name list (for no database device server).
-        This method can be re-defined in DeviceClass sub-class for
-        device server started without database. Its rule is to
-        initialise class device name. The default method does nothing.
-
-    Parameters :
-        - dev_name_list : (seq<str>) sequence of devices to be filled
-
-    Return     : None"""
-    pass
+    :param dev_name_list: sequence of devices to be filled
+    :type dev_name_list: list[:py:obj:`str`]
+    """
 
 
 def device_class_init():
@@ -783,9 +760,7 @@ def device_class_init():
     DeviceClass.__init__ = __DeviceClass__init__
     DeviceClass.__str__ = __DeviceClass__str__
     DeviceClass.__repr__ = __DeviceClass__repr__
-    DeviceClass._create_user_default_attr_prop = (
-        __DeviceClass__create_user_default_attr_prop
-    )
+    DeviceClass._create_user_default_attr_prop = __DeviceClass__create_user_default_attr_prop
     DeviceClass._attribute_factory = __DeviceClass__attribute_factory
     DeviceClass._command_factory = __DeviceClass__command_factory
     DeviceClass._new_device = __DeviceClass__new_device

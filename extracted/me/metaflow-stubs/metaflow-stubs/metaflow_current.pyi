@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.31                                                                                #
-# Generated on 2026-06-01T01:50:49.642417                                                            #
+# MF version: 2.19.32                                                                                #
+# Generated on 2026-06-03T21:26:43.625498                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.cards.component_serializer
-    import typing
     import metaflow.metaflow_current
-    import metaflow.events
+    import typing
     import metaflow
+    import metaflow.events
+    import metaflow.plugins.cards.component_serializer
 
 
 TYPE_CHECKING: bool

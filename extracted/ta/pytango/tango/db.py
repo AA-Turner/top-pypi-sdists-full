@@ -10,26 +10,26 @@ __all__ = ("db_init",)
 __docformat__ = "restructuredtext"
 
 import collections.abc
+from collections.abc import Sequence
 
 from tango import (
-    StdStringVector,
     Database,
-    DbDatum,
     DbData,
-    DbDevInfo,
-    DbDevInfos,
+    DbDatum,
     DbDevExportInfo,
     DbDevExportInfos,
+    DbDevInfo,
+    DbDevInfos,
+    StdStringVector,
 )
-
+from tango._instrumentation import _trace_client
 from tango.utils import (
-    _trace_client,
-    is_non_str_seq,
-    seq_2_DbDevInfos,
-    seq_2_DbDevExportInfos,
-    seq_2_DbData,
     DbData_2_dict,
+    is_non_str_seq,
     parameter_2_dbdata,
+    seq_2_DbData,
+    seq_2_DbDevExportInfos,
+    seq_2_DbDevInfos,
 )
 
 # -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
@@ -81,59 +81,58 @@ def __init_DbDatum():
 
 def __Database__add_server(self, servname, dev_info, with_dserver=False):
     """
-    add_server( self, servname, dev_info, with_dserver=False) -> None
+    Add a (group of) devices to the database. This is considered as a
+    low level call because it may render the database inconsistent
+    if it is not used properly.
 
-            Add a (group of) devices to the database. This is considered as a
-            low level call because it may render the database inconsistent
-            if it is not used properly.
+    If *with_dserver* parameter is set to False (default), this
+    call will only register the given dev_info(s). You should include
+    in the list of dev_info an entry to the usually hidden **DServer**
+    device.
 
-            If *with_dserver* parameter is set to False (default), this
-            call will only register the given dev_info(s). You should include
-            in the list of dev_info an entry to the usually hidden **DServer**
-            device.
+    If *with_dserver* parameter is set to True, the call will add an
+    additional **DServer** device if it is not included in the
+    *dev_info* parameter.
 
-            If *with_dserver* parameter is set to True, the call will add an
-            additional **DServer** device if it is not included in the
-            *dev_info* parameter.
+    Example using *with_dserver=True*::
 
-        Example using *with_dserver=True*::
+        dev_info1 = DbDevInfo()
+        dev_info1.name = 'my/own/device'
+        dev_info1._class = 'MyDevice'
+        dev_info1.server = 'MyServer/test'
+        db.add_server(dev_info1.server, dev_info1, with_dserver=True)
 
-            dev_info1 = DbDevInfo()
-            dev_info1.name = 'my/own/device'
-            dev_info1._class = 'MyDevice'
-            dev_info1.server = 'MyServer/test'
-            db.add_server(dev_info1.server, dev_info1, with_dserver=True)
+    Same example using *with_dserver=False*::
 
-        Same example using *with_dserver=False*::
+        dev_info1 = DbDevInfo()
+        dev_info1.name = 'my/own/device'
+        dev_info1._class = 'MyDevice'
+        dev_info1.server = 'MyServer/test'
 
-            dev_info1 = DbDevInfo()
-            dev_info1.name = 'my/own/device'
-            dev_info1._class = 'MyDevice'
-            dev_info1.server = 'MyServer/test'
+        dev_info2 = DbDevInfo()
+        dev_info2.name = 'dserver/' + dev_info1.server
+        dev_info2._class = 'DServer
+        dev_info2.server = dev_info1.server
 
-            dev_info2 = DbDevInfo()
-            dev_info2.name = 'dserver/' + dev_info1.server
-            dev_info2._class = 'DServer
-            dev_info2.server = dev_info1.server
+        dev_info = dev_info1, dev_info2
+        db.add_server(dev_info1.server, dev_info)
 
-            dev_info = dev_info1, dev_info2
-            db.add_server(dev_info1.server, dev_info)
+    :param servname: server name
+    :type servname: str
 
-        .. versionadded:: 8.1.7
-            added *with_dserver* parameter
+    :param dev_info: the server device(s) information
+    :type dev_info: list[:obj:`~tango.DbDevInfo`], :obj:`~tango.DbDevInfos`, :obj:`~tango.DbDevInfo`
 
-        Parameters :
-            - servname : (str) server name
-            - dev_info : (sequence<DbDevInfo> | DbDevInfos | DbDevInfo) containing the server device(s) information
-            - with_dserver: (bool) whether or not to auto create **DServer** device in server
-        Return     : None
+    :param with_dserver: whether or not to auto create **DServer** device in server
+    :type with_dserver: bool
 
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
+
+    .. versionadded:: 8.1.7
+        added *with_dserver* parameter
     """
 
-    if not isinstance(dev_info, collections.abc.Sequence) and not isinstance(
-        dev_info, DbDevInfo
-    ):
+    if not isinstance(dev_info, collections.abc.Sequence) and not isinstance(dev_info, DbDevInfo):
         raise TypeError("Value must be a DbDevInfos, a seq<DbDevInfo> or a DbDevInfo")
 
     if isinstance(dev_info, DbDevInfos):
@@ -157,27 +156,17 @@ def __Database__add_server(self, servname, dev_info, with_dserver=False):
     self._add_server(servname, dev_info)
 
 
-def __Database__export_server(self, dev_info):
+def __Database__export_server(self, dev_info: Sequence[DbDevExportInfo] | DbDevExportInfos | DbDevExportInfo):
     """
-    export_server(self, dev_info) -> None
+    Export a group of devices to the database.
 
-            Export a group of devices to the database.
+    :param dev_info: the server device(s) information
 
-        Parameters :
-            - devinfo : (sequence<DbDevExportInfo> | DbDevExportInfos | DbDevExportInfo)
-                        containing the device(s) to export information
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
 
-    if not isinstance(dev_info, collections.abc.Sequence) and not isinstance(
-        dev_info, DbDevExportInfo
-    ):
-        raise TypeError(
-            "Value must be a DbDevExportInfos, a seq<DbDevExportInfo> or "
-            "a DbDevExportInfo"
-        )
+    if not isinstance(dev_info, collections.abc.Sequence) and not isinstance(dev_info, DbDevExportInfo):
+        raise TypeError("Value must be a DbDevExportInfos, a seq<DbDevExportInfo> or a DbDevExportInfo")
 
     if isinstance(dev_info, DbDevExportInfos):
         pass
@@ -227,7 +216,7 @@ def __Database__generic_get_attr_pipe_property(self, obj_name, value, f):
         ret[db_datum.name] = curr_dict
         nb_props = int(db_datum[0])
         i += 1
-        for k in range(nb_props):
+        for _ in range(nb_props):
             db_datum = new_value[i]
             curr_dict[db_datum.name] = db_datum.value_string
             i += 1
@@ -255,209 +244,206 @@ def __Database__generic_delete_attr_pipe_property(self, obj_name, value, f):
                 new_value.append(DbDatum(prop))
             f(obj_name, new_value)
     else:
-        raise TypeError(
-            "Value must be a string, tango.DbDatum, "
-            "tango.DbData, a sequence or a dictionary"
-        )
+        raise TypeError("Value must be a string, tango.DbDatum, tango.DbData, a sequence or a dictionary")
 
 
-def __Database__put_property(self, obj_name, value):
+def __Database__put_property(
+    self,
+    obj_name: str,
+    value: DbDatum | DbData | Sequence[DbDatum] | dict[str, DbDatum] | dict[str, Sequence[str]] | dict[str, object],
+) -> None:
     """
-    put_property(self, obj_name, value) -> None
+    Insert or update a list of properties for the specified object.
 
-        Insert or update a list of properties for the specified object.
+    :param obj_name: name of the object
+    :type obj_name: str
 
-    Parameters :
-        - obj_name : (str) object name
-        - value : can be one of the following:
+    :param value: Can be one of the following: \n
+        1. :obj:`~tango.DbDatum` - single property data to be inserted \n
+        2. :obj:`~tango.DbData` - several property data to be inserted \n
+        3. :py:obj:`list`\\[:obj:`~tango.DbDatum`]- several property data to be inserted \n
+        4. :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`] - keys are property names and value has data
+           to be inserted \n
+        5. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`\\[str]] - keys are property names and value has data
+           to be inserted \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`obj`] - keys are property names and str(obj) is property value \n
 
-            1. DbDatum - single property data to be inserted
-            2. DbData - several property data to be inserted
-            3. sequence<DbDatum> - several property data to be inserted
-            4. dict<str, DbDatum> - keys are property names and value has data to be inserted
-            5. dict<str, obj> - keys are property names and str(obj) is property value
-            6. dict<str, seq<str>> - keys are property names and value has data to be inserted
-    Return     : None
-
-    Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
 
     return __Database__generic_put_property(self, obj_name, value, self._put_property)
 
 
-def __Database__get_property(self, obj_name, value):
+def __Database__get_property(
+    self,
+    obj_name: str,
+    value: str | DbDatum | DbData | Sequence[str] | Sequence[DbDatum] | dict[str, object],
+) -> dict[str, list[str]]:
     """
-    get_property(self, obj_name, value) -> dict<str, seq<str>>
+    Query the database for a list of object (i.e non-device) properties.
 
-            Query the database for a list of object (i.e non-device) properties.
+    :param obj_name: name of the object
+    :type obj_name: str
 
-        Parameters :
-            - obj_name : (str) object name
-            - value : can be one of the following:
+    :param value: the server device(s) information \n
+        1. :py:obj:`str` [in] - single property data to be fetched \n
+        2. :obj:`~tango.DbDatum` [in] - single property data to be fetched \n
+        3. :obj:`~tango.DbData` [in,out] - several property data to be fetched.
+           In this case (direct C++ API) the DbData will be filled with the property values \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in] - several property data to be fetched \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be fetched
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`obj`] [in,out] - keys are property names. In this case the
+           given dict values will be changed to contain the several property values
 
-                1. str [in] - single property data to be fetched
-                2. DbDatum [in] - single property data to be fetched
-                3. DbData [in,out] - several property data to be fetched
-                   In this case (direct C++ API) the DbData will be filled with
-                   the property values
-                4. sequence<str> [in] - several property data to be fetched
-                5. sequence<DbDatum> [in] - several property data to be fetched
-                6. dict<str, obj> [in,out] - keys are property names
-                   In this case the given dict values will be changed to contain
-                   the several property values
+    :return: a dictionary keyed by the property name, with the associated value
+             a sequence of strings representing the property value.
 
-        Return     : a dictionary which keys are the property names the value
-                     associated with each key being a a sequence of strings being
-                     the property value.
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
     return __Database__generic_get_property(self, obj_name, value, self._get_property)
 
 
 def __Database__get_property_forced(self, obj_name, value):
-    return __Database__generic_get_property(
-        self, obj_name, value, self._get_property_forced
-    )
+    return __Database__generic_get_property(self, obj_name, value, self._get_property_forced)
 
 
 __Database__get_property_forced.__doc__ = __Database__get_property.__doc__
 
 
-def __Database__delete_property(self, obj_name, value):
+def __Database__delete_property(
+    self,
+    obj_name: str,
+    value: str | DbDatum | DbData | list[str] | list[DbDatum] | dict[str, object] | dict[str, DbDatum],
+) -> None:
     """
-    delete_property(self, obj_name, value) -> None
+    Delete the given properties for the specified object.
 
-            Delete a the given of properties for the specified object.
+    :param obj_name: name of the object
+    :type obj_name: str
 
-        Parameters :
-            - obj_name : (str) object name
-            - value : can be one of the following:
+    :param value: the server device(s) information: \n
+        1. :py:obj:`str` [in] - single property data to be deleted \n
+        2. :obj:`~tango.DbDatum` [in] - single property data to be deleted \n
+        3. :obj:`~tango.DbData` [in] - several property data to be deleted \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in]- several property data to be deleted \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be deleted \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in] - keys are property names
+           to be deleted (values are ignored) \n
+        7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`] [in] - several DbDatum.name
+           are property names to be deleted (keys are ignored)
 
-                1. str [in] - single property data to be deleted
-                2. DbDatum [in] - single property data to be deleted
-                3. DbData [in] - several property data to be deleted
-                4. sequence<string> [in]- several property data to be deleted
-                5. sequence<DbDatum> [in] - several property data to be deleted
-                6. dict<str, obj> [in] - keys are property names to be deleted
-                   (values are ignored)
-                7. dict<str, DbDatum> [in] - several DbDatum.name are property names
-                   to be deleted (keys are ignored)
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_delete_property(
-        self, obj_name, value, self._delete_property
-    )
+    return __Database__generic_delete_property(self, obj_name, value, self._delete_property)
 
 
-def __Database__get_device_property(self, dev_name, value):
+def __Database__get_device_property(
+    self,
+    dev_name: str,
+    value: str | DbDatum | DbData | list[str] | list[DbDatum] | dict[str, object],
+) -> dict[str, list[str]]:
     """
-    get_device_property(self, dev_name, value) -> dict<str, seq<str>>
+    Query the database for a list of device properties.
 
-        Query the database for a list of device properties.
+    :param dev_name: object name
+    :type dev_name: str
 
-        Parameters :
-            - dev_name : (str) object name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :py:obj:`str` [in] - single property data to be fetched \n
+        2. :obj:`~tango.DbDatum` [in] - single property data to be fetched \n
+        3. :obj:`~tango.DbData` [in,out] - several property data to be fetched.
+           In this case (direct C++ API) the DbData will be filled with the property values \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in] - several property data to be fetched \n
+        5. list[:obj:`~tango.DbDatum`] [in] - several property data to be fetched \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in,out] - keys are property names. In this case the
+           given dict values will be changed to contain the several property values
 
-                1. str [in] - single property data to be fetched
-                2. DbDatum [in] - single property data to be fetched
-                3. DbData [in,out] - several property data to be fetched
-                   In this case (direct C++ API) the DbData will be filled with
-                   the property values
-                4. sequence<str> [in] - several property data to be fetched
-                5. sequence<DbDatum> [in] - several property data to be fetched
-                6. dict<str, obj> [in,out] - keys are property names
-                   In this case the given dict values will be changed to contain
-                   the several property values
+    :return: a dictionary keyed by the property name, with the associated value
+             a sequence of strings representing the property value.
 
-        Return     : a dictionary which keys are the property names the value
-                    associated with each key being a a sequence of strings being the
-                    property value.
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_get_property(
-        self, dev_name, value, self._get_device_property
-    )
+    return __Database__generic_get_property(self, dev_name, value, self._get_device_property)
 
 
-def __Database__put_device_property(self, dev_name, value):
+def __Database__put_device_property(
+    self,
+    dev_name: str,
+    value: DbDatum | DbData | list[DbDatum] | dict[str, DbDatum] | dict[str, object] | dict[str, list[str]],
+) -> None:
     """
-    put_device_property(self, dev_name, value) -> None
+    Insert or update a list of properties for the specified device.
 
-        Insert or update a list of properties for the specified device.
+    :param dev_name: object name
+    :type dev_name: str
 
-        Parameters :
-            - dev_name : (str) object name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :obj:`~tango.DbDatum` - single property data to be inserted \n
+        2. :obj:`~tango.DbData` - several property data to be inserted \n
+        3. :py:obj:`list`\\[:obj:`~tango.DbDatum`] - several property data to be inserted \n
+        4. :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`] - keys are property
+           names and value has data to be inserted \n
+        5. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] - keys are property
+           names and str(obj) is property value \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`[:py:obj:`str`]] - keys are
+           property names and value has data to be inserted
 
-                1. DbDatum - single property data to be inserted
-                2. DbData - several property data to be inserted
-                3. sequence<DbDatum> - several property data to be inserted
-                4. dict<str, DbDatum> - keys are property names and value has data to be inserted
-                5. dict<str, obj> - keys are property names and str(obj) is property value
-                6. dict<str, seq<str>> - keys are property names and value has data to be inserted
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_put_property(
-        self, dev_name, value, self._put_device_property
-    )
+    return __Database__generic_put_property(self, dev_name, value, self._put_device_property)
 
 
-def __Database__delete_device_property(self, dev_name, value):
+def __Database__delete_device_property(self, dev_name: str, value) -> None:
     """
-    delete_device_property(self, dev_name, value) -> None
+    Delete the given properties for the specified device.
 
-        Delete a the given of properties for the specified device.
+    :param dev_name: object name
+    :type dev_name: str
 
-        Parameters :
-            - dev_name : (str) object name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :py:obj:`str` [in] - single property data to be deleted \n
+        2. :obj:`~tango.DbDatum` [in] - single property data to be deleted \n
+        3. :obj:`~tango.DbData` [in] - several property data to be deleted \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in]- several property data to be deleted \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be deleted \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in] - keys are property names to be deleted
+           (values are ignored) \n
+        7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`] [in] - several DbDatum.name
+           are property names to be deleted (keys are ignored) \n
 
-                1. str [in] - single property data to be deleted
-                2. DbDatum [in] - single property data to be deleted
-                3. DbData [in] - several property data to be deleted
-                4. sequence<str> [in]- several property data to be deleted
-                5. sequence<DbDatum> [in] - several property data to be deleted
-                6. dict<str, obj> [in] - keys are property names to be deleted (values are ignored)
-                7. dict<str, DbDatum> [in] - several DbDatum.name are property names to be deleted (keys are ignored)
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_delete_property(
-        self, dev_name, value, self._delete_device_property
-    )
+    return __Database__generic_delete_property(self, dev_name, value, self._delete_device_property)
 
 
-def __Database__get_device_property_list(self, dev_name, wildcard, array=None):
+def __Database__get_device_property_list(
+    self, dev_name: str, wildcard: str, array: list[object] | None = None
+) -> DbDatum | None | list[object]:
     """
-    get_device_property_list(self, dev_name, wildcard, array=None) -> DbData
+    Query the database for a list of properties defined for the
+    specified device and which match the specified wildcard.
+    If array parameter is given, it must be an object implementing de 'append'
+    method. If given, it is filled with the matching property names. If not given
+    the method returns a new DbDatum containing the matching property names.
 
-            Query the database for a list of properties defined for the
-            specified device and which match the specified wildcard.
-            If array parameter is given, it must be an object implementing de 'append'
-            method. If given, it is filled with the matching property names. If not given
-            the method returns a new DbDatum containing the matching property names.
+    :param dev_name: device name
+    :type dev_name: str
 
-        New in PyTango 7.0.0
+    :param wildcard: property name wildcard
+    :type wildcard: str
 
-        Parameters :
-            - dev_name : (str) device name
-            - wildcard : (str) property name wildcard
-            - array : [out] (sequence) (optional) array that
-                          will contain the matching property names.
-        Return     : if container is None, return is a new DbDatum containing the
-                     matching property names. Otherwise returns the given array
-                     filled with the property names
+    :param array: (optional) array that will contain the matching property names.
+    :type array: list[]
 
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device"""
+    :return: if container is None, return is a new DbDatum containing the
+             matching property names. Otherwise returns the given array
+             filled with the property names
+    :rtype: :obj:`~tango.DbDatum` | list[]
+
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
+
+    .. versionadded:: 7.0.0
+    """
     if array is None:
         return self._get_device_property_list(dev_name, wildcard)
     elif isinstance(array, StdStringVector):
@@ -469,344 +455,242 @@ def __Database__get_device_property_list(self, dev_name, wildcard, array=None):
         return array
 
 
-def __Database__get_device_attribute_property(self, dev_name, value):
+def __Database__get_device_attribute_property(
+    self,
+    dev_name: str,
+    value: str | DbDatum | DbData | list[str] | list[DbDatum] | dict[str, object],
+) -> dict[str, dict[str, list[str]]]:
     """
-    get_device_attribute_property(self, dev_name, value) -> dict<str, dict<str, seq<str>>>
+    Query the database for a list of device attribute properties for the
+    specified device. The method returns all the properties for the specified
+    attributes.
 
-            Query the database for a list of device attribute properties for the
-            specified device. The method returns all the properties for the specified
-            attributes.
+    :param dev_name: device name
+    :type dev_name: str
 
-        Parameters :
-            - dev_name : (string) device name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :py:obj:`str` [in] - single attribute properties to be fetched \n
+        2. :obj:`~tango.DbDatum` [in] - single attribute properties to be fetched \n
+        3. :obj:`~tango.DbData` [in,out] - several attribute properties to be fetched.
+           In this case (direct C++ API) the DbData will be filled with the property values \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in] - several attribute properties to be fetched \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several attribute properties to be fetched \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in,out] - keys are attribute names.
+           In this case the given dict values will be changed to contain the several attribute property values
 
-                1. str [in] - single attribute properties to be fetched
-                2. DbDatum [in] - single attribute properties to be fetched
-                3. DbData [in,out] - several attribute properties to be fetched
-                   In this case (direct C++ API) the DbData will be filled with
-                   the property values
-                4. sequence<str> [in] - several attribute properties to be fetched
-                5. sequence<DbDatum> [in] - several attribute properties to be fetched
-                6. dict<str, obj> [in,out] - keys are attribute names
-                   In this case the given dict values will be changed to contain the
-                   several attribute property values
+    :return: a dictionary keyed by the attribute name, with the associated value
+             another dictionary. The inner dictionary is keyed by attribute property
+             name, with the associated value a sequence of strings representing
+             the property value.
 
-        Return     :  a dictionary which keys are the attribute names the
-                             value associated with each key being a another
-                             dictionary where keys are property names and value is
-                             a DbDatum containing the property value.
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_get_attr_pipe_property(
-        self, dev_name, value, self._get_device_attribute_property
-    )
+    return __Database__generic_get_attr_pipe_property(self, dev_name, value, self._get_device_attribute_property)
 
 
-def __Database__get_device_pipe_property(self, dev_name, value):
+def __Database__put_device_attribute_property(
+    self,
+    dev_name: str,
+    value: DbData | list[DbDatum] | dict[str, dict[str, DbDatum]],
+) -> None:
     """
-    get_device_pipe_property(self, dev_name, value) -> dict<str, dict<str, seq<str>>>
+    Insert or update a list of properties for the specified device.
 
-            Query the database for a list of device pipe properties for the
-            specified device. The method returns all the properties for the specified
-            pipes.
+    :param dev_name: device name
+    :type dev_name: str
 
-        Parameters :
-            - dev_name : (string) device name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :obj:`~tango.DbData` [in,out] - several property data to be inserted \n
+        2. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be inserted \n
+        3. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`]] - keys
+           are attribute names and value another dictionary where keys are the
+           attribute property names and the values are DbDatum.
 
-                1. str [in] - single pipe properties to be fetched
-                2. DbDatum [in] - single pipe properties to be fetched
-                3. DbData [in,out] - several pipe properties to be fetched
-                   In this case (direct C++ API) the DbData will be filled with
-                   the property values
-                4. sequence<str> [in] - several pipe properties to be fetched
-                5. sequence<DbDatum> [in] - several pipe properties to be fetched
-                6. dict<str, obj> [in,out] - keys are pipe names
-                   In this case the given dict values will be changed to contain the
-                   several pipe property values
-
-        Return     :  a dictionary which keys are the pipe names the
-                             value associated with each key being a another
-                             dictionary where keys are property names and value is
-                             a DbDatum containing the property value.
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_get_attr_pipe_property(
-        self, dev_name, value, self._get_device_pipe_property
-    )
+    return __Database__generic_put_attr_pipe_property(self, dev_name, value, self._put_device_attribute_property)
 
 
-def __Database__put_device_attribute_property(self, dev_name, value):
+def __Database__delete_device_attribute_property(
+    self,
+    dev_name: str,
+    value: DbDatum | list[str] | list[DbDatum] | dict[str, list[str]],
+) -> None:
     """
-    put_device_attribute_property( self, dev_name, value) -> None
+    Delete a list of attribute properties for the specified device.
 
-            Insert or update a list of properties for the specified device.
+    :param dev_name: device name
+    :type dev_name: str
 
-        Parameters :
-            - dev_name : (str) device name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :obj:`~tango.DbData` [in,out] - several property data to be deleted \n
+        2. :py:obj:`list`\\[:py:obj:`str`] [in] - several property data to be deleted \n
+        3. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be deleted \n
+        4. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`\\[:py:obj:`str`]] - with each key
+           a attribute name and the value a list of pipe property names to delete from that pipe
 
-                1. DbData - several property data to be inserted
-                2. sequence<DbDatum> - several property data to be inserted
-                3. dict<str, dict<str, obj>> keys are attribute names and value being another
-                   dictionary which keys are the attribute property names and the value
-                   associated with each key being seq<str> or tango.DbDatum.
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_put_attr_pipe_property(
-        self, dev_name, value, self._put_device_attribute_property
-    )
+    return __Database__generic_delete_attr_pipe_property(self, dev_name, value, self._delete_device_attribute_property)
 
 
-def __Database__put_device_pipe_property(self, dev_name, value):
+def __Database__get_class_property(
+    self,
+    class_name: str,
+    value: str | DbDatum | DbData | list[str] | list[DbDatum] | dict[str, object],
+) -> dict[str, list[str]]:
     """
-    put_device_pipe_property( self, dev_name, value) -> None
+    Query the database for a list of class properties.
 
-            Insert or update a list of properties for the specified device.
+    :param class_name: class name
+    :type class_name: str
 
-        Parameters :
-            - dev_name : (str) device name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :py:obj:`str` [in] - single property data to be fetched \n
+        2. :obj:`~tango.DbDatum` [in] - single property data to be fetched \n
+        3. :obj:`~tango.DbData` [in,out] - several property data to be fetched.
+           In this case (direct C++ API) the DbData will be filled with the property values \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in] - several property data to be fetched \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be fetched \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in,out] - keys are property names.
+           In this case the given dict values will be changed to contain the several property values
 
-                1. DbData - several property data to be inserted
-                2. sequence<DbDatum> - several property data to be inserted
-                3. dict<str, dict<str, obj>> keys are pipe names and value being another
-                   dictionary which keys are the pipe property names and the value
-                   associated with each key being seq<str> or tango.DbDatum.
+    :return: a dictionary keyed by the property name, with the associated value
+             a sequence of strings representing the property value.
 
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_put_attr_pipe_property(
-        self, dev_name, value, self._put_device_pipe_property
-    )
+    return __Database__generic_get_property(self, class_name, value, self._get_class_property)
 
 
-def __Database__delete_device_attribute_property(self, dev_name, value):
+def __Database__put_class_property(
+    self,
+    class_name: str,
+    value: DbDatum | DbData | list[DbDatum] | dict[str, DbDatum] | dict[str, object] | dict[str, list[str]],
+) -> None:
     """
-    delete_device_attribute_property(self, dev_name, value) -> None
+    Insert or update a list of properties for the specified class.
 
-            Delete a list of attribute properties for the specified device.
+    :param class_name: class name
+    :type class_name: str
 
-        Parameters :
-            - devname : (str) device name
-            - propnames : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :obj:`~tango.DbDatum` [in] - single attribute properties to be inserted \n
+        2. :obj:`~tango.DbData` [in,out] - several attribute properties to be inserted \n
+        3. :py:obj:`list`[:obj:`~tango.DbDatum`] [in] - several attribute properties to be inserted \n
+        4. :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`] - keys are property names
+           and value has data to be inserted \n
+        5. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] - keys are property names and str(obj) is property value
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`\\[:py:obj:`str`]] - keys are property names
+           and value has data to be inserted
 
-                1. DbData [in] - several property data to be deleted
-                2. sequence<str> [in]- several property data to be deleted
-                3. sequence<DbDatum> [in] - several property data to be deleted
-                4. dict<str, seq<str>> with each key an attribute name and the value a list of attribute property names to delete from that attribute
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_delete_attr_pipe_property(
-        self, dev_name, value, self._delete_device_attribute_property
-    )
+    return __Database__generic_put_property(self, class_name, value, self._put_class_property)
 
 
-def __Database__delete_device_pipe_property(self, dev_name, value):
+def __Database__delete_class_property(
+    self,
+    class_name: str,
+    value: str | DbDatum | DbData | list[str] | list[DbDatum] | dict[str, object] | dict[str, DbDatum],
+) -> None:
     """
-    delete_device_pipe_property(self, dev_name, value) -> None
+    Delete the given properties for the specified class.
 
-            Delete a list of pipe properties for the specified device.
+    :param class_name: class name
+    :type class_name: str
 
-        Parameters :
-            - devname : (string) device name
-            - propnames : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :py:obj:`str` [in] - single attribute properties to be deleted \n
+        2. :obj:`~tango.DbDatum` [in] - single attribute properties to be deleted \n
+        3. :obj:`~tango.DbData` [in,out] - several attribute properties to be deleted \n
+        4. :py:obj:`list`\\[:py:obj:`str`] [in] - several attribute properties to be deleted \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several attribute properties to be deleted \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in,out] - keys are property names to be deleted
+           (values are ignored) \n
+        7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`] [in] - several
+           DbDatum.name are property names to be deleted (keys are ignored)
 
-                1. DbData [in] - several property data to be deleted
-                2. sequence<str> [in]- several property data to be deleted
-                3. sequence<DbDatum> [in] - several property data to be deleted
-                3. dict<str, seq<str>> with each key a pipe name and the value a list of pipe property names to delete from that pipe
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_delete_attr_pipe_property(
-        self, dev_name, value, self._delete_device_pipe_property
-    )
+    return __Database__generic_delete_property(self, class_name, value, self._delete_class_property)
 
 
-def __Database__get_class_property(self, class_name, value):
+def __Database__get_class_attribute_property(
+    self,
+    class_name: str,
+    value: str | DbDatum | DbData | list[str] | list[DbDatum] | dict[str, object],
+) -> dict[str, dict[str, list[str]]]:
     """
-    get_class_property(self, class_name, value) -> dict<str, seq<str>>
+    Query the database for a list of class attribute properties for the
+    specified class. The method returns all the properties for the specified
+    attributes.
 
-            Query the database for a list of class properties.
+    :param class_name: class name
+    :type class_name: str
 
-        Parameters :
-            - class_name : (str) class name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :py:obj:`str` [in] - single attribute properties to be fetched \n
+        2. :obj:`~tango.DbDatum` [in] - single attribute properties to be fetched \n
+        3. :obj:`~tango.DbData` [in,out] - several attribute properties to be fetched.
+           In this case (direct C++ API) the :obj:`~tango.DbData` will be filled with the property values \n
+        4. :py:obj:`list`\\[str] [in] - several attribute properties to be fetched \n
+        5. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several attribute properties to be fetched \n
+        6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in,out] - keys are attribute names.
+           In this case the given dict values will be changed to contain the several attribute property values
 
-                1. str [in] - single property data to be fetched
-                2. tango.DbDatum [in] - single property data to be fetched
-                3. tango.DbData [in,out] - several property data to be fetched
-                   In this case (direct C++ API) the DbData will be filled with
-                   the property values
-                4. sequence<str> [in] - several property data to be fetched
-                5. sequence<DbDatum> [in] - several property data to be fetched
-                6. dict<str, obj> [in,out] - keys are property names
-                   In this case the given dict values will be changed to contain
-                   the several property values
+    :return: a dictionary keyed by the attribute name, with the associated value
+             another dictionary. The inner dictionary is keyed by attribute property
+             name, with the associated value a sequence of strings representing
+             the property value.
 
-        Return     : a dictionary which keys are the property names the value
-                     associated with each key being a a sequence of strings being the
-                     property value.
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_get_property(
-        self, class_name, value, self._get_class_property
-    )
+    return __Database__generic_get_attr_pipe_property(self, class_name, value, self._get_class_attribute_property)
 
 
-def __Database__put_class_property(self, class_name, value):
+def __Database__put_class_attribute_property(
+    self, class_name: str, value: DbData | list[DbDatum] | dict[str, DbDatum]
+) -> None:
     """
-    put_class_property(self, class_name, value) -> None
+    Insert or update a list of properties for the specified class.
 
-            Insert or update a list of properties for the specified class.
+    :param class_name: class name
+    :type class_name: str
 
-        Parameters :
-            - class_name : (str) class name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :obj:`~tango.DbData` - several property data to be inserted \n
+        2. :py:obj:`list`\\[:obj:`~tango.DbDatum`] - several property data to be inserted \n
+        3. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`dict`\\[:py:obj:`str`, :obj:`~tango.DbDatum`]]
+           keys are attribute names and value being another dictionary which
+           keys are the attribute property names and the value
 
-                1. DbDatum - single property data to be inserted
-                2. DbData - several property data to be inserted
-                3. sequence<DbDatum> - several property data to be inserted
-                4. dict<str, DbDatum> - keys are property names and value has data to be inserted
-                5. dict<str, obj> - keys are property names and str(obj) is property value
-                6. dict<str, seq<str>> - keys are property names and value has data to be inserted
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_put_property(
-        self, class_name, value, self._put_class_property
-    )
+    return __Database__generic_put_attr_pipe_property(self, class_name, value, self._put_class_attribute_property)
 
 
-def __Database__delete_class_property(self, class_name, value):
+def __Database__delete_class_attribute_property(
+    self,
+    class_name: str,
+    value: DbDatum | list[str] | list[DbDatum] | dict[str, list[str]],
+) -> None:
     """
-    delete_class_property(self, class_name, value) -> None
+    Delete a list of attribute properties for the specified class.
 
-            Delete a the given of properties for the specified class.
+    :param class_name: class name
+    :type class_name: str
 
-        Parameters :
-            - class_name : (str) class name
-            - value : can be one of the following:
+    :param value: can be one of the following: \n
+        1. :obj:`~tango.DbData` [in] - several property data to be deleted \n
+        2. :py:obj:`list`\\[:py:obj:`str`] [in]- several property data to be deleted \n
+        3. :py:obj:`list`\\[:obj:`~tango.DbDatum`] [in] - several property data to be deleted \n
+        4. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`\\[:py:obj:`str`]] keys are attribute
+           names and value being a list of attribute property names
 
-                1. str [in] - single property data to be deleted
-                2. DbDatum [in] - single property data to be deleted
-                3. DbData [in] - several property data to be deleted
-                4. sequence<str> [in]- several property data to be deleted
-                5. sequence<DbDatum> [in] - several property data to be deleted
-                6. dict<str, obj> [in] - keys are property names to be deleted
-                   (values are ignored)
-                7. dict<str, DbDatum> [in] - several DbDatum.name are property names
-                   to be deleted (keys are ignored)
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
+    :throws: :obj:`~tango.ConnectionFailed`, :obj:`~tango.CommunicationFailed`, :obj:`~tango.DevFailed`
     """
-    return __Database__generic_delete_property(
-        self, class_name, value, self._delete_class_property
-    )
-
-
-def __Database__get_class_attribute_property(self, class_name, value):
-    """
-    get_class_attribute_property( self, class_name, value) -> dict<str, dict<str, seq<str>>
-
-            Query the database for a list of class attribute properties for the
-            specified class. The method returns all the properties for the specified
-            attributes.
-
-        Parameters :
-            - class_name : (str) class name
-            - propnames : can be one of the following:
-
-                1. str [in] - single attribute properties to be fetched
-                2. DbDatum [in] - single attribute properties to be fetched
-                3. DbData [in,out] - several attribute properties to be fetched
-                   In this case (direct C++ API) the DbData will be filled with the property
-                   values
-                4. sequence<str> [in] - several attribute properties to be fetched
-                5. sequence<DbDatum> [in] - several attribute properties to be fetched
-                6. dict<str, obj> [in,out] - keys are attribute names
-                   In this case the given dict values will be changed to contain the several
-                   attribute property values
-
-        Return     : a dictionary which keys are the attribute names the
-                     value associated with each key being a another
-                     dictionary where keys are property names and value is
-                     a sequence of strings being the property value.
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
-    """
-    return __Database__generic_get_attr_pipe_property(
-        self, class_name, value, self._get_class_attribute_property
-    )
-
-
-def __Database__put_class_attribute_property(self, class_name, value):
-    """
-    put_class_attribute_property(self, class_name, value) -> None
-
-            Insert or update a list of properties for the specified class.
-
-        Parameters :
-            - class_name : (str) class name
-            - propdata : can be one of the following:
-
-                1. tango.DbData - several property data to be inserted
-                2. sequence<DbDatum> - several property data to be inserted
-                3. dict<str, dict<str, obj>> keys are attribute names and value
-                   being another dictionary which keys are the attribute property
-                   names and the value associated with each key being seq<str> or
-                   tango.DbDatum
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed, DevFailed from device (DB_SQLError)
-    """
-    return __Database__generic_put_attr_pipe_property(
-        self, class_name, value, self._put_class_attribute_property
-    )
-
-
-def __Database__delete_class_attribute_property(self, class_name, value):
-    """
-    delete_class_attribute_property(self, class_name, value) -> None
-
-            Delete a list of attribute properties for the specified class.
-
-        Parameters :
-            - class_name : (str) class name
-            - propnames : can be one of the following:
-
-                1. DbData [in] - several property data to be deleted
-                2. sequence<str> [in]- several property data to be deleted
-                3. sequence<DbDatum> [in] - several property data to be deleted
-                4. dict<str, seq<str>> keys are attribute names and value being a
-                   list of attribute property names
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed
-                     DevFailed from device (DB_SQLError)"""
-    return __Database__generic_delete_attr_pipe_property(
-        self, class_name, value, self._delete_class_attribute_property
-    )
+    return __Database__generic_delete_attr_pipe_property(self, class_name, value, self._delete_class_attribute_property)
 
 
 def __Database__get_service_list(self, filter=".*"):
@@ -836,30 +720,16 @@ def __init_Database():
     Database.get_device_property = _trace_client(__Database__get_device_property)
     Database.put_device_property = _trace_client(__Database__put_device_property)
     Database.delete_device_property = _trace_client(__Database__delete_device_property)
-    Database.get_device_property_list = _trace_client(
-        __Database__get_device_property_list
-    )
-    Database.get_device_attribute_property = _trace_client(
-        __Database__get_device_attribute_property
-    )
-    Database.put_device_attribute_property = _trace_client(
-        __Database__put_device_attribute_property
-    )
-    Database.delete_device_attribute_property = _trace_client(
-        __Database__delete_device_attribute_property
-    )
+    Database.get_device_property_list = _trace_client(__Database__get_device_property_list)
+    Database.get_device_attribute_property = _trace_client(__Database__get_device_attribute_property)
+    Database.put_device_attribute_property = _trace_client(__Database__put_device_attribute_property)
+    Database.delete_device_attribute_property = _trace_client(__Database__delete_device_attribute_property)
     Database.get_class_property = _trace_client(__Database__get_class_property)
     Database.put_class_property = _trace_client(__Database__put_class_property)
     Database.delete_class_property = _trace_client(__Database__delete_class_property)
-    Database.get_class_attribute_property = _trace_client(
-        __Database__get_class_attribute_property
-    )
-    Database.put_class_attribute_property = _trace_client(
-        __Database__put_class_attribute_property
-    )
-    Database.delete_class_attribute_property = _trace_client(
-        __Database__delete_class_attribute_property
-    )
+    Database.get_class_attribute_property = _trace_client(__Database__get_class_attribute_property)
+    Database.put_class_attribute_property = _trace_client(__Database__put_class_attribute_property)
+    Database.delete_class_attribute_property = _trace_client(__Database__delete_class_attribute_property)
     Database.get_service_list = _trace_client(__Database__get_service_list)
     Database.__str__ = __Database__str
     Database.__repr__ = __Database__str

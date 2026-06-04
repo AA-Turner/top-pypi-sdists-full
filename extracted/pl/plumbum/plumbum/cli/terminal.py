@@ -5,20 +5,31 @@ Terminal-related utilities
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    f"{__spec__.parent}.progress",
+    f"{__spec__.parent}.termsize",
+}
+
 import contextlib
 import os
 import sys
+from typing import IO, TYPE_CHECKING, TypeVar
 
 from plumbum import local
 
 from .progress import Progress
 from .termsize import get_terminal_size
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterable, Mapping
+
+    from plumbum.commands.base import BaseCommand
+
 __all__ = [
     "Progress",
     "ask",
     "choose",
-    "get_terminal_size",
     "get_terminal_size",
     "prompt",
     "readline",
@@ -27,6 +38,9 @@ __all__ = [
 
 def __dir__() -> list[str]:
     return __all__
+
+
+T = TypeVar("T")
 
 
 def readline(message: str = "") -> str:
@@ -68,7 +82,11 @@ def ask(question: str, default: bool | None = None) -> bool:
         sys.stdout.write("Invalid response, please try again\n")
 
 
-def choose(question, options, default=None):
+def choose(
+    question: str,
+    options: Iterable[str] | Iterable[tuple[str, str]] | Mapping[str, str],
+    default: str | None = None,
+) -> str:
     """Prompts the user with a question and a set of options, from which the user needs to choose.
 
     :param question: The question to ask
@@ -110,15 +128,16 @@ def choose(question, options, default=None):
         msg = "Choice: "
     while True:
         try:
-            choice = readline(msg).strip()
+            choice: str | int = readline(msg).strip()
         except EOFError:
             choice = ""
-        if not choice and default:
+        if not choice and default is not None:
             return default
         try:
             choice = int(choice)
             if choice not in choices:
-                raise ValueError()
+                sys.stdout.write("Invalid choice selection, please try again\n")
+                continue
         except ValueError:
             sys.stdout.write("Invalid choice, please try again\n")
             continue
@@ -126,11 +145,12 @@ def choose(question, options, default=None):
 
 
 def prompt(
-    question,
-    type=str,  # pylint: disable=redefined-builtin
-    default=NotImplemented,
-    validator=lambda _: True,
-):
+    question: str,
+    # pylint: disable-next=redefined-builtin
+    type: Callable[[str], T] = str,  # type: ignore[assignment]
+    default: T = NotImplemented,
+    validator: Callable[[T], bool] = lambda _: True,
+) -> T:
     """
     Presents the user with a validated question, keeps asking if validation does not pass.
 
@@ -147,17 +167,17 @@ def prompt(
     question += ": "
     while True:
         try:
-            ans = readline(question).strip()
+            ans_str = readline(question).strip()
         except EOFError:
-            ans = ""
+            ans_str = ""
 
-        if not ans:
+        if not ans_str:
             if default is not NotImplemented:
                 # sys.stdout.write("\b%s\n" % (default,))
                 return default
             continue
         try:
-            ans = type(ans)
+            ans = type(ans_str)
         except (TypeError, ValueError) as ex:
             sys.stdout.write(f"Invalid value ({ex}), please try again\n")
             continue
@@ -174,13 +194,15 @@ def prompt(
         return ans
 
 
-def hexdump(data_or_stream, bytes_per_line=16, aggregate=True):
+def hexdump(
+    data_or_stream: str | IO[str], bytes_per_line: int = 16, aggregate: bool = True
+) -> Generator[str, None, None]:
     """Convert the given bytes (or a stream with a buffering ``read()`` method) to hexdump-formatted lines,
     with possible aggregation of identical lines. Returns a generator of formatted lines.
     """
     if hasattr(data_or_stream, "read"):
 
-        def read_chunk():
+        def read_chunk() -> Generator[str, None, None]:
             while True:
                 buf = data_or_stream.read(bytes_per_line)
                 if not buf:
@@ -189,7 +211,7 @@ def hexdump(data_or_stream, bytes_per_line=16, aggregate=True):
 
     else:
 
-        def read_chunk():
+        def read_chunk() -> Generator[str, None, None]:
             for i in range(0, len(data_or_stream), bytes_per_line):
                 yield data_or_stream[i : i + bytes_per_line]
 
@@ -209,7 +231,9 @@ def hexdump(data_or_stream, bytes_per_line=16, aggregate=True):
         skipped = False
 
 
-def pager(rows, pagercmd=None):  # pragma: no cover
+def pager(
+    rows: str | Iterable[str] | IO[str], pagercmd: BaseCommand | None = None
+) -> None:  # pragma: no cover
     """Opens a pager (e.g., ``less``) to display the given text. Requires a terminal.
 
     :param rows: a ``bytes`` or a list/iterator of "rows" (``bytes``)
@@ -222,6 +246,7 @@ def pager(rows, pagercmd=None):  # pragma: no cover
 
     pg = pagercmd.popen(stdout=None, stderr=None)
     try:
+        assert pg.stdin is not None
         for row in rows:
             line = f"{row}\n"
             try:
@@ -233,8 +258,8 @@ def pager(rows, pagercmd=None):  # pragma: no cover
         pg.wait()
     finally:
         with contextlib.suppress(Exception):
-            rows.close()
-        if pg and pg.poll() is None:
+            rows.close()  # type: ignore[attr-defined]
+        if pg and pg.poll() is None:  # type: ignore[truthy-bool]
             with contextlib.suppress(Exception):
                 pg.terminate()
             os.system("reset")

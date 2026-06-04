@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.get_copilot_settings_state_response_200_instance_ai_summary_default_model import (
         GetCopilotSettingsStateResponse200InstanceAiSummaryDefaultModel,
     )
+    from ..models.get_copilot_settings_state_response_200_instance_ai_summary_metadata_model import (
+        GetCopilotSettingsStateResponse200InstanceAiSummaryMetadataModel,
+    )
     from ..models.get_copilot_settings_state_response_200_instance_ai_summary_providers_item import (
         GetCopilotSettingsStateResponse200InstanceAiSummaryProvidersItem,
     )
@@ -26,11 +29,13 @@ class GetCopilotSettingsStateResponse200InstanceAiSummary:
     Attributes:
         providers (List['GetCopilotSettingsStateResponse200InstanceAiSummaryProvidersItem']):
         default_model (Union[Unset, GetCopilotSettingsStateResponse200InstanceAiSummaryDefaultModel]):
+        metadata_model (Union[Unset, GetCopilotSettingsStateResponse200InstanceAiSummaryMetadataModel]):
         code_completion_model (Union[Unset, GetCopilotSettingsStateResponse200InstanceAiSummaryCodeCompletionModel]):
     """
 
     providers: List["GetCopilotSettingsStateResponse200InstanceAiSummaryProvidersItem"]
     default_model: Union[Unset, "GetCopilotSettingsStateResponse200InstanceAiSummaryDefaultModel"] = UNSET
+    metadata_model: Union[Unset, "GetCopilotSettingsStateResponse200InstanceAiSummaryMetadataModel"] = UNSET
     code_completion_model: Union[
         Unset, "GetCopilotSettingsStateResponse200InstanceAiSummaryCodeCompletionModel"
     ] = UNSET
@@ -47,6 +52,10 @@ class GetCopilotSettingsStateResponse200InstanceAiSummary:
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
 
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
+
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
             code_completion_model = self.code_completion_model.to_dict()
@@ -60,6 +69,8 @@ class GetCopilotSettingsStateResponse200InstanceAiSummary:
         )
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
 
@@ -72,6 +83,9 @@ class GetCopilotSettingsStateResponse200InstanceAiSummary:
         )
         from ..models.get_copilot_settings_state_response_200_instance_ai_summary_default_model import (
             GetCopilotSettingsStateResponse200InstanceAiSummaryDefaultModel,
+        )
+        from ..models.get_copilot_settings_state_response_200_instance_ai_summary_metadata_model import (
+            GetCopilotSettingsStateResponse200InstanceAiSummaryMetadataModel,
         )
         from ..models.get_copilot_settings_state_response_200_instance_ai_summary_providers_item import (
             GetCopilotSettingsStateResponse200InstanceAiSummaryProvidersItem,
@@ -94,6 +108,13 @@ class GetCopilotSettingsStateResponse200InstanceAiSummary:
         else:
             default_model = GetCopilotSettingsStateResponse200InstanceAiSummaryDefaultModel.from_dict(_default_model)
 
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, GetCopilotSettingsStateResponse200InstanceAiSummaryMetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = GetCopilotSettingsStateResponse200InstanceAiSummaryMetadataModel.from_dict(_metadata_model)
+
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, GetCopilotSettingsStateResponse200InstanceAiSummaryCodeCompletionModel]
         if isinstance(_code_completion_model, Unset):
@@ -106,6 +127,7 @@ class GetCopilotSettingsStateResponse200InstanceAiSummary:
         get_copilot_settings_state_response_200_instance_ai_summary = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
         )
 

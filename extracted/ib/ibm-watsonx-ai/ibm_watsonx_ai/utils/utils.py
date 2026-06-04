@@ -1187,9 +1187,6 @@ class StrEnum(_StrEnum):
     TestEnum.Enum1 == "enum1" --> False
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
     @classmethod
     def show(cls) -> None:
         elements_dict = {element.name: element.value for element in cls}

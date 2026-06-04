@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..models.get_settings_response_200_ai_config_max_tokens_per_model import (
         GetSettingsResponse200AiConfigMaxTokensPerModel,
     )
+    from ..models.get_settings_response_200_ai_config_metadata_model import GetSettingsResponse200AiConfigMetadataModel
     from ..models.get_settings_response_200_ai_config_providers import GetSettingsResponse200AiConfigProviders
 
 
@@ -26,6 +27,7 @@ class GetSettingsResponse200AiConfig:
     Attributes:
         providers (Union[Unset, GetSettingsResponse200AiConfigProviders]):
         default_model (Union[Unset, GetSettingsResponse200AiConfigDefaultModel]):
+        metadata_model (Union[Unset, GetSettingsResponse200AiConfigMetadataModel]):
         code_completion_model (Union[Unset, GetSettingsResponse200AiConfigCodeCompletionModel]):
         custom_prompts (Union[Unset, GetSettingsResponse200AiConfigCustomPrompts]):
         max_tokens_per_model (Union[Unset, GetSettingsResponse200AiConfigMaxTokensPerModel]):
@@ -33,6 +35,7 @@ class GetSettingsResponse200AiConfig:
 
     providers: Union[Unset, "GetSettingsResponse200AiConfigProviders"] = UNSET
     default_model: Union[Unset, "GetSettingsResponse200AiConfigDefaultModel"] = UNSET
+    metadata_model: Union[Unset, "GetSettingsResponse200AiConfigMetadataModel"] = UNSET
     code_completion_model: Union[Unset, "GetSettingsResponse200AiConfigCodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "GetSettingsResponse200AiConfigCustomPrompts"] = UNSET
     max_tokens_per_model: Union[Unset, "GetSettingsResponse200AiConfigMaxTokensPerModel"] = UNSET
@@ -46,6 +49,10 @@ class GetSettingsResponse200AiConfig:
         default_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.default_model, Unset):
             default_model = self.default_model.to_dict()
+
+        metadata_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.metadata_model, Unset):
+            metadata_model = self.metadata_model.to_dict()
 
         code_completion_model: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.code_completion_model, Unset):
@@ -66,6 +73,8 @@ class GetSettingsResponse200AiConfig:
             field_dict["providers"] = providers
         if default_model is not UNSET:
             field_dict["default_model"] = default_model
+        if metadata_model is not UNSET:
+            field_dict["metadata_model"] = metadata_model
         if code_completion_model is not UNSET:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
@@ -89,6 +98,9 @@ class GetSettingsResponse200AiConfig:
         from ..models.get_settings_response_200_ai_config_max_tokens_per_model import (
             GetSettingsResponse200AiConfigMaxTokensPerModel,
         )
+        from ..models.get_settings_response_200_ai_config_metadata_model import (
+            GetSettingsResponse200AiConfigMetadataModel,
+        )
         from ..models.get_settings_response_200_ai_config_providers import GetSettingsResponse200AiConfigProviders
 
         d = src_dict.copy()
@@ -105,6 +117,13 @@ class GetSettingsResponse200AiConfig:
             default_model = UNSET
         else:
             default_model = GetSettingsResponse200AiConfigDefaultModel.from_dict(_default_model)
+
+        _metadata_model = d.pop("metadata_model", UNSET)
+        metadata_model: Union[Unset, GetSettingsResponse200AiConfigMetadataModel]
+        if isinstance(_metadata_model, Unset):
+            metadata_model = UNSET
+        else:
+            metadata_model = GetSettingsResponse200AiConfigMetadataModel.from_dict(_metadata_model)
 
         _code_completion_model = d.pop("code_completion_model", UNSET)
         code_completion_model: Union[Unset, GetSettingsResponse200AiConfigCodeCompletionModel]
@@ -130,6 +149,7 @@ class GetSettingsResponse200AiConfig:
         get_settings_response_200_ai_config = cls(
             providers=providers,
             default_model=default_model,
+            metadata_model=metadata_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
             max_tokens_per_model=max_tokens_per_model,

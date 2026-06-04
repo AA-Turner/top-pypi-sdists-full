@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 from collections import defaultdict
 
@@ -6,16 +7,18 @@ import archinfo
 import claripy
 
 import angr
-from angr.analyses import ForwardAnalysis, visitors
-from angr.analyses import AnalysesHub
+from angr.analyses.analysis import AnalysesHub
+from angr.analyses.forward_analysis import ForwardAnalysis, visitors
+from angr.analyses.typehoon.typevars import TypeVariableManager
+from angr.code_location import CodeLocation
 from angr.errors import SimMemoryMissingError
 from angr.knowledge_plugins.functions.function import Function
-from angr.storage.memory_mixins.paged_memory.pages.multi_values import MultiValues
-from angr import BP, BP_AFTER
 from angr.sim_variable import SimRegisterVariable, SimStackVariable
-from angr.code_location import CodeLocation
-from .variable_recovery_base import VariableRecoveryBase, VariableRecoveryStateBase
+from angr.state_plugins.inspect import BP, BP_AFTER
+from angr.storage.memory_mixins.paged_memory.pages.multi_values import MultiValues
+
 from .annotations import StackLocationAnnotation
+from .variable_recovery_base import VariableRecoveryBase, VariableRecoveryStateBase
 
 l = logging.getLogger(name=__name__)
 
@@ -35,6 +38,8 @@ class VariableRecoveryState(VariableRecoveryStateBase):
         arch: archinfo.Arch,
         func: Function,
         concrete_states,
+        *,
+        tv_manager: TypeVariableManager,
         stack_region=None,
         register_region=None,
     ):
@@ -46,6 +51,7 @@ class VariableRecoveryState(VariableRecoveryStateBase):
             func=func,
             stack_region=stack_region,
             register_region=register_region,
+            tv_manager=tv_manager,
         )
 
         self._concrete_states = concrete_states
@@ -84,6 +90,7 @@ class VariableRecoveryState(VariableRecoveryStateBase):
             self.arch,
             self.function,
             self._concrete_states,
+            tv_manager=self.tv_manager,
             stack_region=self.stack_region.copy(),
             register_region=self.register_region.copy(),
         )
@@ -143,6 +150,7 @@ class VariableRecoveryState(VariableRecoveryStateBase):
                 self.arch,
                 self.function,
                 merged_concrete_states,
+                tv_manager=self.tv_manager,
                 stack_region=new_stack_region,
                 register_region=new_register_region,
             ),
@@ -477,6 +485,7 @@ class VariableRecovery(ForwardAnalysis, VariableRecoveryBase):  # pylint:disable
         )
 
         self._node_iterations = defaultdict(int)
+        self.tv_manager = TypeVariableManager(func.addr)
 
         self._analyze()
 
@@ -502,7 +511,15 @@ class VariableRecovery(ForwardAnalysis, VariableRecoveryBase):  # pylint:disable
         # give it enough stack space
         concrete_state.regs.bp = concrete_state.regs.sp + 0x100000
 
-        return VariableRecoveryState(self.project, node.addr, self, self.project.arch, self.function, [concrete_state])
+        return VariableRecoveryState(
+            self.project,
+            node.addr,
+            self,
+            self.project.arch,
+            self.function,
+            [concrete_state],
+            tv_manager=self.tv_manager,
+        )
 
     def _merge_states(self, node, *states: VariableRecoveryState):
         if len(states) == 1:

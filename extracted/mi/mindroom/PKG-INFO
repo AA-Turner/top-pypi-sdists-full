@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.6.26
+Version: 2026.6.40
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -60,6 +60,8 @@ Provides-Extra: arxiv
 Requires-Dist: arxiv; extra == 'arxiv'
 Requires-Dist: pypdf; extra == 'arxiv'
 Provides-Extra: attachments
+Provides-Extra: aws-bedrock
+Requires-Dist: boto3>=1.40.8; extra == 'aws-bedrock'
 Provides-Extra: aws-lambda
 Requires-Dist: boto3>=1.40.8; extra == 'aws-lambda'
 Provides-Extra: aws-ses
@@ -463,7 +465,7 @@ MindRoom also ships as a macOS menu bar app for running the local MindRoom servi
 The app bundles `uv`, installs the `mindroom` CLI with `uv tool install`, uses `~/.mindroom` for normal config and state, and manages the existing `mindroom service` launchd service.
 
 ```bash
-brew install --cask mindroom-ai/mindroom/mindroom
+brew install --cask mindroom-ai/tap/mindroom
 ```
 
 Open **MindRoom** from `/Applications` or Spotlight.
@@ -723,7 +725,7 @@ Mix and match:
 ### Technical Stack
 - **Matrix**: Any homeserver (Synapse, Conduit, Dendrite, etc.)
 - **Agents**: Python with matrix-nio
-- **AI Models**: OpenAI, Anthropic, Ollama, or any provider
+- **AI Models**: OpenAI, Anthropic, Amazon Bedrock Claude, Ollama, or any provider
 - **Memory**: Mem0 + ChromaDB vector storage (persistent on disk)
 - **UI**: Web dashboard + any Matrix client
 

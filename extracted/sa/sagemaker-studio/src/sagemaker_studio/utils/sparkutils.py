@@ -17,6 +17,7 @@ except ImportError:
 def init(
     connection_name: str = None,
     config: ClientConfig = ClientConfig(),
+    spark_conf: dict = None,
 ):
     if not _SPARK_AVAILABLE:
         raise RuntimeError("PySpark is not available.")
@@ -31,6 +32,7 @@ def init(
         session_manager=None,
         connection_name=connection_name,
         config=config,
+        spark_conf=spark_conf,
     )
 
 

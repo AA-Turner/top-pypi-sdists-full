@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
@@ -19,6 +19,12 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from pydantic_ai_summarization._cutoff import (
+    async_count_tokens as _async_count_tokens,
+)
+from pydantic_ai_summarization._cutoff import (
+    async_determine_cutoff_index as _async_determine_cutoff,
+)
 from pydantic_ai_summarization._cutoff import (
     determine_cutoff_index as _determine_cutoff,
 )
@@ -395,12 +401,18 @@ class SummarizationProcessor:
         Returns:
             Processed message history, potentially with older messages summarized.
         """
-        total_tokens = cast(int, self.token_counter(messages))
+        total_tokens = await _async_count_tokens(self.token_counter, messages)
 
         if not self._should_summarize(messages, total_tokens):
             return messages
 
-        cutoff_index = self._determine_cutoff_index(messages)
+        cutoff_index = await _async_determine_cutoff(
+            messages,
+            self.keep,
+            self.token_counter,
+            self.max_input_tokens,
+            _DEFAULT_MESSAGES_TO_KEEP,
+        )
 
         if cutoff_index <= 0:
             return messages

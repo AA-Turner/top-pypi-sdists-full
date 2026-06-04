@@ -83,7 +83,7 @@ __all__ = (
 
 AccountScopeType = Literal["LINKED", "PAYER"]
 AnalysisStatusType = Literal["FAILED", "PROCESSING", "SUCCEEDED"]
-AnalysisTypeType = Literal["CUSTOM_COMMITMENT", "MAX_SAVINGS"]
+AnalysisTypeType = Literal["CUSTOM_COMMITMENT", "MAX_SAVINGS", "TARGET_AVERAGE_COVERAGE"]
 AnomalyFeedbackTypeType = Literal["NO", "PLANNED_ACTIVITY", "YES"]
 AnomalySubscriptionFrequencyType = Literal["DAILY", "IMMEDIATE", "WEEKLY"]
 ApproximationDimensionType = Literal["RESOURCE", "SERVICE"]

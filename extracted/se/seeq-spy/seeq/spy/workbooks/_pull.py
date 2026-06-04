@@ -120,6 +120,11 @@ def pull(
         store the login session state. This is useful to log in to different
         Seeq servers at the same time or with different credentials.
 
+    Returns
+    -------
+    WorkbookList
+        A list of in-memory Workbook objects that capture the full state of the
+        workbook, including all worksheets and scoped items.
     """
     status.add_log_section_marker('] Pulling')
 

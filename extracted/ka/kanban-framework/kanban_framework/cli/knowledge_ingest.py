@@ -138,6 +138,7 @@ def handle_import(km: KnowledgeManager, args: list[str]) -> dict:
     else:
         entries = []
     added = []
+    skipped = []
     for e in entries:
         add_kwargs: dict = dict(
             domain=e.get("domain", "infra"), category=e.get("category", "工具"),
@@ -147,9 +148,41 @@ def handle_import(km: KnowledgeManager, args: list[str]) -> dict:
         )
         if e.get("biz_context"):
             add_kwargs["biz_context"] = e["biz_context"]
+        if e.get("id"):
+            add_kwargs["entry_id"] = e["id"]
+        if e.get("status"):
+            add_kwargs["status"] = e["status"]
         entry = km.add_entry(**add_kwargs)
-        added.append(entry["id"])
-    return {"imported": len(added), "ids": added}
+        if entry.get("skipped"):
+            skipped.append({"id": e.get("id"), "reason": entry.get("reason")})
+        else:
+            added.append(entry["id"])
+    return {"imported": len(added), "ids": added, "skipped": len(skipped), "skip_details": skipped}
+
+
+def handle_export(km: KnowledgeManager, args: list[str]) -> dict:
+    """Export knowledge entries to a JSON file."""
+    output_file = None
+    domain = None
+    status_filter = "active"
+    i = 0
+    while i < len(args):
+        if args[i] == "--output" and i + 1 < len(args):
+            output_file = args[i + 1]; i += 2
+        elif args[i] == "--domain" and i + 1 < len(args):
+            domain = args[i + 1]; i += 2
+        elif args[i] == "--status" and i + 1 < len(args):
+            status_filter = args[i + 1]; i += 2
+        else:
+            i += 1
+    entries = km.list_entries(domain=domain, status=status_filter)
+    export_data = {"entries": entries, "count": len(entries)}
+    if output_file:
+        Path(output_file).write_text(
+            json.dumps(export_data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return {"exported": len(entries), "output_file": output_file}
+    return {"exported": len(entries), "entries": entries}
 
 
 def _auto_extract_entry(file_path: str, content: str, domain: str, status: str) -> dict | None:

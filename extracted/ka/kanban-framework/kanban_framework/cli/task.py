@@ -44,6 +44,7 @@ from kanban_framework.cli.task_edit import (  # noqa: F401
 def cmd_init(args: list[str]) -> dict:
     clean_orphaned = "--clean-orphaned" in args
     apply_updates = "--apply" in args
+    force_skills = "--force-skills" in args
     non_interactive = "--non-interactive" in args or "--json" in args
 
     fs, _, _ = _resolve()
@@ -59,6 +60,7 @@ def cmd_init(args: list[str]) -> dict:
         fs.kanban_dir / "dashboard",
         fs.kanban_dir / "skills" / "evolved",
         fs.kanban_dir / "workflows",
+        fs.kanban_dir / "log",
     ]
     created = []
     for d in required_dirs:
@@ -93,25 +95,37 @@ def cmd_init(args: list[str]) -> dict:
     added: list[str] = []
     stale: list[str] = []
     pending_updates: list[str] = []
+    sync_errors: list[str] = []
+
+    if force_skills and skill_dst.exists():
+        import shutil
+        shutil.rmtree(str(skill_dst))
+        stale.append(str(skill_dst.relative_to(root)))
 
     def _sync_file(src: Path, dst: Path) -> None:
         rel = str(dst.relative_to(root))
-        if not dst.exists():
-            fs.ensure_dir(dst.parent)
-            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-            added.append(rel)
-        elif dst.read_text(encoding="utf-8") != src.read_text(encoding="utf-8"):
-            if apply_updates:
+        try:
+            if not dst.exists():
+                fs.ensure_dir(dst.parent)
                 dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-                updated.append(rel)
-            else:
-                pending_updates.append(rel)
+                added.append(rel)
+            elif dst.read_text(encoding="utf-8") != src.read_text(encoding="utf-8"):
+                if apply_updates:
+                    dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                    updated.append(rel)
+                else:
+                    pending_updates.append(rel)
+        except Exception as exc:
+            sync_errors.append(f"{rel}: {exc}")
 
     def _sync_dir(src_dir: Path, dst_dir: Path) -> None:
         if not dst_dir.exists():
             import shutil
-            shutil.copytree(str(src_dir), str(dst_dir))
-            added.append(str(dst_dir.relative_to(root)))
+            try:
+                shutil.copytree(str(src_dir), str(dst_dir))
+                added.append(str(dst_dir.relative_to(root)))
+            except Exception as exc:
+                sync_errors.append(f"{dst_dir.relative_to(root)}: {exc}")
             return
         for src_file in sorted(src_dir.rglob("*")):
             if src_file.is_file():
@@ -154,6 +168,7 @@ def cmd_init(args: list[str]) -> dict:
             "updated": updated,
             "pending_updates": pending_updates,
             "stale_cleaned": stale,
+            "errors": sync_errors,
         },
     }
 

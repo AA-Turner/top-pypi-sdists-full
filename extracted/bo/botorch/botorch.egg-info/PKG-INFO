@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: botorch
-Version: 0.17.2
+Version: 0.18.0
 Summary: Bayesian Optimization in PyTorch
 Author: Meta Platforms, Inc.
 License-Expression: MIT
@@ -20,11 +20,14 @@ Requires-Dist: typing_extensions
 Requires-Dist: pyre_extensions
 Requires-Dist: gpytorch>=1.15.2
 Requires-Dist: linear_operator>=0.6.1
-Requires-Dist: torch>=2.2
-Requires-Dist: pyro-ppl>=1.8.4
+Requires-Dist: torch>=2.4
+Requires-Dist: jax<0.10,>=0.4.35
+Requires-Dist: jaxlib<0.10,>=0.4.35
+Requires-Dist: numpyro>=0.18.0
 Requires-Dist: scipy
 Requires-Dist: multipledispatch
 Requires-Dist: threadpoolctl
+Requires-Dist: ninja
 Provides-Extra: pymoo
 Requires-Dist: pymoo; extra == "pymoo"
 Provides-Extra: test
@@ -61,7 +64,6 @@ Dynamic: license-file
 
 <hr/>
 
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
 [![Lint](https://github.com/meta-pytorch/botorch/workflows/Lint/badge.svg)](https://github.com/meta-pytorch/botorch/actions?query=workflow%3ALint)
 [![Test](https://github.com/meta-pytorch/botorch/workflows/Test/badge.svg)](https://github.com/meta-pytorch/botorch/actions?query=workflow%3ATest)
 [![Docs](https://github.com/meta-pytorch/botorch/workflows/Docs/badge.svg)](https://github.com/meta-pytorch/botorch/actions?query=workflow%3ADocs)

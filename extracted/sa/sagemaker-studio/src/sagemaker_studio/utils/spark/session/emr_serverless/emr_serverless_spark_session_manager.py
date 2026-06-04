@@ -17,9 +17,12 @@ from pyspark.sql.connect.session import SparkSession as _SparkSession
 from sagemaker_studio.project import ClientConfig, Project
 from sagemaker_studio.utils._internal import InternalUtils
 from sagemaker_studio.utils.loggerutils import sync_with_metrics
-from sagemaker_studio.utils.spark.internal_spark_utils import generate_spark_configs
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.emr_serverless.interceptors import CustomChannelBuilder
+from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    build_spark_configs,
+    extract_connection_spark_configs,
+)
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
 _parent_logger = logging.getLogger("SparkConnect")
@@ -129,25 +132,7 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
                 "runtimeRole not found in sparkEmrProperties, falling back to project IAM role"
             )
 
-        # Extract connection-level spark configs (SparkConfiguration from DataZone connection).
-        # Consistent with SageMakerStudioDataEngineeringSessions which reads these via
-        # connection_transformer and merges them via _update_spark_configuration_to_connection_default.
-        self.connection_spark_configs = {}
-        try:
-            configurations = getattr(connection, "_Connection__connection_data", {}).get(
-                "configurations", []
-            )
-            if isinstance(configurations, list):
-                for config in configurations:
-                    if config.get("classification") == "SparkConfiguration":
-                        self.connection_spark_configs = config.get("properties", {})
-                        break
-            if self.connection_spark_configs:
-                logger.info(
-                    f"Loaded {len(self.connection_spark_configs)} connection-level spark configs"
-                )
-        except Exception as e:
-            logger.warning(f"Error reading connection spark configs: {e}")
+        self.connection_spark_configs = extract_connection_spark_configs(connection)
 
         logger.info(
             f"EMR Serverless application_id={self.application_id} from compute_arn={compute_arn}"
@@ -173,8 +158,19 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             self._lazy_init()
 
             # Get EMR Serverless session and Spark Connect URL
+            # Prepare session parameters (outside metrics)
+            application = self._ensure_application_started(self.application_id)
+            user_id, account_id = self._get_user_id_account_id()
+            service_configs = self._get_service_specific_configs(application)
+            spark_configs = build_spark_configs(
+                account_id=account_id,
+                service_configs=service_configs,
+                connection_configs=self.connection_spark_configs,
+                user_configs=self.spark_conf,
+            )
+
             self.emr_serverless_session_id, spark_endpoint_url, endpoint_response = (
-                self._start_emr_serverless_session(self.application_id)
+                self._start_emr_serverless_session(self.application_id, user_id, spark_configs)
             )
 
             # Create custom channel builder with gRPC interceptor for auto-refreshing
@@ -244,6 +240,21 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         if self.emr_serverless_runtime_role:
             return self.emr_serverless_runtime_role
         return self.project.iam_role
+
+    def _get_service_specific_configs(self, application) -> dict:
+        """Build EMR Serverless-specific spark configs (Layer 2).
+
+        Handles FTA/compatibility mode, executor idle timeout, and S3 Access Grants.
+        """
+        configs = {}
+        if self._is_fta_supported(application):
+            logger.info("FTA supported — applying compatibility mode configs")
+            configs.update(self._get_compatibility_mode_configs())
+        else:
+            logger.info("FTA not supported — compatibility mode configs not applied")
+        configs["spark.dynamicAllocation.executorIdleTimeout"] = "120s"
+        configs.update(self._get_s3_access_grants_configs())
+        return configs
 
     def _get_s3_access_grants_configs(self) -> dict:
         """Get S3 Access Grants spark configs if enabled for the project's tooling environment.
@@ -377,18 +388,25 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         return False
 
     @staticmethod
+    def _is_emr_spark_release(release_label: str) -> bool:
+        """Check if release label is an emr-spark release (e.g., emr-spark-7.8.0)."""
+        return release_label.startswith("emr-spark-")
+
+    @staticmethod
     def _is_fta_supported(application) -> bool:
         """Check if FTA (Full Table Access via LakeFormation) is supported for this application.
 
         Consistent with SageMakerStudioDataEngineeringSessions._is_fta_supported.
         FTA requires compatibility mode (lakeformation.enabled=false on the app)
-        AND EMR release label >= emr-7.8.0.
+        AND (emr-spark release OR EMR release label >= emr-7.8.0).
         """
         if not EMRServerlessSparkSessionManager._is_compatibility_mode_enabled(application):
             return False
         release_label = application.get("releaseLabel", "")
         if not release_label:
             return False
+        if EMRServerlessSparkSessionManager._is_emr_spark_release(release_label):
+            return True
         return EMRServerlessSparkSessionManager._is_release_at_least(release_label, "emr-7.8.0")
 
     @staticmethod
@@ -408,43 +426,10 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         }
 
     @sync_with_metrics("_start_emr_serverless_session")
-    def _start_emr_serverless_session(self, application_id):
+    def _start_emr_serverless_session(self, application_id, user_id, spark_configs):
         """Start EMR Serverless session and get Spark Connect URL."""
         try:
             logger.debug(f"Starting EMR Serverless session for application: {application_id}")
-
-            # Ensure application is started; reuse response for FTA check (no extra API call)
-            application = self._ensure_application_started(application_id)
-
-            user_id, account_id = self._get_user_id_account_id()
-            spark_configs = generate_spark_configs(account_id)
-
-            # Conditionally apply compatibility mode (FTA) configs — consistent with sessions package.
-            # generate_spark_configs includes these unconditionally (shared with Athena), but for EMR-S
-            # we follow the sessions package pattern: only apply when FTA is supported.
-            if self._is_fta_supported(application):
-                logger.info("FTA supported — applying compatibility mode configs")
-                spark_configs.update(self._get_compatibility_mode_configs())
-            else:
-                # Remove compat configs that generate_spark_configs set unconditionally
-                for key in self._get_compatibility_mode_configs():
-                    spark_configs.pop(key, None)
-                logger.info("FTA not supported — compatibility mode configs removed")
-
-            # Increase executor idle timeout from default 60s to 120s to reduce cold-start delays
-            # between cell executions in interactive notebook sessions.
-            spark_configs["spark.dynamicAllocation.executorIdleTimeout"] = "120s"
-
-            # Merge connection-level spark configs on top of defaults (connection overrides defaults)
-            if self.connection_spark_configs:
-                spark_configs.update(self.connection_spark_configs)
-            # S3 Access Grants — consistent with sessions package (emr_on_serverless_session.py).
-            # No version check needed: Spark Connect sessions require EMR versions that already support S3AG.
-            spark_configs.update(self._get_s3_access_grants_configs())
-
-            # Merge user-provided spark_conf last — user overrides win over all defaults.
-            if self.spark_conf:
-                spark_configs.update(self.spark_conf)
 
             client_token = str(uuid.uuid4())
 

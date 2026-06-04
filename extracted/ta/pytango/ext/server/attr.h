@@ -81,8 +81,7 @@ class PyScaAttr : public Tango::Attr, public PyAttr {
      * @param[in] w The attribute writable type
      */
     PyScaAttr(const std::string &na, long _type, Tango::AttrWriteType w) :
-        Tango::Attr(na.c_str(), _type, w) {
-    }
+        Tango::Attr(na.c_str(), _type, w) { }
 
     /**
      * Python Scalar Attribute constructor
@@ -157,8 +156,7 @@ class PySpecAttr : public Tango::SpectrumAttr, public PyAttr {
      * @param[in] xx The attribute max dim x
      */
     PySpecAttr(const std::string &na, long _type, Tango::AttrWriteType w, long xx) :
-        Tango::SpectrumAttr(na.c_str(), _type, w, xx) {
-    }
+        Tango::SpectrumAttr(na.c_str(), _type, w, xx) { }
 
     /**
      * Python Spectrum Attribute constructor
@@ -235,8 +233,7 @@ class PyImaAttr : public Tango::ImageAttr, public PyAttr {
      * @param[in] yy The attribute max dim y
      */
     PyImaAttr(const std::string &na, long _type, Tango::AttrWriteType w, long xx, long yy) :
-        Tango::ImageAttr(na.c_str(), _type, w, xx, yy) {
-    }
+        Tango::ImageAttr(na.c_str(), _type, w, xx, yy) { }
 
     /**
      * Python Image Attribute constructor

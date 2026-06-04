@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: podman-compose
-Version: 1.5.0
+Version: 1.6.0
 Summary: A script to run docker-compose.yml using podman
 Author-email: Muayyad Alsadi <alsadi@gmail.com>
 License-Expression: GPL-2.0-only
@@ -46,7 +46,7 @@ This project only depends on:
   by default and you need to install them. This allows containers to be able to resolve
   each other if they are on the same CNI network. This is not necessary when podman is using
   netavark as a network backend.
-* Python3
+* Python 3.9 or newer
 * [PyYAML](https://pyyaml.org/)
 * [python-dotenv](https://pypi.org/project/python-dotenv/)
 
@@ -91,7 +91,7 @@ Install the latest stable version from PyPI:
 pip3 install podman-compose
 ```
 
-pass `--user` to install inside regular user home without being root.
+pass `--user` to install inside a regular user's home without being root.
 
 Or latest development version from GitHub:
 

@@ -42,6 +42,8 @@ linux:build-wheel:
     - rm -rf dist/*.whl
     # move repaired wheel to dist
     - mv wheelhouse/*.whl dist/
+    # Dump dependency versions (for doc/versions/news.md release table)
+    - /opt/python/${PYTHON_TAG}/bin/python cmake/print_dep_versions.py
 
 linux:build-wheel-against-specific-branch:
   stage: build
@@ -174,13 +176,10 @@ linux:test-source:
       --config-settings=build-dir="cmakebuild"
       -v -e ".[tests,telemetry]"
   script:
-    # run full test suite with telemetry disabled (default), then re-run telemetry-specific tests with it enabled
+    # run full test suite
     - >
-      pytest --cov . --cov-branch --cov-append --cov-report=term --write_cpp_coverage --run_extra_src_tests --junitxml=report.xml ||
-      pytest --lf --cov . --cov-branch --cov-append --cov-report=term --write_cpp_coverage --run_extra_src_tests --junitxml=report-lf.xml
-    - >
-      TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
-      --cov . --cov-branch --cov-append --cov-report=term --cov-report=xml --write_cpp_coverage --junitxml=report-telem.xml
+      pytest --cov . --cov-branch --cov-append --cov-report=term --cov-report=xml --write_cpp_coverage --run_extra_src_tests --junitxml=report.xml ||
+      pytest --lf --cov . --cov-branch --cov-append --cov-report=term --cov-report=xml --write_cpp_coverage --run_extra_src_tests --junitxml=report-lf.xml
     # create coverage xml file from cpp gcda/gcno files
     - >
       gcovr
@@ -217,6 +216,8 @@ linux:test-source:
     - dline="================================================================================"
     - |
       pattern=$(cat /proc/sys/kernel/core_pattern)
+      pattern=${pattern%\"}
+      pattern=${pattern#\"}
       if [ "$pattern" == "core.%e.%p.%t" ]; then
         echo "Core pattern is correct: $pattern";
         for core_file in core.*; do
@@ -336,12 +337,11 @@ linux:test-source-against-develop-dependencies:
       --config-settings=build-dir="cmakebuild"
       -v -e ".[tests,telemetry]"
   script:
-    # run full test suite with telemetry disabled (default), then re-run telemetry-specific tests with it enabled
+    # run full test suite with telemetry packages available
     - pytest || pytest --lf
-    - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
     # now remove opentelemetry packages (all depend on opentelemetry-api), and see if some tests still pass
     - micromamba remove -y opentelemetry-api
-    - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
+    - pytest -k telemetry
     # check for valgrind issues
     - pushd tests/valgrind
     - ./run_valgrind_checks.sh
@@ -352,6 +352,8 @@ linux:test-source-against-develop-dependencies:
     - dline="================================================================================"
     - |
       pattern=$(cat /proc/sys/kernel/core_pattern)
+      pattern=${pattern%\"}
+      pattern=${pattern#\"}
       if [ "$pattern" == "core.%e.%p.%t" ]; then
         echo "Core pattern is correct: $pattern";
         for core_file in core.*; do
@@ -401,14 +403,13 @@ linux:test-main-cpptango:
       --config-settings=cmake.build-type="Debug"
       -v $(ls dist/pytango*.tar.gz)[tests,telemetry]
   script:
-    # run telemetry-specific tests with telemetry enabled, then full test suite with it disabled (default)
-    - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
+    # run full test suite with telemetry packages available
     - >
       pytest --junitxml=report.xml ||
       pytest --lf --junitxml=report-lf.xml
     # now remove opentelemetry packages (all depend on opentelemetry-api), and see if some tests still pass
     - micromamba remove -y opentelemetry-api
-    - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
+    - pytest -k telemetry
     # check for valgrind issues
     - pushd tests/valgrind
     - ./run_valgrind_checks.sh
@@ -440,8 +441,6 @@ linux:test-main-cpptango:
     - pip install --upgrade pip
     - pip install --prefer-binary $(find dist/${WHEEL_GLOB_PATTERN})[tests,telemetry]
   script:
-    # run telemetry-specific tests with telemetry enabled, then full test suite with it disabled (default)
-    - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry
     - pytest || pytest --lf
   rules:
     - if: $CI_COMMIT_TAG && $ARCH == "aarch64"
@@ -494,7 +493,7 @@ linux:test-wheel:aarch64:3.14:
 
 linux:test-pixi:x86_64:
   extends: .linux-test-pixi
-  image: ghcr.io/prefix-dev/pixi:latest
+  image: ghcr.io/prefix-dev/pixi:0.70.0
   tags:
     - linux
     - docker
@@ -505,7 +504,7 @@ linux:test-pixi:x86_64:
 linux:test-pixi:aarch64:
   extends: .linux-test-pixi
   image:
-    name: ghcr.io/prefix-dev/pixi:latest
+    name: ghcr.io/prefix-dev/pixi:0.70.0
     docker:
       platform: arm64
   tags:

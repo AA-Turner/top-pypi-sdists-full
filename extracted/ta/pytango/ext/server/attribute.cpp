@@ -14,7 +14,7 @@
 #include "server/attribute_utils.h"
 #include "server/attribute.h"
 
-#ifdef WIN32
+#ifdef _WIN32
   #define PYTG_TIME_FROM_DOUBLE(dbl, tv)         \
       tv.time = static_cast<time_t>(floor(dbl)); \
       tv.millitm = static_cast<unsigned short>((dbl - tv.time) * 1.0e3);
@@ -85,14 +85,14 @@ void __set_value_date_quality_array(Tango::Attribute &att,
     py::size_t dim_x = 0, dim_y = 0;
 
     const std::string f_name = quality != nullptr ? "set_value_date_quality" : "set_value";
-
+    // clang-format off
     data_buffer = python_to_cpp_buffer<tangoArrayTypeConst>(value,
                                                             MemoryAllocation::NEW,
                                                             f_name,
                                                             isImage,
                                                             dim_x,
                                                             dim_y);
-
+    // clang-format on
     long res_dim_x = static_cast<long>(dim_x);
     long res_dim_y = static_cast<long>(dim_y);
 
@@ -110,9 +110,8 @@ void __set_value_date_quality_array<Tango::DEV_ENCODED>([[maybe_unused]] Tango::
                                                         [[maybe_unused]] const double *time,
                                                         [[maybe_unused]] const Tango::AttrQuality *quality,
                                                         [[maybe_unused]] bool isImage) {
-    Tango::Except::throw_exception("PyDs_WrongPythonDataTypeForAttribute",
-                                   "DevEncoded is only supported for SCALAR attributes.",
-                                   "set_value()");
+    Tango::Except::throw_exception(
+        "PyDs_WrongPythonDataTypeForAttribute", "DevEncoded is only supported for SCALAR attributes.", "set_value()");
 }
 
 inline void __set_encoded_attribute_value(Tango::Attribute &att, py::object &py_value) {
@@ -150,10 +149,7 @@ inline void __set_encoded_attribute_value(Tango::Attribute &att, py::object &py_
     att.set_value(&f_copy, d_copy, size, true);
 }
 
-void set_generic_value(Tango::Attribute &att,
-                       py::object &value,
-                       double *time,
-                       Tango::AttrQuality *quality) {
+void set_generic_value(Tango::Attribute &att, py::object &value, double *time, Tango::AttrQuality *quality) {
     if(py::isinstance<Tango::EncodedAttribute>(value)) {
         __set_encoded_attribute_value(att, value);
         return;
@@ -164,7 +160,7 @@ void set_generic_value(Tango::Attribute &att,
 
     const bool isScalar = (format == Tango::SCALAR);
     const bool isImage = (format == Tango::IMAGE);
-
+    // clang-format off
     if(isScalar) {
         TANGO_CALL_ON_ATTRIBUTE_DATA_TYPE_ID(type,
                                              __set_value_date_quality_scalar,
@@ -181,6 +177,7 @@ void set_generic_value(Tango::Attribute &att,
                                              quality,
                                              isImage);
     }
+    // clang-format on
 }
 
 /**
@@ -200,7 +197,7 @@ void set_encoded_value(Tango::Attribute &att,
     Tango::DevString encoding_char = from_python_str_to_cpp_char(encoding);
     Py_ssize_t size;
     Tango::DevString data_char = from_python_str_to_cpp_char(data, &size, true);
-
+    // clang-format off
     if(time != nullptr) {
         PYTG_NEW_TIME_FROM_DOUBLE(*time, tv);
         att.set_value_date_quality(&encoding_char,
@@ -215,6 +212,7 @@ void set_encoded_value(Tango::Attribute &att,
                       size,
                       true);
     }
+    // clang-format on
 }
 
 template <typename TangoScalarType>
@@ -312,145 +310,85 @@ void export_attribute(py::module &m) {
     py::object alarm_flags_class = m.attr("alarm_flags");
     add_names_values_to_native_enum(alarm_flags_class);
 
-    py::class_<Tango::Attribute>(m,
-                                 "Attribute",
-                                 "This class represents a Tango attribute")
+    py::class_<Tango::Attribute>(m, "Attribute", "This class represents a Tango attribute")
         .def("is_write_associated",
              &Tango::Attribute::is_writ_associated,
              R"doc(
-                is_write_associated(self) -> bool
-
-                    Check if the attribute has an associated writable attribute.
-
-                :returns: True if there is an associated writable attribute
-                :rtype: bool)doc")
+                Check if the attribute has an associated writable attribute.
+             )doc")
         .def("is_min_alarm",
              &Tango::Attribute::is_min_alarm,
              R"doc(
-                is_min_alarm(self) -> bool
-
-                    Check if the attribute is in minimum alarm condition.
-
-                :returns: true if the attribute is in alarm condition (read value below the min. alarm).
-                :rtype: bool)doc")
+                Check if the attribute is in minimum alarm condition (read value below the min. alarm).
+             )doc")
         .def("is_max_alarm",
              &Tango::Attribute::is_max_alarm,
              R"doc(
-                is_max_alarm(self) -> bool
-
-                    Check if the attribute is in maximum alarm condition.
-
-                :returns: true if the attribute is in alarm condition (read value above the max. alarm).
-                :rtype: bool)doc")
+                Check if the attribute is in maximum alarm condition (read value above the max. alarm).
+             )doc")
         .def("is_min_warning",
              &Tango::Attribute::is_min_warning,
              R"doc(
-                is_min_warning(self) -> bool
-
-                    Check if the attribute is in minimum warning condition.
-
-                :returns: true if the attribute is in warning condition (read value below the min. warning).
-                :rtype: bool)doc")
+                Check if the attribute is in minimum warning condition (read value below the min. warning).
+             )doc")
         .def("is_max_warning",
              &Tango::Attribute::is_max_warning,
              R"doc(
-                is_max_warning(self) -> bool
-
-                    Check if the attribute is in maximum warning condition.
-
-                :returns: true if the attribute is in warning condition (read value above the max. warning).
-                :rtype: bool)doc")
+                Check if the attribute is in maximum warning condition (read value above the max. warning).
+             )doc")
         .def("is_rds_alarm",
              &Tango::Attribute::is_rds_alarm,
              R"doc(
-                is_rds_alarm(self) -> bool
-
-                    Check if the attribute is in RDS alarm condition.
-
-                :returns: true if the attribute is in RDS condition (Read Different than Set).
-                :rtype: bool)doc")
+                Check if the attribute is in RDS alarm condition (Read Different than Set).
+             )doc")
         .def("is_polled",
              &PyAttribute::is_polled,
              R"doc(
-                is_polled(self) -> bool
-
-                    Check if the attribute is polled.
-
-                :returns: true if the attribute is polled.
-                :rtype: bool)doc")
+                Check if the attribute is polled.
+             )doc")
         .def("check_alarm",
              &Tango::Attribute::check_alarm,
              R"doc(
-                check_alarm(self) -> bool
+                Check if the attribute read value is below/above the alarm level.
 
-                    Check if the attribute read value is below/above the alarm level.
-
-                :returns: true if the attribute is in alarm condition.
-                :rtype: bool
-
-                :raises DevFailed: If no alarm level is defined.)doc")
+                :raises :obj:`~tango.DevFailed`: If no alarm level is defined
+             )doc")
         .def("get_writable",
              &Tango::Attribute::get_writable,
              R"doc(
-                get_writable(self) -> AttrWriteType
-
-                    Get the attribute writable type (RO/WO/RW).
-
-                :returns: The attribute write type.
-                :rtype: AttrWriteType)doc")
+                Get the attribute writable type (RO/WO/RW).
+             )doc")
         .def("get_name",
              static_cast<const std::string &(Tango::Attribute::*) () const>(&Tango::Attribute::get_name),
              py::return_value_policy::copy,
              R"doc(
-                get_name(self) -> str
-
-                    Get attribute name.
-
-                :returns: The attribute name
-                :rtype: str)doc")
+                Get attribute name.
+             )doc")
         .def("get_data_type",
              &Tango::Attribute::get_data_type,
              R"doc(
-                get_data_type(self) -> int
-
-                    Get attribute data type.
-
-                :returns: the attribute data type
-                :rtype: int)doc")
+                Get attribute data type.
+             )doc")
         .def("get_data_format",
              &Tango::Attribute::get_data_format,
              R"doc(
-                get_data_format(self) -> AttrDataFormat
-
-                    Get attribute data format.
-
-                :returns: the attribute data format
-                :rtype: AttrDataFormat)doc")
+                Get attribute data format.
+             )doc")
         .def("get_assoc_name",
              &Tango::Attribute::get_assoc_name,
              py::return_value_policy::copy,
              R"doc(
-                get_assoc_name(self) -> str
-
-                    Get name of the associated writable attribute.
-
-                :returns: the associated writable attribute name
-                :rtype: str)doc")
+                Get name of the associated writable attribute.
+             )doc")
         .def("get_assoc_ind",
              &Tango::Attribute::get_assoc_ind,
              R"doc(
-                get_assoc_ind(self) -> int
-
-                    Get index of the associated writable attribute.
-
-                :returns: the index in the main attribute vector of the associated writable attribute
-                :rtype: int)doc")
+                Get index in the main attribute vector of the associated writable attribute.
+             )doc")
         .def("set_assoc_ind",
              &Tango::Attribute::set_assoc_ind,
              R"doc(
-                set_assoc_ind(self, index)
-
-                    Set index of the associated writable attribute.
+                Set index of the associated writable attribute.
 
                 :param index: The new index in the main attribute vector of the associated writable attribute
                 :type index: int)doc",
@@ -459,257 +397,199 @@ void export_attribute(py::module &m) {
              &Tango::Attribute::get_date,
              py::return_value_policy::copy,
              R"doc(
-                get_date(self) -> TimeVal
-
-                    Get a COPY of the attribute date.
-
-                :returns: the attribute date
-                :rtype: TimeVal)doc")
+                Get the attribute date.
+             )doc")
         .def("set_date",
              py::overload_cast<Tango::TimeVal &>(&Tango::Attribute::set_date),
              R"doc(
-                set_date(self, new_date)
-
-                    Set attribute date.
+                Set attribute date.
 
                 :param new_date: the attribute date
-                :type new_date: TimeVal)doc",
+                :type new_date: :obj:`~tango.TimeVal`
+             )doc",
              py::arg("new_date"))
         .def("get_label",
              &Tango::Attribute::get_label,
              py::return_value_policy::copy,
              R"doc(
-                get_label(self) -> str
-
-                    Get attribute label property.
-
-                :returns: the attribute label
-                :rtype: str)doc")
+                Get attribute label.
+             )doc")
         .def("get_quality",
              &Tango::Attribute::get_quality,
              py::return_value_policy::copy,
              R"doc(
-                get_quality(self) -> AttrQuality
-
-                    Get a COPY of the attribute data quality.
-
-                :returns: the attribute data quality
-                :rtype: AttrQuality)doc")
+                Get the attribute data quality.
+             )doc")
         .def("set_quality",
              &Tango::Attribute::set_quality,
              R"doc(
-                set_quality(self, quality, send_event=False)
-
-                    Set attribute data quality.
+                Set attribute data quality.
 
                 :param quality: the new attribute data quality
-                :type quality: AttrQuality
+                :type quality: :obj:`~tango.AttrQuality`
                 :param send_event: true if a change event should be sent. Default is false.
-                :type send_event: bool)doc",
+                :type send_event: bool
+             )doc",
              py::arg("quality"),
              py::arg("send_event") = false)
         .def("get_data_size",
              &Tango::Attribute::get_data_size,
              R"doc(
-                get_data_size(self)
-
-                    Get attribute data size.
-
-                :returns: the attribute data size
-                :rtype: int)doc")
+                Get attribute data size.
+             )doc")
         .def("get_x",
              &Tango::Attribute::get_x,
              R"doc(
-                get_x(self) -> int
-
-                    Get attribute data size in x dimension.
-
-                :returns: the attribute data size in x dimension. Set to 1 for scalar attribute
-                :rtype: int)doc")
+                Get attribute data size in x dimension. Set to 1 for scalar attribute
+             )doc")
         .def("get_max_dim_x",
              &Tango::Attribute::get_max_dim_x,
              R"doc(
-                get_max_dim_x(self) -> int
-
-                    Get attribute maximum data size in x dimension.
-
-                :returns: the attribute maximum data size in x dimension. Set to 1 for scalar attribute
-                :rtype: int)doc")
+                Get attribute maximum data size in x dimension. Set to 1 for scalar attribute
+             )doc")
         .def("get_y",
              &Tango::Attribute::get_y,
              R"doc(
-                get_y(self) -> int
-
-                    Get attribute data size in y dimension.
-
-                :returns: the attribute data size in y dimension. Set to 0 for scalar attribute
-                :rtype: int)doc")
+                Get attribute data size in y dimension. Set to 0 for scalar attribute
+             )doc")
         .def("get_max_dim_y",
              &Tango::Attribute::get_max_dim_y,
              R"doc(
-                get_max_dim_y(self) -> int
-
-                    Get attribute maximum data size in y dimension.
-
-                :returns: the attribute maximum data size in y dimension. Set to 0 for scalar attribute
-                :rtype: int)doc")
+                Get attribute maximum data size in y dimension. Set to 0 for scalar attribute
+             )doc")
         .def("get_polling_period",
              &Tango::Attribute::get_polling_period,
              R"doc(
-                get_polling_period(self) -> int
-
-                    Get attribute polling period.
-
-                :returns: The attribute polling period in mS. Set to 0 when the attribute is not polled
-                :rtype: int)doc")
+                The attribute polling period in milliseconds. Set to 0 when the attribute is not polled
+             )doc")
         .def("set_attr_serial_model",
              &Tango::Attribute::set_attr_serial_model,
              R"doc(
-                set_attr_serial_model(self, ser_model) -> None
+                Set attribute serialization model.
 
-                    Set attribute serialization model.
-
-                    This method allows the user to choose the attribute serialization model.
+                This method allows the user to choose the attribute serialization model.
 
                 :param ser_model: The new serialisation model. The
                                   serialization model must be one of ATTR_BY_KERNEL,
                                   ATTR_BY_USER or ATTR_NO_SYNC
-                :type ser_model: AttrSerialModel
+                :type ser_model: :obj:`~tango.AttrSerialModel`
 
-                New in PyTango 7.1.0)doc",
+                .. versionadded:: 7.1.0
+             )doc",
              py::arg("ser_model"))
         .def("get_attr_serial_model",
              &Tango::Attribute::get_attr_serial_model,
              R"doc(
-                get_attr_serial_model(self) -> AttrSerialModel
+                Get attribute serialization model.
 
-                    Get attribute serialization model.
-
-                :returns: The attribute serialization model
-                :rtype: AttrSerialModel
-
-                New in PyTango 7.1.0)doc")
-
+                .. versionadded:: 7.1.0
+             )doc")
         .def(
             "set_min_alarm",
-            [](Tango::Attribute &attr, py::object &value) {
-                set_value_limit(attr, value, TargetValue::ALARM_MIN);
-            },
+            [](Tango::Attribute &attr, py::object &value) { set_value_limit(attr, value, TargetValue::ALARM_MIN); },
             py::arg("value"))
         .def(
             "set_max_alarm",
-            [](Tango::Attribute &attr, py::object &value) {
-                set_value_limit(attr, value, TargetValue::ALARM_MAX);
-            },
+            [](Tango::Attribute &attr, py::object &value) { set_value_limit(attr, value, TargetValue::ALARM_MAX); },
             py::arg("value"))
         .def(
             "set_min_warning",
-            [](Tango::Attribute &attr, py::object &value) {
-                set_value_limit(attr, value, TargetValue::WARNING_MIN);
-            },
+            [](Tango::Attribute &attr, py::object &value) { set_value_limit(attr, value, TargetValue::WARNING_MIN); },
             py::arg("value"))
         .def(
             "set_max_warning",
-            [](Tango::Attribute &attr, py::object &value) {
-                set_value_limit(attr, value, TargetValue::WARNING_MAX);
-            },
+            [](Tango::Attribute &attr, py::object &value) { set_value_limit(attr, value, TargetValue::WARNING_MAX); },
             py::arg("value"))
 
-        .def("get_min_alarm",
-             [](Tango::Attribute &attr) {
-                 return get_value_limit(attr, TargetValue::ALARM_MIN);
-             })
-        .def("get_max_alarm",
-             [](Tango::Attribute &attr) {
-                 return get_value_limit(attr, TargetValue::ALARM_MAX);
-             })
-        .def("get_min_warning",
-             [](Tango::Attribute &attr) {
-                 return get_value_limit(attr, TargetValue::WARNING_MIN);
-             })
-        .def("get_max_warning",
-             [](Tango::Attribute &attr) {
-                 return get_value_limit(attr, TargetValue::WARNING_MAX);
-             })
+        .def("get_min_alarm", [](Tango::Attribute &attr) { return get_value_limit(attr, TargetValue::ALARM_MIN); })
+        .def("get_max_alarm", [](Tango::Attribute &attr) { return get_value_limit(attr, TargetValue::ALARM_MAX); })
+        .def("get_min_warning", [](Tango::Attribute &attr) { return get_value_limit(attr, TargetValue::WARNING_MIN); })
+        .def("get_max_warning", [](Tango::Attribute &attr) { return get_value_limit(attr, TargetValue::WARNING_MAX); })
 
         .def("value_is_set",
              &Tango::Attribute::value_is_set,
              R"doc(
-                value_is_set(self) -> bool
-
-                :return: true if attribute has a value
-                :rtype: bool)doc")
+                Returns true if attribute has a value
+             )doc")
         .def("reset_value",
              &Tango::Attribute::reset_value,
              R"doc(
-                reset_value(self) -> None
-
-                    Clear attribute value)doc")
+                Clear attribute value
+             )doc")
 
         .def("get_disp_level",
              &Tango::Attribute::get_disp_level,
              R"doc(
-                get_disp_level(self) -> DisplLevel
+                Returns attribute display level
+             )doc")
 
-                :return: attribute display level
-                :rtype: DispLevel)doc")
-
-        .def("change_event_subscribed",
-             &Tango::Attribute::change_event_subscribed,
+        .def("is_event_subscribed",
+             &Tango::Attribute::is_event_subscribed,
              R"doc(
-                change_event_subscribed(self) -> bool
+                Returns true if there are any subscribers listening for particular event type.
 
-                :return: true if there are some subscriber listening for change event
-                :rtype: bool)doc")
-        .def("alarm_event_subscribed",
-             &Tango::Attribute::alarm_event_subscribed,
-             R"doc(
-                alarm_event_subscribed(self) -> bool
+                :param event_type: the event type to check
+                :type event_type: EventType
+             )doc",
+             py::arg("event_type"))
+        .def(
+            "change_event_subscribed",
+            [](Tango::Attribute &self) { return self.is_event_subscribed(Tango::EventType::CHANGE_EVENT); },
+            R"doc(
+                Returns true if there are any subscribers listening for change event
 
-                :return: true if there are some subscriber listening for alarm event
-                :rtype: bool)doc")
-        .def("periodic_event_subscribed",
-             &Tango::Attribute::periodic_event_subscribed,
-             R"doc(
-                periodic_event_subscribed(self) -> bool
+                .. deprecated:: 10.3.0
+                   Use :meth:`~Attribute.is_event_subscribed` with ``EventType.CHANGE_EVENT`` instead.
+             )doc")
+        .def(
+            "alarm_event_subscribed",
+            [](Tango::Attribute &self) { return self.is_event_subscribed(Tango::EventType::ALARM_EVENT); },
+            R"doc(
+                Returns true if there are any subscribers listening for alarm event
 
-                :return: true if there are some subscriber listening for periodic event
-                :rtype: bool)doc")
-        .def("archive_event_subscribed",
-             &Tango::Attribute::archive_event_subscribed,
-             R"doc(
-                archive_event_subscribed(self) -> bool
+                .. deprecated:: 10.3.0
+                   Use :meth:`~Attribute.is_event_subscribed` with ``EventType.ALARM_EVENT`` instead.
+             )doc")
+        .def(
+            "periodic_event_subscribed",
+            [](Tango::Attribute &self) { return self.is_event_subscribed(Tango::EventType::PERIODIC_EVENT); },
+            R"doc(
+                Returns true if there are any subscribers listening for periodic event
 
-                :return: true if there are some subscriber listening for archive event
-                :rtype: bool)doc")
-        .def("user_event_subscribed",
-             &Tango::Attribute::user_event_subscribed,
-             R"doc(
-                user_event_subscribed(self) -> bool
+                .. deprecated:: 10.3.0
+                   Use :meth:`~Attribute.is_event_subscribed` with ``EventType.PERIODIC_EVENT`` instead.
+             )doc")
+        .def(
+            "archive_event_subscribed",
+            [](Tango::Attribute &self) { return self.is_event_subscribed(Tango::EventType::ARCHIVE_EVENT); },
+            R"doc(
+                Returns true if there are any subscribers listening for archive event
 
-                :return: true if there are some subscriber listening for user event
-                :rtype: bool)doc")
+                .. deprecated:: 10.3.0
+                   Use :meth:`~Attribute.is_event_subscribed` with ``EventType.ARCHIVE_EVENT`` instead.
+             )doc")
+        .def(
+            "user_event_subscribed",
+            [](Tango::Attribute &self) { return self.is_event_subscribed(Tango::EventType::USER_EVENT); },
+            R"doc(
+                Returns true if there are any subscribers listening for user event
 
+                .. deprecated:: 10.3.0
+                   Use :meth:`~Attribute.is_event_subscribed` with ``EventType.USER_EVENT`` instead.
+             )doc")
         .def("use_notifd_event",
              &Tango::Attribute::use_notifd_event,
              R"doc(
-                use_notifd_event(self) -> bool
-
-                :return: true if notifd events are emited
-                :rtype: bool)doc")
+                Returns true if notifd events are emited
+             )doc")
         .def("use_zmq_event",
              &Tango::Attribute::use_zmq_event,
              R"doc(
-                use_zmq_event(self) -> bool
-
-                :return: true if zmq events are emited
-                :rtype: bool)doc")
-
+                Returns true if zmq events are emited
+             )doc")
         .def(
             "_set_value",
-            [](Tango::Attribute &attr, py::object &data) {
-                PyAttribute::set_generic_value(attr, data);
-            },
+            [](Tango::Attribute &attr, py::object &data) { PyAttribute::set_generic_value(attr, data); },
             py::arg("data"))
         .def(
             "_set_value_date_quality",
@@ -729,9 +609,11 @@ void export_attribute(py::module &m) {
 
         .def(
             "_set_value_date_quality",
-            [](Tango::Attribute &attr, py::object &encoding, py::object &data, double time, Tango::AttrQuality quality) {
-                PyAttribute::set_encoded_value(attr, encoding, data, &time, &quality);
-            },
+            [](Tango::Attribute &attr,
+               py::object &encoding,
+               py::object &data,
+               double time,
+               Tango::AttrQuality quality) { PyAttribute::set_encoded_value(attr, encoding, data, &time, &quality); },
             py::arg("encoding"),
             py::arg("data"),
             py::arg("time"),
@@ -756,7 +638,8 @@ void export_attribute(py::module &m) {
                                 the change event properties when set to true.
                 :type detect: bool
 
-                New in PyTango 7.1.0)doc",
+                .. versionadded:: 7.1.0
+             )doc",
              py::arg("implemented"),
              py::arg("detect") = true)
         .def("set_alarm_event",
@@ -778,7 +661,8 @@ void export_attribute(py::module &m) {
                                 the alarm event properties when set to true.
                 :type detect: bool
 
-                .. versionadded:: 10.0.0)doc",
+                .. versionadded:: 10.0.0
+             )doc",
              py::arg("implemented"),
              py::arg("detect") = true)
         .def("set_archive_event",
@@ -800,135 +684,106 @@ void export_attribute(py::module &m) {
                                 the archive event properties when set to true.
                 :type detect: bool
 
-                New in PyTango 7.1.0)doc",
+                .. versionadded:: 7.1.0
+             )doc",
              py::arg("implemented"),
              py::arg("detect") = true)
 
         .def("is_change_event",
              &Tango::Attribute::is_change_event,
              R"doc(
-                is_change_event(self) -> bool
+                Check if the change event is fired manually (without polling) for this attribute.
+                Returns True if a manual fire change event is implemented.
 
-                    Check if the change event is fired manually (without polling) for this attribute.
-
-                :returns: True if a manual fire change event is implemented.
-                :rtype: bool
-
-                New in PyTango 7.1.0)doc")
+                .. versionadded:: 7.1.0
+             )doc")
         .def("is_check_change_criteria",
              &Tango::Attribute::is_check_change_criteria,
              R"doc(
-                is_check_change_criteria(self) -> bool
+                Check if the change event criteria should be checked when firing the
+                event manually. Returns True if a change event criteria will be checked.
 
-                    Check if the change event criteria should be checked when firing the
-                    event manually.
-
-                :returns: True if a change event criteria will be checked.
-                :rtype: bool
-
-                New in PyTango 7.1.0)doc")
+                .. versionadded:: 7.1.0
+             )doc")
         .def("is_alarm_event",
              &Tango::Attribute::is_alarm_event,
              R"doc(
-                is_alarm_event(self) -> bool
+                Check if the alarm event is fired manually for this attribute.
+                Returns True if a manual fire alarm event is implemented.
 
-                    Check if the alarm event is fired manually for this attribute.
-
-                :returns: True if a manual fire alarm event is implemented.
-                :rtype: bool
-
-                New in PyTango 10.0.0)doc")
+                .. versionadded:: 10.0.0
+             )doc")
         .def("is_check_alarm_criteria",
              &Tango::Attribute::is_check_alarm_criteria,
              R"doc(
-                is_check_alarm_criteria(self) -> bool
+                Check if the alarm event criteria should be checked when firing the
+                event manually. Returns True if a change event criteria will be checked.
 
-                    Check if the alarm event criteria should be checked when firing the
-                    event manually.
-
-                :returns: True if a change event criteria will be checked.
-                :rtype: bool
-
-                New in PyTango 10.0.0)doc")
+                .. versionadded:: 10.0.0
+             )doc")
         .def("is_archive_event",
              &Tango::Attribute::is_archive_event,
              R"doc(
-                is_archive_event(self) -> bool
-
-                    Check if the archive event is fired manually (without polling) for this attribute.
-
-                :returns: True if a manual fire archive event is implemented.
-                :rtype: bool
-
-                New in PyTango 7.1.0)doc")
+                Check if the archive event is fired manually (without polling) for this attribute.
+                Returns True if a manual fire archive event is implemented.
+                .. versionadded:: 7.1.0
+             )doc")
         .def("is_check_archive_criteria",
              &Tango::Attribute::is_check_archive_criteria,
              R"doc(
-                is_check_archive_criteria(self) -> bool
+                Check if the archive event criteria should be checked when firing the
+                event manually. Returns True if a archive event criteria will be checked.
 
-                    Check if the archive event criteria should be checked when firing the
-                    event manually.
-
-                :returns: True if a archive event criteria will be checked.
-                :rtype: bool
-
-                New in PyTango 7.1.0)doc")
+                .. versionadded:: 7.1.0
+             )doc")
         .def("set_data_ready_event",
              &Tango::Attribute::set_data_ready_event,
              R"doc(
-                set_data_ready_event(self, implemented)
-
-                    Set a flag to indicate that the server fires data ready events.
+                Set a flag to indicate that the server fires data ready events.
 
                 :param implemented: True when the server fires data ready events manually.
                 :type implemented: bool
 
-                New in PyTango 7.2.0)doc",
+                .. versionadded:: 7.2.0
+             )doc",
              py::arg("implemented"))
         .def("is_data_ready_event",
              &Tango::Attribute::is_data_ready_event,
              R"doc(
-                is_data_ready_event(self) -> bool
+                Check if the data ready event is fired manually (without polling)
+                for this attribute. Returns True if a manual fire data ready event is implemented.
 
-                    Check if the data ready event is fired manually (without polling)
-                    for this attribute.
-
-                :returns: True if a manual fire data ready event is implemented.
-                :rtype: bool
-
-                New in PyTango 7.2.0)doc")
+                .. versionadded:: 7.2.0
+             )doc")
         .def("remove_configuration",
              &Tango::Attribute::remove_configuration,
              R"doc(
-                remove_configuration(self)
+                Remove the attribute configuration from the database.
 
-                    Remove the attribute configuration from the database.
+                This method can be used to clean-up all the configuration of an
+                attribute to come back to its default values or the remove all
+                configuration of a dynamic attribute before deleting it.
 
-                    This method can be used to clean-up all the configuration of an
-                    attribute to come back to its default values or the remove all
-                    configuration of a dynamic attribute before deleting it.
+                The method removes all configured attribute properties and removes
+                the attribute from the list of polled attributes.
 
-                    The method removes all configured attribute properties and removes
-                    the attribute from the list of polled attributes.
-
-                    New in PyTango 7.1.0)doc")
+                .. versionadded:: 7.1.0
+             )doc")
 
         /*
         .def("_get_properties", &PyAttribute::get_properties)
         .def("_get_properties_2", &PyAttribute::get_properties_2)
         .def("_get_properties_3", &PyAttribute::get_properties_3)
         */
-        .def("_get_properties_multi_attr_prop",
-             &PyAttribute::get_properties_multi_attr_prop,
-             py::arg("multi_attr_prop"))
+        .def(
+            "_get_properties_multi_attr_prop", &PyAttribute::get_properties_multi_attr_prop, py::arg("multi_attr_prop"))
 
         /*
         .def("_set_properties", &PyAttribute::set_properties)
         .def("_set_properties_3", &PyAttribute::set_properties_3)
         */
-        .def("_set_properties_multi_attr_prop",
-             &PyAttribute::set_properties_multi_attr_prop,
-             py::arg("multi_attr_prop"))
+        .def(
+            "_set_properties_multi_attr_prop", &PyAttribute::set_properties_multi_attr_prop, py::arg("multi_attr_prop"))
 
         .def("set_upd_properties",
              py::overload_cast<Tango::Attribute &, py::object &>(&PyAttribute::set_upd_properties),
@@ -939,9 +794,7 @@ void export_attribute(py::module &m) {
              py::arg("dev_name"))
 
         .def("fire_change_event",
-             [](Tango::Attribute &attr) {
-                 PyAttribute::generic_fire_event(attr, Tango::EventType::CHANGE_EVENT);
-             })
+             [](Tango::Attribute &attr) { PyAttribute::generic_fire_event(attr, Tango::EventType::CHANGE_EVENT); })
         .def(
             "fire_change_event",
             [](Tango::Attribute &attr, py::object exception) {
@@ -949,9 +802,7 @@ void export_attribute(py::module &m) {
             },
             py::arg("exception"))
         .def("fire_alarm_event",
-             [](Tango::Attribute &attr) {
-                 PyAttribute::generic_fire_event(attr, Tango::EventType::ALARM_EVENT);
-             })
+             [](Tango::Attribute &attr) { PyAttribute::generic_fire_event(attr, Tango::EventType::ALARM_EVENT); })
         .def(
             "fire_alarm_event",
             [](Tango::Attribute &attr, py::object exception) {

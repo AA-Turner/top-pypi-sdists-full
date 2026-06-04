@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker_studio
-Version: 1.1.20
+Version: 1.1.21
 Summary: Python library to interact with Amazon SageMaker Unified Studio
 Home-page: https://aws.amazon.com/sagemaker/
 Author: Amazon Web Services
@@ -48,6 +48,7 @@ Requires-Dist: opensearch-py>=2.5.0
 Requires-Dist: vertica-python>=1.4.0
 Requires-Dist: trino>=0.308.0
 Requires-Dist: PyJWT[crypto]>=2.0.0
+Requires-Dist: oracledb>=3.4.1
 Provides-Extra: test
 Requires-Dist: pytest>=6; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

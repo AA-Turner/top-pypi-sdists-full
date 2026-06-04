@@ -45,12 +45,11 @@ static void call_logger(log4tango::Logger &logger,
 }
 
 template <StringAndLocationWithLevelLogSignature ptr>
-static void call_logger(
-    log4tango::Logger &logger,
-    const std::string &file,
-    int line,
-    log4tango::Level::Value level,
-    const std::string &msg) {
+static void call_logger(log4tango::Logger &logger,
+                        const std::string &file,
+                        int line,
+                        log4tango::Level::Value level,
+                        const std::string &msg) {
     (logger.*ptr)(file, line, level, msg);
 }
 

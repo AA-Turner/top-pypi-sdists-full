@@ -19,6 +19,7 @@ import json
 from typing import Any, Callable, Coroutine, Dict, Optional, Union, cast
 
 from fastavro import schemaless_reader, schemaless_writer
+from fastavro.schema import expand_schema
 
 from confluent_kafka.schema_registry import (
     AsyncSchemaRegistryClient,
@@ -63,7 +64,7 @@ async def _resolve_named_schema(
     :param schema_registry_client: SchemaRegistryClient to use for retrieval.
     :return: named_schemas dict.
     """
-    named_schemas = {}
+    named_schemas: Dict[str, AvroSchema] = {}
     if schema.references is not None:
         for ref in schema.references:
             if ref.subject is None or ref.version is None:
@@ -72,18 +73,26 @@ async def _resolve_named_schema(
             ref_named_schemas = await _resolve_named_schema(referenced_schema.schema, schema_registry_client)
             if referenced_schema.schema.schema_str is None:
                 raise TypeError("Schema string cannot be None")
-
-            parsed_schema = parse_schema_with_repo(referenced_schema.schema.schema_str, named_schemas=ref_named_schemas)
-            named_schemas.update(ref_named_schemas)
             if ref.name is None:
                 raise TypeError("Name cannot be None")
-            named_schemas[ref.name] = parsed_schema
+            named_schemas.update(ref_named_schemas)
+            # Store the raw (unparsed) schema dict. Pre-parsing here would inline
+            # any sub-references inside this schema; if the same sub-reference is
+            # also reachable through another sibling reference (a "diamond"
+            # dependency), the top-level load_schema would then inject duplicate
+            # inline definitions and fail with "redefined named type". Keeping
+            # the raw form lets the top-level load_schema resolve every named
+            # type exactly once.
+            raw_schema = json.loads(referenced_schema.schema.schema_str)
+            named_schemas[ref.name] = raw_schema
             # Also store under fully-qualified name so fastavro can resolve
             # namespace-qualified type references
-            if isinstance(parsed_schema, dict) and 'name' in parsed_schema:
-                fqn = parsed_schema['name']
+            if isinstance(raw_schema, dict) and 'name' in raw_schema:
+                ns = raw_schema.get('namespace')
+                name = raw_schema['name']
+                fqn = f"{ns}.{name}" if ns and '.' not in name else name
                 if fqn != ref.name:
-                    named_schemas[fqn] = parsed_schema
+                    named_schemas[fqn] = raw_schema
     return named_schemas
 
 
@@ -431,8 +440,10 @@ class AsyncAvroSerializer(AsyncBaseSerializer):
         if latest_schema is not None and ctx is not None and subject is not None:
             parsed_schema = await self._get_parsed_schema(latest_schema.schema)
 
+            expanded_parsed_schema = expand_schema(parsed_schema)
+
             def field_transformer(rule_ctx, field_transform, msg):
-                return transform(rule_ctx, parsed_schema, msg, field_transform)  # noqa: E731
+                return transform(rule_ctx, expanded_parsed_schema, msg, field_transform)  # noqa: E731
 
             value = self._execute_rules(
                 ctx,
@@ -728,12 +739,12 @@ class AsyncAvroDeserializer(AsyncBaseDeserializer):
         if isinstance(payload, bytes):
             payload = io.BytesIO(payload)
 
-        reader_schema: Optional[AvroSchema]
+        reader_schema: AvroSchema
         if latest_schema is not None and subject is not None:
             migrations = await self._get_migrations(subject, writer_schema_raw, latest_schema, None)
             reader_schema_raw = latest_schema.schema
             reader_schema = await self._get_parsed_schema(latest_schema.schema)
-        elif self._schema is not None:
+        elif self._schema is not None and self._reader_schema is not None:
             migrations = None
             reader_schema_raw = self._schema
             reader_schema = self._reader_schema
@@ -761,8 +772,10 @@ class AsyncAvroDeserializer(AsyncBaseDeserializer):
             else:
                 obj_dict = schemaless_reader(payload, writer_schema, reader_schema, self._return_record_name)
 
+        expanded_reader_schema = expand_schema(reader_schema)
+
         def field_transformer(rule_ctx, field_transform, message):
-            return transform(rule_ctx, reader_schema, message, field_transform)  # noqa: E731
+            return transform(rule_ctx, expanded_reader_schema, message, field_transform)  # noqa: E731
 
         if ctx is not None and subject is not None:
             inline_tags = get_inline_tags(reader_schema) if reader_schema is not None else None

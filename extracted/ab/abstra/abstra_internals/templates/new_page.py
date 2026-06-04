@@ -13,6 +13,8 @@ from abstra.pages import register_function
 #   - __render__(): special function that returns HTML (called on GET)
 #   - Other functions: callable from the browser via auto-generated JS
 #   - get_user() / get_query_params(): authentication and URL params
+#   - window.abstra (browser JS): login() / logout() / logged() — Pages have no
+#     navbar, so drive auth from your own HTML when you need it
 # ============================================================
 
 
@@ -108,6 +110,11 @@ def __render__():
 </style>
 
 <div id="app" class="min-h-screen p-6 max-w-7xl mx-auto">
+  <!-- Optional auth controls — Pages have no navbar, so build your own:
+       <button onclick="abstra.login()">Sign in</button>
+       <button onclick="abstra.logout()">Sign out</button>
+       <script>if (abstra.logged()) { /* render signed-in UI */ }</script>
+  -->
   <!-- Header -->
   <div class="flex items-center justify-between mb-8">
     <div>

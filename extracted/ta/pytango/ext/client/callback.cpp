@@ -164,9 +164,8 @@ static void _push_event(PyEventCallBack *self, OriginalT *ev) {
     _push_event<Tango::DevIntrChangeEventData>(this, ev);
 }
 
-void PyEventCallBack::fill_py_event(Tango::EventData *ev,
-                                    py::object &py_ev,
-                                    PyTango::ExtractAs extract_as) {
+template <>
+void PyEventCallBack::fill_py_event(Tango::EventData *ev, py::object &py_ev, PyTango::ExtractAs extract_as) {
     // @todo on error extracting, we could save the error in DeviceData
     // instead of throwing it...?
 
@@ -183,85 +182,57 @@ void PyEventCallBack::fill_py_event(Tango::EventData *ev,
     }
 }
 
-void PyEventCallBack::fill_py_event(Tango::AttrConfEventData *ev,
-                                    py::object &py_ev,
-                                    [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    if(ev->attr_conf != nullptr) {
-        py_ev.attr("attr_conf") = *ev->attr_conf;
-    }
-}
-
-void PyEventCallBack::fill_py_event([[maybe_unused]] Tango::DataReadyEventData *ev,
-                                    [[maybe_unused]] py::object &py_ev,
-                                    [[maybe_unused]] PyTango::ExtractAs extract_as) {
-}
-
-void PyEventCallBack::fill_py_event(Tango::DevIntrChangeEventData *ev,
-                                    py::object &py_ev,
-                                    [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    py_ev.attr("cmd_list") = ev->cmd_list;
-    py_ev.attr("att_list") = ev->att_list;
-}
-
 void export_callback(py::module &m) {
-    py::class_<CmdDoneEventWrapper,
-               std::shared_ptr<CmdDoneEventWrapper>>(m,
-                                                     "CmdDoneEvent",
-                                                     R"doc(
+    py::class_<CmdDoneEventWrapper, std::shared_ptr<CmdDoneEventWrapper>>(m,
+                                                                          "CmdDoneEvent",
+                                                                          R"doc(
                 This class is used to pass data to the callback method in
                 asynchronous callback model for command execution.)doc")
         .def_readonly("device",
                       &CmdDoneEventWrapper::device,
-                      "(DeviceProxy) The DeviceProxy object on which the call was executed.")
+                      "(:py:obj:`~tango.DeviceProxy`) The DeviceProxy object on which the call was executed.")
         .def_readonly("cmd_name",
                       &CmdDoneEventWrapper::cmd_name,
-                      "(str) The command name")
-        .def_property_readonly("argout",
-                               &CmdDoneEventWrapper::get_converted_argout,
-                               "The command argout")
+                      R"doc((:py:obj:`list`\[:py:obj:`str`]) The command name list)doc")
+        .def_property_readonly(
+            "argout", &CmdDoneEventWrapper::get_converted_argout, "(:py:obj:`typing.Any`) The command argout")
         .def_readonly("err",
                       &CmdDoneEventWrapper::err,
-                      "(bool) A boolean flag set to true if the command failed. False otherwise")
+                      "(:py:obj:`bool`) A boolean flag set to true if the command failed. False otherwise")
         .def_readonly("errors",
                       &CmdDoneEventWrapper::errors,
-                      "(sequence<DevError>) The error stack");
+                      R"doc((:py:obj:`list`\[:py:obj:`~tango.DevError`]) The error stack)doc");
 
-    py::class_<AttrReadEventWrapper,
-               std::shared_ptr<AttrReadEventWrapper>>(m,
-                                                      "AttrReadEvent",
-                                                      R"doc()doc")
+    py::class_<AttrReadEventWrapper, std::shared_ptr<AttrReadEventWrapper>>(m, "AttrReadEvent", R"doc()doc")
         .def_readonly("device",
                       &AttrReadEventWrapper::device,
-                      "(DeviceProxy) The DeviceProxy object on which the call was executed")
+                      "(:py:obj:`~tango.DeviceProxy`) The DeviceProxy object on which the call was executed")
         .def_readonly("attr_names",
                       &AttrReadEventWrapper::attr_names,
-                      "(sequence<str>) The attribute name list")
+                      R"doc((:py:obj:`list`\[:py:obj:`str`]) The attribute name list)doc")
         .def_property_readonly("argout",
                                &AttrReadEventWrapper::get_converted_argout,
-                               "(DeviceAttribute) The attribute value")
+                               "(:py:obj:`~tango.DeviceAttribute`) The attribute value")
         .def_readonly("err",
                       &AttrReadEventWrapper::err,
-                      "(bool) A boolean flag set to true if the command failed. False otherwise")
+                      "(:py:obj:`bool`) A boolean flag set to true if the command failed. False otherwise")
         .def_readonly("errors",
                       &AttrReadEventWrapper::errors,
-                      "(sequence<DevError>) The error stack");
+                      R"doc((:py:obj:`list`\[:py:obj:`~tango.DevError`]) The error stack)doc");
 
-    py::class_<AttrWrittenEventWrapper,
-               std::shared_ptr<AttrWrittenEventWrapper>>(m,
-                                                         "AttrWrittenEvent",
-                                                         R"doc()doc")
+    py::class_<AttrWrittenEventWrapper, std::shared_ptr<AttrWrittenEventWrapper>>(m, "AttrWrittenEvent", R"doc()doc")
         .def_readonly("device",
                       &AttrWrittenEventWrapper::device,
-                      "(DeviceProxy) The DeviceProxy object on which the call was executed")
+                      "(:py:obj:`~tango.DeviceProxy`) The DeviceProxy object on which the call was executed")
         .def_readonly("attr_names",
                       &AttrWrittenEventWrapper::attr_names,
-                      "(sequence<str>) The attribute name list")
+                      R"doc((:py:obj:`list`\[:py:obj:`str`]) The attribute name list)doc")
         .def_readonly("err",
                       &AttrWrittenEventWrapper::err,
-                      "(bool) A boolean flag set to true if the command failed. False otherwise")
+                      "(:py:obj:`bool`) A boolean flag set to true if the command failed. False otherwise")
         .def_readonly("errors",
                       &AttrWrittenEventWrapper::errors,
-                      "(sequence<DevError>) The error stack");
+                      R"doc((:py:obj:`list`\[:py:obj:`~tango.DevError`]) The error stack)doc");
 
     py::class_<PyCallBackAutoDie>(m, "__CallBackAutoDie", "INTERNAL CLASS - DO NOT USE IT", py::dynamic_attr())
         .def(py::init<std::int64_t>())

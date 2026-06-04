@@ -420,12 +420,21 @@ class AgentMonitorSelectExpressionType(pycarlo.lib.types.Enum):
     * `ATTR_MAP_KEYS`None
     * `COUNT`None
     * `EVALUATION`None
+    * `SPAN_EXPORT_VIEW`None
     * `SPAN_TREE`None
     * `SPAN_VIEW`None
     """
 
     __schema__ = schema
-    __choices__ = ("ALL", "ATTR_MAP_KEYS", "COUNT", "EVALUATION", "SPAN_TREE", "SPAN_VIEW")
+    __choices__ = (
+        "ALL",
+        "ATTR_MAP_KEYS",
+        "COUNT",
+        "EVALUATION",
+        "SPAN_EXPORT_VIEW",
+        "SPAN_TREE",
+        "SPAN_VIEW",
+    )
 
 
 class AgentSourceType(pycarlo.lib.types.Enum):
@@ -439,6 +448,19 @@ class AgentSourceType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("PLATFORM_AGENT", "TRACE_TABLE")
+
+
+class AgentSpanExportState(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `DONE`None
+    * `FAILED`None
+    * `PENDING`None
+    * `RUNNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DONE", "FAILED", "PENDING", "RUNNING")
 
 
 class AgentTraceExportStatus(pycarlo.lib.types.Enum):
@@ -15542,6 +15564,7 @@ class IMonitor(sgqlc.types.Interface):
         "dashboards",
         "is_hidden_for_asset",
         "agent_mcon",
+        "agent",
         "is_auto_created",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
@@ -15791,6 +15814,13 @@ class IMonitor(sgqlc.types.Interface):
     agent_mcon = sgqlc.types.Field(String, graphql_name="agentMcon")
     """MCON identifying the platform agent, if this is a platform agent
     monitor.
+    """
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+    """Name of the monitored agent for agent monitors (metric,
+    evaluation, trajectory, validation), resolved from the monitor's
+    agent span scope. Null when the monitor is not agent-scoped or has
+    no agent filter (e.g. it scopes only by task or span).
     """
 
     is_auto_created = sgqlc.types.Field(Boolean, graphql_name="isAutoCreated")
@@ -18590,6 +18620,35 @@ class AgentSpanCondition(sgqlc.types.Type):
     )
 
     operator = sgqlc.types.Field(sgqlc.types.non_null(BooleanOperator), graphql_name="operator")
+
+
+class AgentSpanExportStatusOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("status", "url", "error", "created_time", "expires_at")
+    status = sgqlc.types.Field(sgqlc.types.non_null(AgentSpanExportState), graphql_name="status")
+    """Current export status. DONE means a presigned download URL is
+    available.
+    """
+
+    url = sgqlc.types.Field(String, graphql_name="url")
+    """Short-lived (10 min) presigned URL to the JSONL export (one span
+    per line). Populated when status=DONE. Regenerated fresh on each
+    poll — treat as a bearer credential and do not log or share.
+    """
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Sanitized message when status=FAILED — a user-facing validation
+    message (e.g. 'Failed to fetch spans for export') or a generic
+    exception class name. Never echoes span content.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the export job was created."""
+
+    expires_at = sgqlc.types.Field(DateTime, graphql_name="expiresAt")
+    """When the presigned URL expires. Populated when status=DONE;
+    regenerated alongside the URL on each poll.
+    """
 
 
 class AgentSpanFieldFilter(sgqlc.types.Type):
@@ -28023,6 +28082,22 @@ class DeleteDomain(sgqlc.types.Type):
     """Number of domains deleted"""
 
 
+class DeleteEtlJobsV3Result(sgqlc.types.Type):
+    """Return shape for the V3 delete mutation.  ``jobs`` carries the
+    soft-deleted ETL job rows so FE Apollo can normalize the cache on
+    ``__typename + id`` and reflect the deletion without a list
+    refetch.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("jobs",)
+    jobs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("EtlJobV3"))),
+        graphql_name="jobs",
+    )
+    """The soft-deleted ETL job rows."""
+
+
 class DeleteEventOnboardingData(sgqlc.types.Type):
     """Delete stored event onboarding configuration"""
 
@@ -30729,6 +30804,17 @@ class ExplanatoryFieldMetadata(sgqlc.types.Type):
     __field_names__ = ("candidates",)
     candidates = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="candidates")
     """Fields which can be used as explanatory"""
+
+
+class ExportAgentSpans(sgqlc.types.Type):
+    """Kick off an async export of a selected set of agent spans to S3."""
+
+    __schema__ = schema
+    __field_names__ = ("job_id",)
+    job_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="jobId")
+    """Opaque job id. Poll getAgentSpansExport with this id for status
+    and (when complete) the presigned download URL.
+    """
 
 
 class ExportAgentTrace(sgqlc.types.Type):
@@ -37246,6 +37332,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_comparison_monitor",
         "create_or_update_metric_monitor",
         "export_agent_trace",
+        "export_agent_spans",
         "create_or_update_agent_metric_monitor",
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
@@ -37450,6 +37537,7 @@ class Mutation(sgqlc.types.Type):
         "run_agent_evaluations",
         "set_etl_job_generates_alerts_v3",
         "bulk_set_etl_job_generates_alerts_v3",
+        "delete_etl_jobs_v3",
         "set_etl_job_generates_incidents",
         "set_etl_job_generates_alerts",
         "bulk_set_etl_job_generates_alerts",
@@ -51248,6 +51336,51 @@ class Mutation(sgqlc.types.Type):
     * `trace_id` (`String!`): The trace_id to export.
     """
 
+    export_agent_spans = sgqlc.types.Field(
+        ExportAgentSpans,
+        graphql_name="exportAgentSpans",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "span_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="spanIds",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Export a selected set of agent spans (trace_id,
+    span_id, conversation_id, prompts, completions) to S3 as JSONL,
+    one span per line. Returns a job id; poll getAgentSpansExport for
+    the download URL when complete. Async because the warehouse fetch
+    can take longer than Django/ALB HTTP timeouts.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Agent name the spans belong to;
+      applied as a scope filter.
+    * `mcon` (`String!`): MCON of the agent trace table. Find this in
+      the trace page URL in the Monte Carlo UI, or in the response of
+      getAgentSpanGroups.
+    * `span_ids` (`[String!]!`): Hex-encoded span ids to export. At
+      least one is required.
+    """
+
     create_or_update_agent_metric_monitor = sgqlc.types.Field(
         CreateOrUpdateAgentMetricMonitor,
         graphql_name="createOrUpdateAgentMetricMonitor",
@@ -58695,6 +58828,30 @@ class Mutation(sgqlc.types.Type):
     * `mcons` (`[String!]!`): MCONs of jobs to set generate alerts for
     """
 
+    delete_etl_jobs_v3 = sgqlc.types.Field(
+        DeleteEtlJobsV3Result,
+        graphql_name="deleteEtlJobsV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Soft-delete one or more ETL jobs by mcon (max 1000)
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): MCONs of the jobs to soft-delete (max
+      1000).
+    """
+
     set_etl_job_generates_incidents = sgqlc.types.Field(
         "SetEtlJobGeneratesIncidents",
         graphql_name="setEtlJobGeneratesIncidents",
@@ -61690,6 +61847,7 @@ class Query(sgqlc.types.Type):
         "get_derived_tables_partial_lineage",
         "get_parsed_query",
         "get_agent_trace_export",
+        "get_agent_spans_export",
         "get_trace_tree_nodes",
         "get_agent_span_groups",
         "get_agent_span_sample",
@@ -70553,6 +70711,27 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `job_id` (`UUID!`): Job id returned by exportAgentTrace.
+    """
+
+    get_agent_spans_export = sgqlc.types.Field(
+        AgentSpanExportStatusOutput,
+        graphql_name="getAgentSpansExport",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="jobId", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Status and short-lived (10 min) download URL for a
+    span export job. URL is a bearer credential — do not log or share.
+    Regenerated fresh per call.
+
+    Arguments:
+
+    * `job_id` (`UUID!`): Job id returned by exportAgentSpans.
     """
 
     get_trace_tree_nodes = sgqlc.types.Field(
@@ -101155,6 +101334,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "segmented_expressions",
         "segmentation_type",
         "min_segment_size",
+        "min_segment_row_count",
+        "min_segment_row_count_share",
         "last_update_user",
         "last_update_time",
         "collection_lag_hours",
@@ -101342,6 +101523,19 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     min_segment_size = sgqlc.types.Field(Int, graphql_name="minSegmentSize")
     """Minimum number of rows for a segment to be retrieved. Segments
     with less rows than this will be discarded.
+    """
+
+    min_segment_row_count = sgqlc.types.Field(Int, graphql_name="minSegmentRowCount")
+    """Minimum rolling-average row count for a segment to be monitored
+    (V2). Segments whose average row count falls below this are not
+    detected on. Null disables the absolute filter.
+    """
+
+    min_segment_row_count_share = sgqlc.types.Field(Float, graphql_name="minSegmentRowCountShare")
+    """Minimum share of the table's total rolling-average row count for a
+    segment to be monitored (V2), expressed as a fraction between 0
+    and 1. Segments contributing a smaller share than this are not
+    detected on. Null disables the relative filter.
     """
 
     last_update_user = sgqlc.types.Field("User", graphql_name="lastUpdateUser")

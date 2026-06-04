@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from kanban_framework.cli.task_utils import _resolve
 from kanban_framework.infra.scheduler import Scheduler
@@ -34,7 +35,7 @@ def cmd_create(args: list[str]) -> dict:
     parser = argparse.ArgumentParser(prog="kanban create", add_help=False)
     parser.add_argument("title", nargs="*", default=[], help="Task title")
     parser.add_argument("--desc", nargs="*", default=[], help="Task description")
-    parser.add_argument("--mode", type=str, default=None,                         help="Task mode: full, lightweight, quick, custom, or any custom mode from workflow.json")
+    parser.add_argument("--mode", type=str, default=None,                         help="Task mode: lightweight, quick, custom, or any custom mode from workflow.json")
     parser.add_argument("--lightweight", action="store_true", default=False,
                         help="Shorthand for --mode lightweight")
     parser.add_argument("--auto-mode", nargs="*", default=[], dest="auto_mode",
@@ -42,8 +43,8 @@ def cmd_create(args: list[str]) -> dict:
     parser.add_argument("--priority", type=int, default=5, dest="priority",
                         help="Task priority (0-10, default 5)")
     parser.add_argument("--test-level", type=str, default=None,
-                        choices=["full", "quick", "manual"],
-                        help="Test verification level: full (test_profile.md), quick (basic tests), manual (verify runs)")
+                        choices=["quick", "manual"],
+                        help="Test verification level: quick (basic tests), manual (verify runs)")
     parser.add_argument("--test-cmd", type=str, default=None, dest="test_cmd",
                         help="Test command (e.g. 'pytest tests/ -v')")
     parser.add_argument("--test-framework", type=str, default=None, dest="test_framework",
@@ -72,6 +73,12 @@ def cmd_create(args: list[str]) -> dict:
     task_mode = parsed.mode
     is_lightweight = parsed.lightweight
     user_specified_mode = bool(task_mode or is_lightweight)
+
+    if task_mode == "full":
+        return {
+            "error": "'full' mode has been removed in v0.126.0. Use 'lightweight' (default) or 'quick' instead.",
+            "hint": "kanban create \"<title>\" --mode lightweight",
+        }
 
     if task_mode == "lightweight" or is_lightweight:
         task_mode = "lightweight"
@@ -112,9 +119,9 @@ def cmd_create(args: list[str]) -> dict:
     test_config = None
     test_level = parsed.test_level
     if test_level is None:
-        test_level = "quick" if (is_lightweight or task_mode not in Scheduler.BUILTIN_MODE_NAMES or task_mode == "lightweight") else "full"
+        test_level = "quick"
 
-    if parsed.test_cmd or parsed.test_framework or parsed.coverage or test_level != "full":
+    if parsed.test_cmd or parsed.test_framework or parsed.coverage or test_level != "quick":
         test_config = {
             "level": test_level,
         }
@@ -148,6 +155,8 @@ def cmd_create(args: list[str]) -> dict:
         }
 
     task = tm.create(title, desc)
+    _log = logging.getLogger("kanban")
+    _log.info("create: task=%s mode=%s lightweight=%s", task.id, task_mode, is_lightweight)
 
     if task_mode == "quick":
         qr = ai.get("quick_requires") or {}
@@ -178,8 +187,8 @@ def cmd_create(args: list[str]) -> dict:
         tm.update(task.id, biz_tag=parsed_biz)
 
     mode_confirmation_pending = not user_specified_mode
-    recommended_mode = task_mode or ("lightweight" if (is_lightweight or recommendation["use_lightweight"]) else "full")
-    mode_msg = f"Mode: {recommended_mode}" if task_mode else f"Select mode (full/lightweight/custom/quick) before running"
+    recommended_mode = task_mode or "lightweight"
+    mode_msg = f"Mode: {recommended_mode}" if task_mode else f"Select mode (lightweight/quick/custom) before running"
 
     # Scan for custom modes from workflow.json + .kanban/workflows/ directory
     # Priority: custom modes first, then built-in modes (AskUserQuestion limits to 4)
@@ -198,7 +207,7 @@ def cmd_create(args: list[str]) -> dict:
 
     # Build available list: custom modes first, then built-ins, max 4 total
     available_modes = list(custom_mode_names)
-    for builtin in ("lightweight", "quick", "full"):
+    for builtin in ("lightweight", "quick"):
         if len(available_modes) >= 4:
             break
         available_modes.append(builtin)
@@ -250,7 +259,7 @@ def cmd_create(args: list[str]) -> dict:
         "title": task.title,
         "phase": start_phase,
         "status": "in_progress",
-        "mode": task_mode or "full",
+        "mode": task_mode or "lightweight",
         "lightweight": is_lightweight,
         "control_mode": control_mode or "semi",
         "assessment": ai,
@@ -270,6 +279,11 @@ def cmd_create(args: list[str]) -> dict:
             "available": available_modes,
             "recommended": recommended_mode,
             "recommendation_reason": ai.get("reason", ""),
+            "prompt": (
+                f"请用 AskUserQuestion 展示以下 {len(available_modes)} 个模式选项供用户选择"
+                f"（必须全部展示，禁止截断）: "
+                + ", ".join(f"{'✓ ' if m == recommended_mode else ''}{m}" for m in available_modes)
+            ),
         },
         "scaffold": scaffold_info,
     }
@@ -281,9 +295,11 @@ def cmd_create(args: list[str]) -> dict:
         )
     else:
         if mode_confirmation_pending:
+            mode_list = ", ".join(available_modes)
             result["message"] = (
-                f"Task {task.id} created. 选择运行模式后再执行（不要重复 create）: "
-                f"`kanban task edit {task.id} --mode {recommended_mode}` → `kanban run {task.id}`"
+                f"Task {task.id} created. 请从以下模式中选择一个: [{mode_list}] "
+                f"(推荐: {recommended_mode})。"
+                f"选择后执行: `kanban task edit {task.id} --mode <模式>` → `kanban run {task.id}`"
             )
         else:
             result["message"] = f"Task {task.id} created. {mode_msg}."

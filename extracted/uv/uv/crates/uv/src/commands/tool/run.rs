@@ -640,7 +640,7 @@ impl std::fmt::Display for ExecutableProviderHints<'_> {
 // [`ToolRequirement::Package`] is the more common case and it seems annoying to box it.
 #[derive(Debug)]
 #[expect(clippy::large_enum_variant)]
-pub(crate) enum ToolRequirement {
+enum ToolRequirement {
     Python {
         executable: String,
     },
@@ -761,7 +761,6 @@ async fn get_or_create_environment(
         install_mirrors.python_install_mirror.as_deref(),
         install_mirrors.pypy_install_mirror.as_deref(),
         install_mirrors.python_downloads_json_url.as_deref(),
-        preview,
     )
     .await?
     .into_interpreter();
@@ -1149,7 +1148,6 @@ async fn get_or_create_environment(
                     python_preference,
                     python_downloads,
                     cache,
-                    preview,
                 )
                 .await
                 .ok()

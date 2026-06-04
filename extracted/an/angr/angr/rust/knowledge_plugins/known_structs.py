@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 from collections import OrderedDict
 
 from angr.ailment import Const
+from angr.knowledge_plugins.plugin import KnowledgeBasePlugin
 from angr.rust.optimization_passes.utils import extract_str_from_addr
 from angr.rust.sim_type import RustSimStruct
-from angr.knowledge_plugins.plugin import KnowledgeBasePlugin
 
 
 class StructMatcher:
@@ -15,7 +16,10 @@ class StructMatcher:
         self._matchers = (self._match_Arguments,)
 
     def _match_Arguments(self, fields):
-        arguments_ty = self.project.kb.known_structs["core::fmt::Arguments"].with_arch(self.project.arch)
+        arguments_ty = self.project.kb.known_structs.get("core::fmt::Arguments")
+        if arguments_ty is None:
+            return None
+        arguments_ty = arguments_ty.with_arch(self.project.arch)
         offsets = arguments_ty.offsets
         pieces_ptr_offset = offsets["pieces"]
         pieces_len_offset = pieces_ptr_offset + self.project.arch.bytes
@@ -68,7 +72,10 @@ class KnownStructs(KnowledgeBasePlugin):
         self.known_struct_types[key] = value
 
     def __getitem__(self, item):
-        return self.known_struct_types.get(item, None)
+        return self.known_struct_types[item]
+
+    def get(self, item, default=None):
+        return self.known_struct_types.get(item, default)
 
     def __contains__(self, item):
         return item in self.known_struct_types

@@ -102,12 +102,18 @@ AUTH_SUCCESS_HTML = """
 
 
 class _OAuthFlow:
-    def __init__(self, client_id: str, client_secret: str, issuer: Issuer):
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        issuer: Issuer,
+        redirect_port: int = 0,
+    ):
         self._client_id = client_id
         self._client_secret = client_secret
         self._issuer = issuer
         self._server = _OAuthRedirectServer(
-            self._client_id, self._client_secret, self._issuer
+            self._client_id, self._client_secret, self._issuer, port=redirect_port
         )
         self._server_thread = threading.Thread(
             target=lambda server: server.serve_forever(),
@@ -130,6 +136,9 @@ class _OAuthFlow:
 
 
 class _OAuthRedirectHandler(http.server.BaseHTTPRequestHandler):
+    # Short socket timeout to prevent blocking serve_forever() on idle connections
+    timeout = 1
+
     def log_message(self, format: str, *_args: Any) -> None:
         pass
 
@@ -137,11 +146,16 @@ class _OAuthRedirectHandler(http.server.BaseHTTPRequestHandler):
         _logger.debug(f"GET: {self.path} with {dict(self.headers)}")
         server = cast(_OAuthRedirectServer, self.server)
 
+        # The redirect server only needs one request per connection.
+        # Close conn immediately to prevent keep-alive from blocking.
+        self.close_connection = True
+
         # If the auth response has already been populated, the main thread will be stopping this
         # thread and accessing the auth response shortly so we should stop servicing any requests.
         if server.auth_response is not None:
             _logger.debug(f"{self.path} unavailable (teardown)")
             self.send_response(404)
+            self.end_headers()
             return None
 
         r = urllib.parse.urlsplit(self.path)
@@ -164,6 +178,7 @@ class _OAuthRedirectHandler(http.server.BaseHTTPRequestHandler):
         else:
             # Anything else sends a "Not Found" response.
             self.send_response(404)
+            self.end_headers()
 
 
 OOB_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
@@ -223,8 +238,14 @@ class _OAuthSession:
 
 
 class _OAuthRedirectServer(http.server.HTTPServer):
-    def __init__(self, client_id: str, client_secret: str, issuer: Issuer) -> None:
-        super().__init__(("localhost", 0), _OAuthRedirectHandler)
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        issuer: Issuer,
+        port: int = 0,
+    ) -> None:
+        super().__init__(("localhost", port), _OAuthRedirectHandler)
         self.oauth_session = _OAuthSession(client_id, client_secret, issuer)
         self.auth_response: dict[str, list[str]] | None = None
         self._is_out_of_band = False

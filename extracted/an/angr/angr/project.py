@@ -1,21 +1,28 @@
 from __future__ import annotations
+
 import logging
 import os
-import types
-from io import BytesIO, IOBase
 import pickle
 import string
+import types
 from collections import defaultdict
+from io import BytesIO, IOBase
 from pathlib import Path
 from typing import Any, cast
 
 import archinfo
-from archinfo.arch_soot import SootAddressDescriptor, ArchSoot
 import cle
-from .sim_procedure import SimProcedure
-from .llm_client import LLMClient
+from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 
+from angr.knowledge_base import KnowledgeBase
+
+from .analyses.analysis import AnalysesHub, AnalysesHubWithDefault
 from .errors import AngrNoPluginError
+from .factory import AngrObjectFactory
+from .llm_client import LLMClient
+from .procedures import SIM_LIBRARIES, SIM_PROCEDURES
+from .sim_procedure import SimProcedure
+from .simos import SimOS, os_mapping
 
 l = logging.getLogger(name=__name__)
 
@@ -72,9 +79,6 @@ class Project:
     them, and perform analyses on them.
 
     :param thing:                       The path to the main executable object to analyze, or a CLE Loader object.
-
-    The following parameters are optional.
-
     :param default_analysis_mode:       The mode of analysis to use by default. Defaults to 'symbolic'.
     :param ignore_functions:            A list of function names that, when imported from shared libraries, should
                                         never be stepped into in analysis (calls will return an unconstrained value).
@@ -987,10 +991,3 @@ class Project:
         if sz < 256 * 1024:
             return None  # if the binary is small, don't cache CFG edges
         return min(((sz // 256) // 100 + 1) * 50, 800)
-
-
-from .factory import AngrObjectFactory
-from .simos import SimOS, os_mapping
-from .analyses.analysis import AnalysesHub, AnalysesHubWithDefault
-from .knowledge_base import KnowledgeBase
-from .procedures import SIM_PROCEDURES, SIM_LIBRARIES

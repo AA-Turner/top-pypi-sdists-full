@@ -18,19 +18,21 @@ import unittest
 import mock
 import pytest
 
+from google.cloud.storage._helpers import _NOW, _UTC, _get_default_storage_base_url
 from google.cloud.storage.blob import _quote
-from google.cloud.storage.retry import DEFAULT_RETRY
-from google.cloud.storage.retry import DEFAULT_RETRY_IF_ETAG_IN_JSON
-from google.cloud.storage.retry import DEFAULT_RETRY_IF_GENERATION_SPECIFIED
-from google.cloud.storage.retry import DEFAULT_RETRY_IF_METAGENERATION_SPECIFIED
-from google.cloud.storage.constants import PUBLIC_ACCESS_PREVENTION_ENFORCED
-from google.cloud.storage.constants import PUBLIC_ACCESS_PREVENTION_INHERITED
-from google.cloud.storage.constants import PUBLIC_ACCESS_PREVENTION_UNSPECIFIED
-from google.cloud.storage.constants import RPO_DEFAULT
-from google.cloud.storage.constants import RPO_ASYNC_TURBO
-from google.cloud.storage._helpers import _NOW
-from google.cloud.storage._helpers import _UTC
-from google.cloud.storage._helpers import _get_default_storage_base_url
+from google.cloud.storage.constants import (
+    PUBLIC_ACCESS_PREVENTION_ENFORCED,
+    PUBLIC_ACCESS_PREVENTION_INHERITED,
+    PUBLIC_ACCESS_PREVENTION_UNSPECIFIED,
+    RPO_ASYNC_TURBO,
+    RPO_DEFAULT,
+)
+from google.cloud.storage.retry import (
+    DEFAULT_RETRY,
+    DEFAULT_RETRY_IF_ETAG_IN_JSON,
+    DEFAULT_RETRY_IF_GENERATION_SPECIFIED,
+    DEFAULT_RETRY_IF_METAGENERATION_SPECIFIED,
+)
 
 
 def _create_signing_credentials():
@@ -760,8 +762,10 @@ class Test_Bucket(unittest.TestCase):
         self.assertEqual(blob.kms_key_name, KMS_RESOURCE)
 
     def test_notification_defaults(self):
-        from google.cloud.storage.notification import BucketNotification
-        from google.cloud.storage.notification import NONE_PAYLOAD_FORMAT
+        from google.cloud.storage.notification import (
+            NONE_PAYLOAD_FORMAT,
+            BucketNotification,
+        )
 
         PROJECT = "PROJECT"
         BUCKET_NAME = "BUCKET_NAME"
@@ -781,10 +785,10 @@ class Test_Bucket(unittest.TestCase):
 
     def test_notification_explicit(self):
         from google.cloud.storage.notification import (
-            BucketNotification,
-            OBJECT_FINALIZE_EVENT_TYPE,
-            OBJECT_DELETE_EVENT_TYPE,
             JSON_API_V1_PAYLOAD_FORMAT,
+            OBJECT_DELETE_EVENT_TYPE,
+            OBJECT_FINALIZE_EVENT_TYPE,
+            BucketNotification,
         )
 
         PROJECT = "PROJECT"
@@ -958,6 +962,7 @@ class Test_Bucket(unittest.TestCase):
 
     def test_get_blob_miss_w_defaults(self):
         from google.cloud.exceptions import NotFound
+
         from google.cloud.storage.blob import Blob
 
         name = "name"
@@ -1157,8 +1162,7 @@ class Test_Bucket(unittest.TestCase):
         )
 
     def test_get_blob_hit_with_kwargs_w_explicit_client(self):
-        from google.cloud.storage.blob import Blob
-        from google.cloud.storage.blob import _get_encryption_headers
+        from google.cloud.storage.blob import Blob, _get_encryption_headers
 
         name = "name"
         blob_name = "blob-name"
@@ -1217,6 +1221,7 @@ class Test_Bucket(unittest.TestCase):
         expected_include_folders_as_prefixes = None
         soft_deleted = None
         page_size = None
+        filter_ = None
         client.list_blobs.assert_called_once_with(
             bucket,
             max_results=expected_max_results,
@@ -1235,6 +1240,7 @@ class Test_Bucket(unittest.TestCase):
             include_folders_as_prefixes=expected_include_folders_as_prefixes,
             soft_deleted=soft_deleted,
             page_size=page_size,
+            filter_=filter_,
         )
 
     def test_list_blobs_w_explicit(self):
@@ -1295,6 +1301,7 @@ class Test_Bucket(unittest.TestCase):
         expected_include_folders_as_prefixes = include_folders_as_prefixes
         expected_soft_deleted = soft_deleted
         expected_page_size = page_size
+        expected_filter = None
         other_client.list_blobs.assert_called_once_with(
             bucket,
             max_results=expected_max_results,
@@ -1313,6 +1320,54 @@ class Test_Bucket(unittest.TestCase):
             include_folders_as_prefixes=expected_include_folders_as_prefixes,
             soft_deleted=expected_soft_deleted,
             page_size=expected_page_size,
+            filter_=expected_filter,
+        )
+
+    def test_list_blobs_w_filter(self):
+        name = "name"
+        filter_ = 'contexts."foo"="bar"'
+        bucket = self._make_one(client=None, name=name)
+        other_client = self._make_client()
+        other_client.list_blobs = mock.Mock(spec=[])
+
+        iterator = bucket.list_blobs(filter_=filter_, client=other_client)
+
+        self.assertIs(iterator, other_client.list_blobs.return_value)
+
+        expected_page_token = None
+        expected_max_results = None
+        expected_prefix = None
+        expected_delimiter = None
+        expected_match_glob = None
+        expected_start_offset = None
+        expected_end_offset = None
+        expected_include_trailing_delimiter = None
+        expected_versions = None
+        expected_projection = "noAcl"
+        expected_fields = None
+        expected_include_folders_as_prefixes = None
+        expected_soft_deleted = None
+        expected_page_size = None
+        expected_filter = filter_
+        other_client.list_blobs.assert_called_once_with(
+            bucket,
+            max_results=expected_max_results,
+            page_token=expected_page_token,
+            prefix=expected_prefix,
+            delimiter=expected_delimiter,
+            start_offset=expected_start_offset,
+            end_offset=expected_end_offset,
+            include_trailing_delimiter=expected_include_trailing_delimiter,
+            versions=expected_versions,
+            projection=expected_projection,
+            fields=expected_fields,
+            timeout=self._get_default_timeout(),
+            retry=DEFAULT_RETRY,
+            match_glob=expected_match_glob,
+            include_folders_as_prefixes=expected_include_folders_as_prefixes,
+            soft_deleted=expected_soft_deleted,
+            page_size=expected_page_size,
+            filter_=expected_filter,
         )
 
     def test_list_notifications_w_defaults(self):
@@ -1390,9 +1445,11 @@ class Test_Bucket(unittest.TestCase):
         )
 
     def test_get_notification_hit_w_explicit_w_user_project(self):
-        from google.cloud.storage.notification import BucketNotification
-        from google.cloud.storage.notification import _TOPIC_REF_FMT
-        from google.cloud.storage.notification import JSON_API_V1_PAYLOAD_FORMAT
+        from google.cloud.storage.notification import (
+            _TOPIC_REF_FMT,
+            JSON_API_V1_PAYLOAD_FORMAT,
+            BucketNotification,
+        )
 
         project = "my-project-123"
         user_project = "user-project-456"
@@ -1476,6 +1533,27 @@ class Test_Bucket(unittest.TestCase):
         client._delete_resource.assert_called_once_with(
             bucket.path,
             query_params=expected_query_params,
+            timeout=self._get_default_timeout(),
+            retry=DEFAULT_RETRY,
+            _target_object=None,
+        )
+
+    def test_delete_hit_evicts_from_cache(self):
+        name = "bucket-to-delete"
+        client = mock.Mock(spec=["_delete_resource", "_bucket_metadata_cache"])
+        cache = mock.Mock()
+        client._bucket_metadata_cache = cache
+        client._delete_resource.return_value = None
+        bucket = self._make_one(client=client, name=name)
+
+        result = bucket.delete()
+
+        self.assertIsNone(result)
+        cache.evict.assert_called_once_with(name)
+
+        client._delete_resource.assert_called_once_with(
+            bucket.path,
+            query_params={},
             timeout=self._get_default_timeout(),
             retry=DEFAULT_RETRY,
             _target_object=None,
@@ -1999,6 +2077,30 @@ class Test_Bucket(unittest.TestCase):
             _target_object=bucket,
         )
 
+    def test_reload_forbidden_sync_cache_fallback(self):
+        from google.api_core.exceptions import Forbidden
+
+        from google.cloud.storage._bucket_metadata_cache import BucketMetadataCache
+
+        name = "forbidden-bucket"
+        client = mock.Mock(spec=["_get_resource", "_bucket_metadata_cache"])
+        client._bucket_metadata_cache = BucketMetadataCache(client)
+        client._get_resource.side_effect = Forbidden("forbidden")
+        bucket = self._make_one(client, name=name)
+
+        # Ensure cache is clear
+        client._bucket_metadata_cache.clear()
+
+        with self.assertRaises(Forbidden):
+            bucket.reload()
+
+        # Assert cache was synchronously populated with fallback
+        cached = client._bucket_metadata_cache.get(name)
+        self.assertIsNotNone(cached)
+        dest_id, loc = cached
+        self.assertEqual(dest_id, f"projects/_/buckets/{name}")
+        self.assertEqual(loc, "global")
+
     def test_reload_w_metageneration_match(self):
         name = "name"
         metageneration_number = 9
@@ -2290,6 +2392,51 @@ class Test_Bucket(unittest.TestCase):
             _target_object=new_blob,
         )
 
+    def test_copy_blob_w_destination_contexts(self):
+        from google.cloud.storage.blob import (
+            ObjectContexts,
+            ObjectCustomContextPayload,
+        )
+
+        source_name = "source"
+        dest_name = "dest"
+        blob_name = "blob-name"
+        new_name = "new_name"
+        api_response = {"contexts": {"custom": {"foo": {"value": "bar"}}}}
+        client = mock.Mock(spec=["_post_resource"])
+        client._post_resource.return_value = api_response
+        source = self._make_one(client=client, name=source_name)
+        dest = self._make_one(client=client, name=dest_name)
+        blob = self._make_blob(source_name, blob_name)
+
+        payload = ObjectCustomContextPayload(value="bar")
+        contexts = ObjectContexts(None, custom={"foo": payload})
+
+        new_blob = source.copy_blob(
+            blob,
+            dest,
+            new_name,
+            destination_contexts=contexts,
+        )
+
+        self.assertIs(new_blob.bucket, dest)
+        self.assertEqual(new_blob.name, new_name)
+        self.assertEqual(new_blob.contexts.custom["foo"].value, "bar")
+
+        expected_path = "/b/{}/o/{}/copyTo/b/{}/o/{}".format(
+            source_name, blob_name, dest_name, new_name
+        )
+        expected_data = {"contexts": {"custom": {"foo": {"value": "bar"}}}}
+        expected_query_params = {}
+        client._post_resource.assert_called_once_with(
+            expected_path,
+            expected_data,
+            query_params=expected_query_params,
+            timeout=self._get_default_timeout(),
+            retry=DEFAULT_RETRY_IF_GENERATION_SPECIFIED,
+            _target_object=new_blob,
+        )
+
     def test_move_blob_w_no_retry_timeout_and_generation_match(self):
         source_name = "source"
         blob_name = "blob-name"
@@ -2526,6 +2673,7 @@ class Test_Bucket(unittest.TestCase):
 
     def test_iam_configuration_policy_w_entry(self):
         from google.cloud._helpers import _datetime_to_rfc3339
+
         from google.cloud.storage.bucket import IAMConfiguration
 
         now = _NOW(_UTC)
@@ -2566,9 +2714,9 @@ class Test_Bucket(unittest.TestCase):
 
     def test_lifecycle_rules_getter(self):
         from google.cloud.storage.bucket import (
+            LifecycleRuleAbortIncompleteMultipartUpload,
             LifecycleRuleDelete,
             LifecycleRuleSetStorageClass,
-            LifecycleRuleAbortIncompleteMultipartUpload,
         )
 
         NAME = "name"
@@ -3320,8 +3468,9 @@ class Test_Bucket(unittest.TestCase):
         self.assertEqual(bucket.object_retention_mode, mode)
 
     def test_soft_delete_policy_getter_w_entry(self):
-        from google.cloud.storage.bucket import SoftDeletePolicy
         from google.cloud._helpers import _datetime_to_rfc3339
+
+        from google.cloud.storage.bucket import SoftDeletePolicy
 
         seconds = 86400 * 10  # 10 days
         effective_time = _NOW(_UTC)
@@ -3391,10 +3540,13 @@ class Test_Bucket(unittest.TestCase):
         self.assertEqual(bucket._properties, UNSET)
 
     def test_get_iam_policy_defaults(self):
-        from google.cloud.storage.iam import STORAGE_OWNER_ROLE
-        from google.cloud.storage.iam import STORAGE_EDITOR_ROLE
-        from google.cloud.storage.iam import STORAGE_VIEWER_ROLE
         from google.api_core.iam import Policy
+
+        from google.cloud.storage.iam import (
+            STORAGE_EDITOR_ROLE,
+            STORAGE_OWNER_ROLE,
+            STORAGE_VIEWER_ROLE,
+        )
 
         bucket_name = "name"
         path = f"/b/{bucket_name}"
@@ -3516,10 +3668,14 @@ class Test_Bucket(unittest.TestCase):
 
     def test_set_iam_policy_w_defaults(self):
         import operator
-        from google.cloud.storage.iam import STORAGE_OWNER_ROLE
-        from google.cloud.storage.iam import STORAGE_EDITOR_ROLE
-        from google.cloud.storage.iam import STORAGE_VIEWER_ROLE
+
         from google.api_core.iam import Policy
+
+        from google.cloud.storage.iam import (
+            STORAGE_EDITOR_ROLE,
+            STORAGE_OWNER_ROLE,
+            STORAGE_VIEWER_ROLE,
+        )
 
         name = "name"
         etag = "DEADBEEF"
@@ -3575,10 +3731,14 @@ class Test_Bucket(unittest.TestCase):
 
     def test_set_iam_policy_w_user_project_w_expl_client_w_timeout_retry(self):
         import operator
-        from google.cloud.storage.iam import STORAGE_OWNER_ROLE
-        from google.cloud.storage.iam import STORAGE_EDITOR_ROLE
-        from google.cloud.storage.iam import STORAGE_VIEWER_ROLE
+
         from google.api_core.iam import Policy
+
+        from google.cloud.storage.iam import (
+            STORAGE_EDITOR_ROLE,
+            STORAGE_OWNER_ROLE,
+            STORAGE_VIEWER_ROLE,
+        )
 
         name = "name"
         user_project = "user-project-123"
@@ -3638,9 +3798,11 @@ class Test_Bucket(unittest.TestCase):
             self.assertEqual(sorted(found["members"]), sorted(expected["members"]))
 
     def test_test_iam_permissions_defaults(self):
-        from google.cloud.storage.iam import STORAGE_OBJECTS_LIST
-        from google.cloud.storage.iam import STORAGE_BUCKETS_GET
-        from google.cloud.storage.iam import STORAGE_BUCKETS_UPDATE
+        from google.cloud.storage.iam import (
+            STORAGE_BUCKETS_GET,
+            STORAGE_BUCKETS_UPDATE,
+            STORAGE_OBJECTS_LIST,
+        )
 
         name = "name"
         permissions = [
@@ -3670,9 +3832,11 @@ class Test_Bucket(unittest.TestCase):
         )
 
     def test_test_iam_permissions_w_user_project_w_timeout_w_retry(self):
-        from google.cloud.storage.iam import STORAGE_OBJECTS_LIST
-        from google.cloud.storage.iam import STORAGE_BUCKETS_GET
-        from google.cloud.storage.iam import STORAGE_BUCKETS_UPDATE
+        from google.cloud.storage.iam import (
+            STORAGE_BUCKETS_GET,
+            STORAGE_BUCKETS_UPDATE,
+            STORAGE_OBJECTS_LIST,
+        )
 
         name = "name"
         user_project = "user-project-123"
@@ -4449,8 +4613,11 @@ class Test_Bucket(unittest.TestCase):
         scheme="http",
     ):
         from urllib import parse
-        from google.cloud.storage._helpers import _bucket_bound_hostname_url
-        from google.cloud.storage._helpers import _get_default_storage_base_url
+
+        from google.cloud.storage._helpers import (
+            _bucket_bound_hostname_url,
+            _get_default_storage_base_url,
+        )
 
         delta = datetime.timedelta(hours=1)
 
@@ -4552,8 +4719,7 @@ class Test_Bucket(unittest.TestCase):
 
     @mock.patch("warnings.warn")
     def test_get_bucket_from_string(self, mock_warn):
-        from google.cloud.storage.bucket import _FROM_STRING_MESSAGE
-        from google.cloud.storage.bucket import Bucket
+        from google.cloud.storage.bucket import _FROM_STRING_MESSAGE, Bucket
 
         client = self._make_client()
         BUCKET_NAME = "BUCKET_NAME"
@@ -4698,8 +4864,8 @@ class Test_Bucket(unittest.TestCase):
 
     def test_ip_filter_setter(self):
         """Test setting the ip_filter with a helper class."""
-        from google.cloud.storage.ip_filter import IPFilter
         from google.cloud.storage.bucket import _IP_FILTER_PROPERTY
+        from google.cloud.storage.ip_filter import IPFilter
 
         bucket = self._make_one()
         ip_filter = IPFilter()
@@ -4735,9 +4901,11 @@ class Test__item_to_notification(unittest.TestCase):
         return _item_to_notification(iterator, item)
 
     def test_it(self):
-        from google.cloud.storage.notification import BucketNotification
-        from google.cloud.storage.notification import _TOPIC_REF_FMT
-        from google.cloud.storage.notification import NONE_PAYLOAD_FORMAT
+        from google.cloud.storage.notification import (
+            _TOPIC_REF_FMT,
+            NONE_PAYLOAD_FORMAT,
+            BucketNotification,
+        )
 
         iterator = mock.Mock(spec=["bucket"])
         project = "my-project-123"
@@ -4770,7 +4938,6 @@ class Test_EncryptionEnforcementConfig(unittest.TestCase):
         return self._get_target_class()(**kw)
 
     def test_ctor(self):
-
         from google.cloud.storage.constants import ENFORCEMENT_MODE_FULLY_RESTRICTED
 
         config = self._make_one(restriction_mode=ENFORCEMENT_MODE_FULLY_RESTRICTED)
@@ -4780,6 +4947,7 @@ class Test_EncryptionEnforcementConfig(unittest.TestCase):
 
     def test_from_api_repr(self):
         from google.cloud._helpers import _datetime_to_rfc3339
+
         from google.cloud.storage.constants import ENFORCEMENT_MODE_NOT_RESTRICTED
 
         now = _NOW(_UTC)

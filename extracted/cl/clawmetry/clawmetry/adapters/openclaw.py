@@ -23,6 +23,16 @@ from .base import AgentAdapter, Capability, DetectResult, Event, Session
 
 logger = logging.getLogger("clawmetry.adapters.openclaw")
 
+# NeMo Guardrails compact tool-catalog injects these three meta-tool names into
+# the JSONL transcript when NEMOCLAW_TOOL_CATALOG is active. They are guardrail
+# dispatches, not real agent actions; tag them so consumers can filter/style
+# them separately from ordinary tool calls.
+_NEMOCLAW_CATALOG_TOOLS: frozenset = frozenset({
+    "tool_search",
+    "tool_describe",
+    "tool_call",
+})
+
 
 def _d():
     """Late import to avoid circular init with dashboard module."""
@@ -141,6 +151,11 @@ class OpenClawAdapter(AgentAdapter):
                     source=s.get("channel") or "",
                     started_at=started_at,
                     total_tokens=int(s.get("totalTokens") or 0),
+                    input_tokens=int(s.get("inputTokens") or 0),
+                    output_tokens=int(s.get("outputTokens") or 0),
+                    cache_read_tokens=int(s.get("cacheReadTokens") or 0),
+                    cache_write_tokens=int(s.get("cacheWriteTokens") or 0),
+                    cost_usd=float(s["costUsd"]) if s.get("costUsd") is not None else None,
                     extra={
                         "kind": s.get("kind") or "direct",
                         "contextTokens": s.get("contextTokens"),
@@ -187,6 +202,33 @@ class OpenClawAdapter(AgentAdapter):
                 extra: dict = {}
                 if r[3]:
                     extra["model"] = r[3]
+                # r[5] = data BLOB — decode and surface per-type token split
+                # (input/output/cache_read/cache_write) so callers can measure
+                # per-turn cache efficiency without re-reading the raw file.
+                raw_data = r[5]
+                if raw_data is not None:
+                    try:
+                        if isinstance(raw_data, (bytes, bytearray)):
+                            raw_data = bytes(raw_data).decode("utf-8", "replace")
+                        obj = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+                        if isinstance(obj, dict):
+                            msg = obj.get("message")
+                            src = msg if isinstance(msg, dict) else obj
+                            usage = src.get("usage") if isinstance(src.get("usage"), dict) else {}
+                            if usage:
+                                for dst, *keys in [
+                                    ("inputTokens", "input_tokens", "inputTokens"),
+                                    ("outputTokens", "output_tokens", "outputTokens"),
+                                    ("cacheReadTokens", "cache_read_input_tokens", "cacheReadInputTokens"),
+                                    ("cacheWriteTokens", "cache_creation_input_tokens", "cacheCreationInputTokens"),
+                                ]:
+                                    for k in keys:
+                                        v = usage.get(k)
+                                        if v is not None:
+                                            extra[dst] = int(v)
+                                            break
+                    except Exception:
+                        pass
                 events.append(Event(
                     agent=self.name,
                     session_id=str(session_id),
@@ -295,7 +337,7 @@ class OpenClawAdapter(AgentAdapter):
                             continue
                         tool_name = block.get("name") or "tool"
                         tool_id = block.get("id") or ""
-                        spans.append({
+                        tool_span: dict = {
                             "span_id": _sid("tool", session_id, str(raw_ts), tool_id, tool_name),
                             "trace_id": trace_id,
                             "parent_span_id": llm_sid,
@@ -306,7 +348,10 @@ class OpenClawAdapter(AgentAdapter):
                             "agent_type": "openclaw",
                             "tool_name": tool_name,
                             "input": block.get("input"),
-                        })
+                        }
+                        if tool_name in _NEMOCLAW_CATALOG_TOOLS:
+                            tool_span["attributes"] = {"nemoclaw.catalog_guardrail": True}
+                        spans.append(tool_span)
 
             elif t in ("subagent_spawn", "agent_spawn"):
                 sub_id = (

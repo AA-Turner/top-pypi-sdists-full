@@ -1,7 +1,8 @@
 [workspace]
 name = "pytango"
 channels = ["conda-forge", "conda-forge/label/cpptango_rc", "conda-forge/label/tango-test_rc", "tango-controls/label/dev", "tango-controls/label/tango-test_dev"]
-platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"] # "linux-aarch64"
+requires-pixi = ">=0.68.0"
 
 [feature.base.tasks]
 clean = { cmd = "rm -rf build/$PIXI_ENVIRONMENT_NAME", depends-on = [
@@ -21,6 +22,17 @@ install = { cmd = [
     "--no-build-isolation",
     "--config-settings=cmake.build-type=\"Debug\"",
     "--config-settings=build-dir=\"build/$PIXI_ENVIRONMENT_NAME/{wheel_tag}_{build_type}\"",
+    "-v",
+    "-e",
+    ".",
+], env = { CXXFLAGS = "$CXXFLAGS -O0" } }
+install-telemetry-off = { cmd = [
+    "pip",
+    "install",
+    "--no-build-isolation",
+    "--config-settings=cmake.build-type=\"Debug\"",
+    "--config-settings=build-dir=\"build/$PIXI_ENVIRONMENT_NAME/{wheel_tag}_{build_type}-telemetry-off\"",
+    "--config-settings=cmake.define.PYTANGO_FORCE_DISABLE_TELEMETRY=ON",
     "-v",
     "-e",
     ".",
@@ -52,6 +64,16 @@ install = { cmd = [
     "-e",
     ".",
 ] }
+install-telemetry-off = { cmd = [
+    "pip",
+    "install",
+    "--no-build-isolation123",
+    "--config-settings=build-dir=\"build/$PIXI_ENVIRONMENT_NAME/{wheel_tag}_{build_type}-telemetry-off\"",
+    "--config-settings=cmake.define.PYTANGO_FORCE_DISABLE_TELEMETRY=ON",
+    "-v",
+    "-e",
+    ".",
+] }
 _collect-tests = { cmd = "pytest --collect-only -q -k \"not test_client.py and not gevent and not test_event\"", inputs = [
     "tests/*.py",
 ], outputs = [
@@ -68,8 +90,8 @@ wheel = { cmd = "delvewheel repair dist/$PIXI_ENVIRONMENT_NAME/pytango*.whl; mv 
 [dependencies]
 # These are default dependencies, so not included if `no-default-feature = true`
 # (E.g., when we build cpptango from source, we don't want these conda packages)
-cpptango = { version = ">=10.1.2,<10.2" }
-tango-test = { version = "==3.12" }
+cpptango = { version = ">=10.3.2,<10.4", channel = "conda-forge" }
+tango-test = { version = "==3.14", channel = "conda-forge" }
 
 [feature.base.dependencies]
 # build dependencies
@@ -166,20 +188,13 @@ myst-parser = "*"
 sphinx-autobuild = "*"
 
 # Env to compile cpptango from a specific branch
-[feature.cpptango]
-channels = [
-    # conda-forge omniorb package for osx-arm64 doesn't contain omniidl
-    # due to cross-compilation
-    { channel = "tango-controls/label/omniorb_osx_arm64", priority = 1 },
-    "conda-forge",
-]
-
 [feature.cpptango.dependencies]
 omniorb = ">=4.3.0"
 zeromq = ">=4.0.5"
 libjpeg-turbo = ">=1.5.2"
 tango-idl = "==6.0.2"
 libopentelemetry-cpp = ">=1.11.0"
+python = "~=3.14.0"
 
 [feature.cpptango.target.win-64.dependencies]
 pthreads-win32 = "*"
@@ -223,7 +238,7 @@ _clone-tangotest = { cmd = "git clone --recurse-submodules --depth 1 -b $TANGO_T
     "_create-tmp-build-dir",
 ], outputs = [
     ".tmpbuild/TangoTest/CMakeLists.txt",
-], env = { TANGO_TEST_VERSION = "3.11" } }
+], env = { TANGO_TEST_VERSION = "3.14" } }
 _configure-tangotest = { cmd = [
     "cmake",
     "$CMAKE_ARGS",

@@ -181,7 +181,7 @@ class KnowledgeManager:
                   tags=None, severity="medium", source=None, code_example="",
                   status="active", upsert=False, ttl_days=None,
                   entry_type="knowledge", steps=None, benchmark=None,
-                  biz_context=None):
+                  biz_context=None, entry_id=None):
         if not title.strip() and not content.strip():
             raise ValueError("at least title or content is required")
         if len(content) > self.MAX_CONTENT_LENGTH:
@@ -230,7 +230,7 @@ class KnowledgeManager:
             _defer_embed_and_chroma_impl(self, existing[0], title, content, domain, category, status, biz_context=biz_context)
             return entry
 
-        eid = self._next_id()
+        eid = entry_id if entry_id else self._next_id()
         self._conn.execute(
             """INSERT INTO entries(id, domain, category, title, content, content_segmented,
                embedding, code_example, tags, source, severity, status,
@@ -254,14 +254,12 @@ class KnowledgeManager:
         self._conn.execute("DELETE FROM entries WHERE id=?", (entry_id,))
         self._conn.execute("DELETE FROM entries_fts WHERE rowid=(SELECT rowid FROM entries WHERE id=?)", (entry_id,))
         self._conn.commit()
-        import threading
-        def _bg():
-            try:
-                _ensure_chroma_impl(self)
-                _chroma_delete_entry_impl(self, entry_id)
-            except Exception:
-                pass
-        threading.Thread(target=_bg, daemon=True).start()
+        # Synchronous ChromaDB delete to avoid inconsistency window (#480)
+        try:
+            _ensure_chroma_impl(self)
+            _chroma_delete_entry_impl(self, entry_id)
+        except Exception:
+            pass
 
     def update_benchmark_evaluation(self, entry_id: str, evaluation: dict) -> dict:
         """Append evaluation result to benchmark.evaluations array. (#397)"""

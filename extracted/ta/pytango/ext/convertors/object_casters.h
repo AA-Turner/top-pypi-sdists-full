@@ -47,9 +47,7 @@ void to_py_object(Tango::MultiAttrProp<T> &multi_attr_prop, py::object &py_multi
  */
 
 template <typename T>
-void assign_attr_prop(py::object &py_obj,
-                      const std::string &attr_name,
-                      Tango::AttrProp<T> &attr_prop) {
+void assign_attr_prop(py::object &py_obj, const std::string &attr_name, Tango::AttrProp<T> &attr_prop) {
     py::object attr_value = py_obj.attr(attr_name.c_str());
 
     try {
@@ -64,9 +62,7 @@ void assign_attr_prop(py::object &py_obj,
 }
 
 template <>
-void assign_attr_prop(py::object &py_obj,
-                      const std::string &attr_name,
-                      Tango::AttrProp<Tango::DevString> &attr_prop);
+void assign_attr_prop(py::object &py_obj, const std::string &attr_name, Tango::AttrProp<Tango::DevString> &attr_prop);
 
 void assign_double_attr_prop(py::object &py_obj,
                              const std::string &attr_name,

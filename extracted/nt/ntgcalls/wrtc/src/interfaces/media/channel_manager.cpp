@@ -10,17 +10,17 @@ namespace wrtc {
     ChannelManager::ChannelManager(
         const webrtc::Environment& environment,
         webrtc::MediaEngineInterface* mediaEngine,
-        webrtc::Thread* workerThread,
+        SafeThread& workerThread,
         webrtc::Thread* networkThread,
         webrtc::Thread* signalingThread
-    ): environment(environment), mediaEngine(mediaEngine), signalingThread(signalingThread), workerThread(workerThread), networkThread(networkThread) {
+    ): environment(environment), mediaEngine(mediaEngine), workerThread(workerThread), signalingThread(signalingThread), networkThread(networkThread) {
         RTC_DCHECK_RUN_ON(signalingThread);
-        RTC_DCHECK(workerThread);
+        RTC_DCHECK(&workerThread);
         RTC_DCHECK(networkThread);
     }
 
-    std::unique_ptr<webrtc::VoiceChannel> ChannelManager::CreateVoiceChannel(
-        webrtc::Call *call,
+    std::unique_ptr<webrtc::BaseChannel> ChannelManager::CreateVoiceChannel(
+        webrtc::Call* call,
         const webrtc::MediaConfig &mediaConfig,
         const std::string &mid,
         const bool srtpRequired,
@@ -29,14 +29,14 @@ namespace wrtc {
     ) {
         RTC_DCHECK(call);
         RTC_DCHECK(mediaEngine);
-        if (!workerThread->IsCurrent()) {
-            std::unique_ptr<webrtc::VoiceChannel> temp;
-            workerThread->BlockingCall([&] {
+        if (!workerThread.IsCurrent()) {
+            std::unique_ptr<webrtc::BaseChannel> temp;
+            workerThread.BlockingCall([&] {
                 temp = CreateVoiceChannel(call, mediaConfig, mid, srtpRequired, cryptoOptions, options);
             });
             return std::move(temp);
         }
-        RTC_DCHECK_RUN_ON(workerThread);
+        RTC_DCHECK_RUN_ON(&workerThread);
         auto sendMediaChannel = mediaEngine->voice().CreateSendChannel(
             environment,
             call,
@@ -57,33 +57,34 @@ namespace wrtc {
         if (!receiveMediaChannel) {
             return nullptr;
         }
-        return std::make_unique<webrtc::VoiceChannel>(
+        return std::make_unique<webrtc::BaseChannel>(
             workerThread,
             networkThread,
             signalingThread,
             std::move(sendMediaChannel),
             std::move(receiveMediaChannel),
             mid,
+            webrtc::MediaType::AUDIO,
             srtpRequired,
             cryptoOptions,
             &ssrcGenerator
         );
     }
 
-    std::unique_ptr<webrtc::VideoChannel> ChannelManager::CreateVideoChannel(
-        webrtc::Call *call,
+    std::unique_ptr<webrtc::BaseChannel> ChannelManager::CreateVideoChannel(
+        webrtc::Call* call,
         const webrtc::MediaConfig &mediaConfig,
         const std::string &mid,
         const bool srtpRequired,
         const webrtc::CryptoOptions &cryptoOptions,
         const webrtc::VideoOptions &options,
-        webrtc::VideoBitrateAllocatorFactory *bitrateAllocatorFactory
+        webrtc::VideoBitrateAllocatorFactory* bitrateAllocatorFactory
     ) {
         RTC_DCHECK(call);
         RTC_DCHECK(mediaEngine);
-        if (!workerThread->IsCurrent()) {
-            std::unique_ptr<webrtc::VideoChannel> temp = nullptr;
-            workerThread->BlockingCall([&] {
+        if (!workerThread.IsCurrent()) {
+            std::unique_ptr<webrtc::BaseChannel> temp = nullptr;
+            workerThread.BlockingCall([&] {
               temp = CreateVideoChannel(
                   call,
                   mediaConfig,
@@ -96,7 +97,7 @@ namespace wrtc {
             });
             return temp;
         }
-        RTC_DCHECK_RUN_ON(workerThread);
+        RTC_DCHECK_RUN_ON(&workerThread);
         std::unique_ptr<webrtc::VideoMediaSendChannelInterface> sendMediaChannel = mediaEngine->video().CreateSendChannel(
             environment,
             call,
@@ -115,13 +116,14 @@ namespace wrtc {
             options,
             cryptoOptions
         );
-        return std::make_unique<webrtc::VideoChannel>(
+        return std::make_unique<webrtc::BaseChannel>(
             workerThread,
             networkThread,
             signalingThread,
             std::move(sendMediaChannel),
             std::move(receiveMediaChannel),
             mid,
+            webrtc::MediaType::VIDEO,
             srtpRequired,
             cryptoOptions,
             &ssrcGenerator

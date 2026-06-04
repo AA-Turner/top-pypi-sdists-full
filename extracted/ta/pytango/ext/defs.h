@@ -27,6 +27,7 @@ inline const char *type_attr_name = "type";
 inline const char *is_empty_attr_name = "is_empty";
 inline const char *has_failed_attr_name = "has_failed";
 
+// clang-format off
 namespace PyTango {
 enum ExtractAs {
     ExtractAsNumpy,
@@ -77,3 +78,5 @@ enum DevVarNumericStringArray {
     LONG_STRING,
     DOUBLE_STRING
 };
+
+// clang-format on

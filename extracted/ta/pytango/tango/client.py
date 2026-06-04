@@ -7,8 +7,9 @@ High Level API for writting Tango clients
 This is an experimental module. Not part of the official API.
 """
 
-import weakref
 import functools
+import weakref
+from typing import ClassVar
 
 try:
     from warnings import deprecated
@@ -16,10 +17,10 @@ except ImportError:
     from typing_extensions import deprecated
 
 import tango
-from tango import DeviceProxy as _DeviceProxy
 from tango import CmdArgType
-from tango.codec import loads
+from tango import DeviceProxy as _DeviceProxy
 from tango.codec import dumps as _dumps
+from tango.codec import loads
 
 _FMT = "pickle"
 
@@ -27,8 +28,7 @@ dumps = functools.partial(_dumps, _FMT)
 
 
 @deprecated(
-    "Device alias was an experimental API - scheduled for removal in PyTango 11.0.0. "
-    "Use tango.DeviceProxy instead."
+    "Device alias was an experimental API - scheduled for removal in PyTango 11.0.0. Use tango.DeviceProxy instead."
 )
 class Device(_DeviceProxy):
     pass
@@ -46,8 +46,8 @@ def _command(device, cmd_info, *args, **kwargs):
 
 
 class _DeviceHelper:
-    __CMD_FILTER = {"init", "state", "status"}
-    __ATTR_FILTER = {"state", "status"}
+    __CMD_FILTER: ClassVar[set[str]] = {"init", "state", "status"}
+    __ATTR_FILTER: ClassVar[set[str]] = {"state", "status"}
 
     __attr_cache = None
     __cmd_cache = None
@@ -138,11 +138,7 @@ class _DeviceHelper:
         if result:
             result = dev.read_attribute(name)
             value = result.value
-            if result.type == tango.DevEncoded:
-                result = loads(*value)
-            else:
-                result = value
-            return result
+            return loads(*value) if result.type == tango.DevEncoded else value
         result = self.get_cmd_info(name)
         if result is None:
             raise KeyError(f"Unknown {name}")
@@ -193,9 +189,7 @@ class _DeviceHelper:
         return f"{klass}({self.dev_name})"
 
 
-@deprecated(
-    "Object class was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("Object class was an experimental API - scheduled for removal in PyTango 11.0.0")
 class Object:
     """Tango object"""
 
@@ -235,65 +229,49 @@ class Object:
         return self._helper.members()
 
 
-@deprecated(
-    "get_object_proxy function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("get_object_proxy function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def get_object_proxy(obj):
     """Experimental function. Not part of the official API"""
     return obj._helper.device
 
 
-@deprecated(
-    "get_object_db function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("get_object_db function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def get_object_db(obj):
     """Experimental function. Not part of the official API"""
     return get_object_proxy(obj).get_device_db()
 
 
-@deprecated(
-    "get_object_name function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("get_object_name function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def get_object_name(obj):
     """Experimental function. Not part of the official API"""
     return get_object_proxy(obj).get_name()
 
 
-@deprecated(
-    "get_object_info function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("get_object_info function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def get_object_info(obj):
     """Experimental function. Not part of the official API"""
     return get_object_proxy(obj).info()
 
 
-@deprecated(
-    "get_attributes_config function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("get_attributes_config function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def get_attributes_config(obj, refresh=False):
     """Experimental function. Not part of the official API"""
     return obj._helper.get_attr_cache(refresh=refresh)
 
 
-@deprecated(
-    "get_commands_config function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("get_commands_config function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def get_commands_config(obj, refresh=False):
     """Experimental function. Not part of the official API"""
     return obj._helper.get_cmd_cache(refresh=refresh)
 
 
-@deprecated(
-    "connect function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("connect function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def connect(obj, signal, slot, event_type=tango.EventType.CHANGE_EVENT):
     """Experimental function. Not part of the official API"""
     return obj._helper.connect(signal, slot, event_type=event_type)
 
 
-@deprecated(
-    "disconnect function was an experimental API - scheduled for removal in PyTango 11.0.0"
-)
+@deprecated("disconnect function was an experimental API - scheduled for removal in PyTango 11.0.0")
 def disconnect(obj, signal, slot):
     """Experimental function. Not part of the official API"""
     return obj._helper.disconnect(signal, slot)

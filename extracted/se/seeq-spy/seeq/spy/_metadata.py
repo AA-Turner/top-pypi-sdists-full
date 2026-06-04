@@ -2049,6 +2049,7 @@ def push_access_control(session: Session, item_id: str, acl_df: pd.DataFrame, re
                         disable_permission_inheritance: Optional[bool] = None,
                         status: Optional[Status] = None, dry_run: bool = False):
     items_api = ItemsApi(session.client)
+
     acl_output: AclOutputV1 = items_api.get_access_control(id=item_id)
 
     if disable_permission_inheritance is None:

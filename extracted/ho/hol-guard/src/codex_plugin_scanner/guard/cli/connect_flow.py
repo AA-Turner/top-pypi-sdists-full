@@ -18,9 +18,11 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
+from ...version import __version__
 from ..store import GuardStore
 from .oauth_client import (
     GuardDpopKeyMaterial,
+    GuardOAuthClientConfig,
     build_pkce_s256_challenge,
     generate_dpop_key_pair,
     generate_pkce_verifier,
@@ -42,12 +44,28 @@ CI_SAFE_GUARD_DEVICE_SCOPES = (
 CONNECT_COMMAND = "hol-guard connect"
 CONNECT_STATUS_COMMAND = "hol-guard connect status"
 CONNECT_REPAIR_COMMAND = "hol-guard connect repair"
+DISCONNECT_COMMAND = "hol-guard disconnect"
 HEADLESS_CONNECT_COMMAND = "hol-guard connect --headless"
 DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 DEVICE_CODE_SLOW_DOWN_SECONDS = 5
 HEADLESS_RUNTIME_ID = "hol-guard"
 HEADLESS_RUNTIME_LABEL = "HOL Guard CLI"
+_GUARD_OAUTH_USER_AGENT = f"hol-guard/{__version__}"
 _LOOPBACK_REDIRECT_PATH = "/oauth/callback"
+_SELF_REVOKE_PATH = "/api/guard/oauth/revoke/self"
+
+
+def _guard_oauth_request_headers(*, dpop: str | None = None) -> dict[str, str]:
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+        "User-Agent": _GUARD_OAUTH_USER_AGENT,
+    }
+    if dpop is not None:
+        headers["DPoP"] = dpop
+    return headers
+
+
 _LOOPBACK_HOSTS = ("127.0.0.1", "::1")
 _LOOPBACK_PORT_MIN = 49152
 _LOOPBACK_PORT_MAX = 65535
@@ -323,21 +341,34 @@ def build_device_authorization_request_body(
     *,
     machine_id: str,
     machine_label: str,
+    machine_location_label: str | None = None,
     runtime_id: str,
     runtime_label: str,
     client_id: str,
     scopes: tuple[str, ...] = DEFAULT_GUARD_DEVICE_SCOPES,
 ) -> str:
-    return urllib.parse.urlencode(
-        {
-            "client_id": client_id,
-            "scope": " ".join(scopes),
-            "requested_machine_id": machine_id,
-            "requested_machine_label": machine_label,
-            "requested_runtime_id": runtime_id,
-            "requested_runtime_label": runtime_label,
-        }
-    )
+    payload = {
+        "client_id": client_id,
+        "scope": " ".join(scopes),
+        "requested_machine_id": machine_id,
+        "requested_machine_label": machine_label,
+        "requested_runtime_id": runtime_id,
+        "requested_runtime_label": runtime_label,
+    }
+    if isinstance(machine_location_label, str) and machine_location_label.strip():
+        payload["requested_machine_location_label"] = machine_location_label.strip()
+    return urllib.parse.urlencode(payload)
+
+
+def resolve_machine_location_label() -> str | None:
+    tzinfo = datetime.now().astimezone().tzinfo
+    timezone_key = getattr(tzinfo, "key", None)
+    if isinstance(timezone_key, str) and timezone_key.strip():
+        return timezone_key.strip()
+    timezone_name = datetime.now().astimezone().tzname()
+    if isinstance(timezone_name, str) and timezone_name.strip():
+        return timezone_name.strip()
+    return None
 
 
 def _resolve_guard_device_scopes(*, ci_safe: bool) -> tuple[str, ...]:
@@ -375,7 +406,6 @@ def build_device_authorization_copy_payload(response: dict[str, object]) -> dict
     verification_uri_complete = str(response.get("verification_uri_complete") or "").strip()
     if not user_code or not verification_uri:
         raise ValueError("Device authorization response is missing approval instructions.")
-    next_target = verification_uri_complete or verification_uri
     return {
         "status": "waiting_for_approval",
         "user_code": user_code,
@@ -385,8 +415,8 @@ def build_device_authorization_copy_payload(response: dict[str, object]) -> dict
         "interval": int(response.get("interval") or 5),
         "next_action": {
             "command": "open",
-            "target": next_target,
-            "message": f"Open {next_target} and enter code {user_code}.",
+            "target": verification_uri,
+            "message": f"Open {verification_uri} and enter code {user_code}.",
         },
     }
 
@@ -397,6 +427,31 @@ def _device_token_request_body(*, client_id: str, device_code: str) -> bytes:
             "grant_type": DEVICE_CODE_GRANT_TYPE,
             "client_id": client_id,
             "device_code": device_code,
+        }
+    ).encode("utf-8")
+
+
+def _refresh_token_request_body(*, client_id: str, refresh_token: str) -> bytes:
+    return urllib.parse.urlencode(
+        {
+            "grant_type": "refresh_token",
+            "client_id": client_id,
+            "refresh_token": refresh_token,
+        }
+    ).encode("utf-8")
+
+
+def _self_revoke_request_body(
+    *,
+    workspace_id: str,
+    revoke_cloud_grant: bool,
+) -> bytes:
+    return urllib.parse.urlencode(
+        {
+            "workspace_id": workspace_id,
+            "reason": "user_disconnect",
+            "revoke_machine_grant": "true" if revoke_cloud_grant else "false",
+            "revoke_runtime_grant": "true" if revoke_cloud_grant else "false",
         }
     ).encode("utf-8")
 
@@ -426,10 +481,7 @@ def request_device_authorization(url: str, body: str) -> dict[str, object]:
         url,
         data=encoded_body,
         method="POST",
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-        },
+        headers=_guard_oauth_request_headers(),
     )
     with urllib.request.urlopen(request, timeout=20) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -446,26 +498,28 @@ def exchange_guard_device_code(
     dpop_key_material: GuardDpopKeyMaterial,
     interval_seconds: int,
     expires_in_seconds: int,
+    wait_timeout_seconds: float | None = None,
     urlopen=urllib.request.urlopen,
     sleep=time.sleep,
     now: datetime | None = None,
 ) -> GuardOAuthTokenExchangeResult:
-    deadline = time.monotonic() + max(expires_in_seconds, 1)
+    wait_window_seconds = max(expires_in_seconds, 1)
+    if wait_timeout_seconds is not None:
+        wait_window_seconds = min(wait_window_seconds, max(wait_timeout_seconds, 0))
+    deadline = time.monotonic() + wait_window_seconds
     current_interval = max(interval_seconds, 1)
     while True:
         request = urllib.request.Request(
             token_endpoint,
             data=_device_token_request_body(client_id=client_id, device_code=device_code),
             method="POST",
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
-                "DPoP": _sign_dpop_proof(
+            headers=_guard_oauth_request_headers(
+                dpop=_sign_dpop_proof(
                     token_endpoint=token_endpoint,
                     dpop_key_material=dpop_key_material,
                     now=now or datetime.now(timezone.utc),
                 ),
-            },
+            ),
         )
         try:
             with urlopen(request, timeout=20) as response:
@@ -531,21 +585,219 @@ def exchange_guard_authorization_code(
         token_endpoint,
         data=request_body,
         method="POST",
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-            "DPoP": _sign_dpop_proof(
+        headers=_guard_oauth_request_headers(
+            dpop=_sign_dpop_proof(
                 token_endpoint=token_endpoint,
                 dpop_key_material=dpop_key_material,
                 now=now or datetime.now(timezone.utc),
             ),
-        },
+        ),
     )
     with urlopen(request, timeout=20) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError("Guard OAuth token exchange failed: invalid response.")
     return _parse_guard_token_exchange_payload(payload)
+
+
+def refresh_guard_access_token(
+    *,
+    token_endpoint: str,
+    client_id: str,
+    refresh_token: str,
+    dpop_key_material: GuardDpopKeyMaterial,
+    urlopen=urllib.request.urlopen,
+    now: datetime | None = None,
+) -> GuardOAuthTokenExchangeResult:
+    request = urllib.request.Request(
+        token_endpoint,
+        data=_refresh_token_request_body(
+            client_id=client_id,
+            refresh_token=refresh_token,
+        ),
+        method="POST",
+        headers=_guard_oauth_request_headers(
+            dpop=_sign_dpop_proof(
+                token_endpoint=token_endpoint,
+                dpop_key_material=dpop_key_material,
+                now=now or datetime.now(timezone.utc),
+            ),
+        ),
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        payload = _load_error_payload(error)
+        message = (
+            str(payload.get("error_description") or payload.get("error") or error.reason)
+            if isinstance(payload, dict)
+            else str(error.reason)
+        )
+        raise RuntimeError(f"Guard OAuth token exchange failed: {message}") from error
+    if not isinstance(payload, dict):
+        raise RuntimeError("Guard OAuth token exchange failed: invalid response.")
+    return _parse_guard_token_exchange_payload(payload)
+
+
+def revoke_guard_self_oauth_grant(
+    *,
+    oauth_client: GuardOAuthClientConfig,
+    access_token: str,
+    workspace_id: str,
+    revoke_cloud_grant: bool,
+    dpop_key_material: GuardDpopKeyMaterial,
+    urlopen=urllib.request.urlopen,
+    now: datetime | None = None,
+) -> None:
+    revoke_url = f"{oauth_client.issuer}{_SELF_REVOKE_PATH}"
+    request = urllib.request.Request(
+        revoke_url,
+        data=_self_revoke_request_body(
+            workspace_id=workspace_id,
+            revoke_cloud_grant=revoke_cloud_grant,
+        ),
+        method="POST",
+        headers={
+            **_guard_oauth_request_headers(
+                dpop=_sign_dpop_proof(
+                    token_endpoint=revoke_url,
+                    dpop_key_material=dpop_key_material,
+                    now=now or datetime.now(timezone.utc),
+                ),
+            ),
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+    try:
+        with urlopen(request, timeout=20):
+            return
+    except urllib.error.HTTPError as error:
+        payload = _load_error_payload(error)
+        message = (
+            str(payload.get("error_description") or payload.get("error") or error.reason)
+            if isinstance(payload, dict)
+            else str(error.reason)
+        )
+        raise RuntimeError(f"Guard OAuth disconnect failed: {message}") from error
+
+
+def _require_oauth_credential_string(credentials: dict[str, object], key: str) -> str:
+    value = credentials.get(key)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    raise RuntimeError("Guard Cloud is not connected yet. Run `hol-guard connect`.")
+
+
+def _oauth_dpop_key_material_from_credentials(
+    credentials: dict[str, object],
+) -> GuardDpopKeyMaterial:
+    dpop_private_key_pem = _require_oauth_credential_string(credentials, "dpop_private_key_pem")
+    dpop_public_jwk = credentials.get("dpop_public_jwk")
+    if not isinstance(dpop_public_jwk, dict):
+        raise RuntimeError("Guard Cloud is not connected yet. Run `hol-guard connect`.")
+    return GuardDpopKeyMaterial(
+        algorithm="ES256",
+        private_key_pem=dpop_private_key_pem,
+        public_jwk={str(key): str(value) for key, value in dpop_public_jwk.items()},
+        public_jwk_thumbprint=_require_oauth_credential_string(
+            credentials,
+            "dpop_public_jwk_thumbprint",
+        ),
+    )
+
+
+def _persist_oauth_local_credentials(
+    *,
+    store: GuardStore,
+    issuer: str,
+    client_id: str,
+    refresh_token: str,
+    dpop_key_material: GuardDpopKeyMaterial,
+    now: str,
+    grant_id: str | None = None,
+    machine_id: str | None = None,
+    workspace_id: str | None = None,
+    runtime_id: str | None = None,
+    runtime_label: str | None = None,
+) -> None:
+    store.set_oauth_local_credentials(
+        issuer=issuer,
+        client_id=client_id,
+        refresh_token=refresh_token,
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id=grant_id,
+        machine_id=machine_id,
+        workspace_id=workspace_id,
+        runtime_id=runtime_id,
+        runtime_label=runtime_label,
+        now=now,
+    )
+
+
+def run_guard_disconnect_command(
+    *,
+    store: GuardStore,
+    revoke_cloud_grant: bool,
+    now: str | None = None,
+    urlopen=urllib.request.urlopen,
+) -> dict[str, object]:
+    credentials = store.get_oauth_local_credentials()
+    if credentials is None:
+        return {
+            "status": "not_connected",
+            "cloud_grant_revoked": False,
+            "reconnect_command": CONNECT_COMMAND,
+        }
+
+    issuer = _require_oauth_credential_string(credentials, "issuer")
+    client_id = _require_oauth_credential_string(credentials, "client_id")
+    refresh_token = _require_oauth_credential_string(credentials, "refresh_token")
+    workspace_id = _require_oauth_credential_string(credentials, "workspace_id")
+    dpop_key_material = _oauth_dpop_key_material_from_credentials(credentials)
+    oauth_client = resolve_guard_oauth_client_config(issuer)
+    exchange_now = datetime.fromisoformat(now) if isinstance(now, str) else datetime.now(timezone.utc)
+    timestamp = now or exchange_now.isoformat()
+    token_result = refresh_guard_access_token(
+        token_endpoint=oauth_client.token_endpoint,
+        client_id=client_id,
+        refresh_token=refresh_token,
+        dpop_key_material=dpop_key_material,
+        urlopen=urlopen,
+        now=exchange_now,
+    )
+    rotated_refresh_token = token_result.refresh_token
+    if rotated_refresh_token and rotated_refresh_token != refresh_token:
+        _persist_oauth_local_credentials(
+            store=store,
+            issuer=oauth_client.issuer,
+            client_id=client_id,
+            refresh_token=rotated_refresh_token,
+            dpop_key_material=dpop_key_material,
+            grant_id=_read_nested_string(credentials, "grant_id"),
+            machine_id=_read_nested_string(credentials, "machine_id"),
+            workspace_id=workspace_id,
+            runtime_id=_read_nested_string(credentials, "runtime_id"),
+            runtime_label=_read_nested_string(credentials, "runtime_label"),
+            now=timestamp,
+        )
+    revoke_guard_self_oauth_grant(
+        oauth_client=oauth_client,
+        access_token=token_result.access_token,
+        workspace_id=workspace_id,
+        revoke_cloud_grant=revoke_cloud_grant,
+        dpop_key_material=dpop_key_material,
+        urlopen=urlopen,
+        now=exchange_now,
+    )
+    store.clear_oauth_local_credentials()
+    return {
+        "status": "disconnected",
+        "cloud_grant_revoked": revoke_cloud_grant,
+        "reconnect_command": CONNECT_COMMAND,
+    }
 
 
 def run_guard_device_connect_command(
@@ -556,6 +808,7 @@ def run_guard_device_connect_command(
     token_urlopen=urllib.request.urlopen,
     sleep=time.sleep,
     now: str | None = None,
+    wait_timeout_seconds: float | None = None,
     announce_copy=None,
     open_browser=None,
     ci_safe: bool = False,
@@ -569,6 +822,7 @@ def run_guard_device_connect_command(
     request_body = build_device_authorization_request_body(
         machine_id=str(device["installation_id"]),
         machine_label=resolved_machine_label or str(device["device_label"]),
+        machine_location_label=resolve_machine_location_label(),
         runtime_id=HEADLESS_RUNTIME_ID,
         runtime_label=HEADLESS_RUNTIME_LABEL,
         client_id=oauth_client.client_id,
@@ -599,6 +853,7 @@ def run_guard_device_connect_command(
         dpop_key_material=dpop_key_material,
         interval_seconds=int(response.get("interval") or 5),
         expires_in_seconds=int(response.get("expires_in") or 0),
+        wait_timeout_seconds=wait_timeout_seconds,
         urlopen=token_urlopen,
         sleep=sleep,
         now=datetime.fromisoformat(now) if now else None,
@@ -606,13 +861,12 @@ def run_guard_device_connect_command(
     if token_result.refresh_token is None:
         raise RuntimeError("Guard OAuth token exchange failed: missing refresh token.")
     timestamp = now or datetime.now(timezone.utc).isoformat()
-    store.set_oauth_local_credentials(
+    _persist_oauth_local_credentials(
+        store=store,
         issuer=oauth_client.issuer,
         client_id=oauth_client.client_id,
         refresh_token=token_result.refresh_token,
-        dpop_private_key_pem=dpop_key_material.private_key_pem,
-        dpop_public_jwk=dpop_key_material.public_jwk,
-        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        dpop_key_material=dpop_key_material,
         grant_id=token_result.grant_id,
         machine_id=token_result.machine_id,
         workspace_id=token_result.workspace_id,
@@ -669,13 +923,12 @@ def run_guard_browser_connect_command(
     if token_result.refresh_token is None:
         raise RuntimeError("Guard OAuth token exchange failed: missing refresh token.")
     timestamp = now or datetime.now(timezone.utc).isoformat()
-    store.set_oauth_local_credentials(
+    _persist_oauth_local_credentials(
+        store=store,
         issuer=oauth_client.issuer,
         client_id=oauth_client.client_id,
         refresh_token=token_result.refresh_token,
-        dpop_private_key_pem=session.dpop_key_material.private_key_pem,
-        dpop_public_jwk=session.dpop_key_material.public_jwk,
-        dpop_public_jwk_thumbprint=session.dpop_key_material.public_jwk_thumbprint,
+        dpop_key_material=session.dpop_key_material,
         grant_id=token_result.grant_id,
         machine_id=token_result.machine_id,
         workspace_id=token_result.workspace_id,

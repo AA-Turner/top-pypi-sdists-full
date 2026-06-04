@@ -2036,6 +2036,79 @@ async def test_get_remote_changes_old_format_branch(
     assert cid in result
 
 
+@pytest.mark.respx(base_url="https://api.github.com/")
+async def test_get_remote_changes_errors_on_duplicate_open_prs(
+    respx_mock: respx.MockRouter,
+) -> None:
+    """Two open PRs with the same Change-Id is a user-state bug the
+    rest of the orchestration can't reconcile (push would race,
+    lease check would clobber) — surface it loudly.
+
+    Regression: the previous check compared against `state ==
+    "opened"`, which is never GitHub's actual PR state (it's
+    `"open"` / `"closed"`). The error branch was therefore dead
+    and duplicate open PRs were silently kept.
+    """
+    import httpx
+
+    respx_mock.get("/search/issues").respond(
+        200,
+        json={
+            "items": [
+                {
+                    "pull_request": {
+                        "url": "https://api.github.com/repos/user/repo/pulls/1",
+                    },
+                },
+                {
+                    "pull_request": {
+                        "url": "https://api.github.com/repos/user/repo/pulls/2",
+                    },
+                },
+            ],
+        },
+    )
+    same_change_id_ref = "my-stack/feat-a--deadbeef"
+    respx_mock.get("/repos/user/repo/pulls/1").respond(
+        200,
+        json={
+            "html_url": "https://github.com/user/repo/pull/1",
+            "number": 1,
+            "title": "First",
+            "head": {"sha": "sha1", "ref": same_change_id_ref},
+            "body": "",
+            "state": "open",
+            "merged_at": None,
+            "draft": False,
+            "node_id": "",
+        },
+    )
+    respx_mock.get("/repos/user/repo/pulls/2").respond(
+        200,
+        json={
+            "html_url": "https://github.com/user/repo/pull/2",
+            "number": 2,
+            "title": "Second",
+            "head": {"sha": "sha2", "ref": same_change_id_ref},
+            "body": "",
+            "state": "open",
+            "merged_at": None,
+            "draft": False,
+            "node_id": "",
+        },
+    )
+
+    async with httpx.AsyncClient(base_url="https://api.github.com/") as client:
+        with pytest.raises(RuntimeError, match="More than 1 pull found"):
+            await changes.get_remote_changes(
+                client,
+                user="user",
+                repo="repo",
+                stack_prefix="my-stack",
+                author="author",
+            )
+
+
 def test_revision_entry_timestamp_iso_normalises_to_utc() -> None:
     tz_ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
     dt = datetime.datetime(2026, 4, 14, 20, 0, 0, tzinfo=tz_ist)  # 14:30:00 UTC
@@ -2133,52 +2206,55 @@ def test_local_change_has_reason_default_empty() -> None:
     assert not c.reason
 
 
-async def test_read_reasons_reads_notes_for_updated_changes(
+async def test_local_change_reason_populated_from_walker_note(
     git_mock: test_utils.GitMock,
 ) -> None:
-    """read_reasons() fills LocalChange.reason from refs/notes/mergify/stack."""
-    from mergify_cli.stack.note import NOTES_REF
+    """`LocalChange.reason` is filled by the Rust walker (via the
+    `note` field on its JSON output) rather than by a separate
+    per-commit `git notes show` round-trip.
 
-    local_changes = [
-        changes.LocalChange(
-            id=changes.ChangeId("I1" + "a" * 39),
-            pull=None,
-            commit_sha="new1",
+    Used to be the `read_reasons()` orchestrator step in
+    `stack_push`; the function is gone — the walker reads
+    `refs/notes/mergify/stack` alongside the commit body via
+    `git log --notes=…` in a single subprocess. Pin the
+    walker→`reason` data path so a future refactor can't
+    silently re-introduce the N-round-trip pattern.
+    """
+    git_mock.commit(
+        test_utils.Commit(
+            sha="new1",
             title="T1",
             message="M",
-            base_branch="main",
-            dest_branch="stack/t1--deadbeef",
-            action="update",
+            change_id="I1" + "a" * 39,
+            note="reason one",
         ),
-        changes.LocalChange(
-            id=changes.ChangeId("I2" + "a" * 39),
-            pull=None,
-            commit_sha="new2",
+    )
+    git_mock.commit(
+        test_utils.Commit(
+            sha="new2",
             title="T2",
             message="M",
-            base_branch="main",
-            dest_branch="stack/t2--cafebabe",
-            action="update",
+            change_id="I2" + "a" * 39,
+            # No `note` → defaults to empty, matching git's `%N`
+            # output for commits with no entry on the stack notes ref.
         ),
-    ]
-    git_mock.mock(
-        "notes",
-        f"--ref={NOTES_REF}",
-        "show",
-        "new1",
-        output="reason one",
-    )
-    git_mock.mock(
-        "notes",
-        f"--ref={NOTES_REF}",
-        "show",
-        "new2",
-        output="",
     )
 
-    await push.read_reasons(local_changes)
+    result = await changes.get_changes(
+        base_commit_sha="base_commit_sha",
+        stack_prefix="stack",
+        base_branch="main",
+        dest_branch="current-branch",
+        remote_changes=changes.RemoteChanges({}),
+        only_update_existing_pulls=False,
+        next_only=False,
+    )
 
-    assert local_changes[0].reason == "reason one"
+    assert len(result.locals) == 2
+    assert result.locals[0].commit_sha == "new1"
+    assert result.locals[0].reason == "reason one"
+    assert result.locals[1].commit_sha == "new2"
+    assert not result.locals[1].reason
 
 
 def test_revision_history_comment_renders_reason_column() -> None:
@@ -2347,8 +2423,6 @@ async def test_revision_comment_includes_reason_from_local_change(
     respx_mock: respx.MockRouter,
 ) -> None:
     """When a commit has a reason, it appears in the new revision row."""
-    from mergify_cli.stack.note import NOTES_REF
-
     git_mock.commit(
         test_utils.Commit(
             sha="third_sha",
@@ -2356,18 +2430,16 @@ async def test_revision_comment_includes_reason_from_local_change(
             message="Message",
             change_id="I29617d37762fd69809c255d7e7073cb11f8fbf50",
             head_ref="current-branch/I29617d37762fd69809c255d7e7073cb11f8fbf50",
+            # The Rust walker emits the note alongside the commit
+            # body via `git log --notes=refs/notes/mergify/stack`,
+            # so the note arrives through `local["note"]` on the
+            # walker bridge output rather than via a separate
+            # `git notes show` mock.
+            note="fixed typo in sql",
         ),
     )
     git_mock.finalize(
         remote_shas={"I29617d37762fd69809c255d7e7073cb11f8fbf50": "second_sha"},
-    )
-    # Override the empty-note default with an actual note
-    git_mock.mock(
-        "notes",
-        f"--ref={NOTES_REF}",
-        "show",
-        "third_sha",
-        output="fixed typo in sql",
     )
     git_mock.mock("fetch", "origin", "refs/pull/123/head", output="")
 

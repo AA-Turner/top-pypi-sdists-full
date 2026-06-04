@@ -52,6 +52,13 @@ HALLUCINATED_TOOLS = [
     "lsp",
     "lsp_definition",
     "lsp_references",
+    # 2026-06-03 gauntlet: rename/refactor hallucinations that caused bash loop fallback.
+    "mechanical_rename",
+    "rename_symbol",
+    "rename_identifier",
+    "refactor_rename",
+    "rename_in_file",
+    "symbol_rename",
 ]
 
 

@@ -18,11 +18,10 @@ void bindGroupReplyList(py::module &m, const char *py_name) {
         //        .def("__len__", &ListType::size)
         // I do not understand it, but if I just directly bind __len__ to size ,
         // I get recursion error, so have to do the following:
-        .def("__len__", [](ListType &self) -> std::size_t {
-            return self.size();
-        })
+        .def("__len__", [](ListType &self) -> std::size_t { return self.size(); })
         .def(
-            "__getitem__", [](ListType &self, std::size_t i) -> ItemType & {
+            "__getitem__",
+            [](ListType &self, std::size_t i) -> ItemType & {
                 if(i >= self.size()) {
                     throw py::index_error("Index out of range");
                 }

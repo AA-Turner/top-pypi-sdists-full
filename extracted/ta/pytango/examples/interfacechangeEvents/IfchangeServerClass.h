@@ -58,8 +58,9 @@ namespace IfchangeServer_ns {
 class busyAttrib : public Tango::Attr {
   public:
     busyAttrib() :
-        Attr("busy", Tango::DEV_BOOLEAN, Tango::READ){};
-    ~busyAttrib(){};
+        Attr("busy", Tango::DEV_BOOLEAN, Tango::READ) { }
+
+    ~busyAttrib() { }
 
     virtual void read(Tango::DeviceImpl *dev, Tango::Attribute &att) {
         (static_cast<IfchangeServer *>(dev))->read_busy(att);
@@ -77,8 +78,9 @@ class busyAttrib : public Tango::Attr {
 class ioattrAttrib : public Tango::Attr {
   public:
     ioattrAttrib(const string &att_name) :
-        Attr(att_name.c_str(), Tango::DEV_DOUBLE, Tango::READ){};
-    ~ioattrAttrib(){};
+        Attr(att_name.c_str(), Tango::DEV_DOUBLE, Tango::READ) { }
+
+    ~ioattrAttrib() { }
 
     virtual void read(Tango::DeviceImpl *dev, Tango::Attribute &att) {
         (static_cast<IfchangeServer *>(dev))->read_ioattr(att);
@@ -101,11 +103,12 @@ class Add_dynamicClass : public Tango::Command {
                      const char *in_desc,
                      const char *out_desc,
                      Tango::DispLevel level) :
-        Command(name, in, out, in_desc, out_desc, level){};
+        Command(name, in, out, in_desc, out_desc, level) { }
 
     Add_dynamicClass(const char *name, Tango::CmdArgType in, Tango::CmdArgType out) :
-        Command(name, in, out){};
-    ~Add_dynamicClass(){};
+        Command(name, in, out) { }
+
+    ~Add_dynamicClass() { }
 
     virtual CORBA::Any *execute(Tango::DeviceImpl *dev, const CORBA::Any &any);
 
@@ -123,11 +126,12 @@ class Delete_DynamicClass : public Tango::Command {
                         const char *in_desc,
                         const char *out_desc,
                         Tango::DispLevel level) :
-        Command(name, in, out, in_desc, out_desc, level){};
+        Command(name, in, out, in_desc, out_desc, level) { }
 
     Delete_DynamicClass(const char *name, Tango::CmdArgType in, Tango::CmdArgType out) :
-        Command(name, in, out){};
-    ~Delete_DynamicClass(){};
+        Command(name, in, out) { }
+
+    ~Delete_DynamicClass() { }
 
     virtual CORBA::Any *execute(Tango::DeviceImpl *dev, const CORBA::Any &any);
 
@@ -148,11 +152,12 @@ class iocmdClass : public Tango::Command {
                const char *in_desc,
                const char *out_desc,
                Tango::DispLevel level) :
-        Command(name, in, out, in_desc, out_desc, level){};
+        Command(name, in, out, in_desc, out_desc, level) { }
 
     iocmdClass(const char *name, Tango::CmdArgType in, Tango::CmdArgType out) :
-        Command(name, in, out){};
-    ~iocmdClass(){};
+        Command(name, in, out) { }
+
+    ~iocmdClass() { }
 
     virtual CORBA::Any *execute(Tango::DeviceImpl *dev, const CORBA::Any &any);
 

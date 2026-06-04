@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plotly
-Version: 6.7.0
+Version: 6.8.0
 Summary: An open-source interactive data visualization library for Python
 Project-URL: Homepage, https://plotly.com/python/
 Project-URL: Documentation, https://plotly.com/python/
@@ -30,7 +30,7 @@ Requires-Dist: fiona<=1.9.6; (python_version <= '3.8') and extra == 'dev'
 Requires-Dist: geopandas; extra == 'dev'
 Requires-Dist: inflect; extra == 'dev'
 Requires-Dist: jupyterlab; extra == 'dev'
-Requires-Dist: kaleido>=1.1.0; extra == 'dev'
+Requires-Dist: kaleido>=1.3.0; extra == 'dev'
 Requires-Dist: numpy>=1.22; extra == 'dev'
 Requires-Dist: orjson; extra == 'dev'
 Requires-Dist: pandas; extra == 'dev'
@@ -68,7 +68,7 @@ Requires-Dist: fiona<=1.9.6; (python_version <= '3.8') and extra == 'dev-optiona
 Requires-Dist: geopandas; extra == 'dev-optional'
 Requires-Dist: inflect; extra == 'dev-optional'
 Requires-Dist: jupyterlab; extra == 'dev-optional'
-Requires-Dist: kaleido>=1.1.0; extra == 'dev-optional'
+Requires-Dist: kaleido>=1.3.0; extra == 'dev-optional'
 Requires-Dist: numpy>=1.22; extra == 'dev-optional'
 Requires-Dist: orjson; extra == 'dev-optional'
 Requires-Dist: pandas; extra == 'dev-optional'
@@ -88,10 +88,18 @@ Requires-Dist: shapely; extra == 'dev-optional'
 Requires-Dist: statsmodels; extra == 'dev-optional'
 Requires-Dist: vaex; (python_version <= '3.9') and extra == 'dev-optional'
 Requires-Dist: xarray; extra == 'dev-optional'
+Provides-Extra: dev-pandas1
+Requires-Dist: numpy<2,>=1; extra == 'dev-pandas1'
+Requires-Dist: pandas<2,>=1; extra == 'dev-pandas1'
+Requires-Dist: setuptools<82; extra == 'dev-pandas1'
+Provides-Extra: dev-pandas2
+Requires-Dist: pandas<3,>=2; extra == 'dev-pandas2'
+Provides-Extra: dev-pandas3
+Requires-Dist: pandas>=3; (python_version >= '3.11') and extra == 'dev-pandas3'
 Provides-Extra: express
 Requires-Dist: numpy>=1.22; extra == 'express'
 Provides-Extra: kaleido
-Requires-Dist: kaleido>=1.1.0; extra == 'kaleido'
+Requires-Dist: kaleido>=1.3.0; extra == 'kaleido'
 Description-Content-Type: text/markdown
 
 # plotly.py

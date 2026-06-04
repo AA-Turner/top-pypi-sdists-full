@@ -383,6 +383,8 @@ default_tool_files = {
     # Metabolite tools - PubChem + CTD (replaces broken HMDB API)
     "metabolite": os.path.join(current_dir, "data", "metabolite_tools.json"),
     # MetaCyc - Metabolic Pathway Database
+    # BioCyc gates its web services behind a free account; set BIOCYC_EMAIL +
+    # BIOCYC_PASSWORD to authenticate (the tool logs in for a session cookie).
     "metacyc": os.path.join(current_dir, "data", "metacyc_tools.json"),
     # ZINC - Virtual Screening Library
     "zinc": os.path.join(current_dir, "data", "zinc_tools.json"),
@@ -619,7 +621,9 @@ default_tool_files = {
     # MyDisease.info - BioThings disease annotation aggregator (MONDO, DO, CTD, HPO, DisGeNET)
     "mydisease": os.path.join(current_dir, "data", "mydisease_tools.json"),
     # EBI OxO - Ontology cross-reference mappings across biomedical databases
-    "oxo": os.path.join(current_dir, "data", "oxo_tools.json"),
+    # Archived at: src/tooluniverse/data/broken_apis/oxo_tools.json
+    # EBI retired the OxO service (all endpoints hang); use OLS (ols_* tools) instead.
+    # "oxo": os.path.join(current_dir, "data", "oxo_tools.json"),
     # InterPro Domain Architecture - Protein domain positions, structure mapping, clan members
     "interpro_domain_arch": os.path.join(
         current_dir, "data", "interpro_domain_arch_tools.json"
@@ -729,6 +733,8 @@ default_tool_files = {
     # ClinicalTrials.gov - World's largest clinical trial registry (572,000+ trials)
     # EpiGraphDB - Mendelian Randomization, genetic correlations, drug repurposing via GWAS
     "epigraphdb": os.path.join(current_dir, "data", "epigraphdb_tools.json"),
+    # OpenGWAS (IEU) - custom two-sample MR instruments (tophits + harmonized outcome effects)
+    "opengwas": os.path.join(current_dir, "data", "opengwas_tools.json"),
     # Foldseek - Fast protein structure similarity search (AlphaFold DB, PDB)
     "foldseek": os.path.join(current_dir, "data", "foldseek_tools.json"),
     # MedGen - NCBI medical genetics (conditions, genes, HPO, OMIM aggregation)

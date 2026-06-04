@@ -9,7 +9,7 @@ __all__ = ("auto_monitor_init",)
 
 __docformat__ = "restructuredtext"
 
-from tango import AutoTangoMonitor, AutoTangoAllowThreads
+from tango import AutoTangoAllowThreads, AutoTangoMonitor
 
 
 def __AutoTangoMonitor__enter__(self):

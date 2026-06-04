@@ -9,73 +9,71 @@ __all__ = ("pytango_pprint_init",)
 
 __docformat__ = "restructuredtext"
 
+import collections.abc
 import json
 import textwrap
 
 from tango import (
-    StdStringVector,
-    StdLongVector,
-    CommandInfoList,
+    ArchiveEventInfo,
+    AttrConfEventData,
+    AttributeAlarmInfo,
+    AttributeDimension,
+    AttributeEventInfo,
+    AttributeInfo,
+    AttributeInfoEx,
     AttributeInfoList,
     AttributeInfoListEx,
-    DeviceDataHistoryList,
-    GroupReplyList,
-    GroupAttrReplyList,
-    GroupCmdReplyList,
-    DbData,
-    DbDevInfos,
-    DbDevExportInfos,
-    DbDevImportInfos,
-    DbHistoryList,
-    LockerInfo,
-    DevCommandInfo,
-    AttributeDimension,
-    CommandInfo,
-    DeviceInfo,
-    DeviceAttributeConfig,
-    AttributeInfo,
-    AttributeAlarmInfo,
     ChangeEventInfo,
-    PeriodicEventInfo,
-    ArchiveEventInfo,
-    AttributeEventInfo,
-    AttributeInfoEx,
+    ClientAddr,
+    CmdArgType,
+    CommandInfo,
+    CommandInfoList,
+    DataReadyEventData,
+    DbData,
+    DbDatum,
+    DbDevExportInfo,
+    DbDevExportInfos,
+    DbDevImportInfo,
+    DbDevImportInfos,
+    DbDevInfo,
+    DbDevInfos,
+    DbHistoryList,
+    DbServerInfo,
+    DevCommandInfo,
+    DevError,
+    DevFailed,
     DeviceAttribute,
+    DeviceAttributeConfig,
     DeviceAttributeHistory,
     DeviceData,
     DeviceDataHistory,
-    DbDatum,
-    DbDevInfo,
-    DbDevImportInfo,
-    DbDevExportInfo,
-    DbServerInfo,
-    GroupReply,
-    GroupAttrReply,
-    GroupCmdReply,
-    DevError,
+    DeviceDataHistoryList,
+    DeviceInfo,
     EventData,
-    AttrConfEventData,
-    DataReadyEventData,
-    TimeVal,
-    DevFailed,
-    CmdArgType,
+    GroupAttrReply,
+    GroupAttrReplyList,
+    GroupCmdReply,
+    GroupCmdReplyList,
+    GroupReply,
+    GroupReplyList,
+    LockerInfo,
     MultiAttrProp,
-    ClientAddr,
+    PeriodicEventInfo,
+    StdLongVector,
+    StdStringVector,
+    TimeVal,
 )
-
 from tango._tango import (
+    ArchiveEventProp,
+    AttributeAlarm,
     AttributeConfig,
     AttributeConfig_2,
     AttributeConfig_3,
     AttributeConfig_5,
-    AttributeAlarm,
-    EventProperties,
     ChangeEventProp,
+    EventProperties,
     PeriodicEventProp,
-    ArchiveEventProp,
 )
-import collections.abc
-
 
 _INDENT_LEVEL = 4
 _INDENT = " " * _INDENT_LEVEL
@@ -165,9 +163,7 @@ def __single_param(obj, param_name, f=repr, fmt="%s = %s"):
 
 def __struct_params_s(obj, separator=", ", f=repr, fmt="%s = %s"):
     """method wrapper for printing all elements of a struct"""
-    s = separator.join(
-        [__single_param(obj, n, f, fmt) for n in dir(obj) if __inc_param(obj, n)]
-    )
+    s = separator.join([__single_param(obj, n, f, fmt) for n in dir(obj) if __inc_param(obj, n)])
     return s
 
 
@@ -219,7 +215,7 @@ def __str_error_stack_helper(errors):
 
 
 def __repr__DevFailed(self):
-    return f"DevFailed(args = {repr(self.args)})"
+    return f"DevFailed(args = {self.args!r})"
 
 
 def __str__DevError(self):

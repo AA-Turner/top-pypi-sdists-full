@@ -5,9 +5,6 @@ from kanban_framework.domain.steps_types import StepDef
 LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
     "plan": [
         StepDef("plan.knowledge_search", "知识库检索 — 强制产出 knowledge_used.json",
-                actions=["kanban time start $task_id knowledge_search",
-                         "spawn kanban-knowledge-capture agent 执行知识检索",
-                         "kanban time end $task_id knowledge_search"],
                 agent_type="general-purpose",
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的知识检索 Agent（轻量模式）。\n"
@@ -25,15 +22,10 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                     "完成标志：$task_dir/plan/knowledge_used.json 文件存在且非空。"
                 )),
         StepDef("plan.plan_A", "Plan: 需求澄清（brainstorming，轻量）",
-                actions=["kanban time start $task_id plan_A",
-                         "使用 Skill tool 调用 superpowers:brainstorming",
-                         "产出 spec.md 保存到 $task_dir/spec.md",
-                         "kanban time end $task_id plan_A"],
+                actions=["使用 Skill tool 调用 superpowers:brainstorming",
+                         "产出 spec.md 保存到 $task_dir/spec.md"],
                 interactive=True),
         StepDef("plan.plan_B", "Plan: 任务拆解（writing-plans）",
-                actions=["kanban time start $task_id plan_B",
-                         "spawn writing-plans agent",
-                         "kanban time end $task_id plan_B"],
                 agent_type="general-purpose",
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的 writing-plans 子任务。"
@@ -52,17 +44,13 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                     "完成标志：$task_dir/plan/index.md 和 $task_dir/task_breakdown.json 文件存在且非空。"
                 )),
         StepDef("plan.complete", "Plan 阶段完成",
-                actions=["kanban time end $task_id plan",
-                         "kanban guard check-artifacts $task_id plan",
+                actions=["kanban guard check-artifacts $task_id plan",
                          "kanban workflow checkpoint $task_id plan",
                          "kanban workflow complete-phase $task_id"],
                 required_artifacts=["spec.md", "task_breakdown.json", "plan/index.md"]),
     ],
     "execute": [
         StepDef("execute.spawn", "执行编码（轻量模式）",
-                actions=["kanban time start $task_id execute",
-                         "spawn executor agent 直接执行编码",
-                         "kanban time end $task_id execute"],
                 agent_type="general-purpose",
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的执行 Agent（轻量模式）。\n"
@@ -85,7 +73,6 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
     ],
     "evaluate": [
         StepDef("evaluate.spawn_review", "通用审核 (lightweight)",
-                actions=["spawn kanban-qa agent (eval mode)"],
                 agent_type="general-purpose",
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的轻量质量审核员。\n"
@@ -105,8 +92,6 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                     "- 完成后立即停止，不要进入后续阶段\n\n"
                     "完成标志：$report_dir/reviews/review_report.json 文件存在且非空。"
                 )),
-        StepDef("evaluate.collect_score", "收集评分",
-                actions=["评分已由 complete-phase 自动同步"]),
         StepDef("evaluate.complete", "Evaluate 完成",
                 actions=["kanban workflow complete-phase $task_id"]),
     ],

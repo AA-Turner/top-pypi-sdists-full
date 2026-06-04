@@ -209,6 +209,22 @@ class RabbitMQProducerRepository(ProducerRepository):
 
         raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
 
+    def _publish_to_main_queue(self, preexecution: PreExecution) -> None:
+        """Publish a PreExecution to the durable main queue so a worker can pick
+        it up. Shared by `enqueue` (which then opens a back-channel for the
+        caller) and the publish-only path of `enqueue_fire_and_forget` (which
+        does not open any back-channel)."""
+        with self._connect_with_retry() as connection:
+            with connection.channel() as channel:
+                channel: BlockingChannel
+                channel.queue_declare(queue=self.queue_name, durable=True)
+                channel.basic_publish(
+                    body=preexecution.dump_json(),
+                    routing_key=self.queue_name,
+                    exchange=RABBITMQ_DEFAUT_EXCHANGE,
+                    properties=self.props,
+                )
+
     def enqueue(
         self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
     ) -> ConnectionProtocol:
@@ -234,16 +250,7 @@ class RabbitMQProducerRepository(ProducerRepository):
             )
 
         try:
-            with self._connect_with_retry() as connection:
-                with connection.channel() as channel:
-                    channel: BlockingChannel
-                    channel.queue_declare(queue=self.queue_name, durable=True)
-                    channel.basic_publish(
-                        body=preexecution.dump_json(),
-                        routing_key=self.queue_name,
-                        exchange=RABBITMQ_DEFAUT_EXCHANGE,
-                        properties=self.props,
-                    )
+            self._publish_to_main_queue(preexecution)
         except Exception:
             if nats_conn:
                 nats_conn.close()
@@ -303,37 +310,33 @@ class RabbitMQProducerRepository(ProducerRepository):
     def enqueue_fire_and_forget(
         self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
     ) -> None:
-        conn = self.enqueue(stage_id, context, user_jwt)
-
-        # DB mode ignores ABSTRA_WORKER_LOG_TO_QUEUE: the editor poller streams
-        # logs, so we don't keep the connection open to forward worker logs.
+        # File-persistence editor with ABSTRA_WORKER_LOG_TO_QUEUE=true: keep the
+        # per-task back-channel open in a daemon thread so the worker can forward
+        # stdio/execution:ended to the editor's BroadcastController. UNCHANGED
+        # path — this branch (and the flag) is slated for removal together with
+        # the file-based fallback.
         if WORKER_LOG_TO_QUEUE and not web_editor_uses_db():
+            conn = self.enqueue(stage_id, context, user_jwt)
             AbstraLogger.warning(
                 f"[Server] ABSTRA_WORKER_LOG_TO_QUEUE=true, keeping connection open "
                 f"to receive worker logs (stage_id={stage_id})"
             )
             self.consume_and_forward(conn, stage_id)
-        else:
-            self._wait_and_close(conn, stage_id)
+            return
 
-    def _wait_and_close(self, conn: ConnectionProtocol, stage_id: str) -> None:
-        def target():
-            try:
-                if conn.poll(timeout=60.0):
-                    conn.recv()
-                else:
-                    AbstraLogger.warning(
-                        f"[enqueue_fire_and_forget] Timeout waiting for execution:started "
-                        f"(stage_id={stage_id})"
-                    )
-            except Exception as e:
-                AbstraLogger.error(
-                    f"[enqueue_fire_and_forget] Error waiting for execution:started: {e}"
-                )
-            finally:
-                conn.close()
-
-        threading.Thread(target=target, daemon=True).start()
+        # DB mode (production) and file mode without the flag: publish-only. No
+        # per-task back-channel (no 2 TCP + heartbeat thread, no NATS asyncio
+        # loop) and no 60s daemon thread polling for an execution:started ACK the
+        # worker never sends here. The worker declares its own ephemeral
+        # back-channel queues idempotently when it picks the message up and
+        # simply never has a reader on the server side.
+        preexecution = PreExecution(
+            stage_id=stage_id,
+            context=context,
+            execution_id=uuid4().__str__(),
+            user_jwt=user_jwt,
+        )
+        self._publish_to_main_queue(preexecution)
 
     def consume_and_forward(self, conn: ConnectionProtocol, stage_id: str) -> None:
         def target():

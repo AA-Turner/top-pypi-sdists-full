@@ -2,37 +2,30 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 # Imports
-import functools
 import asyncio
-import inspect
 import collections
-import os
-import types
 import concurrent.futures
-import warnings
+import functools
+import inspect
+import os
 import threading
-
-from asyncio import futures, coroutines
+import types
+from asyncio import coroutines, futures
 from asyncio.tasks import ensure_future
-from typing import Callable
+from collections.abc import Callable
 
-# Tango imports
-from tango.green import AbstractExecutor
-from tango.utils import (
-    _get_current_otel_context,
-    _get_non_tango_source_location,
-    _is_coroutine_function,
-    PyTangoThreadPoolExecutor,
-)
+from tango._instrumentation import _get_non_tango_source_location
+from tango._telemetry import _telemetry_runtime
+from tango._warnings import warn_once
+from tango.green import AbstractExecutor, get_thread_pool_executor
+from tango.utils import _is_coroutine_function
 
 __all__ = (
     "AsyncioExecutor",
+    "_switch_global_executor_to_thread",
     "get_global_executor",
     "set_global_executor",
-    "_switch_global_executor_to_thread",
 )
-
-_ALREADY_WARNED_FUNCTIONS = []
 
 
 # Function removed from Python 3.11
@@ -71,9 +64,7 @@ def _coroutine(func):
 
     coro = types.coroutine(coro)
     wrapper = coro
-    wrapper._is_coroutine = (
-        asyncio.coroutines._is_coroutine
-    )  # For iscoroutinefunction().
+    wrapper._is_coroutine = asyncio.coroutines._is_coroutine  # For iscoroutinefunction().
     return wrapper
 
 
@@ -107,21 +98,14 @@ def run_coroutine_threadsafe(coro, loop):
     return future
 
 
-_PYTANGOTHREADPOOLEXECUTOR = None
-
-
-def get_thread_pool_executor():
-    global _PYTANGOTHREADPOOLEXECUTOR
-    if _PYTANGOTHREADPOOLEXECUTOR is None:
-        _PYTANGOTHREADPOOLEXECUTOR = PyTangoThreadPoolExecutor(
-            thread_name_prefix="_PyTangoThreadPoolExecutor"
-        )
-    return _PYTANGOTHREADPOOLEXECUTOR
-
-
 # Global executor
 _MAIN_EXECUTOR = None
 _THREAD_EXECUTORS = {}
+
+# Thread-local storage to track which AsyncioExecutor owns the current thread's work.
+# Set by AsyncioExecutor.delegate() so that nested Tango calls from pool threads
+# (which have a different ident than the asyncio loop thread) can find the right executor.
+_delegate_thread_local = threading.local()
 
 
 def _switch_global_executor_to_thread():
@@ -148,6 +132,11 @@ def get_global_executor():
         ident = threading.get_ident(), os.getpid()
         if ident in _THREAD_EXECUTORS:
             return _THREAD_EXECUTORS[ident]
+        # If running in a pool thread spawned by an AsyncioExecutor's delegate(),
+        # recover the owning executor from the thread-local set by that delegate().
+        thread_executor = getattr(_delegate_thread_local, "executor", None)
+        if thread_executor is not None:
+            return thread_executor
 
     return _MAIN_EXECUTOR
 
@@ -182,17 +171,22 @@ class AsyncioExecutor(AbstractExecutor):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
         self.loop = loop
-        self.subexecutor = (
-            subexecutor if subexecutor is not None else get_thread_pool_executor()
-        )
+        self.subexecutor = subexecutor if subexecutor is not None else get_thread_pool_executor()
 
     def delegate(self, fn, *args, **kwargs):
         """Return the given operation as an asyncio future."""
         if hasattr(fn, "__trace_kwargs__"):
             kwargs["trace_location"] = _get_non_tango_source_location()
-            kwargs["trace_context"] = _get_current_otel_context()
+            kwargs["trace_context"] = _telemetry_runtime.get_current_otel_context()
+
         callback = functools.partial(fn, *args, **kwargs)
-        coro = self.loop.run_in_executor(self.subexecutor, callback)
+        executor_ref = self
+
+        def _callback_with_executor():
+            _delegate_thread_local.executor = executor_ref
+            return callback()
+
+        coro = self.loop.run_in_executor(self.subexecutor, _callback_with_executor)
         return asyncio.ensure_future(coro)
 
     def access(self, accessor, timeout=None):
@@ -209,14 +203,13 @@ class AsyncioExecutor(AbstractExecutor):
         else:
             # we leave this part of the code to support legacy servers
             name = _get_function_name(fn)
-            if name not in _ALREADY_WARNED_FUNCTIONS:
-                _ALREADY_WARNED_FUNCTIONS.append(name)
-                warnings.warn(
-                    f"Sync {name} function called: support of "
-                    f"sync functions in PyTango's Asyncio mode is "
-                    f"deprecated. Use 'async def' instead of 'def'.",
-                    DeprecationWarning,
-                )
+            warn_once(
+                f"Sync {name} function called: support of "
+                f"sync functions in PyTango's Asyncio mode is "
+                f"deprecated. Use 'async def' instead of 'def'.",
+                key=f"deprecated:tango.asyncio_executor:sync_function:{name}",
+                category=DeprecationWarning,
+            )
             corofn = _coroutine(lambda: fn(*args, **kwargs))
             return run_coroutine_threadsafe(corofn(), self.loop)
 
@@ -228,14 +221,13 @@ class AsyncioExecutor(AbstractExecutor):
             else:
                 # we leave this part of the code to support legacy servers
                 name = _get_function_name(fn)
-                if name not in _ALREADY_WARNED_FUNCTIONS:
-                    _ALREADY_WARNED_FUNCTIONS.append(name)
-                    warnings.warn(
-                        f"Sync {name} function called: support of "
-                        f"sync functions in PyTango's Asyncio mode is "
-                        f"deprecated. Use 'async def' instead of 'def'.",
-                        DeprecationWarning,
-                    )
+                warn_once(
+                    f"Sync {name} function called: support of "
+                    f"sync functions in PyTango's Asyncio mode is "
+                    f"deprecated. Use 'async def' instead of 'def'.",
+                    key=f"deprecated:tango.asyncio_executor:sync_function:{name}",
+                    category=DeprecationWarning,
+                )
                 corofn = _coroutine(lambda: fn(*args, **kwargs))
                 return corofn()
         future = self.submit(fn, *args, **kwargs)

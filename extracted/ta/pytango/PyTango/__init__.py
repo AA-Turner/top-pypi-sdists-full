@@ -3,17 +3,20 @@
 """Provides PyTango as a module for backward compatibility."""
 
 # Imports
-import sys
-import tango
 import pkgutil
+import sys
+
+import tango
 
 
-def alias_package(package, alias, extra_modules={}):
+def alias_package(package, alias, extra_modules=None):
     """Alias a python package properly.
 
     It ensures that modules are not duplicated by trying
     to import and alias all the submodules recursively.
     """
+    if extra_modules is None:
+        extra_modules = {}
     path = package.__path__
     alias_prefix = alias + "."
     prefix = package.__name__ + "."

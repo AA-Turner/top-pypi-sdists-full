@@ -10,13 +10,31 @@ __all__ = ("Group", "group_init")
 __docformat__ = "restructuredtext"
 
 import collections.abc
+from typing import Any, Union
 
-from tango._tango import __Group as _RealGroup
-from tango.utils import _get_command_inout_param
-from tango.utils import seq_2_StdStringVector, is_non_str_seq, is_pure_str
-from tango.utils import _get_device_fqtrl_if_necessary
-from tango.utils import _trace_client
-from tango.device_proxy import __init_device_proxy_internals as init_device_proxy
+from tango._instrumentation import _trace_client
+from tango._tango import (
+    DeviceDataList,
+    GroupAttrReply,
+    GroupCmdReply,
+    GroupReply,
+)
+from tango._tango import (
+    __Group as _RealGroup,
+)
+from tango.device_proxy import (
+    DeviceProxy,
+)
+from tango.device_proxy import (
+    __init_device_proxy_internals as init_device_proxy,
+)
+from tango.utils import (
+    _get_command_inout_param,
+    _get_device_fqtrl_if_necessary,
+    is_non_str_seq,
+    is_pure_str,
+    seq_2_StdStringVector,
+)
 
 
 def _apply_to(fn, key):
@@ -59,39 +77,40 @@ class Group:
             raise TypeError("Constructor expected receives a str")
         self.__group = name
 
-    def add(self, pattern_subgroup, timeout_ms=-1):
+    def add(self, pattern_subgroup: Union[str, list[str], "Group"], timeout_ms: int = -1) -> None:
         """
-        add(self, device, timeout_ms=-1) -> None
-        add(self, device_list, timeout_ms=-1) -> None
-        add(self, subgroup, timeout_ms=-1) -> None
+        add(self, device: str, timeout_ms: int=-1) -> None
+        add(self, device_list: list[str], timeout_ms: int=-1) -> None
+        add(self, subgroup: Group, timeout_ms: int=-1) -> None
 
+        Attaches any device which name matches one of the specified patterns.
 
-        Throws     : TypeError, ArgumentError
+        This method first asks the Tango database the list of device names
+        matching one the patterns. Devices are then attached to the group in
+        the order in which they are returned by the database.
 
-            Attaches any device which name matches one of the specified patterns.
+        Any device already present in the hierarchy (i.e. a device belonging to
+        the group or to one of its subgroups), is silently ignored but its
+        client side timeout is set to timeout_ms milliseconds if timeout_ms
+        is different from -1.
 
-            This method first asks the Tango database the list of device names
-            matching one the patterns. Devices are then attached to the group in
-            the order in which they are returned by the database.
+        :param device: a simple device name or a device name pattern (e.g. domain_*/ family/member_*)
+        :type device: :py:obj:`str`
 
-            Any device already present in the hierarchy (i.e. a device belonging to
-            the group or to one of its subgroups), is silently ignored but its
-            client side timeout is set to timeout_ms milliseconds if timeout_ms
-            is different from -1.
+        :param device_list: a sequence of these of  a simple device names or
+                            a device name patterns (e.g. domain_*/ family/member_*)
+        :type device_list: :py:obj:`list`\\[:py:obj:`str`]
 
-            Parameters :
-                - device        : (str)a simple device name or a device name pattern (e.g. domain_*/ family/member_*),
-                - device_list   : (sequence<str>)  a sequence of these of  a simple device names or
-                                    a device name patterns (e.g. domain_*/ family/member_*),
-                - subgroup      : (Group) a Group to be attached as subgroup.
-                - timeout_ms    : (int) If timeout_ms is different from -1, the client
-                                side timeouts of all devices matching the
-                                specified patterns are set to timeout_ms
-                                milliseconds.
-            Return     : None
+        :param subgroup: a Group to be attached as subgroup
+        :type subgroup: :py:obj:`~tango.Group`
 
-            Throws     : TypeError, ArgumentError
+        :param timeout_ms: If timeout_ms is different from -1, the client
+                           side timeouts of all devices matching the
+                           specified patterns are set to timeout_ms
+                           milliseconds
+        :type timeout_ms: :py:obj:`int`
 
+        :throws: :py:obj:`TypeError`, :py:obj:`ArgumentError`
         """
         if isinstance(pattern_subgroup, Group):
             name = pattern_subgroup.__group.get_name()
@@ -109,10 +128,7 @@ class Group:
             elif is_non_str_seq(patterns_or_group):
                 items = patterns_or_group
             else:
-                raise TypeError(
-                    "Parameter patterns_or_group: Should be Group, "
-                    "str or a sequence of strings."
-                )
+                raise TypeError("Parameter patterns_or_group: Should be Group, str or a sequence of strings.")
 
             # If TestContext active, each short TRL is replaced with a fully-qualified
             # TRL, using test server's connection details.  Otherwise, left as-is.
@@ -122,55 +138,50 @@ class Group:
         resp = self.__group._add(items, timeout_ms)
         return resp
 
-    def remove(self, patterns, forward=True):
+    def remove(self, patterns: str | list[str], forward: bool = True) -> None:
         """
-        remove(self, patterns, forward=True) -> None
+        Removes any group or device which name matches the specified pattern.
 
-            Removes any group or device which name matches the specified pattern.
+        The pattern parameter can be a group name, a device name or a device
+        name pattern (e.g domain_*/family/member_*).
 
-            The pattern parameter can be a group name, a device name or a device
-            name pattern (e.g domain_*/family/member_*).
+        Since we can have groups with the same name in the hierarchy, a group
+        name can be fully qualified to specify which group should be removed.
+        Considering the following group:
 
-            Since we can have groups with the same name in the hierarchy, a group
-            name can be fully qualified to specify which group should be removed.
-            Considering the following group:
+            ::
 
-                ::
+                -> gauges
+                | -> cell-01
+                |     |-> penning
+                |     |    |-> ...
+                |     |-> pirani
+                |          |-> ...
+                | -> cell-02
+                |     |-> penning
+                |     |    |-> ...
+                |     |-> pirani
+                |          |-> ...
+                | -> cell-03
+                |     |-> ...
+                |
+                | -> ...
 
-                    -> gauges
-                    | -> cell-01
-                    |     |-> penning
-                    |     |    |-> ...
-                    |     |-> pirani
-                    |          |-> ...
-                    | -> cell-02
-                    |     |-> penning
-                    |     |    |-> ...
-                    |     |-> pirani
-                    |          |-> ...
-                    | -> cell-03
-                    |     |-> ...
-                    |
-                    | -> ...
+        A call to gauges->remove("penning") will remove any group named
+        "penning" in the hierarchy while gauges->remove("gauges.cell-02.penning")
+        will only remove the specified group.
 
-            A call to gauges->remove("penning") will remove any group named
-            "penning" in the hierarchy while gauges->remove("gauges.cell-02.penning")
-            will only remove the specified group.
+        :param patterns: A string with the pattern or a list of patterns.
+        :type patterns: :py:obj:`str` | :py:obj:`list`\\[:py:obj:`str`]
 
-            Parameters :
-                - patterns   : (str | sequence<str>) A string with the pattern or a
-                               list of patterns.
-                - forward    : (bool) If fwd is set to true (the default), the remove
-                               request is also forwarded to subgroups. Otherwise,
-                               it is only applied to the local set of elements.
-                               For instance, the following code remove any
-                               stepper motor in the hierarchy:
+        :param forward: If fwd is set to true (the default), the remove
+                        request is also forwarded to subgroups. Otherwise,
+                        it is only applied to the local set of elements.
+                        For instance, the following code remove any
+                        stepper motor in the hierarchy:
 
-                                   root_group->remove("*/stepper_motor/*");
-
-            Return     : None
-
-            Throws     :
+                            root_group->remove("*/stepper_motor/*")
+        :type forward: :py:obj:`bool`
         """
         if isinstance(patterns, str):
             return self.__group._remove(patterns, forward)
@@ -180,14 +191,73 @@ class Group:
         else:
             raise TypeError("Parameter patterns: Should be a str or a sequence of str.")
 
-    def get_device(self, name_or_index):
+    def get_device(self, name_or_index: str | int) -> DeviceProxy:
+        """
+        Returns a reference to the specified device or None if there is no
+        device by that name in the group. Or, returns a reference to the
+        "idx-th" device in the hierarchy or NULL if the hierarchy contains
+        less than "idx" devices.
+
+        The request is systematically forwarded to subgroups (i.e. if no device
+        named device_name could be found in the local set of devices, the
+        request is forwarded to subgroups).
+
+        This method may throw an exception in case the specified device belongs
+        to the group but can't be reached (not registered, down...).
+
+        :param name_or_index: device name of index in group
+        :type name_or_index: :py:obj:`str` | :py:obj:`int`
+
+        :rtype: :obj:`~tango.DeviceProxy`
+
+        :throws: :obj:`~tango.DevFailed`
+        """
         proxy = self.__group.get_device(name_or_index)
         if proxy is None:
             raise KeyError(f"Group does not have device {name_or_index}")
         init_device_proxy(proxy)
         return proxy
 
-    def get_group(self, group_name):
+    def get_group(self, group_name: str) -> "Group":
+        """
+        Returns a reference to the specified group or None if there is no group
+        by that name. The group_name can be a fully qualified name.
+
+        Considering the following group:
+
+        ::
+
+            -> gauges
+                |-> cell-01
+                |    |-> penning
+                |    |    |-> ...
+                |    |-> pirani
+                |    |-> ...
+                |-> cell-02
+                |    |-> penning
+                |    |    |-> ...
+                |    |-> pirani
+                |    |-> ...
+                | -> cell-03
+                |    |-> ...
+                |
+                | -> ...
+
+        A call to gauges.get_group("penning") returns the first group named
+        "penning" in the hierarchy (i.e. gauges.cell-01.penning) while
+        gauges.get_group("gauges.cell-02.penning'') returns the specified group.
+
+        The request is systematically forwarded to subgroups (i.e. if no group
+        named group_name could be found in the local set of elements, the request
+        is forwarded to subgroups).
+
+        :param group_name:
+        :type group_name: :py:obj:`str`
+
+        :rtype: :obj:`~tango.Group`
+
+        .. versionadded:: 7.0.0
+        """
         internal = self.__group.get_group(group_name)
         if internal is None:
             return None
@@ -208,82 +278,95 @@ class Group:
         return self.get_size()
 
     def __repr__(self):
-        return "Group(%s)" % self.get_name()
+        return f"Group({self.get_name()})"
 
     @_trace_client
-    def command_inout(self, cmd_name, param=None, forward=True):
+    def command_inout(
+        self, cmd_name: str, param: Any | DeviceDataList = None, forward: bool = True
+    ) -> list[GroupCmdReply]:
         """
-        command_inout(self, cmd_name, forward=True) -> sequence<GroupCmdReply>
-        command_inout(self, cmd_name, param, forward=True) -> sequence<GroupCmdReply>
-        command_inout(self, cmd_name, param_list, forward=True) -> sequence<GroupCmdReply>
+        command_inout(self, cmd_name: str, forward: bool=True) -> list[GroupCmdReply]
+        command_inout(self, cmd_name: str, param: typing.Any, forward: bool=True) -> list[GroupCmdReply]
+        command_inout(self, cmd_name: str, param_list: DeviceDataList, forward: bool=True) -> list[GroupCmdReply]
 
         Just a shortcut to do:
             self.command_inout_reply(self.command_inout_asynch(...))
 
-        Parameters:
-            - cmd_name   : (str) Command name
-            - param      : (any) parameter value
-            - param_list : (tango.DeviceDataList) sequence of parameters.
-                           When given, it's length must match the group size.
-            - forward    : (bool) If it is set to true (the default) request is
-                            forwarded to subgroups. Otherwise, it is only applied
-                            to the local set of devices.
+        :param cmd_name: Command name
+        :type cmd_name: :py:obj:`str`
 
-        Return : (sequence<GroupCmdReply>)
+        :param param: Command parameter
+        :type param: :py:obj:`typing.Any`
 
+        :param param_list: Sequence of command parameters
+        :type  param_list: :py:obj:`~tango.DeviceDataList`
+
+        :param forward: If it is set to true (the default) request is
+                        forwarded to subgroups. Otherwise, it is only applied
+                        to the local set of devices
+        :type forward: :py:obj:`bool`
         """
         idx = self.command_inout_asynch(cmd_name, param, forward)
         return self.command_inout_reply(idx)
 
     @_trace_client
-    def command_inout_asynch(self, cmd_name, param=None, forward=True):
+    def command_inout_asynch(self, cmd_name: str, param: Any = None, forward: bool = True) -> int:
+        """
+        Executes a Tango command on each device in the group asynchronously.
+        The method sends the request to all devices and returns immediately.
+        Pass the returned request id to Group.command_inout_reply() to obtain
+        the results.
 
+        :param cmd_name: command name
+        :type cmd_name: :py:obj:`str`
+
+        :param param: parameter value
+        :type param: :py:obj:`typig.Any`
+
+        :param forward: If it is set to true (the default), the request is forwarded to sub-groups.
+                        Otherwise, it is only applied to the local set of devices.
+        :type forward: :py:obj:`bool`
+
+        :return: request id. Pass the returned request id to
+                 Group.command_inout_reply() to obtain the results.
+        :rtype: int
+        """
         if param is None:
-            idx = self.__group.command_inout_asynch(
-                cmd_name, forget=False, forward=forward
-            )
+            idx = self.__group.command_inout_asynch(cmd_name, forget=False, forward=forward)
         else:
             arg_in = _get_command_inout_param(self.__group, cmd_name, param)
-            idx = self.__group.command_inout_asynch(
-                cmd_name, arg_in, forget=False, forward=forward
-            )
+            idx = self.__group.command_inout_asynch(cmd_name, arg_in, forget=False, forward=forward)
 
         return idx
 
     @_trace_client
-    def read_attribute(self, attr_name, forward=True):
+    def read_attribute(self, attr_name: str, forward: bool = True) -> list[GroupAttrReply]:
         """
-        read_attribute(self, attr_name, forward=True) -> sequence<GroupAttrReply>
-
-            Just a shortcut to do:
-                self.read_attribute_reply(self.read_attribute_asynch(...))
+        Just a shortcut to do:
+            self.read_attribute_reply(self.read_attribute_asynch(...))
 
         """
         idx = self.__group.read_attribute_asynch(attr_name, forward)
         return self.__group.read_attribute_reply(idx)
 
     @_trace_client
-    def read_attributes(self, attr_names, forward=True):
+    def read_attributes(self, attr_names: list[str], forward: bool = True) -> list[GroupAttrReply]:
         """
-        read_attributes(self, attr_names, forward=True) -> sequence<GroupAttrReply>
-
-            Just a shortcut to do:
-                self.read_attributes_reply(self.read_attributes_asynch(...))
+        Just a shortcut to do:
+            self.read_attributes_reply(self.read_attributes_asynch(...))
         """
         idx = self.__group.read_attributes_asynch(attr_names, forward)
         return self.__group.read_attributes_reply(idx)
 
     @_trace_client
-    def write_attribute(self, attr_name, value, forward=True, multi=False):
+    def write_attribute(
+        self, attr_name: str, value: Any, forward: bool = True, multi: bool = False
+    ) -> list[GroupReply]:
         """
-        write_attribute(self, attr_name, value, forward=True, multi=False) -> sequence<GroupReply>
-
-            Just a shortcut to do:
-                self.write_attribute_reply(self.write_attribute_asynch(...))
+        Just a shortcut to do:
+            self.write_attribute_reply(self.write_attribute_asynch(...))
         """
-        idx = self.__group.write_attribute_asynch(
-            attr_name, value, forward=forward, multi=multi
-        )
+        idx = self.__group.write_attribute_asynch(attr_name, value, forward=forward, multi=multi)
         return self.__group.write_attribute_reply(idx)
 
 

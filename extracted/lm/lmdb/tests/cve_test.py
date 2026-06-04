@@ -24,10 +24,9 @@
 
 These tests corrupt data.mdb and verify the patched LMDB rejects
 the corruption instead of crashing.  They must be skipped when
-running against unpatched (pure) LMDB, since the crashes are real.
+running against unpatched LMDB (pure or system), since the crashes are real.
 """
 
-from __future__ import absolute_import
 import os
 import struct
 import unittest
@@ -35,7 +34,8 @@ import unittest
 import lmdb
 import testlib
 
-SKIP_PURE = os.environ.get('LMDB_PURE') is not None
+SKIP_PURE = (os.environ.get('LMDB_PURE') is not None or
+             os.environ.get('LMDB_FORCE_SYSTEM') is not None)
 
 # Meta page layout (64-bit):
 #   [0..15]   page header

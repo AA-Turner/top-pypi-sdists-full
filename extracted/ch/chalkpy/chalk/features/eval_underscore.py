@@ -196,6 +196,10 @@ CHALK_NOW_FIELD = "__now__"
 # precision, so `duration("us")` is the natural arrow representation.
 _CHALK_WINDOW_DTYPE = pa.duration("us")
 
+# Comparison operators that participate in the implicit "timestamp vs duration"
+# rewrite (see `_maybe_rewrite_temporal_comparison`).
+_TEMPORAL_COMPARISON_OPS = ("<", "<=", ">", ">=")
+
 
 def _index_col(level: int) -> str:
     """Name of the index column at the given nesting level (0 = root)."""
@@ -2239,6 +2243,76 @@ def _classify_subscript_keys(item: UnderscoreItem, expr: Underscore) -> tuple[li
     return value_keys, filter_keys
 
 
+def _is_chalk_window_ref(raw: Any) -> bool:
+    """True if `raw` is a syntactic `_.chalk_window` reference."""
+    return (
+        isinstance(raw, UnderscoreAttr)
+        and raw._chalk__attr == "chalk_window"
+        and isinstance(raw._chalk__parent, UnderscoreRoot)
+    )
+
+
+def _maybe_rewrite_temporal_comparison(
+    expr: UnderscoreFunction,
+    computed_args: list[_FunctionOperand],
+) -> Optional[UnderscoreFunction]:
+    """Rewrite a `timestamp <op> duration-constant` comparison into the
+    equivalent comparison against a `chalk_now`-relative timestamp, or return
+    `None` if `expr` is not such a comparison.
+
+    A bare duration is not comparable to a timestamp; it is interpreted as a
+    point in time relative to `_.chalk_now`. This faithfully mirrors the
+    `convert_chalkpy_underscore` parser's "negative timedelta comparison"
+    handling so feature-definition parsing and direct evaluation agree, and
+    in particular it reproduces that parser's sign convention exactly:
+
+    - `_.ts <op> _.chalk_window` becomes `_.ts <op> _.chalk_now - _.chalk_window`
+      (the window `W` measures *backwards* from now: "within the last `W`").
+    - `_.ts <op> timedelta(d)` becomes `_.ts <op> _.chalk_now + timedelta(d)`,
+      i.e. a *positive* literal points into the future and a negative literal
+      into the past (`timedelta(days=-1)` ⇒ `_.chalk_now - 1d`).
+
+    The two cases differ in sign because the parser pre-negates `_.chalk_window`
+    (its window duration) before the shared `chalk_now - reverse(duration)`
+    step, whereas a literal is not pre-negated. Only *constant* durations — a
+    `timedelta` literal or the `_.chalk_window` pseudo-feature — participate,
+    matching the parser's `UnderscoreConstant` requirement; a duration-typed
+    feature reference is left alone.
+
+    The rewrite is symmetric in operand order, and the rewritten operand is a
+    timestamp (not a bare duration), so it never re-triggers this rewrite.
+    """
+    raw_args = expr._chalk__args
+
+    def _is_duration_constant(raw: Any) -> bool:
+        return isinstance(raw, timedelta) or _is_chalk_window_ref(raw)
+
+    def _is_timestamp(op: _FunctionOperand) -> bool:
+        return isinstance(op, _Scalar) and pa.types.is_timestamp(op.df.schema[VALUE_COL_NAME])
+
+    if _is_duration_constant(raw_args[1]) and _is_timestamp(computed_args[0]):
+        duration_index = 1
+    elif _is_duration_constant(raw_args[0]) and _is_timestamp(computed_args[1]):
+        duration_index = 0
+    else:
+        return None
+
+    raw_duration = raw_args[duration_index]
+    chalk_now: Underscore = UnderscoreAttr(UnderscoreRoot(), "chalk_now")
+    if _is_chalk_window_ref(raw_duration):
+        # `_.chalk_window` is the positive window duration `W`; the parser
+        # negates it under comparison, so the net is `chalk_now - W`.
+        now_relative: Underscore = UnderscoreFunction("-", chalk_now, raw_duration)
+    else:
+        # A bare `timedelta` literal `d`. The parser reverses it before
+        # subtracting, so `chalk_now - (-d)` == `chalk_now + d`.
+        now_relative = UnderscoreFunction("-", chalk_now, -raw_duration)
+
+    new_args = list(raw_args)
+    new_args[duration_index] = now_relative
+    return UnderscoreFunction(expr._chalk__function_name, *new_args)
+
+
 def _compute_function(
     expr: UnderscoreFunction,
     current: _NamespaceRef,
@@ -2282,6 +2356,15 @@ def _compute_function(
         )
         for k, v in expr._chalk__kwargs.items()
     }
+
+    # Implicit "timestamp vs duration" comparison: a bare duration is not
+    # comparable to a timestamp, so interpret it relative to `_.chalk_now`.
+    # Re-dispatch on the rewritten (timestamp vs timestamp) comparison, which
+    # no longer matches this pattern and so cannot loop.
+    if expr._chalk__function_name in _TEMPORAL_COMPARISON_OPS and len(computed_args) == 2 and not computed_kwargs:
+        rewritten = _maybe_rewrite_temporal_comparison(expr, computed_args)
+        if rewritten is not None:
+            return _compute_function(rewritten, current, state)
 
     scalar_operands: list[_Scalar] = [
         op for op in (*computed_args, *computed_kwargs.values()) if isinstance(op, _Scalar)

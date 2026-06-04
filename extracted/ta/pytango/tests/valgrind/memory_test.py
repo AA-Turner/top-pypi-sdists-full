@@ -5,9 +5,11 @@ Run a Tango device server and do some things that have either caused
 memory leaks in the past, or are suspected of causing memory leaks.
 """
 
+import contextlib
 import json
-import time
 import sys
+import time
+from typing import ClassVar
 
 from tango import (
     AttributeProxy,
@@ -20,7 +22,7 @@ from tango import (
     EventType,
     Group,
 )
-from tango.server import Device, command, attribute
+from tango.server import Device, attribute, command
 from tango.test_context import DeviceTestContext
 from tango.test_utils import (
     COMMAND_TYPED_VALUES,
@@ -31,7 +33,7 @@ from tango.test_utils import (
 
 
 class MemTestDevice(Device):
-    _attr_data = {}
+    _attr_data: ClassVar[dict] = {}
     _attr_quality = AttrQuality.ATTR_VALID
 
     def initialize_dynamic_attributes(self):
@@ -192,9 +194,7 @@ class MemTestDevice(Device):
         return [[123, 456], ["abc", "def"]]
 
     @command
-    def cmd_DevVarLongStringArray_in_out_(
-        self, value: list[list[int], list[str]]
-    ) -> list[list[int], list[str]]:
+    def cmd_DevVarLongStringArray_in_out_(self, value: list[list[int], list[str]]) -> list[list[int], list[str]]:
         return value
 
     @command
@@ -206,9 +206,7 @@ class MemTestDevice(Device):
         return [[123.4, 456.7], ["abc", "def"]]
 
     @command
-    def cmd_DevVarDoubleStringArray_in_out_(
-        self, value: list[list[float], list[str]]
-    ) -> list[list[float], list[str]]:
+    def cmd_DevVarDoubleStringArray_in_out_(self, value: list[list[float], list[str]]) -> list[list[float], list[str]]:
         return value
 
     def dev_state(self):
@@ -247,10 +245,7 @@ class MemTestDevice(Device):
 def get_command_input_data_map():
     result = {}
     for dtype, values in {**GENERAL_TYPED_VALUES, **COMMAND_TYPED_VALUES}.items():
-        if not isinstance(dtype, tuple):
-            type_name = repr_type(dtype)
-        else:
-            type_name = f"{repr_type(dtype[0])}_list"
+        type_name = repr_type(dtype) if not isinstance(dtype, tuple) else f"{repr_type(dtype[0])}_list"
         in_cmd_name = f"cmd_{type_name}_in_"
         in_out_cmd_name = f"cmd_{type_name}_in_out_"
         result[in_cmd_name] = values[0]
@@ -314,9 +309,7 @@ if __name__ == "__main__":
             proxy.emit_events(json.dumps(config))
 
             config = {"name": attr_name, "count": unique_num_event_with_sub}
-            eid = proxy.subscribe_event(
-                attr_name, EventType.CHANGE_EVENT, lambda x: None
-            )
+            eid = proxy.subscribe_event(attr_name, EventType.CHANGE_EVENT, lambda x: None)
             proxy.emit_events(json.dumps(config))
             proxy.unsubscribe_event(eid)
             last_unsubscription_time = time.time()
@@ -349,14 +342,10 @@ if __name__ == "__main__":
         print("Creating DeviceProxies to non-existent devices:")
         unique_num_device_proxy_unreachable = unique_num_device_proxy + 1
         for ind in range(unique_num_device_proxy_unreachable):
-            try:
+            with contextlib.suppress(DevFailed):
                 DeviceProxy("tango://127.0.0.1:12345/nonexistent/tango/name")
-            except DevFailed:
-                pass
             progress_bar(ind, unique_num_device_proxy_unreachable)
-        print(
-            f"\n  unreachable DeviceProxy | created: {unique_num_device_proxy_unreachable:>3} |"
-        )
+        print(f"\n  unreachable DeviceProxy | created: {unique_num_device_proxy_unreachable:>3} |")
 
         print("Creating AttributeProxies:")
         unique_num_attr_proxy = unique_num_device_proxy_unreachable + 1

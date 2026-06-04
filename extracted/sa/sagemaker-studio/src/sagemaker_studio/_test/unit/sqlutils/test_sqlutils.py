@@ -800,53 +800,6 @@ class TestSqlutils(unittest.TestCase):
         self.assertNotIn("df", mock_ip.user_ns)
         mock_display.assert_not_called()
 
-    @patch("sagemaker_studio.sqlutils.HelperFactory")
-    @patch("sagemaker_studio.sqlutils._ensure_project")
-    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    def test_credential_provider_callback(
-        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
-    ):
-        """Test that credential_provider callback is passed to engine creation"""
-        mock_project = Mock()
-        mock_connection = Mock()
-        mock_connection.type = "REDSHIFT"
-        mock_connection.id = "conn_123"
-
-        # Mock connection_creds for credential refresh
-        mock_creds = Mock()
-        mock_creds.access_key_id = "new_key"
-        mock_creds.secret_access_key = "new_secret"
-        mock_creds.session_token = "new_token"
-        mock_creds.expiration = None
-        mock_connection.connection_creds = mock_creds
-
-        mock_project.connection.return_value = mock_connection
-        mock_ensure_project.return_value = mock_project
-
-        mock_sql_helper = Mock()
-        mock_sql_helper.to_sql_config.return_value = {"host": "localhost"}
-        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
-
-        mock_sql_executor = Mock()
-        mock_ensure_sql_executor.return_value = mock_sql_executor
-        mock_engine = Mock()
-        mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
-
-        sqlutils.get_engine(connection_name="test_conn")
-
-        # Verify credential_provider was passed in kwargs
-        call_args = mock_sql_helper.to_sql_config.call_args
-        self.assertIn("credential_provider", call_args[1])
-
-        # Test the credential_provider callback
-        credential_provider = call_args[1]["credential_provider"]
-        refreshed_creds = credential_provider()
-
-        self.assertEqual(refreshed_creds["access_key_id"], "new_key")
-        self.assertEqual(refreshed_creds["secret_access_key"], "new_secret")
-        self.assertEqual(refreshed_creds["session_token"], "new_token")
-
 
 class TestConnectionCache(unittest.TestCase):
     """Test ConnectionCache functionality"""
@@ -1708,3 +1661,189 @@ class TestGetEngineFromConnection(unittest.TestCase):
             "SQL is not supported for connection type UNSUPPORTED_TYPE", str(cm.exception)
         )
         self.assertIn("ATHENA", str(cm.exception))
+
+
+class TestCredentialRefresh(unittest.TestCase):
+    """Tests for credential refresh functionality."""
+
+    def test_create_credential_provider_formats_credentials(self):
+        """Test _create_credential_provider formats credentials correctly"""
+        mock_creds = Mock()
+        mock_creds.access_key_id = "test_key"
+        mock_creds.secret_access_key = "test_secret"
+        mock_creds.session_token = "test_token"
+        mock_creds.expiration = datetime(2025, 12, 31, 23, 59, 59, tzinfo=tzlocal())
+
+        def credential_getter():
+            return mock_creds
+
+        provider = sqlutils._create_credential_provider(credential_getter)
+
+        result = provider()
+
+        self.assertEqual(result["access_key_id"], "test_key")
+        self.assertEqual(result["secret_access_key"], "test_secret")
+        self.assertEqual(result["session_token"], "test_token")
+        self.assertIn("expiration", result)
+
+    def test_create_credential_provider_defaults_expiration(self):
+        """Test _create_credential_provider sets default expiration when None"""
+        mock_creds = Mock()
+        mock_creds.access_key_id = "test_key"
+        mock_creds.secret_access_key = "test_secret"
+        mock_creds.session_token = "test_token"
+        mock_creds.expiration = None
+
+        def credential_getter():
+            return mock_creds
+
+        provider = sqlutils._create_credential_provider(credential_getter)
+
+        result = provider()
+
+        self.assertIn("expiration", result)
+        # Verify expiration is set to ~15 minutes from now
+        from datetime import datetime, timezone
+
+        expiry = datetime.fromisoformat(result["expiration"])
+        now = datetime.now(timezone.utc)
+        delta = (expiry - now).total_seconds()
+        self.assertGreater(delta, 14 * 60)  # At least 14 minutes
+        self.assertLess(delta, 16 * 60)  # At most 16 minutes
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_get_engine_from_connection_with_identifiers_refreshes_credentials(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test _get_engine_from_connection with identifiers creates refreshing credential provider"""
+        mock_project = Mock()
+
+        # Create two different credential objects to simulate refresh
+        mock_creds_1 = Mock()
+        mock_creds_1.access_key_id = "old_key"
+        mock_creds_1.secret_access_key = "old_secret"
+        mock_creds_1.session_token = "old_token"
+        mock_creds_1.expiration = None
+
+        mock_creds_2 = Mock()
+        mock_creds_2.access_key_id = "new_key"
+        mock_creds_2.secret_access_key = "new_secret"
+        mock_creds_2.session_token = "new_token"
+        mock_creds_2.expiration = None
+
+        mock_conn_1 = Mock()
+        mock_conn_1.type = "REDSHIFT"
+        mock_conn_1.connection_creds = mock_creds_1
+
+        mock_conn_2 = Mock()
+        mock_conn_2.type = "REDSHIFT"
+        mock_conn_2.connection_creds = mock_creds_2
+
+        # First call returns old creds, second call returns new creds
+        mock_project.connection.side_effect = [mock_conn_1, mock_conn_2]
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"host": "localhost"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
+
+        # Call _get_engine_from_connection with connection_name
+        sqlutils._get_engine_from_connection(mock_conn_1, connection_name="test_conn")
+
+        # Get the credential_provider that was passed
+        call_args = mock_sql_helper.to_sql_config.call_args
+        credential_provider = call_args[1]["credential_provider"]
+
+        # First call should return old credentials
+        creds_1 = credential_provider()
+        self.assertEqual(creds_1["access_key_id"], "old_key")
+
+        # Second call should fetch fresh connection and return new credentials
+        creds_2 = credential_provider()
+        self.assertEqual(creds_2["access_key_id"], "new_key")
+
+        # Verify connection was fetched twice (once for each credential_provider call)
+        self.assertEqual(mock_project.connection.call_count, 2)
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_get_engine_from_connection_without_identifiers_uses_cached_credentials(
+        self, mock_ensure_sql_executor, mock_helper_factory
+    ):
+        """Test _get_engine_from_connection without identifiers uses cached credentials"""
+        mock_creds = Mock()
+        mock_creds.access_key_id = "cached_key"
+        mock_creds.secret_access_key = "cached_secret"
+        mock_creds.session_token = "cached_token"
+        mock_creds.expiration = None
+
+        mock_conn = Mock()
+        mock_conn.type = "REDSHIFT"
+        mock_conn.connection_creds = mock_creds
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"host": "localhost"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
+
+        # Call without connection identifiers
+        sqlutils._get_engine_from_connection(mock_conn)
+
+        # Get the credential_provider that was passed
+        call_args = mock_sql_helper.to_sql_config.call_args
+        credential_provider = call_args[1]["credential_provider"]
+
+        # Multiple calls should return same cached credentials
+        creds_1 = credential_provider()
+        creds_2 = credential_provider()
+
+        self.assertEqual(creds_1["access_key_id"], "cached_key")
+        self.assertEqual(creds_2["access_key_id"], "cached_key")
+
+    @patch("sagemaker_studio.sqlutils.HelperFactory")
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    def test_get_engine_delegates_to_get_engine_from_connection(
+        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    ):
+        """Test get_engine properly delegates to _get_engine_from_connection with identifiers"""
+        mock_project = Mock()
+        mock_conn = Mock()
+        mock_conn.type = "ATHENA"
+        mock_project.connection.return_value = mock_conn
+        mock_ensure_project.return_value = mock_project
+
+        mock_sql_helper = Mock()
+        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
+        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+
+        mock_sql_executor = Mock()
+        mock_ensure_sql_executor.return_value = mock_sql_executor
+        mock_engine = Mock()
+        mock_sql_executor.create_engine.return_value = mock_engine
+        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+
+        result = sqlutils.get_engine(connection_name="test_conn")
+
+        # Verify connection was resolved
+        mock_project.connection.assert_called_with("test_conn")
+
+        # Verify engine was created
+        self.assertEqual(result, mock_engine)
+
+        # Verify credential_provider was passed
+        call_args = mock_sql_helper.to_sql_config.call_args
+        self.assertIn("credential_provider", call_args[1])

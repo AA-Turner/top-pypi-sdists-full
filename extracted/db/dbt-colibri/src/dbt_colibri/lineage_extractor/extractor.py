@@ -1,5 +1,7 @@
 
 from sqlglot.lineage import maybe_parse, SqlglotError, exp
+from sqlglot.schema import ensure_schema
+from sqlglot.tokens import TokenType, Tokenizer
 import logging
 from ..utils import json_utils, parsing_utils
 from .lineage import lineage, prepare_scope, extract_structural_lineage
@@ -15,7 +17,7 @@ def _normalize_column_name(name: str) -> str:
     - Removes PostgreSQL-style type casts (``::type``).
     - Strips leading ``$`` (Snowflake session variable prefix).
     """
-    name = name.strip('"').strip("'")
+    name = name.strip('"').strip("'").strip("`")
     name = re.sub(r"::\s*\w+$", "", name)
     if name.startswith("$"):
         name = name[1:]
@@ -144,7 +146,7 @@ class DbtColumnLineageExtractor:
         
     # Dialects where ``quote: true`` means the identifier is case-sensitive.
     _CASE_SENSITIVE_QUOTE_DIALECTS = frozenset({
-        "snowflake", "postgres", "oracle", "clickhouse",
+        "snowflake", "postgres", "oracle", "clickhouse", "starrocks",
     })
 
     def _build_quoted_columns_lookup(self):
@@ -189,8 +191,8 @@ class DbtColumnLineageExtractor:
         Handles column names that may arrive with surrounding double-quotes
         from SQLGlot (e.g. ``'"quotedCol"'``).
         """
-        # Strip surrounding double-quotes that SQLGlot may add
-        stripped = column_name.strip('"')
+        # Strip surrounding quotes that SQLGlot may add
+        stripped = column_name.strip('"').strip("`")
         col_lower = stripped.lower()
         quoted = self._get_quoted_columns(node_id)
         if col_lower in quoted:
@@ -207,7 +209,7 @@ class DbtColumnLineageExtractor:
         Raises:
             ValueError: If adapter_type is not found or not supported
         """
-        SUPPORTED_ADAPTERS = {'snowflake', 'bigquery', 'redshift', 'duckdb', 'postgres', 'databricks', 'athena', 'trino', 'sqlserver', 'clickhouse', 'oracle', 'fabric'}
+        SUPPORTED_ADAPTERS = {'snowflake', 'bigquery', 'redshift', 'duckdb', 'postgres', 'databricks', 'athena', 'trino', 'sqlserver', 'clickhouse', 'oracle', 'fabric', 'starrocks'}
         
         # Get adapter_type from manifest metadata
         adapter_type = self.manifest.get("metadata", {}).get("adapter_type")
@@ -479,7 +481,11 @@ class DbtColumnLineageExtractor:
         schema = self._generate_schema_dict_from_catalog(parent_catalog)
 
         try:
-            sql = self._sanitize_sql_for_parsing(compiled)
+            sql = self._sanitize_sql_for_parsing(
+                compiled,
+                schema=schema,
+                model_node=node_id,
+            )
             parsed = maybe_parse(sql, dialect=self.dialect)
             if self.dialect == "postgres" and not self._schema_has_quoted_keys(schema):
                 parsed = parsing_utils.remove_quotes(parsed)
@@ -624,8 +630,100 @@ class DbtColumnLineageExtractor:
             changed = True
         return parsed.sql(dialect=self.dialect) if changed else sql
 
-    def _sanitize_sql_for_parsing(self, sql):
+    @staticmethod
+    def _strip_wrapping_identifier_quotes(name):
+        if (
+            isinstance(name, str)
+            and len(name) >= 2
+            and name[0] == name[-1]
+            and name[0] in {'"', "`", "'"}
+        ):
+            return name[1:-1]
+        return name
+
+    def _known_double_quoted_starrocks_identifiers(
+        self,
+        schema=None,
+        selected_columns=None,
+        model_node=None,
+    ):
+        identifiers = set()
+
+        if schema:
+            for db in schema.values():
+                for sch in db.values():
+                    for tbl in sch.values():
+                        for col in tbl:
+                            stripped = self._strip_wrapping_identifier_quotes(col)
+                            if col != stripped or " " in stripped:
+                                identifiers.add(stripped.lower())
+
+        for col in selected_columns or []:
+            stripped = self._strip_wrapping_identifier_quotes(col)
+            if " " in stripped:
+                identifiers.add(stripped.lower())
+
+        if model_node:
+            for col in self._get_quoted_columns(model_node).values():
+                identifiers.add(col.lower())
+
+        return identifiers
+
+    def _replace_starrocks_double_quoted_identifiers(
+        self,
+        sql,
+        schema=None,
+        selected_columns=None,
+        model_node=None,
+    ):
+        identifiers = self._known_double_quoted_starrocks_identifiers(
+            schema=schema,
+            selected_columns=selected_columns,
+            model_node=model_node,
+        )
+        if not identifiers:
+            return sql
+
+        tokens = Tokenizer(dialect=self.dialect).tokenize(sql)
+        pieces = []
+        last_end = 0
+        changed = False
+
+        for token in tokens:
+            original = sql[token.start:token.end + 1]
+            if (
+                token.token_type == TokenType.IDENTIFIER
+                and original.startswith('"')
+                and original.endswith('"')
+                and token.text.lower() in identifiers
+            ):
+                pieces.append(sql[last_end:token.start])
+                pieces.append(f"`{token.text.replace('`', '``')}`")
+                last_end = token.end + 1
+                changed = True
+
+        if not changed:
+            return sql
+
+        pieces.append(sql[last_end:])
+        return "".join(pieces)
+
+    def _sanitize_sql_for_parsing(
+        self,
+        sql,
+        schema=None,
+        selected_columns=None,
+        model_node=None,
+    ):
         # Placeholder for any SQL sanitization needed before parsing
+        if self.dialect == "starrocks":
+            sql = self._replace_starrocks_double_quoted_identifiers(
+                sql,
+                schema=schema,
+                selected_columns=selected_columns,
+                model_node=model_node,
+            )
+
         if self.dialect != "oracle":
             return sql
 
@@ -649,9 +747,49 @@ class DbtColumnLineageExtractor:
                         return True
         return False
 
+    def _warn_unresolved_qualified_columns(self, scope, schema, model_node):
+        """Surface columns qualified to a known table but absent from the catalog.
+
+        Since ``allow_partial_qualification`` lets these flow through instead of
+        aborting the whole model (e.g. Snowflake METADATA$ pseudo-columns or a
+        stale catalog), we log them so the gap stays visible.
+        """
+        try:
+            schema_obj = ensure_schema(schema, dialect=self.dialect)
+            seen = set()
+            for sub_scope in scope.traverse():
+                for column in sub_scope.columns:
+                    table_alias = column.table
+                    if not table_alias:
+                        continue
+                    source = sub_scope.sources.get(table_alias)
+                    if not isinstance(source, exp.Table):
+                        continue
+                    known = schema_obj.column_names(source)
+                    if not known:
+                        continue
+                    if column.name.lower() in {k.lower() for k in known}:
+                        continue
+                    key = (table_alias, column.name)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    self.logger.warning(
+                        f"Column '{column.name}' in model {model_node} is qualified to "
+                        f"'{source.sql(dialect=self.dialect)}' but is not in the catalog; "
+                        f"keeping best-effort lineage."
+                    )
+        except Exception as e:
+            self.logger.debug(f"Could not check unresolved columns for {model_node}: {e}")
+
     def _extract_lineage_for_model(self, model_sql, schema, model_node, resource_type, selected_columns=[]):
         lineage_map = {}
-        model_sql_for_parse = self._sanitize_sql_for_parsing(model_sql)
+        model_sql_for_parse = self._sanitize_sql_for_parsing(
+            model_sql,
+            schema=schema,
+            selected_columns=selected_columns,
+            model_node=model_node,
+        )
         parsed_model_sql = maybe_parse(model_sql_for_parse, dialect=self.dialect)
         # sqlglot does not unfold * to schema when the schema has quotes, or upper (for BigQuery)
         # Skip remove_quotes when the schema contains quoted column keys, as
@@ -661,6 +799,7 @@ class DbtColumnLineageExtractor:
         if self.dialect == "bigquery":
             parsed_model_sql = parsing_utils.remove_upper(parsed_model_sql)
         qualified_expr, scope = prepare_scope(parsed_model_sql, schema=schema, dialect=self.dialect)
+        self._warn_unresolved_qualified_columns(scope, schema, model_node)
 
         for column_name in selected_columns:
             normalized_column = _normalize_column_name(column_name)
@@ -810,7 +949,7 @@ class DbtColumnLineageExtractor:
 
         column_name_raw = node.name.split(".")[-1]
 
-        if self.dialect == 'clickhouse':
+        if self.dialect in ('clickhouse', 'starrocks'):
             table_name = f"{node.source.db}.{node.source.name}"
         elif self.dialect == 'oracle':
             table_name = self._table_key_from_sqlglot_table_node(node)
@@ -1062,20 +1201,25 @@ class DbtColumnLineageExtractor:
                 parent_catalog = self._get_parent_nodes_catalog(model_info)
                 schema = self._generate_schema_dict_from_catalog(parent_catalog)
                 model_sql = self._stub_ephemeral_ctes(model_info["compiled_code"])
+                columns = self._get_list_of_columns_for_a_dbt_node(model_node)
 
                 # Parse and qualify once per model
-                model_sql_for_parse = self._sanitize_sql_for_parsing(model_sql)
+                model_sql_for_parse = self._sanitize_sql_for_parsing(
+                    model_sql,
+                    schema=schema,
+                    selected_columns=columns,
+                    model_node=model_node,
+                )
                 parsed_model_sql = maybe_parse(model_sql_for_parse, dialect=self.dialect)
                 if self.dialect == "postgres" and not self._schema_has_quoted_keys(schema):
                     parsed_model_sql = parsing_utils.remove_quotes(parsed_model_sql)
                 if self.dialect == "bigquery":
                     parsed_model_sql = parsing_utils.remove_upper(parsed_model_sql)
                 qualified_expr, scope = prepare_scope(parsed_model_sql, schema=schema, dialect=self.dialect)
+                self._warn_unresolved_qualified_columns(scope, schema, model_node)
 
                 # Initialize parents entry for this model
                 model_parents: dict = {}
-
-                columns = self._get_list_of_columns_for_a_dbt_node(model_node)
 
                 quoted_cols = self._get_quoted_columns(model_node)
 
@@ -1237,7 +1381,7 @@ class DBTNodeCatalog:
         if "metadata" not in node_data:
             raise ValueError(f"Node data missing metadata field: {node_data}")
 
-        self.database = node_data["metadata"]["database"]
+        self.database = node_data["metadata"]["database"] or ""
         self.unique_id = node_data["unique_id"].lower()
         self.schema = node_data["metadata"]["schema"]
         self.name = node_data["metadata"]["name"]
@@ -1253,7 +1397,7 @@ class DBTNodeCatalog:
 
 class DBTNodeManifest:
     def __init__(self, node_data):
-        self.database = node_data["database"]
+        self.database = node_data["database"] or ""
         self.schema = node_data["schema"]
         self.relation_name = parsing_utils.normalize_table_relation_name(node_data["relation_name"])
         # self.dialect = dialect

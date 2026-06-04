@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.130.5
+Version: 2.131.0
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -162,8 +162,8 @@ Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "postgresql"
 Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "postgresql"
 Provides-Extra: snowflake
 Requires-Dist: cryptography<47; extra == "snowflake"
-Requires-Dist: snowflake-connector-python<4,>=3.12.4; extra == "snowflake"
-Requires-Dist: snowflake-sqlalchemy<1.7,>=1.5.0; extra == "snowflake"
+Requires-Dist: snowflake-connector-python<5,>=3.12.4; extra == "snowflake"
+Requires-Dist: snowflake-sqlalchemy<1.11,>=1.5.0; extra == "snowflake"
 Requires-Dist: adlfs; extra == "snowflake"
 Requires-Dist: duckdb<1.2.0,>=0.6; extra == "snowflake"
 Requires-Dist: fsspec; extra == "snowflake"
@@ -316,8 +316,8 @@ Requires-Dist: pyodbc<6,>=4.0.0; extra == "all"
 Requires-Dist: python-json-logger<4.0.0,>=3.0.0; extra == "all"
 Requires-Dist: redshift_connector<2.2,>=2.0.909; extra == "all"
 Requires-Dist: s3fs>=2024.2.0; extra == "all"
-Requires-Dist: snowflake-connector-python<4,>=3.12.4; extra == "all"
-Requires-Dist: snowflake-sqlalchemy<1.7,>=1.5.0; extra == "all"
+Requires-Dist: snowflake-connector-python<5,>=3.12.4; extra == "all"
+Requires-Dist: snowflake-sqlalchemy<1.11,>=1.5.0; extra == "all"
 Requires-Dist: sqlalchemy-bigquery<1.12,>=1.5.0; extra == "all"
 Requires-Dist: sqlalchemy-spanner<1.12.0; extra == "all"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "all"

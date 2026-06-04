@@ -103,36 +103,26 @@ def assert_struct(unpickled, struct_type=None):
 
     for member in dir(unpickled):
         if not member.startswith("_") and isinstance(getattr(unpickled, member), str):
-            assert (
-                getattr(unpickled, member) == member
-            ), f"Mismatch in {member} field after unpickling."
+            assert getattr(unpickled, member) == member, f"Mismatch in {member} field after unpickling."
 
     if struct_type in [
         StructType.DEVICE_ATTRIBUTE_CONFIG,
         StructType.ATTRIBUTE_INFO,
         StructType.ATTRIBUTE_INFO_EX,
     ]:
-        assert (
-            unpickled.writable == AttrWriteType.READ_WRITE
-        ), "Mismatch in writable field after unpickling."
-        assert (
-            unpickled.data_format == AttrDataFormat.SPECTRUM
-        ), "Mismatch in data_format field after unpickling."
-        assert (
-            unpickled.data_type == DevLong
-        ), "Mismatch in data_type field after unpickling."
+        assert unpickled.writable == AttrWriteType.READ_WRITE, "Mismatch in writable field after unpickling."
+        assert unpickled.data_format == AttrDataFormat.SPECTRUM, "Mismatch in data_format field after unpickling."
+        assert unpickled.data_type == DevLong, "Mismatch in data_type field after unpickling."
         assert unpickled.max_dim_x == 1, "Mismatch in max_dim_x field after unpickling."
         assert unpickled.max_dim_y == 2, "Mismatch in max_dim_y field after unpickling."
 
     if struct_type in [StructType.ATTRIBUTE_INFO, StructType.ATTRIBUTE_INFO_EX]:
-        assert (
-            unpickled.disp_level == DispLevel.EXPERT
-        ), "Mismatch in disp_level field after unpickling."
+        assert unpickled.disp_level == DispLevel.EXPERT, "Mismatch in disp_level field after unpickling."
 
     if struct_type == StructType.ATTRIBUTE_INFO_EX:
-        assert (
-            unpickled.memorized == AttrMemorizedType.MEMORIZED_WRITE_INIT
-        ), "Mismatch in memorized field after unpickling."
+        assert unpickled.memorized == AttrMemorizedType.MEMORIZED_WRITE_INIT, (
+            "Mismatch in memorized field after unpickling."
+        )
         assert unpickled.enum_labels == [
             "A",
             "BB",

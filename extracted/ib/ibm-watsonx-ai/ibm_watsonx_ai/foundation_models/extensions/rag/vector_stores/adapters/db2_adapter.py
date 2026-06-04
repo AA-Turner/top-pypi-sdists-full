@@ -324,7 +324,7 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
         """
         table_name = self._langchain_vector_store.table_name
 
-        placeholders = ",".join("?" for _ in seq_nums_window)
+        placeholders = ",".join("CAST(? AS INTEGER)" for _ in seq_nums_window)
 
         sql = f"""
             WITH extracted AS (
@@ -339,7 +339,7 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
               doc_id,
               page_content
             FROM extracted
-            WHERE doc_id = ?
+            WHERE doc_id = CAST(? AS VARCHAR(256))
               AND seq_num IN ({placeholders})
             ORDER BY seq_num;
         """

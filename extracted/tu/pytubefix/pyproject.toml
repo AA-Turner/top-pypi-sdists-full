@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytubefix"
-version = "10.8.1"
+version = "10.9.0"
 
 authors = [
   { name="Juan Bindez", email="juanbindez780@gmail.com" },
@@ -20,6 +20,10 @@ license-files = ["LICENSE"]
 keywords = ["youtube", "download", "video", "stream"]
 
 classifiers = [
+	# How mature is this project? Common values are
+	#   3 - Alpha
+	#   4 - Beta
+	#   5 - Production/Stable
 	"Development Status :: 5 - Production/Stable",
 	"Environment :: Console",
 	"Intended Audience :: Developers",

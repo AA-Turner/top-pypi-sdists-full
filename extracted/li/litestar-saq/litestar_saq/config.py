@@ -227,8 +227,6 @@ class PostgresQueueOptions(TypedDict, total=False):
     min_size: NotRequired[int]
     max_size: NotRequired[int]
     saq_lock_keyspace: NotRequired[int]
-    job_lock_keyspace: NotRequired[int]
-    job_lock_sweep: NotRequired[bool]
     priorities: NotRequired["tuple[int, int]"]
     swept_error_message: NotRequired[str]
     manage_pool_lifecycle: NotRequired[bool]
@@ -519,6 +517,6 @@ def _has_otel_plugin(app: "Litestar") -> bool:
             OpenTelemetryPlugin,  # pyright: ignore[reportAttributeAccessIssue,reportMissingImports,reportUnknownVariableType]
         )
 
-        return app.plugins.get(OpenTelemetryPlugin) is not None  # pyright: ignore[reportUnknownArgumentType]
+        return bool(app.plugins.get(OpenTelemetryPlugin))
     except ImportError:
         return False

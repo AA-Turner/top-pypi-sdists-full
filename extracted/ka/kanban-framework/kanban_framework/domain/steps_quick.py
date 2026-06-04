@@ -19,9 +19,6 @@ QUICK_STEPS: dict[str, list[StepDef]] = {
                          "将分析过程和用户选择写入 $task_dir/tech_choice.md"],
                 interactive=True),
         StepDef("execute.spawn", "直接执行（quick 模式）",
-                actions=["kanban time start $task_id execute",
-                         "spawn executor agent 直接执行修改",
-                         "kanban time end $task_id execute"],
                 agent_type="kanban-executor",
                 spawn_prompt=(
                     "你是 kanban 任务 $task_id 的执行 Agent（quick 模式）。\n"

@@ -189,17 +189,16 @@ evaluation_extra_require = [
     "jsonschema",
     "ruamel.yaml",
     "pyyaml",
-    "litellm>=1.83.7, <1.83.15",
+    "litellm>=1.83.7, <1.86.0",
     # For LiteLLM tests. Lower bound: CVE-2026-35030 plus 4 follow-on
-    # advisories patched in 1.83.7. Upper bound <1.83.15 admits current
-    # latest (1.83.14).
+    # advisories patched in 1.83.7. Upper bound <1.86.0 for stable interface only.
 ]
 
 langchain_extra_require = [
     "langchain >= 1.0.0, < 2.0.0",
     "langchain-classic",
     "langchain-core >= 1.0.0, < 2.0.0",
-    "langchain-google-genai >= 4.0.0, < 5.0.0",
+    "langchain-google-genai >= 4.0.0, < 4.2.3",
     "langgraph >= 1.0.0, < 2.0.0",
     "openinference-instrumentation-langchain >= 0.1.19, < 0.2",
 ]

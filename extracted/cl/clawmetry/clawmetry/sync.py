@@ -294,6 +294,36 @@ BATCH_SIZE = (
 MAX_EVENTS_PER_CYCLE = (
     5000  # cap per sync cycle so initial sync doesn't block the main loop
 )
+# How many sessions per family runtime (Claude Code / Codex / Cursor / …) to
+# ingest — the MOST-RECENT N. Default 50 keeps storage + initial-sync payload
+# bounded (a machine with 1000s of historical Claude Code sessions would
+# otherwise push a huge one-time ingest). Power users who want deeper history
+# can raise it via CLAWMETRY_FAMILY_SESSION_LIMIT. Floored at 1, never crashes
+# on a bad value.
+def _family_session_limit() -> int:
+    try:
+        return max(1, int(os.environ.get("CLAWMETRY_FAMILY_SESSION_LIMIT", "50")))
+    except (TypeError, ValueError):
+        return 50
+
+# On-demand backfill (founder 2026-06-03): the default sync is the most-recent
+# 50, but the local DuckDB can hold as much history as the user wants. When the
+# cloud UI requests older sessions (a `runtime_backfill` pending action), we
+# raise the effective per-runtime ingest depth here; the next `sync_family_runtimes`
+# pass (every 60s) honours it and uploads the deeper history. In-memory for the
+# session; a restart resets to the default-50 (re-requestable on demand).
+_RUNTIME_BACKFILL_OVERRIDES: dict = {}
+_RUNTIME_BACKFILL_MAX = 5000  # hard ceiling so a bad request can't ingest unbounded
+
+def _effective_family_limit(runtime: str) -> int:
+    """The ingest depth for one family runtime: the larger of the default cap and
+    any on-demand backfill override requested for that runtime."""
+    base = _family_session_limit()
+    try:
+        ov = int(_RUNTIME_BACKFILL_OVERRIDES.get(runtime, 0) or 0)
+    except (TypeError, ValueError):
+        ov = 0
+    return max(base, min(ov, _RUNTIME_BACKFILL_MAX))
 
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 log = logging.getLogger("clawmetry-sync")
@@ -1063,6 +1093,31 @@ def _sync_auto_update_with_plan(tier: str | None) -> None:
             )
     except Exception as exc:
         log.debug("auto-update plan sync skipped: %s", exc)
+    # Entitled NOW (e.g. a trial just started this heartbeat) → provision
+    # clawmetry-pro IMMEDIATELY rather than waiting up to ~30 min for the
+    # entitlement watcher, so the paid runtimes (Claude Code, Codex, …) start
+    # syncing within a cycle or two of the upgrade — no daemon restart needed.
+    try:
+        if tier and tier != "cloud_free":
+            from clawmetry.license import (
+                _pro_installed_version as _pv2,
+                auto_provision_pro as _app2,
+            )
+            if not _pv2():
+                _cfg2 = load_config() or {}
+                _ak2 = _cfg2.get("api_key", "")
+                if _ak2:
+                    _ok2, _ = _app2(_ak2, _cfg2.get("node_id"))
+                    if _ok2:
+                        log.info("clawmetry-pro provisioned on upgrade to %s — paid "
+                                 "runtimes will sync on the next cycle", tier)
+                        try:
+                            from clawmetry.extensions import load_plugins as _lp2
+                            _lp2()
+                        except Exception:
+                            pass
+    except Exception as _ppe:
+        log.debug("immediate pro provision on upgrade skipped: %s", _ppe)
 
 
 def _persist_cloud_plan_to_disk(plan: str | None, trial_days_left=None) -> None:
@@ -5348,6 +5403,95 @@ def _build_node_meta() -> dict:
     return meta
 
 
+_LITE_RT_LABELS = {
+    "claude_code": "Claude Code", "codex": "Codex", "cursor": "Cursor",
+    "aider": "Aider", "goose": "Goose", "opencode": "opencode",
+    "qwen_code": "Qwen Code", "hermes": "Hermes", "picoclaw": "PicoClaw",
+    "nanoclaw": "NanoClaw",
+}
+
+
+def _detect_runtimes_lite() -> list:
+    """FREE, dependency-free detection of which paid runtimes have data on this
+    machine — just enough (data path + a cheap session count) to TELL the user
+    "you're running Claude Code / Codex / …" and drive the upgrade. The actual
+    ingestion stays in clawmetry-pro; this only powers the Fleet "detected,
+    upgrade to observe" teaser so free accounts (without the pro adapters) still
+    get the nudge. Best-effort, never raises."""
+    import glob
+    home = os.path.expanduser("~")
+    out: dict = {}
+
+    def _put(rid, count):
+        n = int(count or 0)
+        if n > out.get(rid, 0):
+            out[rid] = n
+    try:
+        _put("claude_code", len(glob.glob(os.path.join(home, ".claude", "projects", "*", "*.jsonl"))))
+    except Exception:
+        pass
+    try:
+        _put("codex", len(glob.glob(os.path.join(home, ".codex", "sessions", "**", "*.jsonl"), recursive=True)))
+    except Exception:
+        pass
+    try:
+        _put("qwen_code", len(glob.glob(os.path.join(home, ".qwen", "**", "*.jsonl"), recursive=True)))
+    except Exception:
+        pass
+    # Presence-only (non-JSONL formats — count unknown) → report with 0 sessions.
+    _present = {
+        "cursor": [os.path.join(home, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb")],
+        "goose": [os.path.join(home, ".local", "share", "goose")],
+        "opencode": [os.path.join(home, ".local", "share", "opencode")],
+        "hermes": [os.path.join(home, ".hermes", "state.db")],
+        "picoclaw": [os.path.join(home, ".picoclaw")],
+        "nanoclaw": [os.path.join(home, ".nanoclaw")],
+    }
+    for rid, paths in _present.items():
+        try:
+            if rid not in out and any(os.path.exists(p) for p in paths):
+                out[rid] = 0
+        except Exception:
+            pass
+    return [{"id": rid, "label": _LITE_RT_LABELS.get(rid, rid), "sessions": n} for rid, n in out.items()]
+
+
+def _detect_runtimes_for_heartbeat() -> list:
+    """Detected runtimes to report to the cloud Fleet. Merges the authoritative
+    clawmetry-pro adapter counts (when installed) with the free lite detector,
+    preferring the higher session count per runtime. Never raises.
+
+    Only runtimes with **real sessions on disk** (sessions > 0) are reported.
+    The lite detector flags a runtime from its directory/config presence alone —
+    e.g. the Cursor *IDE* being installed makes ``~/Library/Application Support/
+    Cursor`` exist even when the Cursor *agent* was never used. Reporting such a
+    0-session runtime makes the Fleet render a "detected here / appears shortly"
+    card that never resolves (nothing to sync), which reads as a stuck phantom.
+    "Installed & running" for observability means there is actual data — so a
+    runtime with zero sessions is not shown until it produces one.
+    """
+    merged: dict = {}
+    try:
+        for r in (_detect_runtimes_lite() or []):
+            merged[r["id"]] = {"id": r["id"], "label": r["label"], "sessions": int(r.get("sessions") or 0)}
+    except Exception:
+        pass
+    try:
+        for r in (_detect_family_runtimes() or []):
+            rid = (r.get("name") or "").lower()
+            if not rid:
+                continue
+            n = int(r.get("sessionCount") or 0)
+            label = r.get("displayName") or _LITE_RT_LABELS.get(rid, rid)
+            cur = merged.get(rid)
+            if cur is None or n > cur["sessions"]:
+                merged[rid] = {"id": rid, "label": label, "sessions": n}
+    except Exception:
+        pass
+    # Drop 0-session phantoms (directory/config detected but no real data).
+    return [r for r in merged.values() if int(r.get("sessions") or 0) > 0]
+
+
 def send_heartbeat(config: dict) -> bool:
     """Send heartbeat to cloud. Returns True on success, False on failure.
 
@@ -5374,6 +5518,11 @@ def send_heartbeat(config: dict) -> bool:
         "e2e": bool(config.get("encryption_key")),
         "ollama": _detect_ollama_for_heartbeat(),
         "node_meta": _build_node_meta(),
+        # Runtimes DETECTED on this machine (Claude Code, Codex, …) — reported
+        # even when not synced, so the Fleet can show "you're running these,
+        # upgrade to observe them". Free lite-detection so the nudge reaches
+        # accounts without the clawmetry-pro adapters too.
+        "detected_runtimes": _detect_runtimes_for_heartbeat(),
     }
     # Agent-install self-report (cloud bug fix 2026-05-18). Cloud Run pods
     # can't stat the user's home directory, so the daemon tells cloud what
@@ -6072,6 +6221,7 @@ _PENDING_ACTIONS = frozenset({
     "cron_killall",
     "cron_fix",
     "dives_query",
+    "runtime_backfill",
 })
 
 
@@ -6263,6 +6413,9 @@ def _dispatch_pending_action(config: dict, action: dict) -> None:
     if atype == "selfevolve_analyze":
         _action_selfevolve_analyze(config, action)
         return
+    if atype == "runtime_backfill":
+        _action_runtime_backfill(config, action)
+        return
     if atype == "cron_create":
         _action_cron_create(config, action)
         return
@@ -6278,6 +6431,39 @@ def _dispatch_pending_action(config: dict, action: dict) -> None:
     if atype == "dives_query":
         _action_dives_query(config, action)
         return
+
+
+def _action_runtime_backfill(config: dict, action: dict) -> None:
+    """On-demand backfill: raise the ingest depth for ONE family runtime so the
+    next ``sync_family_runtimes`` pass pulls older sessions into DuckDB and
+    uploads them. Triggered by the cloud UI when the user digs into the past
+    (founder 2026-06-03: "we should be able to go back as much as the user
+    prefers but default-sync 50 recent"). Never raises.
+
+    Action shape: ``{"type": "runtime_backfill", "runtime": "claude_code",
+    "limit": 500}``. The limit is the TOTAL most-recent sessions to ingest for
+    that runtime (capped at _RUNTIME_BACKFILL_MAX); it only ever increases the
+    override, so repeated "load more" requests deepen monotonically."""
+    try:
+        runtime = str(action.get("runtime") or "").strip()
+        if not runtime:
+            return
+        try:
+            want = int(action.get("limit") or 0)
+        except (TypeError, ValueError):
+            want = 0
+        if want <= 0:
+            # No explicit target -> step the current depth up by one page.
+            want = _effective_family_limit(runtime) + max(50, _family_session_limit())
+        want = min(want, _RUNTIME_BACKFILL_MAX)
+        prev = int(_RUNTIME_BACKFILL_OVERRIDES.get(runtime, 0) or 0)
+        if want <= prev:
+            return  # already at or beyond this depth
+        _RUNTIME_BACKFILL_OVERRIDES[runtime] = want
+        log.info("runtime_backfill: %s ingest depth raised to %d (was %d); next "
+                 "sync pass will pull the older sessions", runtime, want, prev)
+    except Exception as e:
+        log.debug("runtime_backfill action skipped: %s", e)
 
 
 def _selfevolve_fix_summary(stdout: str) -> str:
@@ -8867,7 +9053,7 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
             if not adapter.detect().detected:
                 continue
             runtime = adapter.name
-            for s in adapter.list_sessions(limit=50):
+            for s in adapter.list_sessions(limit=_effective_family_limit(runtime)):
                 if runtime == "claude_code" and s.id in openclaw_spawned_claude:
                     continue  # owned by OpenClaw; avoid the double-count
                 ns_id = f"{runtime}:{s.id}"
@@ -10888,7 +11074,20 @@ def _build_tool_catalog_slice(limit: int = 5000, top: int = 60) -> dict:
         if rid is not None:
             res_idx[str(rid)] = {"ts": _ms(e.get("ts")), "error": _err(e)}
 
+    def _accum(store, name, dur, err, detail):
+        a = store.setdefault(name, {"calls": 0, "durs": [], "errs": 0, "recent": []})
+        a["calls"] += 1
+        if dur is not None:
+            a["durs"].append(dur)
+        if err:
+            a["errs"] += 1
+        a["recent"].append(detail)
+
     agg: dict = {}
+    # Per-runtime aggregation so the Tool-catalog tab can scope to the selected
+    # runtime (founder 2026-06-03: opencode/codex showed Claude Code's tools).
+    # runtime -> name -> counts; the cloud interceptor picks byRuntime[<rt>].
+    agg_rt: dict = {}
     for e in rows:
         if not _is_call(e):
             continue
@@ -10910,23 +11109,20 @@ def _build_tool_catalog_slice(limit: int = 5000, top: int = 60) -> dict:
                 if m["ts"] is not None and start is not None:
                     dur = max(0, m["ts"] - start)
                 break
-        a = agg.setdefault(name, {"calls": 0, "durs": [], "errs": 0, "recent": []})
-        a["calls"] += 1
-        if dur is not None:
-            a["durs"].append(dur)
-        if err:
-            a["errs"] += 1
         # Per-call detail for the cloud drill-down (#tool-catalog calls). The
         # OSS /api/tool-catalog/<name>/calls reads DuckDB live; the cloud
         # container has none, so the cm-cloud-tool-catalog interceptor reads
         # toolCatalog.calls[name] from the snapshot instead. Mirror its field
         # shape: {ts_ms, duration_ms, status, session_id}.
-        a["recent"].append({
+        detail = {
             "ts_ms": start,
             "duration_ms": dur,
             "status": "error" if err else "ok",
             "session_id": (e.get("session_id") or None),
-        })
+        }
+        _accum(agg, name, dur, err, detail)
+        _rt = _runtime_of_session(e.get("session_id") or "")
+        _accum(agg_rt.setdefault(_rt, {}), name, dur, err, detail)
 
     def _pct(vals, p):
         if not vals:
@@ -10951,24 +11147,39 @@ def _build_tool_catalog_slice(limit: int = 5000, top: int = 60) -> dict:
             return ("builtin", "")
         return ("plugin", "")
 
-    tools = []
-    for name, a in agg.items():
-        prov, provider = _classify(name)
-        durs = sorted(a["durs"])
-        calls = a["calls"]
-        tools.append({
-            "name": name,
-            "provenance": prov,
-            "provider": provider or None,
-            "calls": calls,
-            "p50_ms": _pct(durs, 50),
-            "p95_ms": _pct(durs, 95),
-            "error_rate": round(a["errs"] / calls, 4) if calls else 0.0,
-            "errors": a["errs"],
-        })
-        out["groups"][prov] = out["groups"].get(prov, 0) + 1
-    tools.sort(key=lambda t: (-t["calls"], -(t["p95_ms"] or 0), t["name"]))
-    out["tools"] = tools[:int(top)]
+    def _tools_from_agg(a_dict, n):
+        groups = {"builtin": 0, "mcp": 0, "plugin": 0}
+        tl = []
+        for name, a in a_dict.items():
+            prov, provider = _classify(name)
+            durs = sorted(a["durs"])
+            calls = a["calls"]
+            tl.append({
+                "name": name,
+                "provenance": prov,
+                "provider": provider or None,
+                "calls": calls,
+                "p50_ms": _pct(durs, 50),
+                "p95_ms": _pct(durs, 95),
+                "error_rate": round(a["errs"] / calls, 4) if calls else 0.0,
+                "errors": a["errs"],
+            })
+            groups[prov] = groups.get(prov, 0) + 1
+        tl.sort(key=lambda t: (-t["calls"], -(t["p95_ms"] or 0), t["name"]))
+        return tl[:int(n)], groups
+
+    out["tools"], out["groups"] = _tools_from_agg(agg, top)
+    # Per-runtime catalogs for the runtime filter. Only runtimes that actually
+    # invoked a tool appear; the cloud interceptor falls back to the aggregate
+    # for the all-runtimes view. Tiny for a single-runtime user.
+    out["byRuntime"] = {}
+    for _rt, _a in agg_rt.items():
+        _tl, _gr = _tools_from_agg(_a, top)
+        out["byRuntime"][_rt] = {
+            "tools": _tl,
+            "groups": _gr,
+            "totals": {"tool_count": len(_tl), "total_calls": sum(t["calls"] for t in _tl)},
+        }
 
     # Per-tool recent calls for the cloud drill-down — only for the tools we
     # actually ship (top N), newest first, capped per tool so a hot tool can't
@@ -10981,6 +11192,40 @@ def _build_tool_catalog_slice(limit: int = 5000, top: int = 60) -> dict:
         recent.sort(key=lambda c: c.get("ts_ms") or 0, reverse=True)
         calls_map[t["name"]] = recent[:recent_cap]
     out["calls"] = calls_map
+    return out
+
+
+def _context_econ_by_runtime(compactions, overflow_sessions, base_summary):
+    """Group context-economics compactions + overflow sessions per runtime
+    (session_id prefix) for the Context-economics runtime filter. Returns
+    ``{runtime: {compactions, overflow_sessions, summary}}``; a runtime that
+    never compacted is absent (the cloud interceptor then serves an empty
+    slice). ``peak_pct``/``utilization_points`` inherit the node-wide value —
+    utilization points are not per-session, so they aren't split."""
+    by: dict = {}
+    for c in (compactions or []):
+        rt = _runtime_of_session((c or {}).get("session_id") or "")
+        by.setdefault(rt, []).append(c)
+    base = base_summary or {}
+    out: dict = {}
+    for rt, comps in by.items():
+        ovn = sum(1 for c in comps if c.get("trigger") == "overflow")
+        rt_ovf = [s for s in (overflow_sessions or [])
+                  if _runtime_of_session(
+                      (s.get("session_id") if isinstance(s, dict) else s) or "") == rt]
+        out[rt] = {
+            "compactions": comps,
+            "overflow_sessions": rt_ovf,
+            "summary": {
+                "compaction_count": len(comps),
+                "overflow_count": ovn,
+                "proactive_count": len(comps) - ovn,
+                "total_reclaimed": sum(int(c.get("reclaimed") or 0) for c in comps),
+                "peak_pct": base.get("peak_pct", 0),
+                "overflow_sessions": len(rt_ovf),
+                "utilization_points": base.get("utilization_points", 0),
+            },
+        }
     return out
 
 
@@ -11400,6 +11645,69 @@ def _build_cron_jobs(paths):
         return result
     except Exception:
         return []
+
+
+def _build_device_summary(spending, daily_usage):
+    """Compact, all-runtime payload for a WiFi hardware companion.
+
+    Mirrors ``routes/device.py``'s ``/api/device/snapshot`` but built on the
+    daemon's OWN store handle (never a ``read_only`` re-open — FLYWHEEL §1) so
+    it rides the E2E-encrypted snapshot to cloud. The device GETs the snapshot,
+    decrypts with the user's key, and reads this one small slice — the cloud
+    never sees plaintext (E2E invariant preserved). Approve/Deny is wired (the
+    daemon owns the approvals queue); ``alert`` is sourced LAN-side for now
+    (the alert history lives in the dashboard process, not the daemon), so the
+    cloud summary leaves it ``null`` until that store is daemon-readable.
+
+    Never raises — every read degrades to a safe default so the device always
+    gets a valid shape.
+    """
+    summary = {
+        "schema": 1,
+        "cost_today_usd": round(float((spending or {}).get("today") or 0.0), 4),
+        "tokens_today": int((daily_usage or {}).get("today") or 0),
+        "active_sessions": 0,
+        "runtimes_active": [],
+        "health": "green",
+        "alert": None,
+        "approval": None,
+    }
+    try:
+        from clawmetry import local_store as _ls
+        store = _ls.get_store()
+    except Exception:
+        return summary
+    try:
+        from clawmetry import waste_flags as _wf
+        rows = store.query_sessions_table(limit=300) or []
+        active = [s for s in rows
+                  if isinstance(s, dict) and s.get("status") == "active"]
+        summary["active_sessions"] = len(active)
+        summary["runtimes_active"] = sorted({
+            (_wf.runtime_from_session_id(s.get("session_id") or "") or "openclaw")
+            for s in active
+        })
+    except Exception:
+        pass
+    try:
+        from clawmetry import waste_flags as _wf
+        ap = [r for r in (store.query_approvals(status="pending", limit=200) or [])
+              if isinstance(r, dict)]
+        if ap:
+            oldest = min(ap, key=lambda r: (r.get("created_at") or ""))
+            sid = oldest.get("requestor_session_id") or ""
+            summary["approval"] = {
+                "id": oldest.get("id"),
+                "action": oldest.get("action") or "tool call",
+                "runtime": _wf.runtime_from_session_id(sid) or "openclaw",
+                "session_id": sid,
+            }
+    except Exception:
+        pass
+    # A waiting approval is the one thing on this slice that needs a human.
+    if summary["approval"]:
+        summary["health"] = "amber"
+    return summary
 
 
 def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
@@ -11920,6 +12228,15 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
                 "overflow_sessions":  len(_ce.get("overflow_sessions") or []),
                 "utilization_points": len(_ce_util),
             }
+            # Per-runtime context-economics for the runtime filter (founder
+            # 2026-06-03: opencode/codex showed Claude Code's compactions). The
+            # cloud interceptor picks byRuntime[<rt>]; empty for a runtime that
+            # never compacted.
+            context_economics_slice["byRuntime"] = _context_econ_by_runtime(
+                context_economics_slice["compactions"],
+                context_economics_slice["overflow_sessions"],
+                context_economics_slice["summary"],
+            )
     except Exception as _e_ce:
         log.debug("snapshot: context_economics slice failed: %s", _e_ce)
 
@@ -11954,6 +12271,10 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "mcpServers": mcp_servers_slice,
         "contextEconomics": context_economics_slice,
         "spending": spending,
+        # Compact all-runtime slice a WiFi hardware companion decrypts + renders
+        # (the device GETs the snapshot, decrypts with the user's key, reads
+        # this). Cloud stays blind; E2E preserved.
+        "deviceSummary": _build_device_summary(spending, _du),
         "cronJobs": _build_cron_jobs(paths),
         "channels": _build_channel_data(config),
         "toolStats": _build_tool_stats(),

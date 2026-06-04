@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.217"]
+requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.221"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -18,12 +18,12 @@ requires-python = ">=3.12"
 dependencies = [
     "cxxheaderparser",
     "GitPython",
-    "archinfo==9.2.217",
+    "archinfo==9.2.221",
     "cachetools",
     "capstone==5.0.6",
     "cffi>=1.14.0",
-    "claripy==9.2.217",
-    "cle==9.2.217",
+    "claripy==9.2.221",
+    "cle==9.2.221",
     "lmdb==2.1.1",
     "msgspec; implementation_name == 'cpython'",
     "mulpyplexer",
@@ -33,8 +33,8 @@ dependencies = [
     "pycparser~=3.0",
     "platformdirs",
     "pydemumble",
-    "pypcode>=3.2.1,<4.0",
-    "pyvex==9.2.217",
+    "pypcode~=4.0",
+    "pyvex==9.2.221",
     "rich>=13.1.0",
     "rust-demangler==1.0",
     "sortedcontainers",
@@ -67,6 +67,7 @@ angr-mcp = "angr.mcp.__main__:main"
 dev = [
     "coverage>=7.10.7",
     "gcovr>=8.4",
+    "pylint>=4.0.5",
     "pyright>=1.1.408",
     "pytest>=8.3.5",
     "pytest-cov>=7.0.0",
@@ -123,7 +124,7 @@ extend-select = [
     "B",
     "C4",
     "FURB",
-    "I002",
+    "I",
     "PIE",
     "RET",
     "RSE",
@@ -134,7 +135,6 @@ extend-select = [
 ]
 ignore = [
     "B011",   # Asserts
-    "E402",   # Bottom imports
     "E741",   # Variable names
     "RUF012", # FIXME: Annotate class variables
     "RUF007", # Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs
@@ -143,6 +143,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"angr/__init__.py" = [
+    "E402", # Package root: bootstrap code is interleaved with imports and the import order is load-bearing
+]
 "angr/misc/bug_report.py" = [
     "F821", # name not found
 ]
@@ -157,6 +160,26 @@ ignore = [
 
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
+
+[tool.pylint.main]
+load-plugins = ["pylint.extensions.no_self_use", "pylint.extensions.bad_builtin"]
+
+[tool.pylint."messages control"]
+disable = [
+    # Categories
+    "design",
+    "format",  # Ruff handles formatting
+
+    # Individual rules
+    "abstract-method",
+    "fixme",
+    "invalid-name",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "unidiomatic-typecheck",
+    "arguments-differ",
+    "signature-differs",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

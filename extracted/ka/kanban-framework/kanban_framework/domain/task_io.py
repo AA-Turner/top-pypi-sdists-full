@@ -39,7 +39,7 @@ def read_task_file(fs, path: Path) -> Task:
         phase=Phase(data["phase"]) if data.get("phase") else Phase.PLAN,
         iteration=data.get("iteration", 1),
         lightweight=data.get("lightweight", False),
-        mode=data.get("mode", "full"),
+        mode=data.get("mode", "lightweight"),
         control_mode=control_mode,
         custom_fsm=data.get("custom_fsm"),
         history=data.get("history", []),

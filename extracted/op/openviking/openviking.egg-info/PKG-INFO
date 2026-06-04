@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.22
+Version: 0.3.23
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -83,6 +83,8 @@ Requires-Dist: datasets>=2.0.0; extra == "test"
 Requires-Dist: pandas>=2.0.0; extra == "test"
 Requires-Dist: diff-match-patch>=20200713; extra == "test"
 Requires-Dist: hvac>=2.0.0; extra == "test"
+Provides-Extra: opengauss
+Requires-Dist: psycopg2-binary>=2.9; extra == "opengauss"
 Provides-Extra: dev
 Requires-Dist: mypy>=1.0.0; extra == "dev"
 Requires-Dist: ruff>=0.1.0; extra == "dev"
@@ -502,7 +504,7 @@ If you prefer manual configuration, create `~/.openviking/ov.conf`, remove the c
     "api_key"  : "<your-api-key>",     // Model service API Key (optional for openai-codex)
     "provider" : "<provider-type>",    // Provider type (volcengine, openai, openai-codex, kimi, glm, etc.)
     "model"    : "<model-name>",       // VLM model name (e.g., doubao-seed-2-0-pro-260215 or gpt-4-vision-preview)
-    "max_concurrent": 100              // Max concurrent LLM calls for semantic processing (default: 100)
+    "max_concurrent": 64              // Max concurrent LLM calls for semantic processing (default: 64)
   }
 }
 ```
@@ -540,7 +542,7 @@ If you prefer manual configuration, create `~/.openviking/ov.conf`, remove the c
     "api_key"  : "your-volcengine-api-key",
     "provider" : "volcengine",
     "model"    : "doubao-seed-2-0-pro-260215",
-    "max_concurrent": 100
+    "max_concurrent": 64
   }
 }
 ```
@@ -574,7 +576,7 @@ If you prefer manual configuration, create `~/.openviking/ov.conf`, remove the c
     "api_key"  : "your-openai-api-key",
     "provider" : "openai",
     "model"    : "gpt-4-vision-preview",
-    "max_concurrent": 100
+    "max_concurrent": 64
   }
 }
 ```
@@ -609,7 +611,7 @@ pip install "google-genai>=1.0.0"
     "api_key"  : "your-openai-api-key",
     "provider" : "openai",
     "model"    : "gpt-4o",
-    "max_concurrent": 100
+    "max_concurrent": 64
   }
 }
 ```
@@ -641,7 +643,7 @@ Use `openviking-server init` and choose `OpenAI Codex`, then run `openviking-ser
     "api_base" : "https://chatgpt.com/backend-api/codex",
     "provider" : "openai-codex",
     "model"    : "gpt-5.3-codex",
-    "max_concurrent": 100
+    "max_concurrent": 64
   }
 }
 ```
@@ -674,7 +676,7 @@ set "OPENVIKING_CONFIG_FILE=%USERPROFILE%\.openviking\ov.conf"
 
 #### CLI/Client Configuration Examples
 
-You can initialize the configuration of the CLI/client interactively through the `ov config setup-cli` command. If you have multiple openviking servers, you can also switch to other configurations using the `ov config switch` command.
+You can initialize the configuration of the CLI/client interactively through the `ov config` command. If you have multiple openviking servers, you can also switch to other configurations using the `ov config switch` command.
 
 👇 Expand to see the configuration example for your CLI/Client:
 <details>

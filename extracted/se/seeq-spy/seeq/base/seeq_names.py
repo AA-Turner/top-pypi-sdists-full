@@ -7,9 +7,19 @@
 
 class SeeqNames:
     class DataLab:
+        class Management:
+            class Parameters:
+                action = 'action'
+                project_id = 'projectUuid'
+            
+            class Actions:
+                delete_project_folder = 'DELETE_PROJECT_FOLDER'
+            
+        
         class Endpoints:
             consumption = '/data-lab-consumption'
             job = '/data-lab-job'
+            management_internal = '/data-lab-management-internal'
         
     
     class SystemFolderIdentifiers:
@@ -27,6 +37,7 @@ class SeeqNames:
         operationalize_statistics = 'OPERATIONALIZE_STATISTICS_TOOL_MODEL'
         control_loop_performance_monitoring = 'CONTROL_LOOP_PERFORMANCE_MONITORING_MODEL'
         heat_exchanger_performance_monitoring = 'HEAT_EXCHANGER_PERFORMANCE_MONITORING_MODEL'
+        stat_boundary = 'STAT_BOUNDARY_INDUSTRY_TEMPLATE'
     
     class ModelNames:
         principal_component_analysis = 'Principal Component Analysis'
@@ -37,6 +48,7 @@ class SeeqNames:
         operationalize_statistics = 'Operationalize Statistics'
         control_loop_performance_monitoring = 'Control Loop Performance Monitoring (CLPM)'
         heat_exchanger_performance_monitoring = 'Heat Exchanger Performance Monitoring (HEPM)'
+        stat_boundary = 'Detect Process Change with Historical Comparison'
     
     class AnalysisViewType:
         trend = 'trend'
@@ -87,6 +99,9 @@ class SeeqNames:
         impact_site = 'Impact Site'
         manager = 'Manager'
         impact_lessons_learned = 'Lesson Learned'
+        review_comment = 'Review Comment'
+        review_date = 'Review Date'
+        reviewed_by = 'Reviewed By'
         impact_formula_param = 'Formula Param'
         impact_based_on = 'Based on'
         location = 'Location'
@@ -708,6 +723,7 @@ class SeeqNames:
         agents = 'Agents'
         custom_agents = 'CustomAgents'
         applications = 'Applications'
+        approval_flows = 'ApprovalFlows'
         audit = 'Audit'
         auth = 'Auth'
         assets = 'Assets'
@@ -795,6 +811,7 @@ class SeeqNames:
         agents = '/agents'
         custom_agents = '/custom-agents'
         applications = '/applications'
+        approval_flows = '/approval-flows'
         audit = '/audit'
         auth = '/auth'
         assets = '/assets'

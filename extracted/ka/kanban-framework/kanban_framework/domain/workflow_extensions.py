@@ -16,7 +16,7 @@ class WorkflowExtension:
     """Parse and apply workflow.json extensions to produce customised
     phase order and step definitions."""
 
-    _DEFAULT_MODES = ["full"]
+    _DEFAULT_MODES = ["lightweight"]
 
     def __init__(self, workflow: dict):
         self._extensions = workflow.get("extensions", {})
@@ -31,7 +31,7 @@ class WorkflowExtension:
 
     # ── Phase order ─────────────────────────────────────────────────────
 
-    def build_phase_order(self, base_order: list[str], mode: str = "full") -> list[str]:
+    def build_phase_order(self, base_order: list[str], mode: str = "lightweight") -> list[str]:
         """Return *base_order* with add_phases inserted and remove_phases removed.
         Only applies if *mode* is in the extensions' modes list.
         """
@@ -54,7 +54,7 @@ class WorkflowExtension:
     # ── Step map ─────────────────────────────────────────────────────────
 
     def build_step_map(
-        self, base_steps: dict[str, list[StepDef]], mode: str = "full"
+        self, base_steps: dict[str, list[StepDef]], mode: str = "lightweight"
     ) -> dict[str, list[StepDef]]:
         """Return *base_steps* with add_steps injected and remove_steps filtered.
         Only applies if *mode* is in the extensions' modes list.

@@ -7,6 +7,7 @@ from abstra_internals.contracts_generated import (
     CloudApiCliModelsInvoiceResponse,
     CloudApiCliModelsNfeResponse,
     CloudApiCliModelsNfseResponse,
+    CloudApiCliModelsOficiosResponse,
     CloudApiCliModelsUsDriverLicenseResponse,
     CloudApiCliModelsUsPassportResponse,
 )
@@ -288,6 +289,46 @@ def parse_boleto(document_path: Union["Path", str]) -> CloudApiCliModelsBoletoRe
         document_path, "boleto"
     )
     return CloudApiCliModelsBoletoResponse.from_dict(data)
+
+
+def parse_oficios(
+    document_path: Union["Path", str],
+) -> CloudApiCliModelsOficiosResponse:
+    """
+    Parse a Brazilian ofício or judicial decision (e.g. data/asset requests sent by
+    police and courts to financial institutions, including SISBAJUD) using AI-powered OCR.
+
+    Extracts structured fields including:
+    - numero_oficio: Document number/identifier
+    - data_emissao: Issue date (as written in the document)
+    - municipio: Issuing city/state
+    - orgao_emissor: Issuing authority (police division, court department)
+    - numero_processo: Case number (CNJ format)
+    - numero_referencia: Internal reference (Inquérito Policial, B.O., HP)
+    - assunto: Subject/purpose
+    - dados_solicitados: What data/documents are being requested (e.g. dados cadastrais, contrato, extrato, fotos)
+    - periodo_solicitado: Date range of the requested data, when specified (e.g. sigilo/extrato requests)
+    - destinatario: Recipient institution or person
+    - prazo_resposta: Response deadline as written (e.g. "24 horas")
+    - sigiloso: True when the document states the request is confidential / the account holder must not be notified
+    - signatario/cargo_signatario/matricula_signatario: Signer name, role and registration
+    - email_resposta: List of emails for sending the response
+    - juiz/vara/comarca: Judge, court and district (judicial decisions only)
+    - titulares: List of investigated/requested parties, each with nome and cpf_cnpj
+
+    Args:
+        document_path (Union[Path, str]): The path to the ofício document to be parsed.
+
+    Returns:
+        dict: The parsed ofício data.
+
+    Raises:
+        ValueError: If document path is invalid or parsing fails.
+    """
+    data = SDKContextStore.get_by_thread().ai_sdk.parse_document(
+        document_path, "oficios"
+    )
+    return CloudApiCliModelsOficiosResponse.from_dict(data)
 
 
 def parse_us_driver_license(

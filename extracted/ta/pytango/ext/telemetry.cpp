@@ -7,7 +7,11 @@
 #include "common_header.h"
 #include "convertors/type_casters.h"
 
-#if defined(TANGO_USE_TELEMETRY)
+#ifndef _WIN32
+  #include <unistd.h>
+#endif
+
+#if defined(PYTANGO_USE_TELEMETRY)
 // I.e., cppTango is compiled with telemetry support.
 
   #include <opentelemetry/sdk/common/global_log_handler.h>
@@ -35,11 +39,71 @@ void set_log_level(std::string level_str) {
 
 Tango::telemetry::InterfacePtr telemetry_interface{nullptr};
 bool shutdown{false};
+  #ifndef _WIN32
+pid_t initial_process_pid{getpid()};
+pid_t telemetry_interface_pid{0};
+  #endif
+
+py::dict make_telemetry_enum_members() {
+    py::dict exporter_members;
+    exporter_members["GRPC"] = static_cast<int>(Tango::telemetry::Configuration::Exporter::grpc);
+    exporter_members["HTTP"] = static_cast<int>(Tango::telemetry::Configuration::Exporter::http);
+    exporter_members["CONSOLE"] = static_cast<int>(Tango::telemetry::Configuration::Exporter::console);
+
+    py::dict type_members;
+    type_members["TRACING"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryType::tracing);
+    type_members["LOGGING"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryType::logging);
+    type_members["NONE"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryType::none);
+
+    py::dict topic_members;
+    topic_members["DATABASE"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryTopic::database);
+    topic_members["EVENTS"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryTopic::events);
+    topic_members["POLLING"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryTopic::polling);
+    topic_members["USER"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryTopic::user);
+    topic_members["ALL"] = static_cast<int>(Tango::telemetry::Configuration::TelemetryTopic::all);
+
+    py::dict enum_members;
+    enum_members["TelemetryExporter"] = exporter_members;
+    enum_members["TelemetryType"] = type_members;
+    enum_members["TelemetryTopic"] = topic_members;
+    return enum_members;
+}
+
+Tango::telemetry::Configuration::CollectorSet
+    filter_fork_safe_collectors(Tango::telemetry::Configuration::CollectorSet collectors) {
+    using Exporter = Tango::telemetry::Configuration::Exporter;
+
+    Tango::telemetry::Configuration::CollectorSet filtered;
+    filtered.reserve(collectors.size());
+    for(auto &collector : collectors) {
+        if(collector.exporter_type == Exporter::http || collector.exporter_type == Exporter::grpc) {
+            continue;
+        }
+        filtered.push_back(std::move(collector));
+    }
+    return filtered;
+}
 
 void ensure_default_telemetry_interface_initialized() {
     if(shutdown) {
         return;
     }
+
+  #ifndef _WIN32
+    Tango::telemetry::InterfacePtr inherited_helper_interface;
+    auto current_pid = getpid();
+    auto in_forked_child = current_pid != initial_process_pid;
+    bool rebuilt_helper_in_fork_child{false};
+
+    if(telemetry_interface != nullptr && telemetry_interface_pid != current_pid) {
+        // Rebuild the inherited helper interface in the forked child so we can
+        // keep context propagation while avoiding fork-unsafe exporters.
+        inherited_helper_interface = telemetry_interface;
+        telemetry_interface = nullptr;
+        telemetry_interface_pid = 0;
+        rebuilt_helper_in_fork_child = true;
+    }
+  #endif
 
     if(!telemetry_interface) {
         std::string client_name;
@@ -49,16 +113,41 @@ void ensure_default_telemetry_interface_initialized() {
         std::string name_space{"tango"};
         auto details = Tango::telemetry::Configuration::Client{client_name};
         Tango::telemetry::Configuration cfg{client_name, name_space, details};
+        if(cfg.enabled && !cfg.tracing_enabled) {
+            // Keep the client interface propagation-capable even when the environment
+            // disables tracing. Use no tracing collectors so no cppTango client spans
+            // are exported from this helper interface.
+            cfg.tracing_enabled = true;
+            cfg.set_tracing_collectors(Tango::telemetry::Configuration::CollectorSet{});
+        }
+
+  #ifndef _WIN32
+        if(in_forked_child) {
+            // Some network-backed exporters are not safe to initialize in a
+            // post-fork child on macOS. Keep only console collectors so the
+            // helper interface remains usable for context propagation.
+            cfg.set_tracing_collectors(filter_fork_safe_collectors(cfg.get_tracing_collectors()));
+            cfg.set_logging_collectors(filter_fork_safe_collectors(cfg.get_logging_collectors()));
+        }
+        telemetry_interface_pid = current_pid;
+  #endif
+
         telemetry_interface = Tango::telemetry::InterfaceFactory::create(cfg);
     }
     // else: we already made our custom interface singleton.
 
-    auto span = Tango::telemetry::Interface::get_current();
-    if(span->is_default()) {
-        // Make our client interface active (applies to current thread only, as cppTango uses a thread_local variable)
+    if(Tango::telemetry::current_telemetry_interface == nullptr
+  #ifndef _WIN32
+       || (rebuilt_helper_in_fork_child && Tango::telemetry::current_telemetry_interface == inherited_helper_interface)
+  #endif
+    ) {
+        // Make our client interface active for the current thread without
+        // forcing cppTango to lazily construct its default telemetry
+        // interface, which may initialize fork-unsafe exporters.
         Tango::telemetry::Interface::set_current(telemetry_interface);
     }
-    // else: a non-default interface is either from a device, or we already set our client interface for this thread.
+    // else: an existing interface is either from a device, or we already set
+    // our client interface for this thread.
 }
 
 void cleanup_default_telemetry_interface() {
@@ -67,6 +156,9 @@ void cleanup_default_telemetry_interface() {
     // https endpoint.  We need to flush any outstanding traces before shutting down
     shutdown = true;
     telemetry_interface = nullptr;
+  #ifndef _WIN32
+    telemetry_interface_pid = 0;
+  #endif
 }
 
 /*
@@ -105,30 +197,64 @@ py::dict get_trace_context() {
  * For details of the W3C format see: https://www.w3.org/TR/trace-context/
  */
 class TraceContextScope {
-    Tango::telemetry::ScopePtr scope;
+    Tango::telemetry::ScopePtr incoming_scope;
+    Tango::telemetry::ScopePtr span_scope;
     const std::string new_span_name;
     std::string trace_parent;
     std::string trace_state;
+    std::string topic;
 
   public:
     TraceContextScope(const std::string &new_span_name_,
                       const std::string &trace_parent_,
-                      const std::string &trace_state_) :
+                      const std::string &trace_state_,
+                      const std::string &topic_) :
         new_span_name{new_span_name_},
         trace_parent{trace_parent_},
-        trace_state{trace_state_} {
-    }
+        trace_state{trace_state_},
+        topic{topic_} { }
 
     void acquire() {
-        if(scope == nullptr && !shutdown) {
+        if(span_scope == nullptr && !shutdown) {
             ensure_default_telemetry_interface_initialized();
-            scope = Tango::telemetry::Interface::set_trace_context(
+            Tango::telemetry::Attributes span_attrs;
+            if(!topic.empty()) {
+                span_attrs["tango.telemetry.topic"] = topic;
+            }
+            // clang-format off
+  #if TANGO_VERSION >= TANGO_MAKE_VERSION(99, 0, 0) // TODO: update when cpptango version is known, likely (10, 4, 0)
+                                                    // See https://gitlab.com/tango-controls/cppTango/-/work_items/1645
+            // clang-format on
+            incoming_scope = Tango::telemetry::Interface::activate_trace_context(trace_parent, trace_state);
+            if(incoming_scope != nullptr &&
+               Tango::telemetry::Interface::get_current()->get_configuration().accept_all_spans()) {
+                // In "all" mode we keep the cppTango bridge span so RPC/kernel spans
+                // remain visible. For narrower topic filters, only activate the
+                // incoming context and let downstream code attach directly to it.
+                auto span = Tango::telemetry::Interface::get_current()->start_span(
+                    new_span_name, span_attrs, Tango::telemetry::Span::Kind::kClient);
+                span_scope = std::make_unique<Tango::telemetry::Scope>(span);
+            }
+  #else
+            // Older cppTango does not expose a context-only activation helper, so
+            // fall back to the legacy helper that activates the incoming context
+            // and creates the cppTango client span in one step.
+            span_scope = Tango::telemetry::Interface::set_trace_context(
                 new_span_name, trace_parent, trace_state, Tango::telemetry::Span::Kind::kClient);
+
+            if(!topic.empty()) {
+                auto current_span = Tango::telemetry::Interface::get_current()->get_current_span();
+                if(current_span != nullptr) {
+                    current_span->set_attribute("tango.telemetry.topic", topic);
+                }
+            }
+  #endif
         }
     }
 
     void release() {
-        scope = nullptr;
+        span_scope = nullptr;
+        incoming_scope = nullptr;
     }
 
     ~TraceContextScope() {
@@ -140,8 +266,7 @@ class TraceContextScope {
 // cppTango is *not* compiled with telemetry support.
 // We use no-op handlers, so the Python code can run without errors but does nothing.
 
-void no_op_cleanup() {
-}
+void no_op_cleanup() { }
 
 void no_op_set_log_level([[maybe_unused]] std::string level_str) { }
 
@@ -156,8 +281,8 @@ class NoOpTraceContextScope {
   public:
     NoOpTraceContextScope([[maybe_unused]] const std::string &new_span_name_,
                           [[maybe_unused]] const std::string &trace_parent_,
-                          [[maybe_unused]] const std::string &trace_state_) {
-    }
+                          [[maybe_unused]] const std::string &trace_state_,
+                          [[maybe_unused]] const std::string &topic_) { }
 
     void acquire() { }
 
@@ -171,7 +296,8 @@ class NoOpTraceContextScope {
 void export_telemetry_helpers(py::module_ &m) {
     py::module telemetry_module = m.def_submodule("_telemetry");
 
-#if defined(TANGO_USE_TELEMETRY)
+#if defined(PYTANGO_USE_TELEMETRY)
+    telemetry_module.attr("_ENUM_MEMBERS") = make_telemetry_enum_members();
     telemetry_module.attr("TELEMETRY_ENABLED") = true;
     telemetry_module.def("get_trace_context", &get_trace_context);
     telemetry_module.def("cleanup_default_telemetry_interface", &cleanup_default_telemetry_interface);
@@ -190,23 +316,27 @@ void export_telemetry_helpers(py::module_ &m) {
 
             trace_parent and trace_state strings encoded as per the W3C standard: https://www.w3.org/TR/trace-context/
 
-            with tango._telemetry.TraceContextScope(new_span_name, trace_parent, trace_state):
+            with tango._telemetry.TraceContextScope(new_span_name, trace_parent, trace_state, "user"):
                 x = proxy.read_attribute("foo")
 
             This is a no-op if telemetry support isn't compiled into cppTango (check tango.constants.TANGO_USE_TELEMETRY)
 
-            .. versionadded:: 10.0.0)doc")
-        .def(py::init<const std::string &, const std::string &, const std::string &>())
+            .. versionadded:: 10.0.0
+            .. versionchanged:: 10.3.0
+                Added the topic parameter.
+        )doc")
+        .def(py::init<const std::string &, const std::string &, const std::string &, const std::string &>())
         .def("_acquire", &TraceContextScope::acquire)
         .def("_release", &TraceContextScope::release);
 #else
+    telemetry_module.attr("_ENUM_MEMBERS") = py::dict();
     telemetry_module.attr("TELEMETRY_ENABLED") = false;
     telemetry_module.def("get_trace_context", &no_op_get_trace_context);
     telemetry_module.def("cleanup_default_telemetry_interface", &no_op_cleanup);
     telemetry_module.def("set_log_level", &no_op_set_log_level);
 
     py::class_<NoOpTraceContextScope>(telemetry_module, "TraceContextScope")
-        .def(py::init<const std::string &, const std::string &, const std::string &>())
+        .def(py::init<const std::string &, const std::string &, const std::string &, const std::string &>())
         .def("_acquire", &NoOpTraceContextScope::acquire)
         .def("_release", &NoOpTraceContextScope::release);
 #endif

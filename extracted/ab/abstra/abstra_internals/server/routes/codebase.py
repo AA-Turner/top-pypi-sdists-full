@@ -1,5 +1,7 @@
 import json
 import os
+from pathlib import Path
+from typing import Optional
 
 import flask
 import flask_sock
@@ -119,8 +121,45 @@ def get_editor_bp(repos: Repositories):
     def _get_file(path):
         return controller.get_file(path)
 
+    def _check_unmodified_since(path: str) -> Optional[flask.Response]:
+        header_value = flask.request.headers.get("X-Expected-Mtime")
+        if not header_value:
+            return None
+        try:
+            expected_mtime = float(header_value)
+        except ValueError:
+            return flask.make_response(
+                {"error": "Invalid X-Expected-Mtime header"}, 400
+            )
+
+        target = Path(path)
+        if not target.is_absolute():
+            target = Settings.root_path / target
+        resolved = target.resolve()
+        if not resolved.is_relative_to(Settings.root_path.resolve()):
+            return flask.make_response({"error": "Path is outside project root"}, 400)
+        try:
+            current_mtime = resolved.stat().st_mtime
+        except OSError:
+            return None
+
+        if current_mtime > expected_mtime:
+            return flask.make_response(
+                {
+                    "error": "stale_file",
+                    "currentMtime": current_mtime,
+                    "expectedMtime": expected_mtime,
+                },
+                412,
+            )
+        return None
+
     @bp.put("/files/<path:path>")
     def _edit_file(path):
+        stale = _check_unmodified_since(path)
+        if stale is not None:
+            return stale
+
         json = flask.request.json
         if json is None:
             flask.abort(400)
@@ -132,6 +171,10 @@ def get_editor_bp(repos: Repositories):
     def _create_file(path):
         content = flask.request.get_data()
         overwrite = flask.request.args.get("overwrite", "false").lower() == "true"
+        if overwrite:
+            stale = _check_unmodified_since(path)
+            if stale is not None:
+                return stale
         try:
             return controller.create_file(path, content, overwrite).to_dict()
         except FileExistsError as e:

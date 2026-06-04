@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import time
-import numpy as np
 from functools import wraps
+
+import numpy as np
 
 try:
     import numpy.typing as npt
@@ -12,25 +13,24 @@ except ImportError:
 import pytest
 
 from tango import (
+    CommandInfoList,
     DevFailed,
+    DevLong64,
     DevState,
+    DevVarDoubleArray,
+    DevVoid,
+    DispLevel,
     GreenMode,
     PyTangoUserWarning,  # noqa
-    DispLevel,
-    DevVarDoubleArray,
-    DevLong64,
-    DevVoid,
-    CommandInfoList,
 )
-from tango.server import Device
-from tango.server import command
 from tango.pyutil import TimedCmdData
-from tango.test_utils import DeviceTestContext
+from tango.server import Device, command
 from tango.test_utils import (
+    DeviceTestContext,
     assert_close,
-    general_decorator,
-    general_asyncio_decorator,
     convert_dtype_to_typing_hint,
+    general_asyncio_decorator,
+    general_decorator,
 )
 
 
@@ -156,14 +156,10 @@ def test_static_commands_with_typing(command_typed_values):
             assert_close(proxy.command_with_decorator_after(value), expected(value))
             assert_close(proxy.command_list_hint(value), expected(value))
             assert_close(proxy.command_user_type_has_priority(value), expected(value))
-            assert_close(
-                proxy.command_in_type_dtype_out_type_hint(value), expected(value)
-            )
+            assert_close(proxy.command_in_type_dtype_out_type_hint(value), expected(value))
             proxy.command_only_in_type_hint(value)
             assert_close(proxy.command_only_out_type_hint(), expected(value))
-            assert_close(
-                proxy.command_arg_list_in_only_out_type_hint(), expected(value)
-            )
+            assert_close(proxy.command_arg_list_in_only_out_type_hint(), expected(value))
             proxy.reset()
 
 
@@ -193,8 +189,8 @@ def test_command_self_typed_with_not_defined_name():
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.add_dyn_cmd()
-        assert 1 == proxy.identity(1)
-        assert 1 == proxy.dynamic_identity(1)
+        assert proxy.identity(1) == 1
+        assert proxy.dynamic_identity(1) == 1
 
 
 def test_decorated_command(server_green_mode):
@@ -301,9 +297,7 @@ def test_command_isallowed(server_green_mode):
             async def identity_kwarg_callable(self, arg):
                 return arg
 
-            @command(
-                dtype_in=int, dtype_out=int, fisallowed=async_is_allowed_callable_class
-            )
+            @command(dtype_in=int, dtype_out=int, fisallowed=async_is_allowed_callable_class)
             async def identity_kwarg_callable_class(self, arg):
                 return arg
 
@@ -461,11 +455,7 @@ def test_dynamic_command(device_command_level, server_green_mode):
                 f=self.identity_kwarg_callable_outside_class,
                 dtype_in=int,
                 dtype_out=int,
-                fisallowed=(
-                    sync_allowed
-                    if server_green_mode != GreenMode.Asyncio
-                    else async_allowed
-                ),
+                fisallowed=(sync_allowed if server_green_mode != GreenMode.Asyncio else async_allowed),
             )
             self.add_command(cmd, device_command_level)
 
@@ -644,9 +634,7 @@ def test_identity_dynamic_command_with_typing(command_typed_values):
             cmd = command(f=self.command_list_hint)
             self.add_command(cmd)
 
-            cmd = command(
-                f=self.command_user_type_has_priority, dtype_in=dtype, dtype_out=dtype
-            )
+            cmd = command(f=self.command_user_type_has_priority, dtype_in=dtype, dtype_out=dtype)
             self.add_command(cmd)
 
             cmd = command(f=self.command_args_list_tuple_hint)
@@ -664,7 +652,7 @@ def test_identity_dynamic_command_with_typing(command_typed_values):
 if npt:
 
     def test_identity_commands_with_numpy_typing(command_numpy_typed_values):
-        type_hint, dformat, value, expected = command_numpy_typed_values
+        type_hint, _, value, expected = command_numpy_typed_values
         if type_hint == np.uint8:
             pytest.xfail("Does not work for some reason")
 
@@ -691,7 +679,6 @@ def test_polled_command():
     dct = {"Polling1": 100, "Polling2": 100000, "Polling3": 500}
 
     class TestDevice(Device):
-
         @command(polling_period=dct["Polling1"])
         def Polling1(self):
             pass
@@ -716,7 +703,6 @@ def test_polled_command():
 
 def test_wrong_command_result():
     class TestDevice(Device):
-
         @command(dtype_out=str)
         def cmd_str_err(self):
             return 1.2345
@@ -740,7 +726,6 @@ def test_wrong_command_result():
 
 def test_command_info():
     class TestDevice(Device):
-
         @command(
             doc_in="identity_scalar doc_in",
             doc_out="identity_scalar doc_out",
@@ -789,7 +774,6 @@ def test_docstring_parsing():
     pytest.importorskip("docstring_parser")
 
     class TestDevice(Device):
-
         @command
         def rest_docstring(self, val_in: int) -> int:
             """
@@ -806,7 +790,6 @@ def test_docstring_parsing():
             :param val_in: The input integer value.
             :type val_in: int
             """
-            pass
 
         @command
         def rest_docstring_only_out(self) -> int:
@@ -814,7 +797,6 @@ def test_docstring_parsing():
             :return: An integer result after processing.
             :rtype: int
             """
-            pass
 
         @command
         def rest_docstring_args_list_only_out(self, *args) -> int:
@@ -822,7 +804,6 @@ def test_docstring_parsing():
             :return: An integer result after processing.
             :rtype: int
             """
-            pass
 
         @command
         def google_docstring(self, val_in: int) -> int:
@@ -892,7 +873,6 @@ def test_docstring_parsing():
         def no_docstring_no_in_no_out(self): ...
 
     with DeviceTestContext(TestDevice) as proxy:
-
         expected_int_in_desc = "val_in (int): The input integer value."
         expected_int_out_desc = "returns (int): An integer result after processing."
         expected_void_in_desc = "No input parameter (DevVoid)"
@@ -917,9 +897,7 @@ def test_docstring_parsing():
         assert cfg.in_type_desc == expected_void_in_desc
         assert cfg.out_type_desc == expected_int_out_desc
 
-        expected_int_in_desc = (
-            ":param val_in: (not documented)\n" ":type val_in: DevLong64"
-        )
+        expected_int_in_desc = ":param val_in: (not documented)\n:type val_in: DevLong64"
         expected_int_out_desc = ":return: (not documented)\n:rtype: DevLong64"
 
         cfg = proxy.get_command_config("no_docstring")
@@ -949,7 +927,6 @@ def test_fill_cmd_polling_buffer(command_typed_values):
     start_time = time.time()
 
     class TestDevice(Device):
-
         @command(dtype_out=dtype)
         def cmd(self):
             return values[0]
@@ -992,7 +969,6 @@ def test_decorated_void_command():
         return wrapper
 
     class TestDevice(Device):
-
         @command(dtype_in=None, dtype_out=None)
         @mutate_command
         def none_as_void_cmd(self, arg: str) -> str:

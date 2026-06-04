@@ -8,9 +8,7 @@ transition_function = {
     ("init", " "): ("final", " ", "N"),
 }
 
-t = TuringMachine(
-    "010011 ", final_states=["final"], transition_function=transition_function
-)
+t = TuringMachine("010011 ", final_states=["final"], transition_function=transition_function)
 
 print("Input on Tape:")
 print(t.get_tape_str())

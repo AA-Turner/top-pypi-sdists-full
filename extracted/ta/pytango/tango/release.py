@@ -9,13 +9,15 @@ __all__ = ("Release",)
 
 __docformat__ = "restructuredtext"
 
+from typing import ClassVar
+
 
 class Release:
     """Summarize release information as class attributes.
 
     Release information:
         - name: (str) package name
-        - version_info: (tuple<int,int,int,str,int>) The five components
+        - version_info: (tuple[int,int,int,str,int]) The five components
           of the version number: major, minor, micro, releaselevel, and
           serial.
         - version: (str) package version in format <major>.<minor>.<micro>
@@ -28,17 +30,17 @@ class Release:
         - version_number: (int) <major>*100 + <minor>*10 + <micro>
         - description : (str) package description
         - long_description: (str) longer package description
-        - authors: (dict<str(last name), tuple<str(full name),str(email)>>)
+        - authors: (dict[str(last name), tuple[str(full name),str(email)]])
           package authors
         - url: (str) package url
         - download_url: (str) package download url
-        - platform: (seq<str>) list of available platforms
-        - keywords: (seq<str>) list of keywords
+        - platform: (list[str]) list of available platforms
+        - keywords: (list[str]) list of keywords
         - license: (str) the license
     """
 
     name = "pytango"
-    version_info = (10, 1, 4)
+    version_info = (10, 3, 0)
     version = ".".join(map(str, version_info[:3]))
     release = "".join(map(str, version_info[3:]))
     separator = "." if "dev" in release or "post" in release else ""
@@ -49,9 +51,9 @@ class Release:
     description = "A python binding for the Tango control system"
     long_description = "This module implements the Python Tango Device API mapping."
     license = "LGPL"
-    authors = {"Coutinho": ("Tiago Coutinho", "coutinho@esrf.fr")}
+    authors: ClassVar[dict[str, tuple[str, str]]] = {"Coutinho": ("Tiago Coutinho", "coutinho@esrf.fr")}
     author_lines = "\n".join([f"{x[0]} <{x[1]}>" for x in authors.values()])
     url = "http://gitlab.com/tango-controls/pytango"
     download_url = "http://pypi.python.org/pypi/pytango"
-    platform = ["Linux", "Windows", "macOS"]
-    keywords = ["Tango", "CORBA", "binding"]
+    platform: ClassVar[list[str]] = ["Linux", "Windows", "macOS"]
+    keywords: ClassVar[list[str]] = ["Tango", "CORBA", "binding"]

@@ -245,8 +245,8 @@ postgresql = [
 
 snowflake = [
     "cryptography<47",
-    "snowflake-connector-python>=3.12.4, <4",
-    "snowflake-sqlalchemy>=1.5.0,<1.7",
+    "snowflake-connector-python>=3.12.4,<5",
+    "snowflake-sqlalchemy>=1.5.0,<1.11",
     # And the sql dependencies
     # [[[cog
     # import pathlib, tomli
@@ -487,8 +487,8 @@ all = [
     "python-json-logger>=3.0.0,<4.0.0",
     "redshift_connector>=2.0.909,<2.2",
     "s3fs>=2024.2.0",
-    "snowflake-connector-python>=3.12.4, <4",
-    "snowflake-sqlalchemy>=1.5.0,<1.7",
+    "snowflake-connector-python>=3.12.4,<5",
+    "snowflake-sqlalchemy>=1.5.0,<1.11",
     "sqlalchemy-bigquery>=1.5.0,<1.12",
     "sqlalchemy-spanner<1.12.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",

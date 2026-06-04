@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex
-Version: 0.9.3
+Version: 0.9.4
 Summary: Web apps in pure Python.
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
@@ -22,13 +22,13 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.10
 Requires-Dist: click>=8.2
 Requires-Dist: granian[reload]>=2.5.5
-Requires-Dist: httpx<1.0,>=0.23.3
+Requires-Dist: httpx<1.0,>=0.26
 Requires-Dist: packaging<27,>=24.2
 Requires-Dist: psutil<8.0,>=7.0.0; sys_platform == 'win32'
 Requires-Dist: python-multipart<1.0,>=0.0.20
 Requires-Dist: python-socketio<6.0,>=5.12.0
-Requires-Dist: redis<8.0,>=5.2.1
-Requires-Dist: reflex-base==0.9.3
+Requires-Dist: redis<8.0,>=6.4
+Requires-Dist: reflex-base==0.9.4
 Requires-Dist: reflex-components-code>=0.9.0
 Requires-Dist: reflex-components-core>=0.9.0
 Requires-Dist: reflex-components-dataeditor>=0.9.0
@@ -37,11 +37,11 @@ Requires-Dist: reflex-components-lucide>=0.9.0
 Requires-Dist: reflex-components-markdown>=0.9.0
 Requires-Dist: reflex-components-moment>=0.9.0
 Requires-Dist: reflex-components-plotly>=0.9.0
-Requires-Dist: reflex-components-radix>=0.9.0
+Requires-Dist: reflex-components-radix>=0.9.2
 Requires-Dist: reflex-components-react-player>=0.9.0
 Requires-Dist: reflex-components-recharts>=0.9.0
 Requires-Dist: reflex-components-sonner>=0.9.0
-Requires-Dist: reflex-hosting-cli
+Requires-Dist: reflex-hosting-cli>=0.1.66
 Requires-Dist: rich<16,>=13
 Requires-Dist: starlette>=0.47.0
 Requires-Dist: typing-extensions>=4.13.0
@@ -122,7 +122,7 @@ Build an image generation app in Python with Reflex: define the UI, manage state
 
 <div align="center">
 <video src="https://github.com/user-attachments/assets/aaff28ad-8b3c-43bf-967e-439ee34c8a87" width="900" controls muted poster="https://raw.githubusercontent.com/reflex-dev/reflex/main/docs/images/reflex-image-generation-app.png">
-  <a href="https://github.com/user-attachments/assets/aaff28ad-8b3c-43bf-967e-439ee34c8a87">
+  <a href="https://web.reflex-assets.dev/video/reflex-dalle-video-2x.mp4">
     <img src="https://raw.githubusercontent.com/reflex-dev/reflex/main/docs/images/reflex-image-generation-app.png" alt="Preview of an image generation app built with Reflex" width="900">
   </a>
 </video>

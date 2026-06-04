@@ -55,7 +55,7 @@ class BaseManager:
         self._interval = interval
         self._subscription: ONVIFService | None = None
         self._restart_or_renew_task: asyncio.Task | None = None
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self._shutdown = False
         self._subscription_lost_callback = subscription_lost_callback
         self._cancel_subscription_renew: asyncio.TimerHandle | None = None
@@ -66,8 +66,8 @@ class BaseManager:
         """Return True if the manager is closed."""
         return not self._subscription or self._subscription.transport.session.closed
 
-    async def start(self) -> None:
-        """Setup the manager."""
+    async def start(self) -> ONVIFService | None:
+        """Setup the manager and return the subscription service."""
         renewal_call_at = await self._start()
         self._schedule_subscription_renew(renewal_call_at)
         return self._subscription
@@ -103,7 +103,7 @@ class BaseManager:
     async def _start(self) -> float:
         """Setup the processor. Returns the next renewal call at time."""
 
-    async def set_synchronization_point(self) -> float:
+    async def set_synchronization_point(self) -> None:
         """Set the synchronization point."""
         try:
             await self._service.SetSynchronizationPoint()
@@ -116,7 +116,7 @@ class BaseManager:
             self._cancel_subscription_renew.cancel()
             self._cancel_subscription_renew = None
 
-    def _calculate_next_renewal_call_at(self, result: Any | None) -> float:
+    def _calculate_next_renewal_call_at(self, result: Any) -> float:
         """Calculate the next renewal call_at."""
         current_time: dt.datetime | None = result.CurrentTime
         termination_time: dt.datetime | None = result.TerminationTime
@@ -189,9 +189,19 @@ class BaseManager:
             return
         renewal_call_at = None
         try:
-            renewal_call_at = (
-                await self._renew_subscription() or await self._restart_subscription()
-            )
+            renewal_call_at = await self._renew_subscription()
+            if renewal_call_at is None:
+                try:
+                    renewal_call_at = await self._restart_subscription()
+                except RENEW_ERRORS as err:
+                    # _restart_subscription -> _start(), whose Subscribe/CreatePullPoint
+                    # round trip can raise. Without this guard the exception escapes
+                    # the fire-and-forget task as "Task exception was never retrieved".
+                    logger.debug(
+                        "%s: Failed to restart notify subscription %s",
+                        self._device.host,
+                        stringify_onvif_error(err),
+                    )
         finally:
             self._schedule_subscription_renew(
                 renewal_call_at
@@ -233,7 +243,9 @@ class NotificationManager(BaseManager):
         )
         # pylint: disable=protected-access
         device.xaddrs["http://www.onvif.org/ver10/events/wsdl/NotificationConsumer"] = (
-            normalize_url(result.SubscriptionReference.Address._value_1)
+            device.rewrite_url(
+                normalize_url(result.SubscriptionReference.Address._value_1)
+            )
         )
         # Create subscription manager
         # 5.2.3 BASIC NOTIFICATION INTERFACE - NOTIFY
@@ -311,7 +323,9 @@ class PullPointManager(BaseManager):
         # pylint: disable=protected-access
         device.xaddrs[
             "http://www.onvif.org/ver10/events/wsdl/PullPointSubscription"
-        ] = normalize_url(result.SubscriptionReference.Address._value_1)
+        ] = device.rewrite_url(
+            normalize_url(result.SubscriptionReference.Address._value_1)
+        )
         # Create subscription manager
         self._subscription = await device.create_subscription_service(
             "PullPointSubscription"

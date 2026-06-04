@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any, List, Optional
-import statistics
 import io
 import os
 import socket
+import statistics
+from typing import Any, List, Optional, Union
+
 import psutil
 
 _C4_STANDARD_192_NIC = "ens3"  # can be fetched via ip link show
@@ -27,7 +28,7 @@ def publish_benchmark_extra_info(
     benchmark_group: str = "read",
     true_times: List[float] = [],
     download_bytes_list: Optional[List[int]] = None,
-    duration: Optional[int] = None,
+    duration: Optional[Union[float, List[float]]] = None,
 ) -> None:
     """
     Helper function to publish benchmark parameters to the extra_info property.
@@ -48,10 +49,20 @@ def publish_benchmark_extra_info(
     benchmark.group = benchmark_group
 
     if download_bytes_list is not None:
-        assert (
-            duration is not None
-        ), "Duration must be provided if total_bytes_transferred is provided."
-        throughputs_list = [x / duration / (1024 * 1024) for x in download_bytes_list]
+        assert duration is not None, (
+            "Duration must be provided if download_bytes_list is provided."
+        )
+        if isinstance(duration, list):
+            assert len(download_bytes_list) == len(duration), (
+                "Download bytes and duration lists must have the same length."
+            )
+            throughputs_list = [
+                x / d / (1024 * 1024) for x, d in zip(download_bytes_list, duration)
+            ]
+        else:
+            throughputs_list = [
+                x / duration / (1024 * 1024) for x in download_bytes_list
+            ]
         min_throughput = min(throughputs_list)
         max_throughput = max(throughputs_list)
         mean_throughput = statistics.mean(throughputs_list)

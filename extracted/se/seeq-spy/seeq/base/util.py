@@ -172,7 +172,7 @@ def get_test_with_root_dir():
     test_with = os.path.dirname(__file__)
     while True:
         if safe_exists(test_with_file):
-            with safe_open(test_with_file, 'r') as f:
+            with safe_open(test_with_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 test_with = lines[0]
                 break
@@ -212,6 +212,12 @@ def safe_rmtree(path, *args, **kwargs):
 
 
 def safe_open(filename, *args, **kwargs):
+    mode = kwargs.get('mode', args[0] if args else 'r')
+    if 'b' not in mode and 'encoding' not in kwargs:
+        raise ValueError('"encoding" argument required for safe_open() to reduce unexpected read/write problems '
+                         'especially on Windows. Use encoding="utf-8" unless you specifically need to override it to '
+                         'be something different')
+
     return open(handle_long_filenames(filename), *args, **kwargs)
 
 

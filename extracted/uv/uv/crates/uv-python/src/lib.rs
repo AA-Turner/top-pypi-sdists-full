@@ -54,12 +54,12 @@ pub(crate) const COMPANY_KEY: &str = "Astral";
 pub(crate) const COMPANY_DISPLAY_NAME: &str = "Astral Software Inc.";
 
 #[cfg(not(test))]
-pub(crate) fn current_dir() -> Result<std::path::PathBuf, std::io::Error> {
+fn current_dir() -> Result<std::path::PathBuf, std::io::Error> {
     std::env::current_dir()
 }
 
 #[cfg(test)]
-pub(crate) fn current_dir() -> Result<std::path::PathBuf, std::io::Error> {
+fn current_dir() -> Result<std::path::PathBuf, std::io::Error> {
     std::env::var_os(EnvVars::PWD)
         .map(std::path::PathBuf::from)
         .map(Ok)
@@ -183,7 +183,7 @@ impl uv_errors::Hint for Error {
 }
 
 impl Error {
-    pub(crate) fn with_hint(self, hint: MissingPythonHint) -> Self {
+    fn with_hint(self, hint: MissingPythonHint) -> Self {
         match self {
             Self::MissingPython(err, _) => Self::MissingPython(err, Some(Box::new(hint))),
             _ => self,
@@ -214,7 +214,7 @@ mod tests {
     use temp_env::with_vars;
     use test_log::test;
     use uv_client::BaseClientBuilder;
-    use uv_preview::{Preview, PreviewFeature};
+    use uv_preview::PreviewFeature;
     use uv_static::EnvVars;
 
     use uv_cache::Cache;
@@ -291,13 +291,14 @@ mod tests {
                 .as_ref()
                 .map(|paths| env::join_paths(paths).unwrap());
 
-            let mut run_vars = vec![
-                // Ensure `PATH` is used
-                (EnvVars::UV_PYTHON_SEARCH_PATH, None),
+            let mut run_vars: Vec<(&str, Option<&OsStr>)> = EnvVars::all_names()
+                .iter()
+                .copied()
+                .map(|name| (name, None))
+                .collect();
+            run_vars.extend([
                 // Keep discovery hermetic by disabling registry-based sources unless a test opts in.
                 (EnvVars::UV_PYTHON_NO_REGISTRY, Some(OsStr::new("1"))),
-                // Ignore active virtual environments (i.e. that the dev is using)
-                (EnvVars::VIRTUAL_ENV, None),
                 (EnvVars::PATH, path.as_deref()),
                 // Use the temporary python directory
                 (
@@ -306,11 +307,22 @@ mod tests {
                 ),
                 // Set a working directory
                 (EnvVars::PWD, Some(self.workdir.path().as_os_str())),
-            ];
-            for (key, value) in vars {
-                run_vars.push((key, *value));
-            }
+            ]);
+            run_vars.extend(vars.iter().copied());
             with_vars(&run_vars, closure)
+        }
+
+        fn run_with_vars_and_preview<F, R>(
+            &self,
+            vars: &[(&str, Option<&OsStr>)],
+            preview_features: &[PreviewFeature],
+            closure: F,
+        ) -> R
+        where
+            F: FnOnce() -> R,
+        {
+            let _preview = uv_preview::test::with_features(preview_features);
+            self.run_with_vars(vars, closure)
         }
 
         /// Create a fake Python interpreter executable which returns fixed metadata mocking our interpreter
@@ -655,7 +667,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         });
         assert!(
@@ -670,7 +681,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         });
         assert!(
@@ -695,7 +705,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         });
         assert!(
@@ -717,7 +726,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert!(
@@ -759,7 +767,6 @@ mod tests {
                     None,
                     None,
                     missing_downloads.path().to_str(),
-                    Preview::default(),
                 ))
         })?;
 
@@ -827,7 +834,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert!(
@@ -859,7 +865,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         });
         assert!(
@@ -896,7 +901,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::default(),
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert!(
@@ -928,7 +932,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -950,7 +953,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -976,7 +978,6 @@ mod tests {
                 EnvironmentPreference::OnlySystem,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -1002,7 +1003,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -1025,7 +1025,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
 
@@ -1059,7 +1058,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
 
@@ -1093,7 +1091,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -1115,7 +1112,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -1131,7 +1127,6 @@ mod tests {
         environments: EnvironmentPreference,
         preference: PythonPreference,
         cache: &Cache,
-        preview: Preview,
     ) -> Result<PythonInstallation, crate::Error> {
         let client_builder = BaseClientBuilder::default();
         tokio::runtime::Builder::new_current_thread()
@@ -1149,7 +1144,6 @@ mod tests {
                 None,
                 None,
                 None,
-                preview,
             ))
     }
 
@@ -1164,7 +1158,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
 
@@ -1198,7 +1191,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
 
@@ -1235,7 +1227,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })?;
         assert!(
@@ -1266,7 +1257,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })?;
         assert!(
@@ -1301,7 +1291,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })??;
         assert_eq!(
@@ -1327,7 +1316,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })??;
         assert_eq!(
@@ -1355,7 +1343,6 @@ mod tests {
                         EnvironmentPreference::OnlyVirtual,
                         PythonPreference::OnlySystem,
                         &context.cache,
-                        Preview::default(),
                     )
                 },
             )?
@@ -1370,19 +1357,19 @@ mod tests {
         TestContext::mock_conda_prefix(&baseenv, "3.12.1")?;
 
         // But not if it's a base environment
-        let result = context.run_with_vars(
+        let result = context.run_with_vars_and_preview(
             &[
                 (EnvVars::CONDA_PREFIX, Some(baseenv.as_os_str())),
                 (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from("base"))),
                 (EnvVars::CONDA_ROOT, None),
             ],
+            &[],
             || {
                 find_python_installation(
                     &PythonRequest::Default,
                     EnvironmentPreference::OnlyVirtual,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )?;
@@ -1394,19 +1381,19 @@ mod tests {
 
         // Unless, system interpreters are included...
         let python = context
-            .run_with_vars(
+            .run_with_vars_and_preview(
                 &[
                     (EnvVars::CONDA_PREFIX, Some(baseenv.as_os_str())),
                     (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from("base"))),
                     (EnvVars::CONDA_ROOT, None),
                 ],
+                &[],
                 || {
                     find_python_installation(
                         &PythonRequest::Default,
                         EnvironmentPreference::OnlySystem,
                         PythonPreference::OnlySystem,
                         &context.cache,
-                        Preview::default(),
                     )
                 },
             )?
@@ -1420,7 +1407,7 @@ mod tests {
 
         // If the environment name doesn't match the default, we should not treat it as system
         let python = context
-            .run_with_vars(
+            .run_with_vars_and_preview(
                 &[
                     (EnvVars::CONDA_PREFIX, Some(condaenv.as_os_str())),
                     (
@@ -1428,13 +1415,13 @@ mod tests {
                         Some(&OsString::from("condaenv")),
                     ),
                 ],
+                &[],
                 || {
                     find_python_installation(
                         &PythonRequest::Default,
                         EnvironmentPreference::OnlyVirtual,
                         PythonPreference::OnlySystem,
                         &context.cache,
-                        Preview::default(),
                     )
                 },
             )?
@@ -1447,18 +1434,18 @@ mod tests {
         );
 
         // When CONDA_DEFAULT_ENV is "base", it should always be treated as base environment
-        let result = context.run_with_vars(
+        let result = context.run_with_vars_and_preview(
             &[
                 (EnvVars::CONDA_PREFIX, Some(condaenv.as_os_str())),
                 (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from("base"))),
             ],
+            &[],
             || {
                 find_python_installation(
                     &PythonRequest::Default,
                     EnvironmentPreference::OnlyVirtual,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )?;
@@ -1474,19 +1461,19 @@ mod tests {
         let base_dir = context.tempdir.child("base");
         TestContext::mock_conda_prefix(&base_dir, "3.12.6")?;
         let python = context
-            .run_with_vars(
+            .run_with_vars_and_preview(
                 &[
                     (EnvVars::CONDA_PREFIX, Some(base_dir.as_os_str())),
                     (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from("base"))),
                     (EnvVars::CONDA_ROOT, None),
                 ],
+                &[PreviewFeature::SpecialCondaEnvNames],
                 || {
                     find_python_installation(
                         &PythonRequest::Default,
                         EnvironmentPreference::OnlyVirtual,
                         PythonPreference::OnlySystem,
                         &context.cache,
-                        Preview::new(&[PreviewFeature::SpecialCondaEnvNames]),
                     )
                 },
             )?
@@ -1502,18 +1489,18 @@ mod tests {
         let myenv_dir = context.tempdir.child("myenv");
         TestContext::mock_conda_prefix(&myenv_dir, "3.12.5")?;
         let python = context
-            .run_with_vars(
+            .run_with_vars_and_preview(
                 &[
                     (EnvVars::CONDA_PREFIX, Some(myenv_dir.as_os_str())),
                     (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from("myenv"))),
                 ],
+                &[],
                 || {
                     find_python_installation(
                         &PythonRequest::Default,
                         EnvironmentPreference::OnlyVirtual,
                         PythonPreference::OnlySystem,
                         &context.cache,
-                        Preview::default(),
                     )
                 },
             )?
@@ -1545,7 +1532,6 @@ mod tests {
                     EnvironmentPreference::OnlyVirtual,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )?;
@@ -1560,7 +1546,7 @@ mod tests {
         TestContext::mock_conda_prefix(&other_conda_env, "3.12.3")?;
 
         let python = context
-            .run_with_vars(
+            .run_with_vars_and_preview(
                 &[
                     (EnvVars::CONDA_PREFIX, Some(other_conda_env.as_os_str())),
                     (EnvVars::CONDA_ROOT, Some(conda_root_env.as_os_str())),
@@ -1569,13 +1555,13 @@ mod tests {
                         Some(&OsString::from("other-conda")),
                     ),
                 ],
+                &[],
                 || {
                     find_python_installation(
                         &PythonRequest::Default,
                         EnvironmentPreference::OnlyVirtual,
                         PythonPreference::OnlySystem,
                         &context.cache,
-                        Preview::default(),
                     )
                 },
             )?
@@ -1606,7 +1592,6 @@ mod tests {
                     EnvironmentPreference::OnlyVirtual,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1639,7 +1624,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1660,7 +1644,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1687,7 +1670,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
 
@@ -1705,7 +1687,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
 
@@ -1734,7 +1715,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })??;
         assert_eq!(
@@ -1772,7 +1752,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1800,7 +1779,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1825,7 +1803,6 @@ mod tests {
                     EnvironmentPreference::ExplicitSystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1850,7 +1827,6 @@ mod tests {
                     EnvironmentPreference::OnlySystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1875,7 +1851,6 @@ mod tests {
                     EnvironmentPreference::OnlyVirtual,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1913,7 +1888,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -1941,7 +1915,6 @@ mod tests {
                     EnvironmentPreference::OnlySystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })??;
         assert_eq!(
@@ -1958,7 +1931,6 @@ mod tests {
                     EnvironmentPreference::OnlySystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })??;
         assert_eq!(
@@ -1975,7 +1947,6 @@ mod tests {
                     EnvironmentPreference::OnlySystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })?;
         assert!(
@@ -1997,7 +1968,6 @@ mod tests {
                 EnvironmentPreference::OnlyVirtual,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2014,7 +1984,6 @@ mod tests {
                     EnvironmentPreference::OnlySystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )?;
@@ -2036,7 +2005,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2051,7 +2019,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2065,7 +2032,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2094,7 +2060,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2110,7 +2075,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2140,7 +2104,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2156,7 +2119,6 @@ mod tests {
                 EnvironmentPreference::ExplicitSystem,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2172,7 +2134,6 @@ mod tests {
                 EnvironmentPreference::OnlyVirtual,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2188,7 +2149,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2212,7 +2172,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2227,7 +2186,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2251,7 +2209,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2271,7 +2228,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             },
         )??;
@@ -2300,7 +2256,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2322,7 +2277,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2352,7 +2306,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2368,7 +2321,6 @@ mod tests {
                 EnvironmentPreference::ExplicitSystem,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2395,7 +2347,6 @@ mod tests {
                     EnvironmentPreference::ExplicitSystem,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2420,7 +2371,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2437,7 +2387,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2452,7 +2401,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2478,7 +2426,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2493,7 +2440,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2519,7 +2465,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2546,7 +2491,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2573,7 +2517,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2600,7 +2543,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2627,7 +2569,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2655,7 +2596,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -2677,7 +2617,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2692,7 +2631,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2718,7 +2656,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2733,7 +2670,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -2771,7 +2707,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2789,7 +2724,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2831,7 +2765,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2849,7 +2782,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2886,7 +2818,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2909,7 +2840,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2932,7 +2862,6 @@ mod tests {
                     EnvironmentPreference::Any,
                     PythonPreference::OnlySystem,
                     &context.cache,
-                    Preview::default(),
                 )
             })
             .unwrap()
@@ -2971,7 +2900,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
 
@@ -3024,7 +2952,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
 
@@ -3064,7 +2991,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })?;
         assert!(
@@ -3079,7 +3005,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(
@@ -3096,7 +3021,6 @@ mod tests {
                 EnvironmentPreference::Any,
                 PythonPreference::OnlySystem,
                 &context.cache,
-                Preview::default(),
             )
         })??;
         assert_eq!(

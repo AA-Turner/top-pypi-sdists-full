@@ -28,13 +28,19 @@ class ConsumerServiceStub:
         sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskRequest,
         sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskResponse,
     ]
-    """Fetch a new task activation to process."""
+    """Fetch a new activation to process."""
 
     SetTaskStatus: grpc.UnaryUnaryMultiCallable[
         sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusRequest,
         sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusResponse,
     ]
-    """Update the state of a task with execution results."""
+    """Update the state of an activation with execution results."""
+
+    SetBatchActivationStatus: grpc.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse,
+    ]
+    """Update the status of multiple activations"""
 
 class ConsumerServiceAsyncStub:
     """//////////////////////////
@@ -46,13 +52,19 @@ class ConsumerServiceAsyncStub:
         sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskRequest,
         sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskResponse,
     ]
-    """Fetch a new task activation to process."""
+    """Fetch a new activation to process."""
 
     SetTaskStatus: grpc.aio.UnaryUnaryMultiCallable[
         sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusRequest,
         sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusResponse,
     ]
-    """Update the state of a task with execution results."""
+    """Update the state of an activation with execution results."""
+
+    SetBatchActivationStatus: grpc.aio.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse,
+    ]
+    """Update the status of multiple activations"""
 
 class ConsumerServiceServicer(metaclass=abc.ABCMeta):
     """//////////////////////////
@@ -66,7 +78,7 @@ class ConsumerServiceServicer(metaclass=abc.ABCMeta):
         request: sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskRequest,
         context: _ServicerContext,
     ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.GetTaskResponse]]:
-        """Fetch a new task activation to process."""
+        """Fetch a new activation to process."""
 
     @abc.abstractmethod
     def SetTaskStatus(
@@ -74,7 +86,15 @@ class ConsumerServiceServicer(metaclass=abc.ABCMeta):
         request: sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusRequest,
         context: _ServicerContext,
     ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.SetTaskStatusResponse]]:
-        """Update the state of a task with execution results."""
+        """Update the state of an activation with execution results."""
+
+    @abc.abstractmethod
+    def SetBatchActivationStatus(
+        self,
+        request: sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusRequest,
+        context: _ServicerContext,
+    ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse]]:
+        """Update the status of multiple activations"""
 
 def add_ConsumerServiceServicer_to_server(servicer: ConsumerServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...
 
@@ -84,14 +104,14 @@ class WorkerServiceStub:
         sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskRequest,
         sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse,
     ]
-    """Provide the worker with a task to execute."""
+    """Provide the worker with an activation to execute."""
 
 class WorkerServiceAsyncStub:
     PushTask: grpc.aio.UnaryUnaryMultiCallable[
         sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskRequest,
         sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse,
     ]
-    """Provide the worker with a task to execute."""
+    """Provide the worker with an activation to execute."""
 
 class WorkerServiceServicer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
@@ -100,6 +120,6 @@ class WorkerServiceServicer(metaclass=abc.ABCMeta):
         request: sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskRequest,
         context: _ServicerContext,
     ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse]]:
-        """Provide the worker with a task to execute."""
+        """Provide the worker with an activation to execute."""
 
 def add_WorkerServiceServicer_to_server(servicer: WorkerServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...

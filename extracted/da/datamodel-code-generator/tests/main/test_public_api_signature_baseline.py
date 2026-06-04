@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 
 def _baseline_generate(
-    input_: Path | str | ParseResult | Mapping[str, Any],
+    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
     *,
     config: GenerateConfig | None = None,
     input_filename: str | None = None,
@@ -86,6 +86,7 @@ def _baseline_generate(
     apply_default_values_for_required_fields: bool = False,
     force_optional_for_required_fields: bool = False,
     class_name: str | None = None,
+    allow_leading_underscore_class_name: bool = False,
     class_name_prefix: str | None = None,
     class_name_suffix: str | None = None,
     class_name_affix_scope: ClassNameAffixScope = ClassNameAffixScope.All,
@@ -178,6 +179,7 @@ def _baseline_generate(
     use_frozen_field: bool = False,
     use_default_factory_for_optional_nested_models: bool = False,
     formatters: list[Formatter] | None = None,
+    builtin_format_line_length: int | None = None,
     settings_path: Path | None = None,
     parent_scoped_naming: bool = False,
     naming_strategy: NamingStrategy | None = None,
@@ -231,6 +233,7 @@ class _BaselineParser:
         use_generic_base_class: bool = False,
         force_optional_for_required_fields: bool = False,
         class_name: str | None = None,
+        allow_leading_underscore_class_name: bool = False,
         class_name_prefix: str | None = None,
         class_name_suffix: str | None = None,
         class_name_affix_scope: ClassNameAffixScope = ClassNameAffixScope.All,
@@ -318,6 +321,7 @@ class _BaselineParser:
         use_frozen_field: bool = False,
         use_default_factory_for_optional_nested_models: bool = False,
         formatters: list[Formatter] | None = None,
+        builtin_format_line_length: int | None = None,
         defer_formatting: bool = False,
         parent_scoped_naming: bool = False,
         naming_strategy: NamingStrategy | None = None,

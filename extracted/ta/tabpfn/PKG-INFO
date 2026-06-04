@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 8.0.3
+Version: 8.0.6
 Summary: TabPFN: Foundation model for tabular data
 Author-email: Prior Labs <opensource@priorlabs.ai>
 License: 
@@ -224,6 +224,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.5
+Requires-Dist: safetensors>=0.4.0
 Requires-Dist: numpy>=1.21.6
 Requires-Dist: scikit-learn>=1.2.0
 Requires-Dist: typing_extensions>=4.12.0
@@ -242,6 +243,8 @@ Requires-Dist: lightgbm>=3.0
 Requires-Dist: mlx>=0.29.3; sys_platform == "darwin" and platform_machine == "arm64"
 Provides-Extra: wandb
 Requires-Dist: wandb>=0.25.1; extra == "wandb"
+Provides-Extra: viz
+Requires-Dist: matplotlib>=3.5; extra == "viz"
 Dynamic: license-file
 
 # TabPFN

@@ -98,6 +98,7 @@ setup(
         "vertica-python>=1.4.0",
         "trino>=0.308.0",
         "PyJWT[crypto]>=2.0.0",
+        "oracledb>=3.4.1",
     ],
     tests_require=["pytest"],
     test_suite="src.sagemaker_studio._test",

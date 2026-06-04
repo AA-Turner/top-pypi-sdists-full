@@ -4,52 +4,32 @@ Atomic file operations
 
 from __future__ import annotations
 
+__lazy_modules__ = {"atexit", "msvcrt", "plumbum.machines.local", "threading"}
+
 import atexit
 import contextlib
 import os
+import sys
 import threading
+import typing
 
 from plumbum.machines.local import local
 
-try:
+if typing.TYPE_CHECKING:
+    from collections.abc import Generator
+    from io import FileIO
+
+    from plumbum._compat.typing import Self
+
+if not sys.platform.startswith("win32"):
     import fcntl
-except ImportError:
-    import msvcrt
 
-    try:
-        from pywintypes import error as WinError
-        from win32con import LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY
-        from win32file import OVERLAPPED, LockFileEx, UnlockFile
-    except ImportError:
-        print(  # noqa: T201
-            "On Windows, Plumbum requires Python for Windows Extensions (pywin32)"
-        )
-        raise
-
-    @contextlib.contextmanager
-    def locked_file(fileno, blocking=True):
-        hndl = msvcrt.get_osfhandle(fileno)
-        try:
-            LockFileEx(
-                hndl,
-                LOCKFILE_EXCLUSIVE_LOCK
-                | (0 if blocking else LOCKFILE_FAIL_IMMEDIATELY),
-                0xFFFFFFFF,
-                0xFFFFFFFF,
-                OVERLAPPED(),
-            )
-        except WinError as ex:
-            raise OSError(*ex.args) from None
-        try:
-            yield
-        finally:
-            UnlockFile(hndl, 0, 0, 0xFFFFFFFF, 0xFFFFFFFF)
-
-else:
     if hasattr(fcntl, "lockf"):
 
         @contextlib.contextmanager
-        def locked_file(fileno, blocking=True):
+        def locked_file(
+            fileno: int, blocking: bool = True
+        ) -> Generator[None, None, None]:
             fcntl.lockf(fileno, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
             try:
                 yield
@@ -59,12 +39,119 @@ else:
     else:
 
         @contextlib.contextmanager
-        def locked_file(fileno, blocking=True):
+        def locked_file(
+            fileno: int, blocking: bool = True
+        ) -> Generator[None, None, None]:
             fcntl.flock(fileno, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
             try:
                 yield
             finally:
                 fcntl.flock(fileno, fcntl.LOCK_UN)
+else:
+    import ctypes
+    import msvcrt
+    from ctypes.wintypes import BOOL, DWORD, HANDLE
+    from ctypes.wintypes import LPVOID as PVOID
+    from ctypes.wintypes import WPARAM as ULONG_PTR
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    # Refer: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex
+    LOCKFILE_FAIL_IMMEDIATELY = 0x01
+    LOCKFILE_EXCLUSIVE_LOCK = 0x02
+
+    # Refer: https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-overlapped
+    class OVERLAPPED(ctypes.Structure):
+        class DUMMYUNIONNAME(ctypes.Union):
+            class DUMMYSTRUCTNAME(ctypes.Structure):
+                _fields_ = (
+                    ("Offset", DWORD),
+                    ("OffsetHigh", DWORD),
+                )
+
+            _fields_ = (
+                ("_offsets", DUMMYSTRUCTNAME),
+                ("Pointer", PVOID),
+            )
+
+        _fields_ = (
+            ("Internal", ULONG_PTR),
+            ("InternalHigh", ULONG_PTR),
+            ("_offsets_or_ptr", DUMMYUNIONNAME),
+            ("hEvent", HANDLE),
+        )
+
+    LPOVERLAPPED = ctypes.POINTER(OVERLAPPED)
+
+    # Refer: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfile
+    LockFile = kernel32.LockFile
+    LockFile.restype = BOOL
+    LockFile.argtypes = [
+        HANDLE,  # hFile
+        DWORD,  # dwFileOffsetLow
+        DWORD,  # dwFileOffsetHigh
+        DWORD,  # nNumberOfBytesToLockLow
+        DWORD,  # nNumberOfBytesToLockHigh
+    ]
+
+    # Refer: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-unlockfile
+    UnlockFile = kernel32.UnlockFile
+    UnlockFile.restype = BOOL
+    UnlockFile.argtypes = [
+        HANDLE,  # hFile,
+        DWORD,  # dwFileOffsetLow,
+        DWORD,  # dwFileOffsetHigh,
+        DWORD,  # nNumberOfBytesToUnlockLow,
+        DWORD,  # nNumberOfBytesToUnlockHigh
+    ]
+
+    # Refer: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex
+    LockFileEx = kernel32.LockFileEx
+    LockFileEx.restype = BOOL
+    LockFileEx.argtypes = [
+        HANDLE,  # hFile
+        DWORD,  # dwFlags
+        DWORD,  # dwReserved - must be set to zero
+        DWORD,  # nNumberOfBytesToLockLow
+        DWORD,  # nNumberOfBytesToLockHigh
+        LPOVERLAPPED,  # lpOverlapped
+    ]
+
+    # Refer: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-unlockfileex
+    UnlockFileEx = kernel32.UnlockFileEx
+    UnlockFileEx.restype = BOOL
+    UnlockFileEx.argtypes = [
+        HANDLE,  # hFile
+        DWORD,  # dwReserved - must be set to zero
+        DWORD,  # nNumberOfBytesToUnlockLow
+        DWORD,  # nNumberOfBytesToUnlockHigh
+        LPOVERLAPPED,  # lpOverlapped
+    ]
+
+    @contextlib.contextmanager
+    def locked_file(fileno: int, blocking: bool = True) -> Generator[None, None, None]:
+        hndl = msvcrt.get_osfhandle(fileno)
+        overlapped = OVERLAPPED()
+        ok = LockFileEx(
+            hndl,
+            LOCKFILE_EXCLUSIVE_LOCK | (0 if blocking else LOCKFILE_FAIL_IMMEDIATELY),
+            0,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            ctypes.byref(overlapped),
+        )
+        if not ok:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            yield
+        finally:
+            exc = sys.exc_info()[1]
+            ok = UnlockFile(hndl, 0, 0, 0xFFFFFFFF, 0xFFFFFFFF)
+            if not ok:
+                next_exc = ctypes.WinError(ctypes.get_last_error())
+                if exc is None:
+                    exc, next_exc = next_exc, None
+                raise exc from next_exc
 
 
 class AtomicFile:
@@ -79,45 +166,48 @@ class AtomicFile:
     .. versionadded:: 1.3
     """
 
+    __slots__ = ("_fileobj", "_ignore_deletion", "_owned_by", "_thdlock", "path")
+
     CHUNK_SIZE = 32 * 1024
 
-    def __init__(self, filename, ignore_deletion=False):
+    def __init__(self, filename: str, ignore_deletion: bool = False):
         self.path = local.path(filename)
         self._ignore_deletion = ignore_deletion
         self._thdlock = threading.Lock()
-        self._owned_by = None
-        self._fileobj = None
+        self._owned_by: int | None = None
+        self._fileobj: FileIO | None = None
+
         self.reopen()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<AtomicFile: {self.path}>" if self._fileobj else "<AtomicFile: closed>"
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, t: object, v: object, tb: object) -> None:
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         if self._fileobj is not None:
             self._fileobj.close()
             self._fileobj = None
 
-    def reopen(self):
+    def reopen(self) -> None:
         """
         Close and reopen the file; useful when the file was deleted from the file system
         by a different process
         """
         self.close()
         self._fileobj = os.fdopen(
-            os.open(str(self.path), os.O_CREAT | os.O_RDWR, 384), "r+b", 0
+            os.open(str(self.path), os.O_CREAT | os.O_RDWR, 0o600), "r+b", 0
         )
 
     @contextlib.contextmanager
-    def locked(self, blocking=True):
+    def locked(self, blocking: bool = True) -> Generator[None, None, None]:
         """
         A context manager that locks the file; this function is reentrant by the thread currently
         holding the lock.
@@ -129,6 +219,8 @@ class AtomicFile:
         if self._owned_by == threading.get_ident():
             yield
             return
+
+        assert self._fileobj is not None
         with self._thdlock, locked_file(self._fileobj.fileno(), blocking):
             if not self.path.exists() and not self._ignore_deletion:
                 raise ValueError("Atomic file removed from filesystem")
@@ -138,14 +230,15 @@ class AtomicFile:
             finally:
                 self._owned_by = None
 
-    def delete(self):
+    def delete(self) -> None:
         """
         Atomically delete the file (holds the lock while doing it)
         """
         with self.locked():
             self.path.delete()
 
-    def _read_all(self):
+    def _read_all(self) -> bytes:
+        assert self._fileobj is not None
         self._fileobj.seek(0)
         data = []
         while True:
@@ -155,20 +248,21 @@ class AtomicFile:
                 break
         return b"".join(data)
 
-    def read_atomic(self):
+    def read_atomic(self) -> bytes:
         """Atomically read the entire file"""
         with self.locked():
             return self._read_all()
 
-    def read_shared(self):
+    def read_shared(self) -> bytes:
         """Read the file **without** holding the lock"""
         return self._read_all()
 
-    def write_atomic(self, data):
+    def write_atomic(self, data: bytes) -> None:
         """Writes the given data atomically to the file. Note that it overwrites the entire file;
         ``write_atomic("foo")`` followed by ``write_atomic("bar")`` will result in only ``"bar"``.
         """
         with self.locked():
+            assert self._fileobj is not None
             self._fileobj.seek(0)
             while data:
                 chunk = data[: self.CHUNK_SIZE]
@@ -193,31 +287,33 @@ class AtomicCounterFile:
     .. versionadded:: 1.3
     """
 
-    def __init__(self, atomicfile, initial=0):
+    __slots__ = ("atomicfile", "initial")
+
+    def __init__(self, atomicfile: AtomicFile, initial: int = 0):
         """
-        :param atomicfile: an :class:`AtomicFile <plumbum.atomic.AtomicFile>` instance
+        :param atomicfile: an :class:`AtomicFile <plumbum.fs.atomic.AtomicFile>` instance
         :param initial: the initial value (used when the first time the file is created)
         """
         self.atomicfile = atomicfile
         self.initial = initial
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, t: object, v: object, tb: object) -> None:
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         self.atomicfile.close()
 
     @classmethod
-    def open(cls, filename):
+    def open(cls, filename: str) -> Self:
         """
         Shortcut for ``AtomicCounterFile(AtomicFile(filename))``
         """
         return cls(AtomicFile(filename))
 
-    def reset(self, value=None):
+    def reset(self, value: int | None = None) -> None:
         """
         Reset the counter's value to the one given. If ``None``, it will default to the
         initial value provided to the constructor
@@ -228,13 +324,13 @@ class AtomicCounterFile:
             raise TypeError(f"value must be an integer, not {type(value)!r}")
         self.atomicfile.write_atomic(str(value).encode("utf8"))
 
-    def next(self):
+    def next(self) -> int:
         """
         Read and increment the counter, returning its previous value
         """
         with self.atomicfile.locked():
-            curr = self.atomicfile.read_atomic().decode("utf8")
-            curr = self.initial if not curr else int(curr)
+            curr_str = self.atomicfile.read_atomic().decode("utf8")
+            curr = self.initial if not curr_str else int(curr_str)
             self.atomicfile.write_atomic(str(curr + 1).encode("utf8"))
             return curr
 
@@ -243,10 +339,10 @@ class PidFileTaken(SystemExit):
     """
     This exception is raised when PidFile.acquire fails to lock the pid file. Note that it
     derives from ``SystemExit``, so unless explicitly handled, it will terminate the process
-    cleanly
+    cleanly.
     """
 
-    def __init__(self, msg, pid):
+    def __init__(self, msg: str, pid: str):
         SystemExit.__init__(self, msg)
         self.pid = pid
 
@@ -261,27 +357,29 @@ class PidFile:
     .. versionadded:: 1.3
     """
 
-    def __init__(self, filename):
-        self.atomicfile = AtomicFile(filename)
-        self._ctx = None
+    __slots__ = ("_ctx", "atomicfile")
 
-    def __enter__(self):
+    def __init__(self, filename: str):
+        self.atomicfile = AtomicFile(filename)
+        self._ctx: contextlib.AbstractContextManager[None] | None = None
+
+    def __enter__(self) -> None:
         self.acquire()
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, t: object, v: object, tb: object) -> None:
         self.release()
 
-    def __del__(self):
+    def __del__(self) -> None:
         with contextlib.suppress(Exception):
             self.release()
 
-    def close(self):
+    def close(self) -> None:
         self.atomicfile.close()
 
-    def acquire(self):
+    def acquire(self) -> None:
         """
         Attempt to acquire the PID file. If it's already locked, raises
-        :class:`PidFileTaken <plumbum.atomic.PidFileTaken>`. You should normally acquire
+        :class:`PidFileTaken <plumbum.fs.atomic.PidFileTaken>`. You should normally acquire
         the file as early as possible when the program starts
         """
         if self._ctx is not None:
@@ -302,7 +400,7 @@ class PidFile:
         self.atomicfile.write_atomic(str(os.getpid()).encode("utf8"))
         atexit.register(self.release)
 
-    def release(self):
+    def release(self) -> None:
         """
         Release the PID file (should only happen when the program terminates)
         """
@@ -313,3 +411,15 @@ class PidFile:
             self._ctx.__exit__(None, None, None)
         finally:
             self._ctx = None
+
+
+__all__ = [
+    "AtomicCounterFile",
+    "AtomicFile",
+    "PidFile",
+    "PidFileTaken",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

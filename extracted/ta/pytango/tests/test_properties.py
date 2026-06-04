@@ -7,18 +7,17 @@ try:
 except ImportError:
     npt = None
 
+from typing import Any
+
 import pytest
 
-from typing import Any
 from tango import (
     DevFailed,
     PyTangoUserWarning,  # noqa
 )
-from tango.server import Device
-from tango.server import command, device_property, attribute
-from tango.test_utils import DeviceTestContext
-
+from tango.server import Device, attribute, command, device_property
 from tango.test_utils import (
+    DeviceTestContext,
     assert_close,
     convert_dtype_to_typing_hint,
 )
@@ -28,11 +27,9 @@ def test_device_property_no_default(
     general_typed_values,
 ):
     dtype, values, expected = general_typed_values
-    patched_dtype = dtype if dtype != (bool,) else (int,)
     value = values[1]
 
     class TestDevice(Device):
-
         prop_without_db_value = device_property(dtype=dtype)
         prop_with_db_value = device_property(dtype=dtype)
 
@@ -40,20 +37,17 @@ def test_device_property_no_default(
         def is_prop_without_db_value_set_to_none(self):
             return self.prop_without_db_value is None
 
-        @command(dtype_out=patched_dtype)
+        @command(dtype_out=dtype)
         def get_prop_with_db_value(self):
             return self.prop_with_db_value
 
-    with DeviceTestContext(
-        TestDevice, properties={"prop_with_db_value": value}
-    ) as proxy:
+    with DeviceTestContext(TestDevice, properties={"prop_with_db_value": value}) as proxy:
         assert proxy.is_prop_without_db_value_set_to_none()
         assert_close(proxy.get_prop_with_db_value(), expected(value))
 
 
 def test_device_property_with_typing(general_typed_values):
     dtype, values, expected = general_typed_values
-    patched_dtype = dtype if dtype != (bool,) else (int,)
     value = values[1]
 
     tuple_hint, list_hint, _, _ = convert_dtype_to_typing_hint(dtype)
@@ -65,15 +59,15 @@ def test_device_property_with_typing(general_typed_values):
 
         prop_user_type_has_priority: dict = device_property(dtype=dtype)
 
-        @command(dtype_out=patched_dtype)
+        @command(dtype_out=dtype)
         def get_prop_tuple_hint(self):
             return self.prop_tuple_hint
 
-        @command(dtype_out=patched_dtype)
+        @command(dtype_out=dtype)
         def get_prop_list_hint(self):
             return self.prop_list_hint
 
-        @command(dtype_out=patched_dtype)
+        @command(dtype_out=dtype)
         def get_prop_user_type_has_priority(self):
             return self.prop_user_type_has_priority
 
@@ -111,7 +105,6 @@ if npt:
 @pytest.mark.parametrize("input_type", [str, Any])
 def test_device_property_with_default_value(general_typed_values, input_type):
     dtype, values, expected = general_typed_values
-    patched_dtype = dtype if dtype != (bool,) else (int,)
 
     if isinstance(input_type, str) and isinstance(values[0], list):
         default_set = [str(v) for v in values[0]]
@@ -126,17 +119,15 @@ def test_device_property_with_default_value(general_typed_values, input_type):
         prop_without_db_value = device_property(dtype=dtype, default_value=default_set)
         prop_with_db_value = device_property(dtype=dtype, default_value=default_set)
 
-        @command(dtype_out=patched_dtype)
+        @command(dtype_out=dtype)
         def get_prop_without_db_value(self):
             return self.prop_without_db_value
 
-        @command(dtype_out=patched_dtype)
+        @command(dtype_out=dtype)
         def get_prop_with_db_value(self):
             return self.prop_with_db_value
 
-    with DeviceTestContext(
-        TestDevice, properties={"prop_with_db_value": value}
-    ) as proxy:
+    with DeviceTestContext(TestDevice, properties={"prop_with_db_value": value}) as proxy:
         assert_close(proxy.get_prop_without_db_value(), expected(default_expected))
         assert_close(proxy.get_prop_with_db_value(), expected(value))
 
@@ -161,7 +152,6 @@ def test_device_get_device_properties_when_init_device():
 def test_mandatory_device_property_with_db_value_succeeds(set_default):
 
     class TestDevice(Device):
-
         prop = device_property(dtype=int, mandatory=True)
 
         @command(dtype_out=int)
@@ -172,7 +162,17 @@ def test_mandatory_device_property_with_db_value_succeeds(set_default):
         with DeviceTestContext(TestDevice, properties={"prop": 1}) as proxy:
             assert proxy.get_prop() == 1
     else:
-        with pytest.raises(DevFailed) as context:
-            with DeviceTestContext(TestDevice):
-                pass
+        with pytest.raises(DevFailed) as context, DeviceTestContext(TestDevice):
+            pass
         assert "Device property prop is mandatory" in str(context.value)
+
+
+@pytest.mark.parametrize("d_type", [bool, (bool,)])
+def test_wrong_bool_property_raises(d_type):
+
+    class TestDevice(Device):
+        prop = device_property(dtype=d_type)
+
+    with pytest.raises(DevFailed) as context, DeviceTestContext(TestDevice, properties={"prop": ["true, true"]}):
+        pass
+    assert "Failed to convert property 'prop' of device 'test/nodb/testdevice'" in str(context.value)

@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 import pytest
-from tango import AttributeConfig, CmdArgType, DevError, DevFailed, Group, ClientAddr
+
+from tango import AttributeConfig, ClientAddr, CmdArgType, DevError, DevFailed, Group
 from tango._tango import GroupAttrReply, GroupCmdReply, GroupReply
 from tango.pytango_pprint import _SEQUENCE_TYPES, _STRUCT_TYPES
 from tango.server import Device, attribute, command
 from tango.test_context import DeviceTestContext
-
 
 STRUCTS_NOT_INSTANTIABLE_FROM_PYTHON = (
     GroupAttrReply,

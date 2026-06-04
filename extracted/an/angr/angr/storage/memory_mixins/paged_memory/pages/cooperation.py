@@ -1,14 +1,13 @@
 from __future__ import annotations
+
 from abc import abstractmethod
-from typing import TypeVar
 from collections.abc import Generator
 
 import claripy
 
-from angr.storage.memory_object import SimMemoryObject, SimLabeledMemoryObject
-from .multi_values import MultiValues
+from angr.storage.memory_object import SimLabeledMemoryObject, SimMemoryObject
 
-T = TypeVar("T")
+from .multi_values import MultiValues
 
 
 class CooperationBase[T]:

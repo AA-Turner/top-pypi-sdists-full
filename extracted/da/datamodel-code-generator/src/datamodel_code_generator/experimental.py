@@ -6,13 +6,15 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-ExperimentalFeatureKind = Literal["input-format", "cli-option", "python-api", "behavior"]
+ExperimentalFeatureKind = Literal["input-format", "formatter", "cli-option", "python-api", "behavior"]
 ExperimentalFeatureFormat = Literal["table", "json", "markdown"]
 ExperimentalFeatureId = Literal[
     "input-format.asyncapi",
     "input-format.avro",
+    "input-format.mcp-tools",
     "input-format.protobuf",
     "input-format.xmlschema",
+    "formatter.builtin",
 ]
 
 
@@ -46,6 +48,17 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
         since_version="0.59.0",
         note="The parser generates Python models from Avro schemas; it does not provide Avro runtime validation.",
     ),
+    "input-format.mcp-tools": ExperimentalFeature(
+        id="input-format.mcp-tools",
+        kind="input-format",
+        target="--input-file-type mcp-tools",
+        message="MCP tool schema profile input support is experimental and may change as MCP schemas evolve.",
+        since_version="0.60.0",
+        note=(
+            "The input is converted from MCP tool inputSchema/outputSchema entries into JSON Schema definitions before "
+            "model generation."
+        ),
+    ),
     "input-format.protobuf": ExperimentalFeature(
         id="input-format.protobuf",
         kind="input-format",
@@ -64,6 +77,14 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
         message="XML Schema input support is experimental and may change as real-world usage is validated.",
         since_version="0.59.0",
         note="The parser focuses on model generation from XSD documents, not full XML instance validation.",
+    ),
+    "formatter.builtin": ExperimentalFeature(
+        id="formatter.builtin",
+        kind="formatter",
+        target="--formatters builtin",
+        message="The internal formatter is experimental and may change as generated-output coverage is expanded.",
+        since_version="0.59.0",
+        note="The formatter is designed for generated model modules and is not a general-purpose Python formatter.",
     ),
 }
 

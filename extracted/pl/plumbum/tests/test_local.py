@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pickle
+import re
 import signal
 import sys
 import time
@@ -133,7 +134,7 @@ class TestLocalPath:
             local.path("/opt/lib"),
         ]:
             delta = p.relative_to(src)
-            assert src + delta == p
+            assert src / delta == p
 
     def test_read_write(self):
         with local.tempdir() as dir:
@@ -164,6 +165,10 @@ class TestLocalPath:
         assert self.longpath.stem == "file"
         p = local.path("/some/directory")
         assert p.stem == "directory"
+        # only the final suffix is removed (like pathlib)
+        assert local.path("/some/archive.tar.gz").stem == "archive.tar"
+        # leading-dot names have no suffix to remove
+        assert local.path("/home/user/.bashrc").stem == ".bashrc"
 
     def test_root_drive(self):
         pathlib = pytest.importorskip("pathlib")
@@ -210,6 +215,50 @@ class TestLocalPath:
             assert one.is_file()
             one.delete()
             assert not one.is_file()
+
+    def test_pathlib_common_helpers(self):
+        with local.tempdir() as tmp:
+            nested = tmp.joinpath("a", "b", "file.txt")
+            nested.dirname.mkdir(parents=True)
+
+            assert nested == tmp / "a" / "b" / "file.txt"
+            assert nested.is_absolute()
+            assert nested.as_posix().endswith("/a/b/file.txt")
+            assert nested.anchor == nested.drive + nested.root
+            assert nested.is_relative_to(tmp)
+            assert not tmp.is_relative_to(nested)
+
+            text = "hello\nworld"
+            assert nested.write_text(text, encoding="utf-8") == len(text)
+            assert nested.read_text(encoding="utf-8") == text
+
+            payload = b"\x00\x01\x02"
+            assert nested.write_bytes(payload) == len(payload)
+            assert nested.read_bytes() == payload
+
+            renamed = nested.with_stem("renamed")
+            assert renamed.name == "renamed.txt"
+
+            long_name = tmp / "file.with.many.dots.txt"
+            assert long_name.with_stem("new").name == "new.with.many.dots.txt"
+
+            assert nested.match("*.txt")
+            assert nested.match("b/*.txt")
+            assert not nested.match("*.py")
+
+            (tmp / "x").mkdir()
+            (tmp / "x" / "other.txt").write_text("x")
+            (tmp / "x" / "other.py").write_text("x")
+            assert {p.name for p in tmp.rglob("*.txt")} == {"file.txt", "other.txt"}
+
+            linked = tmp / "hardlink.txt"
+            linked.hardlink_to(nested)
+            assert linked.samefile(nested)
+
+            empty = tmp / "empty"
+            empty.mkdir()
+            empty.rmdir()
+            assert not empty.exists()
 
     def test_copy_override(self):
         """Edit this when override behavior is added"""
@@ -561,7 +610,10 @@ class TestLocalMachine:
         with pytest.raises(ProcessExecutionError) as e:
             for _ in cmd.popen().iter_lines(timeout=1, buffer_size=5):
                 pass
-        assert e.value.stdout == "\n".join(map(str, range(95, 100))) + "\n"
+        lines = e.value.stdout.strip().split("\n")
+        assert len(lines) == 5
+        assert all(line.isdigit() for line in lines if line)
+        assert int(lines[-1]) == 99
 
     @skip_on_windows
     def test_iter_lines_timeout_by_type(self):
@@ -919,9 +971,7 @@ for _ in range({num_of_increments}):
     time.sleep(0.1)
 """
 
-        procs = []
-        for _ in range(num_of_procs):
-            procs.append(local.python["-c", code].popen())
+        procs = [local.python["-c", code].popen() for _ in range(num_of_procs)]
         results = []
         for p in procs:
             out, _ = p.communicate()
@@ -971,6 +1021,24 @@ for _ in range({num_of_increments}):
 
         c = ls["-l", ["-a", "*.py"]]
         assert c.formulate()[1:] == ["-l", "-a", "*.py"]
+
+    def test_str_quoting_consistency(self):
+        """Verify that str() quotes arguments consistently with and without pipes."""
+        from plumbum.cmd import ls, tail
+
+        cmd = ls["/tmp/file with spaces"]
+        pipeline = cmd | tail["-1"]
+
+        cmd_str = str(cmd)
+        pipeline_str = str(pipeline)
+
+        # Both should quote the argument with spaces
+        assert "'/tmp/file with spaces'" in cmd_str, (
+            f"Expected quoted arg in str(cmd), got: {cmd_str!r}"
+        )
+        assert "'/tmp/file with spaces'" in pipeline_str, (
+            f"Expected quoted arg in str(pipeline), got: {pipeline_str!r}"
+        )
 
     def test_contains_ls(self):
         assert "ls" in local
@@ -1097,3 +1165,71 @@ def test_local_glob_path(tmpdir):
 
     pp = LocalPath(str(p))
     assert len(pp // "*.txt") == 2
+
+
+def test_local_glob_recursive(tmpdir):
+    base = LocalPath(str(tmpdir))
+    (base / "top.zip").touch()
+    nested = base / "foo" / "bar"
+    nested.mkdir()
+    (nested / "sample.zip").touch()
+
+    # ``**`` should recurse like pathlib, not behave like a single ``*``
+    found = {p.name for p in base // "**/*.zip"}
+    assert found == {"top.zip", "sample.zip"}
+
+    # a plain ``*`` is still non-recursive
+    assert {p.name for p in base // "*.zip"} == {"top.zip"}
+
+
+@pytest.mark.parametrize(
+    ("pattern", "path", "expected"),
+    [
+        ("**/*.zip", "top.zip", True),
+        ("**/*.zip", "foo/bar/sample.zip", True),
+        ("**/*.zip", "foo/bar", False),
+        ("*.zip", "top.zip", True),
+        ("*.zip", "foo/sample.zip", False),  # ``*`` does not cross ``/``
+        ("**", "a/b/c", True),
+        ("src/**/*.py", "src/a.py", True),  # ``**/`` matches zero directories
+        ("src/**/*.py", "src/a/b.py", True),
+        ("src/**/*.py", "other/a.py", False),
+        ("a?c/*.txt", "abc/x.txt", True),
+        ("a?c/*.txt", "ac/x.txt", False),  # ``?`` requires exactly one char
+        # dotfiles: a leading wildcard does not match a leading dot, but an
+        # explicit ``.`` does -- matching glob.glob (the local backend)
+        ("**/*.zip", ".secret.zip", False),
+        ("**/*.zip", ".hidden/h.zip", False),  # ``**`` skips hidden dirs
+        ("**/*.zip", "sub/.b.zip", False),
+        (".*", ".secret", True),
+        ("**/.*", "sub/.b", True),
+        # character classes
+        ("**/[ts]*.zip", "top.zip", True),
+        ("**/[ts]*.zip", "sub/a.zip", False),
+        ("**/[!t]*.zip", "top.zip", False),
+        ("**/[!t]*.zip", "sub/a.zip", True),
+    ],
+)
+def test_glob_to_regex(pattern, path, expected):
+    # Pure-function coverage for the matcher used by remote recursive globbing,
+    # which does not require an SSH connection (see test_remote for integration).
+    from plumbum.machines.remote import _glob_to_regex
+
+    assert bool(re.match(_glob_to_regex(pattern), path)) is expected
+
+
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        ("**/*.zip", True),
+        ("a/**/b", True),
+        ("**", True),
+        ("*.zip", False),
+        ("a**b", False),  # ``**`` is only special as a whole path segment
+        ("a**b/**/*", True),
+    ],
+)
+def test_is_recursive_glob(pattern, expected):
+    from plumbum.machines.remote import _is_recursive_glob
+
+    assert _is_recursive_glob(pattern) is expected

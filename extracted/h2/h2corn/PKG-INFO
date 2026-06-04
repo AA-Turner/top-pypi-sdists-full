@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: h2corn
-Version: 1.4.4
+Version: 1.4.5
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
@@ -92,7 +92,7 @@ In local runs comparing `h2corn`, `uvicorn`, `hypercorn`, and `gunicorn`
 across baseline GETs, Unix sockets, static files, streaming, and
 WebSockets, `h2corn` leads on every scenario tested:
 
-![HTTP/1 GET, 4 workers. h2corn ~90k RPS p99 2.3ms.](https://raw.githubusercontent.com/Zaczero/pkgs/h2corn/1.4.4/h2corn/bench/results/plots/benchmark_http_1_get_4_workers.svg)
+![HTTP/1 GET, 4 workers. h2corn ~90k RPS p99 2.3ms.](https://raw.githubusercontent.com/Zaczero/pkgs/h2corn/1.4.5/h2corn/bench/results/plots/benchmark_http_1_get_4_workers.svg)
 
 Full plots and methodology: [Benchmarks](https://h2corn.monicz.dev/benchmarks/).
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar-vite
-Version: 0.23.4
+Version: 0.24.0
 Summary: Vite plugin for Litestar
 Project-URL: Changelog, https://litestar-org.github.io/litestar-vite/latest/changelog
 Project-URL: Discord, https://discord.gg/X3FJqy8d2j
@@ -30,7 +30,7 @@ Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.24.1
-Requires-Dist: litestar>=2.7.0
+Requires-Dist: litestar>=2.22.0
 Requires-Dist: typing-extensions
 Requires-Dist: websockets>=12.0
 Provides-Extra: http2
@@ -47,7 +47,7 @@ Litestar Vite connects the Litestar backend to a Vite toolchain. It supports SPA
 
 ## Features
 
-- One-port dev: proxies Vite HTTP + WS/HMR through Litestar by default; switch to two-port with `VITE_PROXY_MODE=direct`.
+- One-port dev: proxies Vite HTTP + WS/HMR through Litestar on a single ASGI port by default.
 - Framework-mode support: use `mode="framework"` (alias `mode="ssr"`) for Astro, Nuxt, and SvelteKit. Litestar proxies everything except your API routes.
 - Production assets: reads the Vite manifest from `public/manifest.json` (configurable) and serves under `asset_url`.
 - Type-safe frontends: optional OpenAPI/routes export plus `@hey-api/openapi-ts` via the Vite plugin.

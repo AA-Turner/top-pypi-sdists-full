@@ -24,6 +24,7 @@ from . import evals
 from . import prompts
 from .common import _AppendAgentEngineSessionEventRequestParameters
 from .common import _AppendAgentEngineTaskEventRequestParameters
+from .common import _AskContextsRequestParameters
 from .common import _AssembleDatasetParameters
 from .common import _AssessDatasetParameters
 from .common import _CancelQueryJobAgentEngineRequestParameters
@@ -40,6 +41,7 @@ from .common import _CreateEvaluationMetricParameters
 from .common import _CreateEvaluationRunParameters
 from .common import _CreateEvaluationSetParameters
 from .common import _CreateMultimodalDatasetParameters
+from .common import _CreateRagCorpusRequestParameters
 from .common import _CreateSandboxEnvironmentSnapshotRequestParameters
 from .common import _CreateSandboxEnvironmentTemplateRequestParameters
 from .common import _CreateSkillRequestParameters
@@ -55,6 +57,8 @@ from .common import _DeleteDatasetRequestParameters
 from .common import _DeleteEvaluationMetricParameters
 from .common import _DeleteMultimodalDatasetRequestParameters
 from .common import _DeletePromptVersionRequestParameters
+from .common import _DeleteRagCorpusRequestParameters
+from .common import _DeleteRagFileRequestParameters
 from .common import _DeleteSandboxEnvironmentSnapshotRequestParameters
 from .common import _DeleteSandboxEnvironmentTemplateRequestParameters
 from .common import _DeleteSkillRequestParameters
@@ -89,6 +93,9 @@ from .common import _GetEvaluationRunParameters
 from .common import _GetEvaluationSetParameters
 from .common import _GetMultimodalDatasetOperationParameters
 from .common import _GetMultimodalDatasetParameters
+from .common import _GetRagConfigRequestParameters
+from .common import _GetRagCorpusRequestParameters
+from .common import _GetRagFileRequestParameters
 from .common import _GetSandboxEnvironmentSnapshotRequestParameters
 from .common import _GetSandboxEnvironmentTemplateOperationParameters
 from .common import _GetSandboxEnvironmentTemplateRequestParameters
@@ -109,6 +116,8 @@ from .common import _ListDatasetsRequestParameters
 from .common import _ListDatasetVersionsRequestParameters
 from .common import _ListEvaluationMetricsParameters
 from .common import _ListMultimodalDatasetsRequestParameters
+from .common import _ListRagCorporaRequestParameters
+from .common import _ListRagFilesRequestParameters
 from .common import _ListSandboxEnvironmentSnapshotsRequestParameters
 from .common import _ListSandboxEnvironmentTemplatesRequestParameters
 from .common import _ListSkillRevisionsRequestParameters
@@ -121,6 +130,7 @@ from .common import _QueryAgentEngineRuntimeRevisionRequestParameters
 from .common import _RestoreVersionRequestParameters
 from .common import _RetrieveAgentEngineMemoriesRequestParameters
 from .common import _RetrieveMemoryProfilesRequestParameters
+from .common import _RetrieveRagContextsRequestParameters
 from .common import _RetrieveSkillsRequestParameters
 from .common import _RollbackAgentEngineMemoryRequestParameters
 from .common import _RunQueryJobAgentEngineConfig
@@ -132,6 +142,8 @@ from .common import _UpdateAgentEngineRequestParameters
 from .common import _UpdateAgentEngineSessionRequestParameters
 from .common import _UpdateDatasetParameters
 from .common import _UpdateMultimodalDatasetParameters
+from .common import _UpdateRagConfigRequestParameters
+from .common import _UpdateRagCorpusRequestParameters
 from .common import _UpdateSkillRequestParameters
 from .common import A2aTask
 from .common import A2aTaskDict
@@ -184,6 +196,12 @@ from .common import AggregatedMetricResultOrDict
 from .common import AnalysisConfig
 from .common import AnalysisConfigDict
 from .common import AnalysisConfigOrDict
+from .common import ApiAuth
+from .common import ApiAuthApiKeyConfig
+from .common import ApiAuthApiKeyConfigDict
+from .common import ApiAuthApiKeyConfigOrDict
+from .common import ApiAuthDict
+from .common import ApiAuthOrDict
 from .common import AppendAgentEngineSessionEventConfig
 from .common import AppendAgentEngineSessionEventConfigDict
 from .common import AppendAgentEngineSessionEventConfigOrDict
@@ -196,6 +214,12 @@ from .common import AppendAgentEngineTaskEventConfigOrDict
 from .common import AppendAgentEngineTaskEventResponse
 from .common import AppendAgentEngineTaskEventResponseDict
 from .common import AppendAgentEngineTaskEventResponseOrDict
+from .common import AskContextsConfig
+from .common import AskContextsConfigDict
+from .common import AskContextsConfigOrDict
+from .common import AskContextsResponse
+from .common import AskContextsResponseDict
+from .common import AskContextsResponseOrDict
 from .common import AssembleDataset
 from .common import AssembleDatasetConfig
 from .common import AssembleDatasetConfigDict
@@ -268,6 +292,9 @@ from .common import ContentMapContentsDict
 from .common import ContentMapContentsOrDict
 from .common import ContentMapDict
 from .common import ContentMapOrDict
+from .common import CorpusStatus
+from .common import CorpusStatusDict
+from .common import CorpusStatusOrDict
 from .common import CreateAgentEngineConfig
 from .common import CreateAgentEngineConfigDict
 from .common import CreateAgentEngineConfigOrDict
@@ -310,6 +337,12 @@ from .common import CreatePromptConfigOrDict
 from .common import CreatePromptVersionConfig
 from .common import CreatePromptVersionConfigDict
 from .common import CreatePromptVersionConfigOrDict
+from .common import CreateRagCorpusConfig
+from .common import CreateRagCorpusConfigDict
+from .common import CreateRagCorpusConfigOrDict
+from .common import CreateRagCorpusOperation
+from .common import CreateRagCorpusOperationDict
+from .common import CreateRagCorpusOperationOrDict
 from .common import CreateSandboxEnvironmentTemplateConfig
 from .common import CreateSandboxEnvironmentTemplateConfigDict
 from .common import CreateSandboxEnvironmentTemplateConfigOrDict
@@ -383,6 +416,18 @@ from .common import DeletePromptOperationOrDict
 from .common import DeletePromptVersionOperation
 from .common import DeletePromptVersionOperationDict
 from .common import DeletePromptVersionOperationOrDict
+from .common import DeleteRagCorpusConfig
+from .common import DeleteRagCorpusConfigDict
+from .common import DeleteRagCorpusConfigOrDict
+from .common import DeleteRagCorpusOperation
+from .common import DeleteRagCorpusOperationDict
+from .common import DeleteRagCorpusOperationOrDict
+from .common import DeleteRagFileConfig
+from .common import DeleteRagFileConfigDict
+from .common import DeleteRagFileConfigOrDict
+from .common import DeleteRagFileOperation
+from .common import DeleteRagFileOperationDict
+from .common import DeleteRagFileOperationOrDict
 from .common import DeleteSandboxEnvironmentSnapshotConfig
 from .common import DeleteSandboxEnvironmentSnapshotConfigDict
 from .common import DeleteSandboxEnvironmentSnapshotConfigOrDict
@@ -401,12 +446,18 @@ from .common import DeleteSkillConfigOrDict
 from .common import DeleteSkillOperation
 from .common import DeleteSkillOperationDict
 from .common import DeleteSkillOperationOrDict
+from .common import DirectUploadSource
+from .common import DirectUploadSourceDict
+from .common import DirectUploadSourceOrDict
 from .common import DiskSpec
 from .common import DiskSpecDict
 from .common import DiskSpecOrDict
 from .common import DnsPeeringConfig
 from .common import DnsPeeringConfigDict
 from .common import DnsPeeringConfigOrDict
+from .common import EncryptionSpec
+from .common import EncryptionSpecDict
+from .common import EncryptionSpecOrDict
 from .common import EnvVar
 from .common import EnvVarDict
 from .common import EnvVarOrDict
@@ -525,7 +576,13 @@ from .common import ExecuteSandboxEnvironmentResponseOrDict
 from .common import FailedRubric
 from .common import FailedRubricDict
 from .common import FailedRubricOrDict
+from .common import FileStatus
+from .common import FileStatusDict
+from .common import FileStatusOrDict
 from .common import Framework
+from .common import GcsSource
+from .common import GcsSourceDict
+from .common import GcsSourceOrDict
 from .common import GeminiExample
 from .common import GeminiExampleDict
 from .common import GeminiExampleOrDict
@@ -626,6 +683,15 @@ from .common import GetMultimodalDatasetOperationConfigOrDict
 from .common import GetPromptConfig
 from .common import GetPromptConfigDict
 from .common import GetPromptConfigOrDict
+from .common import GetRagConfig
+from .common import GetRagConfigDict
+from .common import GetRagConfigOrDict
+from .common import GetRagCorpusConfig
+from .common import GetRagCorpusConfigDict
+from .common import GetRagCorpusConfigOrDict
+from .common import GetRagFileConfig
+from .common import GetRagFileConfigDict
+from .common import GetRagFileConfigOrDict
 from .common import GetSandboxEnvironmentSnapshotConfig
 from .common import GetSandboxEnvironmentSnapshotConfigDict
 from .common import GetSandboxEnvironmentSnapshotConfigOrDict
@@ -641,6 +707,12 @@ from .common import GetSkillOperationConfigOrDict
 from .common import GetSkillRevisionConfig
 from .common import GetSkillRevisionConfigDict
 from .common import GetSkillRevisionConfigOrDict
+from .common import GoogleDriveSource
+from .common import GoogleDriveSourceDict
+from .common import GoogleDriveSourceOrDict
+from .common import GoogleDriveSourceResourceId
+from .common import GoogleDriveSourceResourceIdDict
+from .common import GoogleDriveSourceResourceIdOrDict
 from .common import IdentityType
 from .common import Importance
 from .common import IngestEventsConfig
@@ -655,6 +727,12 @@ from .common import IngestionDirectContentsSourceOrDict
 from .common import IntermediateExtractedMemory
 from .common import IntermediateExtractedMemoryDict
 from .common import IntermediateExtractedMemoryOrDict
+from .common import JiraSource
+from .common import JiraSourceDict
+from .common import JiraSourceJiraQueries
+from .common import JiraSourceJiraQueriesDict
+from .common import JiraSourceJiraQueriesOrDict
+from .common import JiraSourceOrDict
 from .common import JobState
 from .common import KeepAliveProbe
 from .common import KeepAliveProbeDict
@@ -726,6 +804,18 @@ from .common import ListMultimodalDatasetsResponseOrDict
 from .common import ListPromptsConfig
 from .common import ListPromptsConfigDict
 from .common import ListPromptsConfigOrDict
+from .common import ListRagCorporaConfig
+from .common import ListRagCorporaConfigDict
+from .common import ListRagCorporaConfigOrDict
+from .common import ListRagCorporaResponse
+from .common import ListRagCorporaResponseDict
+from .common import ListRagCorporaResponseOrDict
+from .common import ListRagFilesConfig
+from .common import ListRagFilesConfigDict
+from .common import ListRagFilesConfigOrDict
+from .common import ListRagFilesResponse
+from .common import ListRagFilesResponseDict
+from .common import ListRagFilesResponseOrDict
 from .common import ListReasoningEnginesMemoriesResponse
 from .common import ListReasoningEnginesMemoriesResponseDict
 from .common import ListReasoningEnginesMemoriesResponseOrDict
@@ -970,6 +1060,127 @@ from .common import QueryAgentEngineRuntimeRevisionConfigOrDict
 from .common import QueryReasoningEngineResponse
 from .common import QueryReasoningEngineResponseDict
 from .common import QueryReasoningEngineResponseOrDict
+from .common import RagChunk
+from .common import RagChunkDict
+from .common import RagChunkOrDict
+from .common import RagChunkPageSpan
+from .common import RagChunkPageSpanDict
+from .common import RagChunkPageSpanOrDict
+from .common import RagContexts
+from .common import RagContextsContext
+from .common import RagContextsContextDict
+from .common import RagContextsContextOrDict
+from .common import RagContextsDict
+from .common import RagContextsOrDict
+from .common import RagCorpus
+from .common import RagCorpusCorpusTypeConfig
+from .common import RagCorpusCorpusTypeConfigDict
+from .common import RagCorpusCorpusTypeConfigDocumentCorpus
+from .common import RagCorpusCorpusTypeConfigDocumentCorpusDict
+from .common import RagCorpusCorpusTypeConfigDocumentCorpusOrDict
+from .common import RagCorpusCorpusTypeConfigMemoryCorpus
+from .common import RagCorpusCorpusTypeConfigMemoryCorpusDict
+from .common import RagCorpusCorpusTypeConfigMemoryCorpusOrDict
+from .common import RagCorpusCorpusTypeConfigOrDict
+from .common import RagCorpusDict
+from .common import RagCorpusOrDict
+from .common import RagEmbeddingModelConfig
+from .common import RagEmbeddingModelConfigDict
+from .common import RagEmbeddingModelConfigHybridSearchConfig
+from .common import RagEmbeddingModelConfigHybridSearchConfigDict
+from .common import RagEmbeddingModelConfigHybridSearchConfigOrDict
+from .common import RagEmbeddingModelConfigOrDict
+from .common import RagEmbeddingModelConfigSparseEmbeddingConfig
+from .common import RagEmbeddingModelConfigSparseEmbeddingConfigBm25
+from .common import RagEmbeddingModelConfigSparseEmbeddingConfigBm25Dict
+from .common import RagEmbeddingModelConfigSparseEmbeddingConfigBm25OrDict
+from .common import RagEmbeddingModelConfigSparseEmbeddingConfigDict
+from .common import RagEmbeddingModelConfigSparseEmbeddingConfigOrDict
+from .common import RagEmbeddingModelConfigVertexPredictionEndpoint
+from .common import RagEmbeddingModelConfigVertexPredictionEndpointDict
+from .common import RagEmbeddingModelConfigVertexPredictionEndpointOrDict
+from .common import RagEngineConfig
+from .common import RagEngineConfigDict
+from .common import RagEngineConfigOrDict
+from .common import RagFile
+from .common import RagFileDict
+from .common import RagFileOrDict
+from .common import RagFileParsingConfigLlmParser
+from .common import RagFileParsingConfigLlmParserDict
+from .common import RagFileParsingConfigLlmParserOrDict
+from .common import RagFileType
+from .common import RagManagedDbConfig
+from .common import RagManagedDbConfigBasic
+from .common import RagManagedDbConfigBasicDict
+from .common import RagManagedDbConfigBasicOrDict
+from .common import RagManagedDbConfigDict
+from .common import RagManagedDbConfigEnterprise
+from .common import RagManagedDbConfigEnterpriseDict
+from .common import RagManagedDbConfigEnterpriseOrDict
+from .common import RagManagedDbConfigOrDict
+from .common import RagManagedDbConfigScaled
+from .common import RagManagedDbConfigScaledDict
+from .common import RagManagedDbConfigScaledOrDict
+from .common import RagManagedDbConfigServerless
+from .common import RagManagedDbConfigServerlessDict
+from .common import RagManagedDbConfigServerlessOrDict
+from .common import RagManagedDbConfigSpanner
+from .common import RagManagedDbConfigSpannerDict
+from .common import RagManagedDbConfigSpannerOrDict
+from .common import RagManagedDbConfigUnprovisioned
+from .common import RagManagedDbConfigUnprovisionedDict
+from .common import RagManagedDbConfigUnprovisionedOrDict
+from .common import RagQuery
+from .common import RagQueryDict
+from .common import RagQueryOrDict
+from .common import RagQueryRanking
+from .common import RagQueryRankingDict
+from .common import RagQueryRankingOrDict
+from .common import RagRetrievalConfig
+from .common import RagRetrievalConfigDict
+from .common import RagRetrievalConfigFilter
+from .common import RagRetrievalConfigFilterDict
+from .common import RagRetrievalConfigFilterOrDict
+from .common import RagRetrievalConfigHybridSearch
+from .common import RagRetrievalConfigHybridSearchDict
+from .common import RagRetrievalConfigHybridSearchOrDict
+from .common import RagRetrievalConfigOrDict
+from .common import RagRetrievalConfigRanking
+from .common import RagRetrievalConfigRankingDict
+from .common import RagRetrievalConfigRankingLlmRanker
+from .common import RagRetrievalConfigRankingLlmRankerDict
+from .common import RagRetrievalConfigRankingLlmRankerOrDict
+from .common import RagRetrievalConfigRankingOrDict
+from .common import RagRetrievalConfigRankingRankService
+from .common import RagRetrievalConfigRankingRankServiceDict
+from .common import RagRetrievalConfigRankingRankServiceOrDict
+from .common import RagVectorDbConfig
+from .common import RagVectorDbConfigDict
+from .common import RagVectorDbConfigOrDict
+from .common import RagVectorDbConfigPinecone
+from .common import RagVectorDbConfigPineconeDict
+from .common import RagVectorDbConfigPineconeOrDict
+from .common import RagVectorDbConfigRagManagedDb
+from .common import RagVectorDbConfigRagManagedDbANN
+from .common import RagVectorDbConfigRagManagedDbANNDict
+from .common import RagVectorDbConfigRagManagedDbANNOrDict
+from .common import RagVectorDbConfigRagManagedDbDict
+from .common import RagVectorDbConfigRagManagedDbKNN
+from .common import RagVectorDbConfigRagManagedDbKNNDict
+from .common import RagVectorDbConfigRagManagedDbKNNOrDict
+from .common import RagVectorDbConfigRagManagedDbOrDict
+from .common import RagVectorDbConfigRagManagedVertexVectorSearch
+from .common import RagVectorDbConfigRagManagedVertexVectorSearchDict
+from .common import RagVectorDbConfigRagManagedVertexVectorSearchOrDict
+from .common import RagVectorDbConfigVertexFeatureStore
+from .common import RagVectorDbConfigVertexFeatureStoreDict
+from .common import RagVectorDbConfigVertexFeatureStoreOrDict
+from .common import RagVectorDbConfigVertexVectorSearch
+from .common import RagVectorDbConfigVertexVectorSearchDict
+from .common import RagVectorDbConfigVertexVectorSearchOrDict
+from .common import RagVectorDbConfigWeaviate
+from .common import RagVectorDbConfigWeaviateDict
+from .common import RagVectorDbConfigWeaviateOrDict
 from .common import ReasoningEngine
 from .common import ReasoningEngineContextSpec
 from .common import ReasoningEngineContextSpecDict
@@ -1078,6 +1289,7 @@ from .common import RedTeamingAnalysisResultOrDict
 from .common import ReservationAffinity
 from .common import ReservationAffinityDict
 from .common import ReservationAffinityOrDict
+from .common import ResourceType
 from .common import ResponseCandidate
 from .common import ResponseCandidateDict
 from .common import ResponseCandidateOrDict
@@ -1093,6 +1305,12 @@ from .common import RestoreVersionOperationOrDict
 from .common import RetrieveAgentEngineMemoriesConfig
 from .common import RetrieveAgentEngineMemoriesConfigDict
 from .common import RetrieveAgentEngineMemoriesConfigOrDict
+from .common import RetrieveContextsConfig
+from .common import RetrieveContextsConfigDict
+from .common import RetrieveContextsConfigOrDict
+from .common import RetrieveContextsResponse
+from .common import RetrieveContextsResponseDict
+from .common import RetrieveContextsResponseOrDict
 from .common import RetrievedSkill
 from .common import RetrievedSkillDict
 from .common import RetrievedSkillOrDict
@@ -1304,6 +1522,12 @@ from .common import SessionEvent
 from .common import SessionEventDict
 from .common import SessionEventOrDict
 from .common import SessionOrDict
+from .common import SharePointSources
+from .common import SharePointSourcesDict
+from .common import SharePointSourcesOrDict
+from .common import SharePointSourcesSharePointSource
+from .common import SharePointSourcesSharePointSourceDict
+from .common import SharePointSourcesSharePointSourceOrDict
 from .common import Skill
 from .common import SkillDict
 from .common import SkillOperation
@@ -1316,6 +1540,15 @@ from .common import SkillRevisionOrDict
 from .common import SkillRevisionState
 from .common import SkillSource
 from .common import SkillState
+from .common import SlackSource
+from .common import SlackSourceDict
+from .common import SlackSourceOrDict
+from .common import SlackSourceSlackChannels
+from .common import SlackSourceSlackChannelsDict
+from .common import SlackSourceSlackChannelsOrDict
+from .common import SlackSourceSlackChannelsSlackChannel
+from .common import SlackSourceSlackChannelsSlackChannelDict
+from .common import SlackSourceSlackChannelsSlackChannelOrDict
 from .common import State
 from .common import Strategy
 from .common import StructuredMemoryConfig
@@ -1448,12 +1681,33 @@ from .common import UpdateAgentEngineSessionConfigOrDict
 from .common import UpdatePromptConfig
 from .common import UpdatePromptConfigDict
 from .common import UpdatePromptConfigOrDict
+from .common import UpdateRagConfig
+from .common import UpdateRagConfigDict
+from .common import UpdateRagConfigOperation
+from .common import UpdateRagConfigOperationDict
+from .common import UpdateRagConfigOperationOrDict
+from .common import UpdateRagConfigOrDict
+from .common import UpdateRagCorpusConfig
+from .common import UpdateRagCorpusConfigDict
+from .common import UpdateRagCorpusConfigOrDict
+from .common import UpdateRagCorpusOperation
+from .common import UpdateRagCorpusOperationDict
+from .common import UpdateRagCorpusOperationOrDict
 from .common import UpdateSkillConfig
 from .common import UpdateSkillConfigDict
 from .common import UpdateSkillConfigOrDict
+from .common import VertexAiSearchConfig
+from .common import VertexAiSearchConfigDict
+from .common import VertexAiSearchConfigOrDict
 from .common import VertexBaseConfig
 from .common import VertexBaseConfigDict
 from .common import VertexBaseConfigOrDict
+from .common import VertexRagStore
+from .common import VertexRagStoreDict
+from .common import VertexRagStoreOrDict
+from .common import VertexRagStoreRagResource
+from .common import VertexRagStoreRagResourceDict
+from .common import VertexRagStoreRagResourceOrDict
 from .common import VulnerableTool
 from .common import VulnerableToolDict
 from .common import VulnerableToolOrDict
@@ -2224,6 +2478,246 @@ __all__ = [
     "ListAgentEngineMemoryRevisionsResponse",
     "ListAgentEngineMemoryRevisionsResponseDict",
     "ListAgentEngineMemoryRevisionsResponseOrDict",
+    "AskContextsConfig",
+    "AskContextsConfigDict",
+    "AskContextsConfigOrDict",
+    "RagRetrievalConfigFilter",
+    "RagRetrievalConfigFilterDict",
+    "RagRetrievalConfigFilterOrDict",
+    "RagRetrievalConfigHybridSearch",
+    "RagRetrievalConfigHybridSearchDict",
+    "RagRetrievalConfigHybridSearchOrDict",
+    "RagRetrievalConfigRankingLlmRanker",
+    "RagRetrievalConfigRankingLlmRankerDict",
+    "RagRetrievalConfigRankingLlmRankerOrDict",
+    "RagRetrievalConfigRankingRankService",
+    "RagRetrievalConfigRankingRankServiceDict",
+    "RagRetrievalConfigRankingRankServiceOrDict",
+    "RagRetrievalConfigRanking",
+    "RagRetrievalConfigRankingDict",
+    "RagRetrievalConfigRankingOrDict",
+    "RagRetrievalConfig",
+    "RagRetrievalConfigDict",
+    "RagRetrievalConfigOrDict",
+    "RagQueryRanking",
+    "RagQueryRankingDict",
+    "RagQueryRankingOrDict",
+    "RagQuery",
+    "RagQueryDict",
+    "RagQueryOrDict",
+    "RagChunkPageSpan",
+    "RagChunkPageSpanDict",
+    "RagChunkPageSpanOrDict",
+    "RagChunk",
+    "RagChunkDict",
+    "RagChunkOrDict",
+    "RagContextsContext",
+    "RagContextsContextDict",
+    "RagContextsContextOrDict",
+    "RagContexts",
+    "RagContextsDict",
+    "RagContextsOrDict",
+    "AskContextsResponse",
+    "AskContextsResponseDict",
+    "AskContextsResponseOrDict",
+    "ApiAuthApiKeyConfig",
+    "ApiAuthApiKeyConfigDict",
+    "ApiAuthApiKeyConfigOrDict",
+    "ApiAuth",
+    "ApiAuthDict",
+    "ApiAuthOrDict",
+    "RagVectorDbConfigPinecone",
+    "RagVectorDbConfigPineconeDict",
+    "RagVectorDbConfigPineconeOrDict",
+    "RagEmbeddingModelConfigVertexPredictionEndpoint",
+    "RagEmbeddingModelConfigVertexPredictionEndpointDict",
+    "RagEmbeddingModelConfigVertexPredictionEndpointOrDict",
+    "RagEmbeddingModelConfigSparseEmbeddingConfigBm25",
+    "RagEmbeddingModelConfigSparseEmbeddingConfigBm25Dict",
+    "RagEmbeddingModelConfigSparseEmbeddingConfigBm25OrDict",
+    "RagEmbeddingModelConfigSparseEmbeddingConfig",
+    "RagEmbeddingModelConfigSparseEmbeddingConfigDict",
+    "RagEmbeddingModelConfigSparseEmbeddingConfigOrDict",
+    "RagEmbeddingModelConfigHybridSearchConfig",
+    "RagEmbeddingModelConfigHybridSearchConfigDict",
+    "RagEmbeddingModelConfigHybridSearchConfigOrDict",
+    "RagEmbeddingModelConfig",
+    "RagEmbeddingModelConfigDict",
+    "RagEmbeddingModelConfigOrDict",
+    "RagVectorDbConfigRagManagedDbANN",
+    "RagVectorDbConfigRagManagedDbANNDict",
+    "RagVectorDbConfigRagManagedDbANNOrDict",
+    "RagVectorDbConfigRagManagedDbKNN",
+    "RagVectorDbConfigRagManagedDbKNNDict",
+    "RagVectorDbConfigRagManagedDbKNNOrDict",
+    "RagVectorDbConfigRagManagedDb",
+    "RagVectorDbConfigRagManagedDbDict",
+    "RagVectorDbConfigRagManagedDbOrDict",
+    "RagVectorDbConfigRagManagedVertexVectorSearch",
+    "RagVectorDbConfigRagManagedVertexVectorSearchDict",
+    "RagVectorDbConfigRagManagedVertexVectorSearchOrDict",
+    "RagVectorDbConfigVertexFeatureStore",
+    "RagVectorDbConfigVertexFeatureStoreDict",
+    "RagVectorDbConfigVertexFeatureStoreOrDict",
+    "RagVectorDbConfigVertexVectorSearch",
+    "RagVectorDbConfigVertexVectorSearchDict",
+    "RagVectorDbConfigVertexVectorSearchOrDict",
+    "RagVectorDbConfigWeaviate",
+    "RagVectorDbConfigWeaviateDict",
+    "RagVectorDbConfigWeaviateOrDict",
+    "RagVectorDbConfig",
+    "RagVectorDbConfigDict",
+    "RagVectorDbConfigOrDict",
+    "CorpusStatus",
+    "CorpusStatusDict",
+    "CorpusStatusOrDict",
+    "RagCorpusCorpusTypeConfigDocumentCorpus",
+    "RagCorpusCorpusTypeConfigDocumentCorpusDict",
+    "RagCorpusCorpusTypeConfigDocumentCorpusOrDict",
+    "RagFileParsingConfigLlmParser",
+    "RagFileParsingConfigLlmParserDict",
+    "RagFileParsingConfigLlmParserOrDict",
+    "RagCorpusCorpusTypeConfigMemoryCorpus",
+    "RagCorpusCorpusTypeConfigMemoryCorpusDict",
+    "RagCorpusCorpusTypeConfigMemoryCorpusOrDict",
+    "RagCorpusCorpusTypeConfig",
+    "RagCorpusCorpusTypeConfigDict",
+    "RagCorpusCorpusTypeConfigOrDict",
+    "EncryptionSpec",
+    "EncryptionSpecDict",
+    "EncryptionSpecOrDict",
+    "VertexAiSearchConfig",
+    "VertexAiSearchConfigDict",
+    "VertexAiSearchConfigOrDict",
+    "RagCorpus",
+    "RagCorpusDict",
+    "RagCorpusOrDict",
+    "CreateRagCorpusConfig",
+    "CreateRagCorpusConfigDict",
+    "CreateRagCorpusConfigOrDict",
+    "CreateRagCorpusOperation",
+    "CreateRagCorpusOperationDict",
+    "CreateRagCorpusOperationOrDict",
+    "GetRagCorpusConfig",
+    "GetRagCorpusConfigDict",
+    "GetRagCorpusConfigOrDict",
+    "ListRagCorporaConfig",
+    "ListRagCorporaConfigDict",
+    "ListRagCorporaConfigOrDict",
+    "ListRagCorporaResponse",
+    "ListRagCorporaResponseDict",
+    "ListRagCorporaResponseOrDict",
+    "GetRagFileConfig",
+    "GetRagFileConfigDict",
+    "GetRagFileConfigOrDict",
+    "DirectUploadSource",
+    "DirectUploadSourceDict",
+    "DirectUploadSourceOrDict",
+    "FileStatus",
+    "FileStatusDict",
+    "FileStatusOrDict",
+    "GcsSource",
+    "GcsSourceDict",
+    "GcsSourceOrDict",
+    "GoogleDriveSourceResourceId",
+    "GoogleDriveSourceResourceIdDict",
+    "GoogleDriveSourceResourceIdOrDict",
+    "GoogleDriveSource",
+    "GoogleDriveSourceDict",
+    "GoogleDriveSourceOrDict",
+    "JiraSourceJiraQueries",
+    "JiraSourceJiraQueriesDict",
+    "JiraSourceJiraQueriesOrDict",
+    "JiraSource",
+    "JiraSourceDict",
+    "JiraSourceOrDict",
+    "SharePointSourcesSharePointSource",
+    "SharePointSourcesSharePointSourceDict",
+    "SharePointSourcesSharePointSourceOrDict",
+    "SharePointSources",
+    "SharePointSourcesDict",
+    "SharePointSourcesOrDict",
+    "SlackSourceSlackChannelsSlackChannel",
+    "SlackSourceSlackChannelsSlackChannelDict",
+    "SlackSourceSlackChannelsSlackChannelOrDict",
+    "SlackSourceSlackChannels",
+    "SlackSourceSlackChannelsDict",
+    "SlackSourceSlackChannelsOrDict",
+    "SlackSource",
+    "SlackSourceDict",
+    "SlackSourceOrDict",
+    "RagFile",
+    "RagFileDict",
+    "RagFileOrDict",
+    "ListRagFilesConfig",
+    "ListRagFilesConfigDict",
+    "ListRagFilesConfigOrDict",
+    "ListRagFilesResponse",
+    "ListRagFilesResponseDict",
+    "ListRagFilesResponseOrDict",
+    "GetRagConfig",
+    "GetRagConfigDict",
+    "GetRagConfigOrDict",
+    "RagManagedDbConfigBasic",
+    "RagManagedDbConfigBasicDict",
+    "RagManagedDbConfigBasicOrDict",
+    "RagManagedDbConfigEnterprise",
+    "RagManagedDbConfigEnterpriseDict",
+    "RagManagedDbConfigEnterpriseOrDict",
+    "RagManagedDbConfigScaled",
+    "RagManagedDbConfigScaledDict",
+    "RagManagedDbConfigScaledOrDict",
+    "RagManagedDbConfigServerless",
+    "RagManagedDbConfigServerlessDict",
+    "RagManagedDbConfigServerlessOrDict",
+    "RagManagedDbConfigUnprovisioned",
+    "RagManagedDbConfigUnprovisionedDict",
+    "RagManagedDbConfigUnprovisionedOrDict",
+    "RagManagedDbConfigSpanner",
+    "RagManagedDbConfigSpannerDict",
+    "RagManagedDbConfigSpannerOrDict",
+    "RagManagedDbConfig",
+    "RagManagedDbConfigDict",
+    "RagManagedDbConfigOrDict",
+    "RagEngineConfig",
+    "RagEngineConfigDict",
+    "RagEngineConfigOrDict",
+    "UpdateRagCorpusConfig",
+    "UpdateRagCorpusConfigDict",
+    "UpdateRagCorpusConfigOrDict",
+    "UpdateRagCorpusOperation",
+    "UpdateRagCorpusOperationDict",
+    "UpdateRagCorpusOperationOrDict",
+    "DeleteRagCorpusConfig",
+    "DeleteRagCorpusConfigDict",
+    "DeleteRagCorpusConfigOrDict",
+    "DeleteRagCorpusOperation",
+    "DeleteRagCorpusOperationDict",
+    "DeleteRagCorpusOperationOrDict",
+    "DeleteRagFileConfig",
+    "DeleteRagFileConfigDict",
+    "DeleteRagFileConfigOrDict",
+    "DeleteRagFileOperation",
+    "DeleteRagFileOperationDict",
+    "DeleteRagFileOperationOrDict",
+    "UpdateRagConfig",
+    "UpdateRagConfigDict",
+    "UpdateRagConfigOrDict",
+    "UpdateRagConfigOperation",
+    "UpdateRagConfigOperationDict",
+    "UpdateRagConfigOperationOrDict",
+    "RetrieveContextsConfig",
+    "RetrieveContextsConfigDict",
+    "RetrieveContextsConfigOrDict",
+    "VertexRagStoreRagResource",
+    "VertexRagStoreRagResourceDict",
+    "VertexRagStoreRagResourceOrDict",
+    "VertexRagStore",
+    "VertexRagStoreDict",
+    "VertexRagStoreOrDict",
+    "RetrieveContextsResponse",
+    "RetrieveContextsResponseDict",
+    "RetrieveContextsResponseOrDict",
     "GetAgentEngineRuntimeRevisionConfig",
     "GetAgentEngineRuntimeRevisionConfigDict",
     "GetAgentEngineRuntimeRevisionConfigOrDict",
@@ -2724,6 +3218,8 @@ __all__ = [
     "AgentServerMode",
     "MemoryType",
     "Operator",
+    "RagFileType",
+    "ResourceType",
     "Language",
     "MachineConfig",
     "SandboxState",
@@ -2812,6 +3308,18 @@ __all__ = [
     "_PurgeAgentEngineMemoriesRequestParameters",
     "_GetAgentEngineMemoryRevisionRequestParameters",
     "_ListAgentEngineMemoryRevisionsRequestParameters",
+    "_AskContextsRequestParameters",
+    "_CreateRagCorpusRequestParameters",
+    "_GetRagCorpusRequestParameters",
+    "_ListRagCorporaRequestParameters",
+    "_GetRagFileRequestParameters",
+    "_ListRagFilesRequestParameters",
+    "_GetRagConfigRequestParameters",
+    "_UpdateRagCorpusRequestParameters",
+    "_DeleteRagCorpusRequestParameters",
+    "_DeleteRagFileRequestParameters",
+    "_UpdateRagConfigRequestParameters",
+    "_RetrieveRagContextsRequestParameters",
     "_GetAgentEngineRuntimeRevisionRequestParameters",
     "_ListAgentEngineRuntimeRevisionsRequestParameters",
     "_DeleteAgentEngineRuntimeRevisionRequestParameters",

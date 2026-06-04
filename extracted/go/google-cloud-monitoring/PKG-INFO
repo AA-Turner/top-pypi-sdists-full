@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: google-cloud-monitoring
-Version: 2.30.0
+Version: 2.31.0
 Summary: Google Cloud Monitoring API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-monitoring
 Author: Google LLC
 Author-email: googleapis-packages@google.com
-License: Apache 2.0
+License: Apache-2.0
 Platform: Posix; MacOS X; Windows
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,17 +19,17 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: google-api-core[grpc]<3.0.0,>=2.11.0
+Requires-Dist: google-api-core[grpc]<3.0.0,>=2.17.1
 Requires-Dist: google-auth!=2.24.0,!=2.25.0,<3.0.0,>=2.14.1
-Requires-Dist: grpcio<2.0.0,>=1.33.2
+Requires-Dist: grpcio<2.0.0,>=1.59.0
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
 Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
 Requires-Dist: protobuf<8.0.0,>=4.25.8
 Provides-Extra: pandas
-Requires-Dist: pandas>=1.1.3; extra == "pandas"
+Requires-Dist: pandas>=1.3.4; extra == "pandas"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -44,12 +43,12 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-Python Client for Stackdriver Monitoring
-========================================
+Python Client for Cloud Monitoring
+==================================
 
 |stable| |pypi| |versions|
 
-`Stackdriver Monitoring`_: collects metrics, events, and metadata from Google Cloud, Amazon Web Services (AWS), hosted uptime probes, and application instrumentation. Using the BindPlane service, you can also collect this data from over 150 common application components, on-premise systems, and hybrid cloud systems. Stackdriver ingests that data and generates insights via dashboards, charts, and alerts. BindPlane is included with your Google Cloud project at no additional cost.
+`Cloud Monitoring`_: Manages your Cloud Monitoring data and configurations.
 
 - `Client Library Documentation`_
 - `Product Documentation`_
@@ -60,7 +59,7 @@ Python Client for Stackdriver Monitoring
    :target: https://pypi.org/project/google-cloud-monitoring/
 .. |versions| image:: https://img.shields.io/pypi/pyversions/google-cloud-monitoring.svg
    :target: https://pypi.org/project/google-cloud-monitoring/
-.. _Stackdriver Monitoring: https://cloud.google.com/monitoring/docs
+.. _Cloud Monitoring: https://cloud.google.com/monitoring/docs
 .. _Client Library Documentation: https://cloud.google.com/python/docs/reference/monitoring/latest/summary_overview
 .. _Product Documentation:  https://cloud.google.com/monitoring/docs
 
@@ -71,12 +70,12 @@ In order to use this library, you first need to go through the following steps:
 
 1. `Select or create a Cloud Platform project.`_
 2. `Enable billing for your project.`_
-3. `Enable the Stackdriver Monitoring.`_
+3. `Enable the Cloud Monitoring.`_
 4. `Set up Authentication.`_
 
 .. _Select or create a Cloud Platform project.: https://console.cloud.google.com/project
 .. _Enable billing for your project.: https://cloud.google.com/billing/docs/how-to/modify-project#enable_billing_for_a_project
-.. _Enable the Stackdriver Monitoring.:  https://cloud.google.com/monitoring/docs
+.. _Enable the Cloud Monitoring.:  https://cloud.google.com/monitoring/docs
 .. _Set up Authentication.: https://googleapis.dev/python/google-api-core/latest/auth.html
 
 Installation
@@ -107,14 +106,15 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.9, including 3.14
+Python >= 3.10, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.8
+Python <= 3.9
+
 
 If you are using an `end-of-life`_
 version of Python, we recommend that you update as soon as possible to an actively supported version.
@@ -143,14 +143,14 @@ Windows
 Next Steps
 ~~~~~~~~~~
 
--  Read the `Client Library Documentation`_ for Stackdriver Monitoring
+-  Read the `Client Library Documentation`_ for Cloud Monitoring
    to see other available methods on the client.
--  Read the `Stackdriver Monitoring Product documentation`_ to learn
+-  Read the `Cloud Monitoring Product documentation`_ to learn
    more about the product and see How-to Guides.
 -  View this `README`_ to see the full list of Cloud
    APIs that we cover.
 
-.. _Stackdriver Monitoring Product documentation:  https://cloud.google.com/monitoring/docs
+.. _Cloud Monitoring Product documentation:  https://cloud.google.com/monitoring/docs
 .. _README: https://github.com/googleapis/google-cloud-python/blob/main/README.rst
 
 Logging

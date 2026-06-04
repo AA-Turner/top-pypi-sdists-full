@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gpflow
-Version: 2.10.1
+Version: 2.11.0
 Summary: Gaussian process methods in TensorFlow
 Home-page: https://www.gpflow.org
 Author: James Hensman, Alex Matthews

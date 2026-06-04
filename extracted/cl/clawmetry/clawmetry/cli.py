@@ -855,8 +855,13 @@ def _cmd_sync(args) -> None:
         print("❌  Config has no api_key. Run `clawmetry connect` first.")
         sys.exit(1)
 
-    print(f"  Starting sync daemon for {config.get('node_id', '<unknown>')}…")
+    _verb = "Restarting" if getattr(args, "restart", False) else "Starting"
+    print(f"  {_verb} sync daemon for {config.get('node_id', '<unknown>')}…")
+    # _start_daemon already bootout+bootstraps (launchd) / restarts (systemd),
+    # so it is itself a safe restart — `--restart` just makes the intent explicit.
     _start_daemon(config, args)
+    if getattr(args, "restart", False):
+        print("  ✅  Daemon restarted — re-checking entitlement & provisioning runtimes.")
     if not getattr(args, "foreground", False):
         print("  ✅  Sync daemon started.")
 
@@ -1619,6 +1624,60 @@ def _cmd_status(args) -> None:
             print(f"  Files seen:  {len(st.get('last_event_ids', {}))}")
         except Exception:
             pass
+
+    # Runtimes — which agent runtimes this node detects + actually SYNCS, so it's
+    # obvious at a glance whether Claude Code / Codex / etc. are being captured
+    # (the #1 "why don't I see my runtime?" question). The honest distinction:
+    # the adapter may DETECT a runtime locally, but paid runtimes only SYNC to
+    # the cloud on a Trial/Pro account — so we read the daemon's plan cache.
+    try:
+        print()
+        # Is this node's account entitled? (daemon mirrors the cloud plan here.)
+        _entitled = False
+        _plan = ""
+        try:
+            import json as _j2
+            _cp = Path(os.path.expanduser("~/.clawmetry/cloud_plan.json"))
+            if _cp.is_file():
+                _plan = str((json.loads(_cp.read_text()) or {}).get("plan", "")).lower()
+                _entitled = _plan not in ("", "cloud_free", "free")
+        except Exception:
+            pass
+        _prover = None
+        try:
+            from clawmetry.license import _pro_installed_version as _pv
+            _prover = _pv()
+        except Exception:
+            _prover = None
+        _det = []
+        try:
+            from clawmetry.sync import _detect_family_runtimes as _dfr
+            _det = _dfr() or []
+        except Exception:
+            _det = []
+        print("  Runtimes:")
+        print("    🦞 OpenClaw            ✅ syncing  (free)")
+        for _r in _det:
+            _n = int(_r.get("sessionCount") or 0)
+            _nm = _r.get("displayName") or _r.get("name") or "runtime"
+            _state = "✅ syncing" if _entitled else "○ detected, NOT syncing"
+            print(f"    • {_nm:<18} {_state}  ({_n} session{'s' if _n != 1 else ''})")
+        if not _prover:
+            print("    ⚠ Claude Code / Codex / Cursor / Aider / Goose / opencode / Qwen — NOT syncing")
+            if _entitled:
+                print("      → your account is entitled — the daemon auto-downloads the paid runtime")
+                print("        pack on start (no pip needed). If it hasn't yet: clawmetry sync --restart")
+            else:
+                print("      → paid runtimes need a Trial/Pro account. The daemon auto-downloads the")
+                print("        runtime pack on start once entitled — link your account in the dashboard.")
+        elif _det and not _entitled:
+            print(f"    clawmetry-pro {_prover} installed and detecting the above — but your account")
+            print(f"      is on the FREE plan ({_plan or 'free'}), so paid runtimes are NOT synced to")
+            print("      the cloud. Link to a Trial/Pro account (the dashboard prompts you) to sync them.")
+        elif _prover and not _det:
+            print(f"    clawmetry-pro {_prover} installed — no other runtimes found on this machine yet.")
+    except Exception:
+        pass
 
     # Daemon status
     system = platform.system()
@@ -2616,10 +2675,14 @@ def _cmd_update() -> None:
 
                     if CONFIG_FILE.exists():
                         print("Restarting sync daemon...")
+                        # `clawmetry sync` re-registers the launchd/systemd unit
+                        # (bootout+bootstrap) = a safe restart. The old call to
+                        # the non-existent `daemon restart` subcommand silently
+                        # failed, so the daemon kept running the OLD wheel.
                         subprocess.run(
-                            ["clawmetry", "daemon", "restart"],
+                            ["clawmetry", "sync", "--restart"],
                             capture_output=True,
-                            timeout=15,
+                            timeout=20,
                         )
                         print("Daemon restarted with new version")
                 except Exception:
@@ -2952,6 +3015,10 @@ def main() -> None:
     )
     p_sync.add_argument(
         "--foreground", action="store_true", help="Run daemon in foreground"
+    )
+    p_sync.add_argument(
+        "--restart", action="store_true",
+        help="Restart the running daemon (bounces launchd/systemd; safe, no SIGKILL)",
     )
 
     # status

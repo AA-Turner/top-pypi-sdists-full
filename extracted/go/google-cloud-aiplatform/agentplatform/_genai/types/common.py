@@ -304,6 +304,28 @@ class Operator(_common.CaseInSensitiveEnum):
     """Less than."""
 
 
+class RagFileType(_common.CaseInSensitiveEnum):
+    """Output only. The type of the RagFile."""
+
+    RAG_FILE_TYPE_UNSPECIFIED = "RAG_FILE_TYPE_UNSPECIFIED"
+    """RagFile type is unspecified."""
+    RAG_FILE_TYPE_TXT = "RAG_FILE_TYPE_TXT"
+    """RagFile type is TXT."""
+    RAG_FILE_TYPE_PDF = "RAG_FILE_TYPE_PDF"
+    """RagFile type is PDF."""
+
+
+class ResourceType(_common.CaseInSensitiveEnum):
+    """The type of the Google Drive resource."""
+
+    RESOURCE_TYPE_UNSPECIFIED = "RESOURCE_TYPE_UNSPECIFIED"
+    """Unspecified resource type."""
+    RESOURCE_TYPE_FILE = "RESOURCE_TYPE_FILE"
+    """File resource type."""
+    RESOURCE_TYPE_FOLDER = "RESOURCE_TYPE_FOLDER"
+    """Folder resource type."""
+
+
 class Language(_common.CaseInSensitiveEnum):
     """The coding language supported in this environment."""
 
@@ -2435,7 +2457,8 @@ class EvaluationRunConfig(_common.BaseModel):
         default=None, description="""The output config for the evaluation run."""
     )
     autorater_config: Optional[genai_types.AutoraterConfig] = Field(
-        default=None, description="""The autorater config for the evaluation run."""
+        default=None,
+        description="""The autorater config for the evaluation run. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored.""",
     )
     prompt_template: Optional[EvaluationRunPromptTemplate] = Field(
         default=None, description="""The prompt template used for inference."""
@@ -2465,7 +2488,7 @@ class EvaluationRunConfigDict(TypedDict, total=False):
     """The output config for the evaluation run."""
 
     autorater_config: Optional[genai_types.AutoraterConfigDict]
-    """The autorater config for the evaluation run."""
+    """The autorater config for the evaluation run. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored."""
 
     prompt_template: Optional[EvaluationRunPromptTemplateDict]
     """The prompt template used for inference."""
@@ -4772,7 +4795,8 @@ class _EvaluateInstancesRequestParameters(_common.BaseModel):
         default=None, description=""""""
     )
     autorater_config: Optional[genai_types.AutoraterConfig] = Field(
-        default=None, description=""""""
+        default=None,
+        description="""Autorater config used for evaluation. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored.""",
     )
     metrics: Optional[list[Metric]] = Field(
         default=None,
@@ -4823,7 +4847,7 @@ class _EvaluateInstancesRequestParametersDict(TypedDict, total=False):
     """"""
 
     autorater_config: Optional[genai_types.AutoraterConfigDict]
-    """"""
+    """Autorater config used for evaluation. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored."""
 
     metrics: Optional[list[MetricDict]]
     """The metrics used for evaluation.
@@ -11912,6 +11936,2650 @@ ListAgentEngineMemoryRevisionsResponseOrDict = Union[
 ]
 
 
+class AskContextsConfig(_common.BaseModel):
+    """Config for asking RAG Contexts."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class AskContextsConfigDict(TypedDict, total=False):
+    """Config for asking RAG Contexts."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+AskContextsConfigOrDict = Union[AskContextsConfig, AskContextsConfigDict]
+
+
+class RagRetrievalConfigFilter(_common.BaseModel):
+    """Config for filters."""
+
+    metadata_filter: Optional[str] = Field(
+        default=None, description="""Optional. String for metadata filtering."""
+    )
+    vector_distance_threshold: Optional[float] = Field(
+        default=None,
+        description="""Optional. Only returns contexts with vector distance smaller than the threshold.""",
+    )
+    vector_similarity_threshold: Optional[float] = Field(
+        default=None,
+        description="""Optional. Only returns contexts with vector similarity larger than the threshold.""",
+    )
+
+
+class RagRetrievalConfigFilterDict(TypedDict, total=False):
+    """Config for filters."""
+
+    metadata_filter: Optional[str]
+    """Optional. String for metadata filtering."""
+
+    vector_distance_threshold: Optional[float]
+    """Optional. Only returns contexts with vector distance smaller than the threshold."""
+
+    vector_similarity_threshold: Optional[float]
+    """Optional. Only returns contexts with vector similarity larger than the threshold."""
+
+
+RagRetrievalConfigFilterOrDict = Union[
+    RagRetrievalConfigFilter, RagRetrievalConfigFilterDict
+]
+
+
+class RagRetrievalConfigHybridSearch(_common.BaseModel):
+    """Config for Hybrid Search."""
+
+    alpha: Optional[float] = Field(
+        default=None,
+        description="""Optional. Alpha value controls the weight between dense and sparse vector search results. The range is [0, 1], while 0 means sparse vector search only and 1 means dense vector search only. The default value is 0.5 which balances sparse and dense vector search equally.""",
+    )
+
+
+class RagRetrievalConfigHybridSearchDict(TypedDict, total=False):
+    """Config for Hybrid Search."""
+
+    alpha: Optional[float]
+    """Optional. Alpha value controls the weight between dense and sparse vector search results. The range is [0, 1], while 0 means sparse vector search only and 1 means dense vector search only. The default value is 0.5 which balances sparse and dense vector search equally."""
+
+
+RagRetrievalConfigHybridSearchOrDict = Union[
+    RagRetrievalConfigHybridSearch, RagRetrievalConfigHybridSearchDict
+]
+
+
+class RagRetrievalConfigRankingLlmRanker(_common.BaseModel):
+    """Config for LlmRanker."""
+
+    model_name: Optional[str] = Field(
+        default=None,
+        description="""Optional. The model name used for ranking. See [Supported models](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#supported-models).""",
+    )
+
+
+class RagRetrievalConfigRankingLlmRankerDict(TypedDict, total=False):
+    """Config for LlmRanker."""
+
+    model_name: Optional[str]
+    """Optional. The model name used for ranking. See [Supported models](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference#supported-models)."""
+
+
+RagRetrievalConfigRankingLlmRankerOrDict = Union[
+    RagRetrievalConfigRankingLlmRanker, RagRetrievalConfigRankingLlmRankerDict
+]
+
+
+class RagRetrievalConfigRankingRankService(_common.BaseModel):
+    """Config for Rank Service."""
+
+    model_name: Optional[str] = Field(
+        default=None,
+        description="""Optional. The model name of the rank service. Format: `semantic-ranker-512@latest`""",
+    )
+
+
+class RagRetrievalConfigRankingRankServiceDict(TypedDict, total=False):
+    """Config for Rank Service."""
+
+    model_name: Optional[str]
+    """Optional. The model name of the rank service. Format: `semantic-ranker-512@latest`"""
+
+
+RagRetrievalConfigRankingRankServiceOrDict = Union[
+    RagRetrievalConfigRankingRankService, RagRetrievalConfigRankingRankServiceDict
+]
+
+
+class RagRetrievalConfigRanking(_common.BaseModel):
+    """Config for ranking and reranking."""
+
+    llm_ranker: Optional[RagRetrievalConfigRankingLlmRanker] = Field(
+        default=None, description="""Optional. Config for LlmRanker."""
+    )
+    rank_service: Optional[RagRetrievalConfigRankingRankService] = Field(
+        default=None, description="""Optional. Config for Rank Service."""
+    )
+
+
+class RagRetrievalConfigRankingDict(TypedDict, total=False):
+    """Config for ranking and reranking."""
+
+    llm_ranker: Optional[RagRetrievalConfigRankingLlmRankerDict]
+    """Optional. Config for LlmRanker."""
+
+    rank_service: Optional[RagRetrievalConfigRankingRankServiceDict]
+    """Optional. Config for Rank Service."""
+
+
+RagRetrievalConfigRankingOrDict = Union[
+    RagRetrievalConfigRanking, RagRetrievalConfigRankingDict
+]
+
+
+class RagRetrievalConfig(_common.BaseModel):
+    """Specifies the context retrieval config."""
+
+    filter: Optional[RagRetrievalConfigFilter] = Field(
+        default=None, description="""Optional. Config for filters."""
+    )
+    hybrid_search: Optional[RagRetrievalConfigHybridSearch] = Field(
+        default=None, description="""Optional. Config for Hybrid Search."""
+    )
+    ranking: Optional[RagRetrievalConfigRanking] = Field(
+        default=None, description="""Optional. Config for ranking and reranking."""
+    )
+    top_k: Optional[int] = Field(
+        default=None, description="""Optional. The number of contexts to retrieve."""
+    )
+
+
+class RagRetrievalConfigDict(TypedDict, total=False):
+    """Specifies the context retrieval config."""
+
+    filter: Optional[RagRetrievalConfigFilterDict]
+    """Optional. Config for filters."""
+
+    hybrid_search: Optional[RagRetrievalConfigHybridSearchDict]
+    """Optional. Config for Hybrid Search."""
+
+    ranking: Optional[RagRetrievalConfigRankingDict]
+    """Optional. Config for ranking and reranking."""
+
+    top_k: Optional[int]
+    """Optional. The number of contexts to retrieve."""
+
+
+RagRetrievalConfigOrDict = Union[RagRetrievalConfig, RagRetrievalConfigDict]
+
+
+class RagQueryRanking(_common.BaseModel):
+    """Configurations for hybrid search results ranking."""
+
+    alpha: Optional[float] = Field(
+        default=None,
+        description="""Optional. Alpha value controls the weight between dense and sparse vector search results. The range is [0, 1], while 0 means sparse vector search only and 1 means dense vector search only. The default value is 0.5 which balances sparse and dense vector search equally.""",
+    )
+
+
+class RagQueryRankingDict(TypedDict, total=False):
+    """Configurations for hybrid search results ranking."""
+
+    alpha: Optional[float]
+    """Optional. Alpha value controls the weight between dense and sparse vector search results. The range is [0, 1], while 0 means sparse vector search only and 1 means dense vector search only. The default value is 0.5 which balances sparse and dense vector search equally."""
+
+
+RagQueryRankingOrDict = Union[RagQueryRanking, RagQueryRankingDict]
+
+
+class RagQuery(_common.BaseModel):
+    """A query to retrieve relevant contexts."""
+
+    rag_retrieval_config: Optional[RagRetrievalConfig] = Field(
+        default=None, description="""Optional. The retrieval config for the query."""
+    )
+    ranking: Optional[RagQueryRanking] = Field(
+        default=None,
+        description="""Optional. Configurations for hybrid search results ranking.""",
+    )
+    similarity_top_k: Optional[int] = Field(
+        default=None, description="""Optional. The number of contexts to retrieve."""
+    )
+    text: Optional[str] = Field(
+        default=None,
+        description="""Optional. The query in text format to get relevant contexts.""",
+    )
+
+
+class RagQueryDict(TypedDict, total=False):
+    """A query to retrieve relevant contexts."""
+
+    rag_retrieval_config: Optional[RagRetrievalConfigDict]
+    """Optional. The retrieval config for the query."""
+
+    ranking: Optional[RagQueryRankingDict]
+    """Optional. Configurations for hybrid search results ranking."""
+
+    similarity_top_k: Optional[int]
+    """Optional. The number of contexts to retrieve."""
+
+    text: Optional[str]
+    """Optional. The query in text format to get relevant contexts."""
+
+
+RagQueryOrDict = Union[RagQuery, RagQueryDict]
+
+
+class _AskContextsRequestParameters(_common.BaseModel):
+    """Parameters for asking RAG Contexts."""
+
+    query: Optional[RagQuery] = Field(default=None, description="""""")
+    config: Optional[AskContextsConfig] = Field(default=None, description="""""")
+    tools: Optional[list[genai_types.Tool]] = Field(default=None, description="""""")
+
+
+class _AskContextsRequestParametersDict(TypedDict, total=False):
+    """Parameters for asking RAG Contexts."""
+
+    query: Optional[RagQueryDict]
+    """"""
+
+    config: Optional[AskContextsConfigDict]
+    """"""
+
+    tools: Optional[list[genai_types.ToolDict]]
+    """"""
+
+
+_AskContextsRequestParametersOrDict = Union[
+    _AskContextsRequestParameters, _AskContextsRequestParametersDict
+]
+
+
+class RagChunkPageSpan(_common.BaseModel):
+    """Represents where the chunk starts and ends in the document."""
+
+    first_page: Optional[int] = Field(
+        default=None,
+        description="""Page where chunk starts in the document. Inclusive. 1-indexed.""",
+    )
+    last_page: Optional[int] = Field(
+        default=None,
+        description="""Page where chunk ends in the document. Inclusive. 1-indexed.""",
+    )
+
+
+class RagChunkPageSpanDict(TypedDict, total=False):
+    """Represents where the chunk starts and ends in the document."""
+
+    first_page: Optional[int]
+    """Page where chunk starts in the document. Inclusive. 1-indexed."""
+
+    last_page: Optional[int]
+    """Page where chunk ends in the document. Inclusive. 1-indexed."""
+
+
+RagChunkPageSpanOrDict = Union[RagChunkPageSpan, RagChunkPageSpanDict]
+
+
+class RagChunk(_common.BaseModel):
+    """A RagChunk includes the content of a chunk of a RagFile, and associated metadata."""
+
+    chunk_id: Optional[str] = Field(
+        default=None, description="""The ID of the chunk."""
+    )
+    file_id: Optional[str] = Field(
+        default=None, description="""The ID of the file that the chunk belongs to."""
+    )
+    page_span: Optional[RagChunkPageSpan] = Field(
+        default=None,
+        description="""If populated, represents where the chunk starts and ends in the document.""",
+    )
+    text: Optional[str] = Field(
+        default=None, description="""The content of the chunk."""
+    )
+
+
+class RagChunkDict(TypedDict, total=False):
+    """A RagChunk includes the content of a chunk of a RagFile, and associated metadata."""
+
+    chunk_id: Optional[str]
+    """The ID of the chunk."""
+
+    file_id: Optional[str]
+    """The ID of the file that the chunk belongs to."""
+
+    page_span: Optional[RagChunkPageSpanDict]
+    """If populated, represents where the chunk starts and ends in the document."""
+
+    text: Optional[str]
+    """The content of the chunk."""
+
+
+RagChunkOrDict = Union[RagChunk, RagChunkDict]
+
+
+class RagContextsContext(_common.BaseModel):
+    """A context of the query."""
+
+    chunk: Optional[RagChunk] = Field(
+        default=None, description="""Context of the retrieved chunk."""
+    )
+    distance: Optional[float] = Field(
+        default=None,
+        description="""The distance between the query dense embedding vector and the context text vector.""",
+    )
+    score: Optional[float] = Field(
+        default=None,
+        description="""According to the underlying Vector DB and the selected metric type, the score can be either the distance or the similarity between the query and the context and its range depends on the metric type. For example, if the metric type is COSINE_DISTANCE, it represents the distance between the query and the context. The larger the distance, the less relevant the context is to the query. The range is [0, 2], while 0 means the most relevant and 2 means the least relevant.""",
+    )
+    source_display_name: Optional[str] = Field(
+        default=None, description="""The file display name."""
+    )
+    source_uri: Optional[str] = Field(
+        default=None,
+        description="""If the file is imported from Cloud Storage or Google Drive, source_uri will be original file URI in Cloud Storage or Google Drive; if file is uploaded, source_uri will be file display name.""",
+    )
+    sparse_distance: Optional[float] = Field(
+        default=None,
+        description="""The distance between the query sparse embedding vector and the context text vector.""",
+    )
+    text: Optional[str] = Field(default=None, description="""The text chunk.""")
+
+
+class RagContextsContextDict(TypedDict, total=False):
+    """A context of the query."""
+
+    chunk: Optional[RagChunkDict]
+    """Context of the retrieved chunk."""
+
+    distance: Optional[float]
+    """The distance between the query dense embedding vector and the context text vector."""
+
+    score: Optional[float]
+    """According to the underlying Vector DB and the selected metric type, the score can be either the distance or the similarity between the query and the context and its range depends on the metric type. For example, if the metric type is COSINE_DISTANCE, it represents the distance between the query and the context. The larger the distance, the less relevant the context is to the query. The range is [0, 2], while 0 means the most relevant and 2 means the least relevant."""
+
+    source_display_name: Optional[str]
+    """The file display name."""
+
+    source_uri: Optional[str]
+    """If the file is imported from Cloud Storage or Google Drive, source_uri will be original file URI in Cloud Storage or Google Drive; if file is uploaded, source_uri will be file display name."""
+
+    sparse_distance: Optional[float]
+    """The distance between the query sparse embedding vector and the context text vector."""
+
+    text: Optional[str]
+    """The text chunk."""
+
+
+RagContextsContextOrDict = Union[RagContextsContext, RagContextsContextDict]
+
+
+class RagContexts(_common.BaseModel):
+    """Relevant contexts for one query."""
+
+    contexts: Optional[list[RagContextsContext]] = Field(
+        default=None, description="""All its contexts."""
+    )
+
+
+class RagContextsDict(TypedDict, total=False):
+    """Relevant contexts for one query."""
+
+    contexts: Optional[list[RagContextsContextDict]]
+    """All its contexts."""
+
+
+RagContextsOrDict = Union[RagContexts, RagContextsDict]
+
+
+class AskContextsResponse(_common.BaseModel):
+
+    contexts: Optional[RagContexts] = Field(
+        default=None, description="""The contexts of the query."""
+    )
+    response: Optional[str] = Field(
+        default=None, description="""The Retrieval Response."""
+    )
+
+
+class AskContextsResponseDict(TypedDict, total=False):
+
+    contexts: Optional[RagContextsDict]
+    """The contexts of the query."""
+
+    response: Optional[str]
+    """The Retrieval Response."""
+
+
+AskContextsResponseOrDict = Union[AskContextsResponse, AskContextsResponseDict]
+
+
+class ApiAuthApiKeyConfig(_common.BaseModel):
+    """The API secret."""
+
+    api_key_secret_version: Optional[str] = Field(
+        default=None,
+        description="""Required. The SecretManager secret version resource name storing API key. e.g. projects/{project}/secrets/{secret}/versions/{version}""",
+    )
+    api_key_string: Optional[str] = Field(
+        default=None,
+        description="""The API key string. Either this or `api_key_secret_version` must be set.""",
+    )
+
+
+class ApiAuthApiKeyConfigDict(TypedDict, total=False):
+    """The API secret."""
+
+    api_key_secret_version: Optional[str]
+    """Required. The SecretManager secret version resource name storing API key. e.g. projects/{project}/secrets/{secret}/versions/{version}"""
+
+    api_key_string: Optional[str]
+    """The API key string. Either this or `api_key_secret_version` must be set."""
+
+
+ApiAuthApiKeyConfigOrDict = Union[ApiAuthApiKeyConfig, ApiAuthApiKeyConfigDict]
+
+
+class ApiAuth(_common.BaseModel):
+    """The generic reusable api auth config. Deprecated. Please use AuthConfig (google/cloud/aiplatform/master/auth.proto) instead."""
+
+    api_key_config: Optional[ApiAuthApiKeyConfig] = Field(
+        default=None, description="""The API secret."""
+    )
+
+
+class ApiAuthDict(TypedDict, total=False):
+    """The generic reusable api auth config. Deprecated. Please use AuthConfig (google/cloud/aiplatform/master/auth.proto) instead."""
+
+    api_key_config: Optional[ApiAuthApiKeyConfigDict]
+    """The API secret."""
+
+
+ApiAuthOrDict = Union[ApiAuth, ApiAuthDict]
+
+
+class RagVectorDbConfigPinecone(_common.BaseModel):
+    """The config for the Pinecone."""
+
+    index_name: Optional[str] = Field(
+        default=None,
+        description="""Pinecone index name. This value cannot be changed after it's set.""",
+    )
+
+
+class RagVectorDbConfigPineconeDict(TypedDict, total=False):
+    """The config for the Pinecone."""
+
+    index_name: Optional[str]
+    """Pinecone index name. This value cannot be changed after it's set."""
+
+
+RagVectorDbConfigPineconeOrDict = Union[
+    RagVectorDbConfigPinecone, RagVectorDbConfigPineconeDict
+]
+
+
+class RagEmbeddingModelConfigVertexPredictionEndpoint(_common.BaseModel):
+    """Config representing a model hosted on Vertex Prediction Endpoint."""
+
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="""Required. The endpoint resource name. Format: `projects/{project}/locations/{location}/publishers/{publisher}/models/{model}` or `projects/{project}/locations/{location}/endpoints/{endpoint}`""",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="""Output only. The resource name of the model that is deployed on the endpoint. Present only when the endpoint is not a publisher model. Pattern: `projects/{project}/locations/{location}/models/{model}`""",
+    )
+    model_version_id: Optional[str] = Field(
+        default=None,
+        description="""Output only. Version ID of the model that is deployed on the endpoint. Present only when the endpoint is not a publisher model.""",
+    )
+
+
+class RagEmbeddingModelConfigVertexPredictionEndpointDict(TypedDict, total=False):
+    """Config representing a model hosted on Vertex Prediction Endpoint."""
+
+    endpoint: Optional[str]
+    """Required. The endpoint resource name. Format: `projects/{project}/locations/{location}/publishers/{publisher}/models/{model}` or `projects/{project}/locations/{location}/endpoints/{endpoint}`"""
+
+    model: Optional[str]
+    """Output only. The resource name of the model that is deployed on the endpoint. Present only when the endpoint is not a publisher model. Pattern: `projects/{project}/locations/{location}/models/{model}`"""
+
+    model_version_id: Optional[str]
+    """Output only. Version ID of the model that is deployed on the endpoint. Present only when the endpoint is not a publisher model."""
+
+
+RagEmbeddingModelConfigVertexPredictionEndpointOrDict = Union[
+    RagEmbeddingModelConfigVertexPredictionEndpoint,
+    RagEmbeddingModelConfigVertexPredictionEndpointDict,
+]
+
+
+class RagEmbeddingModelConfigSparseEmbeddingConfigBm25(_common.BaseModel):
+    """Message for BM25 parameters."""
+
+    b: Optional[float] = Field(
+        default=None,
+        description="""Optional. The parameter to control document length normalization. It determines how much the document length affects the final score. b is in the range of [0, 1]. The default value is 0.75.""",
+    )
+    k1: Optional[float] = Field(
+        default=None,
+        description="""Optional. The parameter to control term frequency saturation. It determines the scaling between the matching term frequency and final score. k1 is in the range of [1.2, 3]. The default value is 1.2.""",
+    )
+    multilingual: Optional[bool] = Field(
+        default=None,
+        description="""Optional. Use multilingual tokenizer if set to true.""",
+    )
+
+
+class RagEmbeddingModelConfigSparseEmbeddingConfigBm25Dict(TypedDict, total=False):
+    """Message for BM25 parameters."""
+
+    b: Optional[float]
+    """Optional. The parameter to control document length normalization. It determines how much the document length affects the final score. b is in the range of [0, 1]. The default value is 0.75."""
+
+    k1: Optional[float]
+    """Optional. The parameter to control term frequency saturation. It determines the scaling between the matching term frequency and final score. k1 is in the range of [1.2, 3]. The default value is 1.2."""
+
+    multilingual: Optional[bool]
+    """Optional. Use multilingual tokenizer if set to true."""
+
+
+RagEmbeddingModelConfigSparseEmbeddingConfigBm25OrDict = Union[
+    RagEmbeddingModelConfigSparseEmbeddingConfigBm25,
+    RagEmbeddingModelConfigSparseEmbeddingConfigBm25Dict,
+]
+
+
+class RagEmbeddingModelConfigSparseEmbeddingConfig(_common.BaseModel):
+    """Configuration for sparse emebdding generation."""
+
+    bm25: Optional[RagEmbeddingModelConfigSparseEmbeddingConfigBm25] = Field(
+        default=None, description="""Use BM25 scoring algorithm."""
+    )
+
+
+class RagEmbeddingModelConfigSparseEmbeddingConfigDict(TypedDict, total=False):
+    """Configuration for sparse emebdding generation."""
+
+    bm25: Optional[RagEmbeddingModelConfigSparseEmbeddingConfigBm25Dict]
+    """Use BM25 scoring algorithm."""
+
+
+RagEmbeddingModelConfigSparseEmbeddingConfigOrDict = Union[
+    RagEmbeddingModelConfigSparseEmbeddingConfig,
+    RagEmbeddingModelConfigSparseEmbeddingConfigDict,
+]
+
+
+class RagEmbeddingModelConfigHybridSearchConfig(_common.BaseModel):
+    """Config for hybrid search."""
+
+    dense_embedding_model_prediction_endpoint: Optional[
+        RagEmbeddingModelConfigVertexPredictionEndpoint
+    ] = Field(
+        default=None,
+        description="""Required. The Vertex AI Prediction Endpoint that hosts the embedding model for dense embedding generations.""",
+    )
+    sparse_embedding_config: Optional[RagEmbeddingModelConfigSparseEmbeddingConfig] = (
+        Field(
+            default=None,
+            description="""Optional. The configuration for sparse embedding generation. This field is optional the default behavior depends on the vector database choice on the RagCorpus.""",
+        )
+    )
+
+
+class RagEmbeddingModelConfigHybridSearchConfigDict(TypedDict, total=False):
+    """Config for hybrid search."""
+
+    dense_embedding_model_prediction_endpoint: Optional[
+        RagEmbeddingModelConfigVertexPredictionEndpointDict
+    ]
+    """Required. The Vertex AI Prediction Endpoint that hosts the embedding model for dense embedding generations."""
+
+    sparse_embedding_config: Optional[RagEmbeddingModelConfigSparseEmbeddingConfigDict]
+    """Optional. The configuration for sparse embedding generation. This field is optional the default behavior depends on the vector database choice on the RagCorpus."""
+
+
+RagEmbeddingModelConfigHybridSearchConfigOrDict = Union[
+    RagEmbeddingModelConfigHybridSearchConfig,
+    RagEmbeddingModelConfigHybridSearchConfigDict,
+]
+
+
+class RagEmbeddingModelConfig(_common.BaseModel):
+    """Config for the embedding model to use for RAG."""
+
+    hybrid_search_config: Optional[RagEmbeddingModelConfigHybridSearchConfig] = Field(
+        default=None, description="""Configuration for hybrid search."""
+    )
+    vertex_prediction_endpoint: Optional[
+        RagEmbeddingModelConfigVertexPredictionEndpoint
+    ] = Field(
+        default=None,
+        description="""The Vertex AI Prediction Endpoint that either refers to a publisher model or an endpoint that is hosting a 1P fine-tuned text embedding model. Endpoints hosting non-1P fine-tuned text embedding models are currently not supported. This is used for dense vector search.""",
+    )
+
+
+class RagEmbeddingModelConfigDict(TypedDict, total=False):
+    """Config for the embedding model to use for RAG."""
+
+    hybrid_search_config: Optional[RagEmbeddingModelConfigHybridSearchConfigDict]
+    """Configuration for hybrid search."""
+
+    vertex_prediction_endpoint: Optional[
+        RagEmbeddingModelConfigVertexPredictionEndpointDict
+    ]
+    """The Vertex AI Prediction Endpoint that either refers to a publisher model or an endpoint that is hosting a 1P fine-tuned text embedding model. Endpoints hosting non-1P fine-tuned text embedding models are currently not supported. This is used for dense vector search."""
+
+
+RagEmbeddingModelConfigOrDict = Union[
+    RagEmbeddingModelConfig, RagEmbeddingModelConfigDict
+]
+
+
+class RagVectorDbConfigRagManagedDbANN(_common.BaseModel):
+    """Config for ANN search. RagManagedDb uses a tree-based structure to partition data and facilitate faster searches. As a tradeoff, it requires longer indexing time and manual triggering of index rebuild via the ImportRagFiles and UpdateRagCorpus API."""
+
+    leaf_count: Optional[int] = Field(
+        default=None,
+        description="""Number of leaf nodes in the tree-based structure. Each leaf node contains groups of closely related vectors along with their corresponding centroid. Recommended value is 10 * sqrt(num of RagFiles in your RagCorpus). Default value is 500.""",
+    )
+    tree_depth: Optional[int] = Field(
+        default=None,
+        description="""The depth of the tree-based structure. Only depth values of 2 and 3 are supported. Recommended value is 2 if you have if you have O(10K) files in the RagCorpus and set this to 3 if more than that. Default value is 2.""",
+    )
+
+
+class RagVectorDbConfigRagManagedDbANNDict(TypedDict, total=False):
+    """Config for ANN search. RagManagedDb uses a tree-based structure to partition data and facilitate faster searches. As a tradeoff, it requires longer indexing time and manual triggering of index rebuild via the ImportRagFiles and UpdateRagCorpus API."""
+
+    leaf_count: Optional[int]
+    """Number of leaf nodes in the tree-based structure. Each leaf node contains groups of closely related vectors along with their corresponding centroid. Recommended value is 10 * sqrt(num of RagFiles in your RagCorpus). Default value is 500."""
+
+    tree_depth: Optional[int]
+    """The depth of the tree-based structure. Only depth values of 2 and 3 are supported. Recommended value is 2 if you have if you have O(10K) files in the RagCorpus and set this to 3 if more than that. Default value is 2."""
+
+
+RagVectorDbConfigRagManagedDbANNOrDict = Union[
+    RagVectorDbConfigRagManagedDbANN, RagVectorDbConfigRagManagedDbANNDict
+]
+
+
+class RagVectorDbConfigRagManagedDbKNN(_common.BaseModel):
+    """Config for KNN search."""
+
+    pass
+
+
+class RagVectorDbConfigRagManagedDbKNNDict(TypedDict, total=False):
+    """Config for KNN search."""
+
+    pass
+
+
+RagVectorDbConfigRagManagedDbKNNOrDict = Union[
+    RagVectorDbConfigRagManagedDbKNN, RagVectorDbConfigRagManagedDbKNNDict
+]
+
+
+class RagVectorDbConfigRagManagedDb(_common.BaseModel):
+    """The config for the default RAG-managed Vector DB."""
+
+    ann: Optional[RagVectorDbConfigRagManagedDbANN] = Field(
+        default=None,
+        description="""Performs an ANN search on RagCorpus. Use this if you have a lot of files (> 10K) in your RagCorpus and want to reduce the search latency.""",
+    )
+    knn: Optional[RagVectorDbConfigRagManagedDbKNN] = Field(
+        default=None,
+        description="""Performs a KNN search on RagCorpus. Default choice if not specified.""",
+    )
+
+
+class RagVectorDbConfigRagManagedDbDict(TypedDict, total=False):
+    """The config for the default RAG-managed Vector DB."""
+
+    ann: Optional[RagVectorDbConfigRagManagedDbANNDict]
+    """Performs an ANN search on RagCorpus. Use this if you have a lot of files (> 10K) in your RagCorpus and want to reduce the search latency."""
+
+    knn: Optional[RagVectorDbConfigRagManagedDbKNNDict]
+    """Performs a KNN search on RagCorpus. Default choice if not specified."""
+
+
+RagVectorDbConfigRagManagedDbOrDict = Union[
+    RagVectorDbConfigRagManagedDb, RagVectorDbConfigRagManagedDbDict
+]
+
+
+class RagVectorDbConfigRagManagedVertexVectorSearch(_common.BaseModel):
+    """The config for the RAG-managed Vertex Vector Search 2.0."""
+
+    collection_name: Optional[str] = Field(
+        default=None,
+        description="""Output only. The resource name of the Vector Search 2.0 Collection that RAG Created for the corpus. Only populated after the corpus is successfully created. Format: `projects/{project}/locations/{location}/collections/{collection_id}`""",
+    )
+
+
+class RagVectorDbConfigRagManagedVertexVectorSearchDict(TypedDict, total=False):
+    """The config for the RAG-managed Vertex Vector Search 2.0."""
+
+    collection_name: Optional[str]
+    """Output only. The resource name of the Vector Search 2.0 Collection that RAG Created for the corpus. Only populated after the corpus is successfully created. Format: `projects/{project}/locations/{location}/collections/{collection_id}`"""
+
+
+RagVectorDbConfigRagManagedVertexVectorSearchOrDict = Union[
+    RagVectorDbConfigRagManagedVertexVectorSearch,
+    RagVectorDbConfigRagManagedVertexVectorSearchDict,
+]
+
+
+class RagVectorDbConfigVertexFeatureStore(_common.BaseModel):
+    """The config for the Vertex Feature Store."""
+
+    feature_view_resource_name: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the FeatureView. Format: `projects/{project}/locations/{location}/featureOnlineStores/{feature_online_store}/featureViews/{feature_view}`""",
+    )
+
+
+class RagVectorDbConfigVertexFeatureStoreDict(TypedDict, total=False):
+    """The config for the Vertex Feature Store."""
+
+    feature_view_resource_name: Optional[str]
+    """The resource name of the FeatureView. Format: `projects/{project}/locations/{location}/featureOnlineStores/{feature_online_store}/featureViews/{feature_view}`"""
+
+
+RagVectorDbConfigVertexFeatureStoreOrDict = Union[
+    RagVectorDbConfigVertexFeatureStore, RagVectorDbConfigVertexFeatureStoreDict
+]
+
+
+class RagVectorDbConfigVertexVectorSearch(_common.BaseModel):
+    """The config for the Vertex Vector Search."""
+
+    index: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the Index. Format: `projects/{project}/locations/{location}/indexes/{index}`""",
+    )
+    index_endpoint: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the Index Endpoint. Format: `projects/{project}/locations/{location}/indexEndpoints/{index_endpoint}`""",
+    )
+
+
+class RagVectorDbConfigVertexVectorSearchDict(TypedDict, total=False):
+    """The config for the Vertex Vector Search."""
+
+    index: Optional[str]
+    """The resource name of the Index. Format: `projects/{project}/locations/{location}/indexes/{index}`"""
+
+    index_endpoint: Optional[str]
+    """The resource name of the Index Endpoint. Format: `projects/{project}/locations/{location}/indexEndpoints/{index_endpoint}`"""
+
+
+RagVectorDbConfigVertexVectorSearchOrDict = Union[
+    RagVectorDbConfigVertexVectorSearch, RagVectorDbConfigVertexVectorSearchDict
+]
+
+
+class RagVectorDbConfigWeaviate(_common.BaseModel):
+    """The config for the Weaviate."""
+
+    collection_name: Optional[str] = Field(
+        default=None,
+        description="""The corresponding collection this corpus maps to. This value cannot be changed after it's set.""",
+    )
+    http_endpoint: Optional[str] = Field(
+        default=None,
+        description="""Weaviate DB instance HTTP endpoint. e.g. 34.56.78.90:8080 Vertex RAG only supports HTTP connection to Weaviate. This value cannot be changed after it's set.""",
+    )
+
+
+class RagVectorDbConfigWeaviateDict(TypedDict, total=False):
+    """The config for the Weaviate."""
+
+    collection_name: Optional[str]
+    """The corresponding collection this corpus maps to. This value cannot be changed after it's set."""
+
+    http_endpoint: Optional[str]
+    """Weaviate DB instance HTTP endpoint. e.g. 34.56.78.90:8080 Vertex RAG only supports HTTP connection to Weaviate. This value cannot be changed after it's set."""
+
+
+RagVectorDbConfigWeaviateOrDict = Union[
+    RagVectorDbConfigWeaviate, RagVectorDbConfigWeaviateDict
+]
+
+
+class RagVectorDbConfig(_common.BaseModel):
+    """The backend config of the RagCorpus."""
+
+    api_auth: Optional[ApiAuth] = Field(
+        default=None, description="""Authentication config for the chosen Vector DB."""
+    )
+    pinecone: Optional[RagVectorDbConfigPinecone] = Field(
+        default=None, description="""The config for the Pinecone."""
+    )
+    rag_embedding_model_config: Optional[RagEmbeddingModelConfig] = Field(
+        default=None,
+        description="""Optional. Immutable. The embedding model config of the Vector DB.""",
+    )
+    rag_managed_db: Optional[RagVectorDbConfigRagManagedDb] = Field(
+        default=None, description="""The config for the RAG-managed Vector DB."""
+    )
+    rag_managed_vertex_vector_search: Optional[
+        RagVectorDbConfigRagManagedVertexVectorSearch
+    ] = Field(
+        default=None,
+        description="""The config for the RAG-managed Vertex Vector Search 2.0.""",
+    )
+    vertex_feature_store: Optional[RagVectorDbConfigVertexFeatureStore] = Field(
+        default=None, description="""The config for the Vertex Feature Store."""
+    )
+    vertex_vector_search: Optional[RagVectorDbConfigVertexVectorSearch] = Field(
+        default=None, description="""The config for the Vertex Vector Search."""
+    )
+    weaviate: Optional[RagVectorDbConfigWeaviate] = Field(
+        default=None, description="""The config for the Weaviate."""
+    )
+
+
+class RagVectorDbConfigDict(TypedDict, total=False):
+    """The backend config of the RagCorpus."""
+
+    api_auth: Optional[ApiAuthDict]
+    """Authentication config for the chosen Vector DB."""
+
+    pinecone: Optional[RagVectorDbConfigPineconeDict]
+    """The config for the Pinecone."""
+
+    rag_embedding_model_config: Optional[RagEmbeddingModelConfigDict]
+    """Optional. Immutable. The embedding model config of the Vector DB."""
+
+    rag_managed_db: Optional[RagVectorDbConfigRagManagedDbDict]
+    """The config for the RAG-managed Vector DB."""
+
+    rag_managed_vertex_vector_search: Optional[
+        RagVectorDbConfigRagManagedVertexVectorSearchDict
+    ]
+    """The config for the RAG-managed Vertex Vector Search 2.0."""
+
+    vertex_feature_store: Optional[RagVectorDbConfigVertexFeatureStoreDict]
+    """The config for the Vertex Feature Store."""
+
+    vertex_vector_search: Optional[RagVectorDbConfigVertexVectorSearchDict]
+    """The config for the Vertex Vector Search."""
+
+    weaviate: Optional[RagVectorDbConfigWeaviateDict]
+    """The config for the Weaviate."""
+
+
+RagVectorDbConfigOrDict = Union[RagVectorDbConfig, RagVectorDbConfigDict]
+
+
+class CorpusStatus(_common.BaseModel):
+    """RagCorpus status."""
+
+    error_status: Optional[str] = Field(
+        default=None,
+        description="""Output only. Only when the `state` field is ERROR.""",
+    )
+    state: Optional[Literal["UNKNOWN", "INITIALIZED", "ACTIVE", "ERROR"]] = Field(
+        default=None, description="""Output only. RagCorpus life state."""
+    )
+
+
+class CorpusStatusDict(TypedDict, total=False):
+    """RagCorpus status."""
+
+    error_status: Optional[str]
+    """Output only. Only when the `state` field is ERROR."""
+
+    state: Optional[Literal["UNKNOWN", "INITIALIZED", "ACTIVE", "ERROR"]]
+    """Output only. RagCorpus life state."""
+
+
+CorpusStatusOrDict = Union[CorpusStatus, CorpusStatusDict]
+
+
+class RagCorpusCorpusTypeConfigDocumentCorpus(_common.BaseModel):
+    """Config for the document corpus."""
+
+    pass
+
+
+class RagCorpusCorpusTypeConfigDocumentCorpusDict(TypedDict, total=False):
+    """Config for the document corpus."""
+
+    pass
+
+
+RagCorpusCorpusTypeConfigDocumentCorpusOrDict = Union[
+    RagCorpusCorpusTypeConfigDocumentCorpus, RagCorpusCorpusTypeConfigDocumentCorpusDict
+]
+
+
+class RagFileParsingConfigLlmParser(_common.BaseModel):
+    """Specifies the LLM parsing for RagFiles."""
+
+    custom_parsing_prompt: Optional[str] = Field(
+        default=None,
+        description="""The prompt to use for parsing. If not specified, a default prompt will be used.""",
+    )
+    global_max_parsing_requests_per_min: Optional[int] = Field(
+        default=None,
+        description="""The maximum number of requests the job is allowed to make to the LLM model per minute in this project. Consult https://cloud.google.com/vertex-ai/generative-ai/docs/quotas and your document size to set an appropriate value here. If this value is not specified, max_parsing_requests_per_min will be used by indexing pipeline job as the global limit.""",
+    )
+    max_parsing_requests_per_min: Optional[int] = Field(
+        default=None,
+        description="""The maximum number of requests the job is allowed to make to the LLM model per minute. Consult https://cloud.google.com/vertex-ai/generative-ai/docs/quotas and your document size to set an appropriate value here. If unspecified, a default value of 5000 QPM would be used.""",
+    )
+    model_name: Optional[str] = Field(
+        default=None,
+        description="""The name of a LLM model used for parsing. Format: * `projects/{project_id}/locations/{location}/publishers/{publisher}/models/{model}`""",
+    )
+
+
+class RagFileParsingConfigLlmParserDict(TypedDict, total=False):
+    """Specifies the LLM parsing for RagFiles."""
+
+    custom_parsing_prompt: Optional[str]
+    """The prompt to use for parsing. If not specified, a default prompt will be used."""
+
+    global_max_parsing_requests_per_min: Optional[int]
+    """The maximum number of requests the job is allowed to make to the LLM model per minute in this project. Consult https://cloud.google.com/vertex-ai/generative-ai/docs/quotas and your document size to set an appropriate value here. If this value is not specified, max_parsing_requests_per_min will be used by indexing pipeline job as the global limit."""
+
+    max_parsing_requests_per_min: Optional[int]
+    """The maximum number of requests the job is allowed to make to the LLM model per minute. Consult https://cloud.google.com/vertex-ai/generative-ai/docs/quotas and your document size to set an appropriate value here. If unspecified, a default value of 5000 QPM would be used."""
+
+    model_name: Optional[str]
+    """The name of a LLM model used for parsing. Format: * `projects/{project_id}/locations/{location}/publishers/{publisher}/models/{model}`"""
+
+
+RagFileParsingConfigLlmParserOrDict = Union[
+    RagFileParsingConfigLlmParser, RagFileParsingConfigLlmParserDict
+]
+
+
+class RagCorpusCorpusTypeConfigMemoryCorpus(_common.BaseModel):
+    """Config for the memory corpus."""
+
+    llm_parser: Optional[RagFileParsingConfigLlmParser] = Field(
+        default=None, description="""The LLM parser to use for the memory corpus."""
+    )
+
+
+class RagCorpusCorpusTypeConfigMemoryCorpusDict(TypedDict, total=False):
+    """Config for the memory corpus."""
+
+    llm_parser: Optional[RagFileParsingConfigLlmParserDict]
+    """The LLM parser to use for the memory corpus."""
+
+
+RagCorpusCorpusTypeConfigMemoryCorpusOrDict = Union[
+    RagCorpusCorpusTypeConfigMemoryCorpus, RagCorpusCorpusTypeConfigMemoryCorpusDict
+]
+
+
+class RagCorpusCorpusTypeConfig(_common.BaseModel):
+    """The config for the corpus type of the RagCorpus."""
+
+    document_corpus: Optional[RagCorpusCorpusTypeConfigDocumentCorpus] = Field(
+        default=None, description="""Optional. Config for the document corpus."""
+    )
+    memory_corpus: Optional[RagCorpusCorpusTypeConfigMemoryCorpus] = Field(
+        default=None, description="""Optional. Config for the memory corpus."""
+    )
+
+
+class RagCorpusCorpusTypeConfigDict(TypedDict, total=False):
+    """The config for the corpus type of the RagCorpus."""
+
+    document_corpus: Optional[RagCorpusCorpusTypeConfigDocumentCorpusDict]
+    """Optional. Config for the document corpus."""
+
+    memory_corpus: Optional[RagCorpusCorpusTypeConfigMemoryCorpusDict]
+    """Optional. Config for the memory corpus."""
+
+
+RagCorpusCorpusTypeConfigOrDict = Union[
+    RagCorpusCorpusTypeConfig, RagCorpusCorpusTypeConfigDict
+]
+
+
+class EncryptionSpec(_common.BaseModel):
+    """Represents a customer-managed encryption key specification that can be applied to a Vertex AI resource."""
+
+    kms_key_name: Optional[str] = Field(
+        default=None,
+        description="""Required. Resource name of the Cloud KMS key used to protect the resource. The Cloud KMS key must be in the same region as the resource. It must have the format `projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}`.""",
+    )
+
+
+class EncryptionSpecDict(TypedDict, total=False):
+    """Represents a customer-managed encryption key specification that can be applied to a Vertex AI resource."""
+
+    kms_key_name: Optional[str]
+    """Required. Resource name of the Cloud KMS key used to protect the resource. The Cloud KMS key must be in the same region as the resource. It must have the format `projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}`."""
+
+
+EncryptionSpecOrDict = Union[EncryptionSpec, EncryptionSpecDict]
+
+
+class VertexAiSearchConfig(_common.BaseModel):
+    """Config for the Vertex AI Search."""
+
+    serving_config: Optional[str] = Field(
+        default=None,
+        description="""Vertex AI Search Serving Config resource full name. For example, `projects/{project}/locations/{location}/collections/{collection}/engines/{engine}/servingConfigs/{serving_config}` or `projects/{project}/locations/{location}/collections/{collection}/dataStores/{data_store}/servingConfigs/{serving_config}`.""",
+    )
+
+
+class VertexAiSearchConfigDict(TypedDict, total=False):
+    """Config for the Vertex AI Search."""
+
+    serving_config: Optional[str]
+    """Vertex AI Search Serving Config resource full name. For example, `projects/{project}/locations/{location}/collections/{collection}/engines/{engine}/servingConfigs/{serving_config}` or `projects/{project}/locations/{location}/collections/{collection}/dataStores/{data_store}/servingConfigs/{serving_config}`."""
+
+
+VertexAiSearchConfigOrDict = Union[VertexAiSearchConfig, VertexAiSearchConfigDict]
+
+
+class RagCorpus(_common.BaseModel):
+    """A RAG Corpus."""
+
+    corpus_status: Optional[CorpusStatus] = Field(
+        default=None, description="""Output only. RagCorpus state."""
+    )
+    corpus_type_config: Optional[RagCorpusCorpusTypeConfig] = Field(
+        default=None,
+        description="""Optional. The corpus type config of the RagCorpus.""",
+    )
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this RagCorpus was created.""",
+    )
+    description: Optional[str] = Field(
+        default=None, description="""Optional. The description of the RagCorpus."""
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""Required. The display name of the RagCorpus. The name can be up to 128 characters long and can consist of any UTF-8 characters.""",
+    )
+    encryption_spec: Optional[EncryptionSpec] = Field(
+        default=None,
+        description="""Optional. Immutable. The CMEK key name used to encrypt at-rest data related to this Corpus. Only applicable to RagManagedDb option for Vector DB. This field can only be set at corpus creation time, and cannot be updated or deleted.""",
+    )
+    name: Optional[str] = Field(
+        default=None, description="""Output only. The resource name of the RagCorpus."""
+    )
+    rag_embedding_model_config: Optional[RagEmbeddingModelConfig] = Field(
+        default=None,
+        description="""Optional. Immutable. The embedding model config of the RagCorpus.""",
+    )
+    rag_files_count: Optional[int] = Field(
+        default=None,
+        description="""Output only. Number of RagFiles in the RagCorpus. NOTE: This field is not populated in the response of VertexRagDataService.ListRagCorpora.""",
+    )
+    rag_vector_db_config: Optional[RagVectorDbConfig] = Field(
+        default=None,
+        description="""Optional. Immutable. The Vector DB config of the RagCorpus.""",
+    )
+    satisfies_pzi: Optional[bool] = Field(
+        default=None, description="""Output only. Reserved for future use."""
+    )
+    satisfies_pzs: Optional[bool] = Field(
+        default=None, description="""Output only. Reserved for future use."""
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this RagCorpus was last updated.""",
+    )
+    vector_db_config: Optional[RagVectorDbConfig] = Field(
+        default=None,
+        description="""Optional. Immutable. The config for the Vector DBs.""",
+    )
+    vertex_ai_search_config: Optional[VertexAiSearchConfig] = Field(
+        default=None,
+        description="""Optional. Immutable. The config for the Vertex AI Search.""",
+    )
+    backend_config: Optional[RagVectorDbConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class RagCorpusDict(TypedDict, total=False):
+    """A RAG Corpus."""
+
+    corpus_status: Optional[CorpusStatusDict]
+    """Output only. RagCorpus state."""
+
+    corpus_type_config: Optional[RagCorpusCorpusTypeConfigDict]
+    """Optional. The corpus type config of the RagCorpus."""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this RagCorpus was created."""
+
+    description: Optional[str]
+    """Optional. The description of the RagCorpus."""
+
+    display_name: Optional[str]
+    """Required. The display name of the RagCorpus. The name can be up to 128 characters long and can consist of any UTF-8 characters."""
+
+    encryption_spec: Optional[EncryptionSpecDict]
+    """Optional. Immutable. The CMEK key name used to encrypt at-rest data related to this Corpus. Only applicable to RagManagedDb option for Vector DB. This field can only be set at corpus creation time, and cannot be updated or deleted."""
+
+    name: Optional[str]
+    """Output only. The resource name of the RagCorpus."""
+
+    rag_embedding_model_config: Optional[RagEmbeddingModelConfigDict]
+    """Optional. Immutable. The embedding model config of the RagCorpus."""
+
+    rag_files_count: Optional[int]
+    """Output only. Number of RagFiles in the RagCorpus. NOTE: This field is not populated in the response of VertexRagDataService.ListRagCorpora."""
+
+    rag_vector_db_config: Optional[RagVectorDbConfigDict]
+    """Optional. Immutable. The Vector DB config of the RagCorpus."""
+
+    satisfies_pzi: Optional[bool]
+    """Output only. Reserved for future use."""
+
+    satisfies_pzs: Optional[bool]
+    """Output only. Reserved for future use."""
+
+    update_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this RagCorpus was last updated."""
+
+    vector_db_config: Optional[RagVectorDbConfigDict]
+    """Optional. Immutable. The config for the Vector DBs."""
+
+    vertex_ai_search_config: Optional[VertexAiSearchConfigDict]
+    """Optional. Immutable. The config for the Vertex AI Search."""
+
+    backend_config: Optional[RagVectorDbConfigDict]
+    """"""
+
+
+RagCorpusOrDict = Union[RagCorpus, RagCorpusDict]
+
+
+class CreateRagCorpusConfig(_common.BaseModel):
+    """Config for creating a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class CreateRagCorpusConfigDict(TypedDict, total=False):
+    """Config for creating a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+CreateRagCorpusConfigOrDict = Union[CreateRagCorpusConfig, CreateRagCorpusConfigDict]
+
+
+class _CreateRagCorpusRequestParameters(_common.BaseModel):
+    """Parameters for creating a RAG corpus."""
+
+    rag_corpus: Optional[RagCorpus] = Field(default=None, description="""""")
+    config: Optional[CreateRagCorpusConfig] = Field(default=None, description="""""")
+
+
+class _CreateRagCorpusRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating a RAG corpus."""
+
+    rag_corpus: Optional[RagCorpusDict]
+    """"""
+
+    config: Optional[CreateRagCorpusConfigDict]
+    """"""
+
+
+_CreateRagCorpusRequestParametersOrDict = Union[
+    _CreateRagCorpusRequestParameters, _CreateRagCorpusRequestParametersDict
+]
+
+
+class CreateRagCorpusOperation(_common.BaseModel):
+    """Operation for creating a RAG corpus."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class CreateRagCorpusOperationDict(TypedDict, total=False):
+    """Operation for creating a RAG corpus."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+CreateRagCorpusOperationOrDict = Union[
+    CreateRagCorpusOperation, CreateRagCorpusOperationDict
+]
+
+
+class GetRagCorpusConfig(_common.BaseModel):
+    """Config for getting a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRagCorpusConfigDict(TypedDict, total=False):
+    """Config for getting a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetRagCorpusConfigOrDict = Union[GetRagCorpusConfig, GetRagCorpusConfigDict]
+
+
+class _GetRagCorpusRequestParameters(_common.BaseModel):
+    """Parameters for getting a RAG corpus."""
+
+    name: Optional[str] = Field(default=None, description="""""")
+    config: Optional[GetRagCorpusConfig] = Field(default=None, description="""""")
+
+
+class _GetRagCorpusRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a RAG corpus."""
+
+    name: Optional[str]
+    """"""
+
+    config: Optional[GetRagCorpusConfigDict]
+    """"""
+
+
+_GetRagCorpusRequestParametersOrDict = Union[
+    _GetRagCorpusRequestParameters, _GetRagCorpusRequestParametersDict
+]
+
+
+class ListRagCorporaConfig(_common.BaseModel):
+    """Config for listing RagCorpora."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+
+
+class ListRagCorporaConfigDict(TypedDict, total=False):
+    """Config for listing RagCorpora."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+
+ListRagCorporaConfigOrDict = Union[ListRagCorporaConfig, ListRagCorporaConfigDict]
+
+
+class _ListRagCorporaRequestParameters(_common.BaseModel):
+    """Parameters for listing RagCorpora."""
+
+    config: Optional[ListRagCorporaConfig] = Field(default=None, description="""""")
+
+
+class _ListRagCorporaRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing RagCorpora."""
+
+    config: Optional[ListRagCorporaConfigDict]
+    """"""
+
+
+_ListRagCorporaRequestParametersOrDict = Union[
+    _ListRagCorporaRequestParameters, _ListRagCorporaRequestParametersDict
+]
+
+
+class ListRagCorporaResponse(_common.BaseModel):
+    """Response for listing RagCorpora."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    rag_corpora: Optional[list[RagCorpus]] = Field(
+        default=None, description="""List of RagCorpus instances."""
+    )
+
+
+class ListRagCorporaResponseDict(TypedDict, total=False):
+    """Response for listing RagCorpora."""
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    rag_corpora: Optional[list[RagCorpusDict]]
+    """List of RagCorpus instances."""
+
+
+ListRagCorporaResponseOrDict = Union[ListRagCorporaResponse, ListRagCorporaResponseDict]
+
+
+class GetRagFileConfig(_common.BaseModel):
+    """Config for getting a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRagFileConfigDict(TypedDict, total=False):
+    """Config for getting a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetRagFileConfigOrDict = Union[GetRagFileConfig, GetRagFileConfigDict]
+
+
+class _GetRagFileRequestParameters(_common.BaseModel):
+    """Parameters for getting a RAG corpus."""
+
+    corpus_id: Optional[str] = Field(default=None, description="""""")
+    file_id: Optional[str] = Field(default=None, description="""""")
+    config: Optional[GetRagFileConfig] = Field(default=None, description="""""")
+
+
+class _GetRagFileRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a RAG corpus."""
+
+    corpus_id: Optional[str]
+    """"""
+
+    file_id: Optional[str]
+    """"""
+
+    config: Optional[GetRagFileConfigDict]
+    """"""
+
+
+_GetRagFileRequestParametersOrDict = Union[
+    _GetRagFileRequestParameters, _GetRagFileRequestParametersDict
+]
+
+
+class DirectUploadSource(_common.BaseModel):
+    """The input content is encapsulated and uploaded in the request."""
+
+    pass
+
+
+class DirectUploadSourceDict(TypedDict, total=False):
+    """The input content is encapsulated and uploaded in the request."""
+
+    pass
+
+
+DirectUploadSourceOrDict = Union[DirectUploadSource, DirectUploadSourceDict]
+
+
+class FileStatus(_common.BaseModel):
+    """RagFile status."""
+
+    error_status: Optional[str] = Field(
+        default=None,
+        description="""Output only. Only when the `state` field is ERROR.""",
+    )
+    state: Optional[State] = Field(
+        default=None, description="""Output only. RagFile state."""
+    )
+
+
+class FileStatusDict(TypedDict, total=False):
+    """RagFile status."""
+
+    error_status: Optional[str]
+    """Output only. Only when the `state` field is ERROR."""
+
+    state: Optional[State]
+    """Output only. RagFile state."""
+
+
+FileStatusOrDict = Union[FileStatus, FileStatusDict]
+
+
+class GcsSource(_common.BaseModel):
+    """The Google Cloud Storage location for the input content."""
+
+    uris: Optional[list[str]] = Field(
+        default=None,
+        description="""Required. Google Cloud Storage URI(-s) to the input file(s). May contain wildcards. For more information on wildcards, see https://cloud.google.com/storage/docs/wildcards.""",
+    )
+
+
+class GcsSourceDict(TypedDict, total=False):
+    """The Google Cloud Storage location for the input content."""
+
+    uris: Optional[list[str]]
+    """Required. Google Cloud Storage URI(-s) to the input file(s). May contain wildcards. For more information on wildcards, see https://cloud.google.com/storage/docs/wildcards."""
+
+
+GcsSourceOrDict = Union[GcsSource, GcsSourceDict]
+
+
+class GoogleDriveSourceResourceId(_common.BaseModel):
+    """The type and ID of the Google Drive resource."""
+
+    resource_id: Optional[str] = Field(
+        default=None, description="""Required. The ID of the Google Drive resource."""
+    )
+    resource_type: Optional[ResourceType] = Field(
+        default=None, description="""Required. The type of the Google Drive resource."""
+    )
+
+
+class GoogleDriveSourceResourceIdDict(TypedDict, total=False):
+    """The type and ID of the Google Drive resource."""
+
+    resource_id: Optional[str]
+    """Required. The ID of the Google Drive resource."""
+
+    resource_type: Optional[ResourceType]
+    """Required. The type of the Google Drive resource."""
+
+
+GoogleDriveSourceResourceIdOrDict = Union[
+    GoogleDriveSourceResourceId, GoogleDriveSourceResourceIdDict
+]
+
+
+class GoogleDriveSource(_common.BaseModel):
+    """The Google Drive location for the input content."""
+
+    resource_ids: Optional[list[GoogleDriveSourceResourceId]] = Field(
+        default=None, description="""Required. Google Drive resource IDs."""
+    )
+
+
+class GoogleDriveSourceDict(TypedDict, total=False):
+    """The Google Drive location for the input content."""
+
+    resource_ids: Optional[list[GoogleDriveSourceResourceIdDict]]
+    """Required. Google Drive resource IDs."""
+
+
+GoogleDriveSourceOrDict = Union[GoogleDriveSource, GoogleDriveSourceDict]
+
+
+class JiraSourceJiraQueries(_common.BaseModel):
+    """JiraQueries contains the Jira queries and corresponding authentication."""
+
+    api_key_config: Optional[ApiAuthApiKeyConfig] = Field(
+        default=None,
+        description="""Required. The SecretManager secret version resource name (e.g. projects/{project}/secrets/{secret}/versions/{version}) storing the Jira API key. See [Manage API tokens for your Atlassian account](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/).""",
+    )
+    custom_queries: Optional[list[str]] = Field(
+        default=None,
+        description="""A list of custom Jira queries to import. For information about JQL (Jira Query Language), see https://support.atlassian.com/jira-service-management-cloud/docs/use-advanced-search-with-jira-query-language-jql/""",
+    )
+    email: Optional[str] = Field(
+        default=None, description="""Required. The Jira email address."""
+    )
+    projects: Optional[list[str]] = Field(
+        default=None,
+        description="""A list of Jira projects to import in their entirety.""",
+    )
+    server_uri: Optional[str] = Field(
+        default=None, description="""Required. The Jira server URI."""
+    )
+
+
+class JiraSourceJiraQueriesDict(TypedDict, total=False):
+    """JiraQueries contains the Jira queries and corresponding authentication."""
+
+    api_key_config: Optional[ApiAuthApiKeyConfigDict]
+    """Required. The SecretManager secret version resource name (e.g. projects/{project}/secrets/{secret}/versions/{version}) storing the Jira API key. See [Manage API tokens for your Atlassian account](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)."""
+
+    custom_queries: Optional[list[str]]
+    """A list of custom Jira queries to import. For information about JQL (Jira Query Language), see https://support.atlassian.com/jira-service-management-cloud/docs/use-advanced-search-with-jira-query-language-jql/"""
+
+    email: Optional[str]
+    """Required. The Jira email address."""
+
+    projects: Optional[list[str]]
+    """A list of Jira projects to import in their entirety."""
+
+    server_uri: Optional[str]
+    """Required. The Jira server URI."""
+
+
+JiraSourceJiraQueriesOrDict = Union[JiraSourceJiraQueries, JiraSourceJiraQueriesDict]
+
+
+class JiraSource(_common.BaseModel):
+    """The Jira source for the ImportRagFilesRequest."""
+
+    jira_queries: Optional[list[JiraSourceJiraQueries]] = Field(
+        default=None, description="""Required. The Jira queries."""
+    )
+
+
+class JiraSourceDict(TypedDict, total=False):
+    """The Jira source for the ImportRagFilesRequest."""
+
+    jira_queries: Optional[list[JiraSourceJiraQueriesDict]]
+    """Required. The Jira queries."""
+
+
+JiraSourceOrDict = Union[JiraSource, JiraSourceDict]
+
+
+class SharePointSourcesSharePointSource(_common.BaseModel):
+    """An individual SharePointSource."""
+
+    client_id: Optional[str] = Field(
+        default=None,
+        description="""The Application ID for the app registered in Microsoft Azure Portal. The application must also be configured with MS Graph permissions "Files.ReadAll", "Sites.ReadAll" and BrowserSiteLists.Read.All.""",
+    )
+    client_secret: Optional[ApiAuthApiKeyConfig] = Field(
+        default=None,
+        description="""The application secret for the app registered in Azure.""",
+    )
+    drive_id: Optional[str] = Field(
+        default=None, description="""The ID of the drive to download from."""
+    )
+    drive_name: Optional[str] = Field(
+        default=None, description="""The name of the drive to download from."""
+    )
+    file_id: Optional[str] = Field(
+        default=None,
+        description="""Output only. The SharePoint file id. Output only.""",
+    )
+    sharepoint_folder_id: Optional[str] = Field(
+        default=None,
+        description="""The ID of the SharePoint folder to download from.""",
+    )
+    sharepoint_folder_path: Optional[str] = Field(
+        default=None,
+        description="""The path of the SharePoint folder to download from.""",
+    )
+    sharepoint_site_name: Optional[str] = Field(
+        default=None,
+        description="""The name of the SharePoint site to download from. This can be the site name or the site id.""",
+    )
+    tenant_id: Optional[str] = Field(
+        default=None,
+        description="""Unique identifier of the Azure Active Directory Instance.""",
+    )
+
+
+class SharePointSourcesSharePointSourceDict(TypedDict, total=False):
+    """An individual SharePointSource."""
+
+    client_id: Optional[str]
+    """The Application ID for the app registered in Microsoft Azure Portal. The application must also be configured with MS Graph permissions "Files.ReadAll", "Sites.ReadAll" and BrowserSiteLists.Read.All."""
+
+    client_secret: Optional[ApiAuthApiKeyConfigDict]
+    """The application secret for the app registered in Azure."""
+
+    drive_id: Optional[str]
+    """The ID of the drive to download from."""
+
+    drive_name: Optional[str]
+    """The name of the drive to download from."""
+
+    file_id: Optional[str]
+    """Output only. The SharePoint file id. Output only."""
+
+    sharepoint_folder_id: Optional[str]
+    """The ID of the SharePoint folder to download from."""
+
+    sharepoint_folder_path: Optional[str]
+    """The path of the SharePoint folder to download from."""
+
+    sharepoint_site_name: Optional[str]
+    """The name of the SharePoint site to download from. This can be the site name or the site id."""
+
+    tenant_id: Optional[str]
+    """Unique identifier of the Azure Active Directory Instance."""
+
+
+SharePointSourcesSharePointSourceOrDict = Union[
+    SharePointSourcesSharePointSource, SharePointSourcesSharePointSourceDict
+]
+
+
+class SharePointSources(_common.BaseModel):
+    """The SharePointSources to pass to ImportRagFiles."""
+
+    share_point_sources: Optional[list[SharePointSourcesSharePointSource]] = Field(
+        default=None, description="""The SharePoint sources."""
+    )
+
+
+class SharePointSourcesDict(TypedDict, total=False):
+    """The SharePointSources to pass to ImportRagFiles."""
+
+    share_point_sources: Optional[list[SharePointSourcesSharePointSourceDict]]
+    """The SharePoint sources."""
+
+
+SharePointSourcesOrDict = Union[SharePointSources, SharePointSourcesDict]
+
+
+class SlackSourceSlackChannelsSlackChannel(_common.BaseModel):
+    """SlackChannel contains the Slack channel ID and the time range to import."""
+
+    channel_id: Optional[str] = Field(
+        default=None, description="""Required. The Slack channel ID."""
+    )
+    end_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Optional. The ending timestamp for messages to import.""",
+    )
+    start_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Optional. The starting timestamp for messages to import.""",
+    )
+
+
+class SlackSourceSlackChannelsSlackChannelDict(TypedDict, total=False):
+    """SlackChannel contains the Slack channel ID and the time range to import."""
+
+    channel_id: Optional[str]
+    """Required. The Slack channel ID."""
+
+    end_time: Optional[datetime.datetime]
+    """Optional. The ending timestamp for messages to import."""
+
+    start_time: Optional[datetime.datetime]
+    """Optional. The starting timestamp for messages to import."""
+
+
+SlackSourceSlackChannelsSlackChannelOrDict = Union[
+    SlackSourceSlackChannelsSlackChannel, SlackSourceSlackChannelsSlackChannelDict
+]
+
+
+class SlackSourceSlackChannels(_common.BaseModel):
+    """SlackChannels contains the Slack channels and corresponding access token."""
+
+    api_key_config: Optional[ApiAuthApiKeyConfig] = Field(
+        default=None,
+        description="""Required. The SecretManager secret version resource name (e.g. projects/{project}/secrets/{secret}/versions/{version}) storing the Slack channel access token that has access to the slack channel IDs. See: https://api.slack.com/tutorials/tracks/getting-a-token.""",
+    )
+    channels: Optional[list[SlackSourceSlackChannelsSlackChannel]] = Field(
+        default=None, description="""Required. The Slack channel IDs."""
+    )
+
+
+class SlackSourceSlackChannelsDict(TypedDict, total=False):
+    """SlackChannels contains the Slack channels and corresponding access token."""
+
+    api_key_config: Optional[ApiAuthApiKeyConfigDict]
+    """Required. The SecretManager secret version resource name (e.g. projects/{project}/secrets/{secret}/versions/{version}) storing the Slack channel access token that has access to the slack channel IDs. See: https://api.slack.com/tutorials/tracks/getting-a-token."""
+
+    channels: Optional[list[SlackSourceSlackChannelsSlackChannelDict]]
+    """Required. The Slack channel IDs."""
+
+
+SlackSourceSlackChannelsOrDict = Union[
+    SlackSourceSlackChannels, SlackSourceSlackChannelsDict
+]
+
+
+class SlackSource(_common.BaseModel):
+    """The Slack source for the ImportRagFilesRequest."""
+
+    channels: Optional[list[SlackSourceSlackChannels]] = Field(
+        default=None, description="""Required. The Slack channels."""
+    )
+
+
+class SlackSourceDict(TypedDict, total=False):
+    """The Slack source for the ImportRagFilesRequest."""
+
+    channels: Optional[list[SlackSourceSlackChannelsDict]]
+    """Required. The Slack channels."""
+
+
+SlackSourceOrDict = Union[SlackSource, SlackSourceDict]
+
+
+class RagFile(_common.BaseModel):
+    """A RAG File."""
+
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this RagFile was created.""",
+    )
+    description: Optional[str] = Field(
+        default=None, description="""Optional. The description of the RagFile."""
+    )
+    direct_upload_source: Optional[DirectUploadSource] = Field(
+        default=None,
+        description="""Output only. The RagFile is encapsulated and uploaded in the UploadRagFile request.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""Required. The display name of the RagFile. The name can be up to 128 characters long and can consist of any UTF-8 characters.""",
+    )
+    file_status: Optional[FileStatus] = Field(
+        default=None, description="""Output only. State of the RagFile."""
+    )
+    gcs_source: Optional[GcsSource] = Field(
+        default=None,
+        description="""Output only. Google Cloud Storage location of the RagFile. It does not support wildcards in the Cloud Storage uri for now.""",
+    )
+    google_drive_source: Optional[GoogleDriveSource] = Field(
+        default=None,
+        description="""Output only. Google Drive location. Supports importing individual files as well as Google Drive folders.""",
+    )
+    jira_source: Optional[JiraSource] = Field(
+        default=None, description="""The RagFile is imported from a Jira query."""
+    )
+    name: Optional[str] = Field(
+        default=None, description="""Output only. The resource name of the RagFile."""
+    )
+    rag_file_type: Optional[RagFileType] = Field(
+        default=None, description="""Output only. The type of the RagFile."""
+    )
+    share_point_sources: Optional[SharePointSources] = Field(
+        default=None,
+        description="""The RagFile is imported from a SharePoint source.""",
+    )
+    size_bytes: Optional[int] = Field(
+        default=None, description="""Output only. The size of the RagFile in bytes."""
+    )
+    slack_source: Optional[SlackSource] = Field(
+        default=None, description="""The RagFile is imported from a Slack channel."""
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this RagFile was last updated.""",
+    )
+    user_metadata: Optional[str] = Field(
+        default=None,
+        description="""Output only. The metadata for metadata search. The user_metadata Needs to be in JSON format.""",
+    )
+
+
+class RagFileDict(TypedDict, total=False):
+    """A RAG File."""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this RagFile was created."""
+
+    description: Optional[str]
+    """Optional. The description of the RagFile."""
+
+    direct_upload_source: Optional[DirectUploadSourceDict]
+    """Output only. The RagFile is encapsulated and uploaded in the UploadRagFile request."""
+
+    display_name: Optional[str]
+    """Required. The display name of the RagFile. The name can be up to 128 characters long and can consist of any UTF-8 characters."""
+
+    file_status: Optional[FileStatusDict]
+    """Output only. State of the RagFile."""
+
+    gcs_source: Optional[GcsSourceDict]
+    """Output only. Google Cloud Storage location of the RagFile. It does not support wildcards in the Cloud Storage uri for now."""
+
+    google_drive_source: Optional[GoogleDriveSourceDict]
+    """Output only. Google Drive location. Supports importing individual files as well as Google Drive folders."""
+
+    jira_source: Optional[JiraSourceDict]
+    """The RagFile is imported from a Jira query."""
+
+    name: Optional[str]
+    """Output only. The resource name of the RagFile."""
+
+    rag_file_type: Optional[RagFileType]
+    """Output only. The type of the RagFile."""
+
+    share_point_sources: Optional[SharePointSourcesDict]
+    """The RagFile is imported from a SharePoint source."""
+
+    size_bytes: Optional[int]
+    """Output only. The size of the RagFile in bytes."""
+
+    slack_source: Optional[SlackSourceDict]
+    """The RagFile is imported from a Slack channel."""
+
+    update_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this RagFile was last updated."""
+
+    user_metadata: Optional[str]
+    """Output only. The metadata for metadata search. The user_metadata Needs to be in JSON format."""
+
+
+RagFileOrDict = Union[RagFile, RagFileDict]
+
+
+class ListRagFilesConfig(_common.BaseModel):
+    """Config for listing RagFile instances within a RagCorpus."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+
+
+class ListRagFilesConfigDict(TypedDict, total=False):
+    """Config for listing RagFile instances within a RagCorpus."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+
+ListRagFilesConfigOrDict = Union[ListRagFilesConfig, ListRagFilesConfigDict]
+
+
+class _ListRagFilesRequestParameters(_common.BaseModel):
+    """Parameters for listing RagFile instances within a RagCorpus."""
+
+    config: Optional[ListRagFilesConfig] = Field(default=None, description="""""")
+    corpus_id: Optional[str] = Field(default=None, description="""""")
+
+
+class _ListRagFilesRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing RagFile instances within a RagCorpus."""
+
+    config: Optional[ListRagFilesConfigDict]
+    """"""
+
+    corpus_id: Optional[str]
+    """"""
+
+
+_ListRagFilesRequestParametersOrDict = Union[
+    _ListRagFilesRequestParameters, _ListRagFilesRequestParametersDict
+]
+
+
+class ListRagFilesResponse(_common.BaseModel):
+    """Response for listing RagFile instances within a RagCorpus."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    rag_files: Optional[list[RagFile]] = Field(
+        default=None, description="""List of RagFile instances within a RagCorpus."""
+    )
+
+
+class ListRagFilesResponseDict(TypedDict, total=False):
+    """Response for listing RagFile instances within a RagCorpus."""
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    rag_files: Optional[list[RagFileDict]]
+    """List of RagFile instances within a RagCorpus."""
+
+
+ListRagFilesResponseOrDict = Union[ListRagFilesResponse, ListRagFilesResponseDict]
+
+
+class GetRagConfig(_common.BaseModel):
+    """Config for getting a RAG Config."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetRagConfigDict(TypedDict, total=False):
+    """Config for getting a RAG Config."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetRagConfigOrDict = Union[GetRagConfig, GetRagConfigDict]
+
+
+class _GetRagConfigRequestParameters(_common.BaseModel):
+    """Parameters for getting a RAG Config."""
+
+    config: Optional[GetRagConfig] = Field(default=None, description="""""")
+
+
+class _GetRagConfigRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a RAG Config."""
+
+    config: Optional[GetRagConfigDict]
+    """"""
+
+
+_GetRagConfigRequestParametersOrDict = Union[
+    _GetRagConfigRequestParameters, _GetRagConfigRequestParametersDict
+]
+
+
+class RagManagedDbConfigBasic(_common.BaseModel):
+    """Basic tier is a cost-effective and low compute tier suitable for the following cases: * Experimenting with RagManagedDb. * Small data size. * Latency insensitive workload. * Only using RAG Engine with external vector DBs. NOTE: This is the default tier under Spanner mode if not explicitly chosen."""
+
+    pass
+
+
+class RagManagedDbConfigBasicDict(TypedDict, total=False):
+    """Basic tier is a cost-effective and low compute tier suitable for the following cases: * Experimenting with RagManagedDb. * Small data size. * Latency insensitive workload. * Only using RAG Engine with external vector DBs. NOTE: This is the default tier under Spanner mode if not explicitly chosen."""
+
+    pass
+
+
+RagManagedDbConfigBasicOrDict = Union[
+    RagManagedDbConfigBasic, RagManagedDbConfigBasicDict
+]
+
+
+class RagManagedDbConfigEnterprise(_common.BaseModel):
+    """Enterprise tier offers production grade performance along with autoscaling functionality. It is suitable for customers with large amounts of data or performance sensitive workloads."""
+
+    pass
+
+
+class RagManagedDbConfigEnterpriseDict(TypedDict, total=False):
+    """Enterprise tier offers production grade performance along with autoscaling functionality. It is suitable for customers with large amounts of data or performance sensitive workloads."""
+
+    pass
+
+
+RagManagedDbConfigEnterpriseOrDict = Union[
+    RagManagedDbConfigEnterprise, RagManagedDbConfigEnterpriseDict
+]
+
+
+class RagManagedDbConfigScaled(_common.BaseModel):
+    """Scaled tier offers production grade performance along with autoscaling functionality. It is suitable for customers with large amounts of data or performance sensitive workloads."""
+
+    pass
+
+
+class RagManagedDbConfigScaledDict(TypedDict, total=False):
+    """Scaled tier offers production grade performance along with autoscaling functionality. It is suitable for customers with large amounts of data or performance sensitive workloads."""
+
+    pass
+
+
+RagManagedDbConfigScaledOrDict = Union[
+    RagManagedDbConfigScaled, RagManagedDbConfigScaledDict
+]
+
+
+class RagManagedDbConfigServerless(_common.BaseModel):
+    """Message to configure the serverless mode offered by RAG Engine."""
+
+    pass
+
+
+class RagManagedDbConfigServerlessDict(TypedDict, total=False):
+    """Message to configure the serverless mode offered by RAG Engine."""
+
+    pass
+
+
+RagManagedDbConfigServerlessOrDict = Union[
+    RagManagedDbConfigServerless, RagManagedDbConfigServerlessDict
+]
+
+
+class RagManagedDbConfigUnprovisioned(_common.BaseModel):
+    """Disables the RAG Engine service and deletes all your data held within this service. This will halt the billing of the service. NOTE: Once deleted the data cannot be recovered. To start using RAG Engine again, you will need to update the tier by calling the UpdateRagEngineConfig API."""
+
+    pass
+
+
+class RagManagedDbConfigUnprovisionedDict(TypedDict, total=False):
+    """Disables the RAG Engine service and deletes all your data held within this service. This will halt the billing of the service. NOTE: Once deleted the data cannot be recovered. To start using RAG Engine again, you will need to update the tier by calling the UpdateRagEngineConfig API."""
+
+    pass
+
+
+RagManagedDbConfigUnprovisionedOrDict = Union[
+    RagManagedDbConfigUnprovisioned, RagManagedDbConfigUnprovisionedDict
+]
+
+
+class RagManagedDbConfigSpanner(_common.BaseModel):
+    """Message to configure the Spanner database used by RagManagedDb."""
+
+    basic: Optional[RagManagedDbConfigBasic] = Field(
+        default=None,
+        description="""Sets the RagManagedDb to the Basic tier. This is the default tier for Spanner mode if not explicitly chosen.""",
+    )
+    scaled: Optional[RagManagedDbConfigScaled] = Field(
+        default=None, description="""Sets the RagManagedDb to the Scaled tier."""
+    )
+    unprovisioned: Optional[RagManagedDbConfigUnprovisioned] = Field(
+        default=None, description="""Sets the RagManagedDb to the Unprovisioned tier."""
+    )
+
+
+class RagManagedDbConfigSpannerDict(TypedDict, total=False):
+    """Message to configure the Spanner database used by RagManagedDb."""
+
+    basic: Optional[RagManagedDbConfigBasicDict]
+    """Sets the RagManagedDb to the Basic tier. This is the default tier for Spanner mode if not explicitly chosen."""
+
+    scaled: Optional[RagManagedDbConfigScaledDict]
+    """Sets the RagManagedDb to the Scaled tier."""
+
+    unprovisioned: Optional[RagManagedDbConfigUnprovisionedDict]
+    """Sets the RagManagedDb to the Unprovisioned tier."""
+
+
+RagManagedDbConfigSpannerOrDict = Union[
+    RagManagedDbConfigSpanner, RagManagedDbConfigSpannerDict
+]
+
+
+class RagManagedDbConfig(_common.BaseModel):
+    """The backend config of the RagEngineConfig."""
+
+    basic: Optional[RagManagedDbConfigBasic] = Field(
+        default=None,
+        description="""Deprecated: Use `mode` instead to set the tier under Spanner. Sets the RagManagedDb to the Basic tier.""",
+    )
+    enterprise: Optional[RagManagedDbConfigEnterprise] = Field(
+        default=None, description="""Sets the RagManagedDb to the Enterprise tier."""
+    )
+    scaled: Optional[RagManagedDbConfigScaled] = Field(
+        default=None,
+        description="""Deprecated: Use `mode` instead to set the tier under Spanner. Sets the RagManagedDb to the Scaled tier.""",
+    )
+    serverless: Optional[RagManagedDbConfigServerless] = Field(
+        default=None,
+        description="""Sets the backend to be the serverless mode offered by RAG Engine.""",
+    )
+    spanner: Optional[RagManagedDbConfigSpanner] = Field(
+        default=None,
+        description="""Sets the RAG Engine backend to be RagManagedDb, built on top of Spanner. NOTE: This is the default mode (w/ Basic Tier) if not explicitly chosen.""",
+    )
+    unprovisioned: Optional[RagManagedDbConfigUnprovisioned] = Field(
+        default=None,
+        description="""Deprecated: Use `mode` instead to set the tier under Spanner. Sets the RagManagedDb to the Unprovisioned tier.""",
+    )
+
+
+class RagManagedDbConfigDict(TypedDict, total=False):
+    """The backend config of the RagEngineConfig."""
+
+    basic: Optional[RagManagedDbConfigBasicDict]
+    """Deprecated: Use `mode` instead to set the tier under Spanner. Sets the RagManagedDb to the Basic tier."""
+
+    enterprise: Optional[RagManagedDbConfigEnterpriseDict]
+    """Sets the RagManagedDb to the Enterprise tier."""
+
+    scaled: Optional[RagManagedDbConfigScaledDict]
+    """Deprecated: Use `mode` instead to set the tier under Spanner. Sets the RagManagedDb to the Scaled tier."""
+
+    serverless: Optional[RagManagedDbConfigServerlessDict]
+    """Sets the backend to be the serverless mode offered by RAG Engine."""
+
+    spanner: Optional[RagManagedDbConfigSpannerDict]
+    """Sets the RAG Engine backend to be RagManagedDb, built on top of Spanner. NOTE: This is the default mode (w/ Basic Tier) if not explicitly chosen."""
+
+    unprovisioned: Optional[RagManagedDbConfigUnprovisionedDict]
+    """Deprecated: Use `mode` instead to set the tier under Spanner. Sets the RagManagedDb to the Unprovisioned tier."""
+
+
+RagManagedDbConfigOrDict = Union[RagManagedDbConfig, RagManagedDbConfigDict]
+
+
+class RagEngineConfig(_common.BaseModel):
+    """The config of the RAG Engine."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The name of the RagEngineConfig. Format: `projects/{project}/locations/{location}/ragEngineConfig`""",
+    )
+    rag_managed_db_config: Optional[RagManagedDbConfig] = Field(
+        default=None,
+        description="""The config of the RagManagedDb used by RagEngine.""",
+    )
+
+
+class RagEngineConfigDict(TypedDict, total=False):
+    """The config of the RAG Engine."""
+
+    name: Optional[str]
+    """Identifier. The name of the RagEngineConfig. Format: `projects/{project}/locations/{location}/ragEngineConfig`"""
+
+    rag_managed_db_config: Optional[RagManagedDbConfigDict]
+    """The config of the RagManagedDb used by RagEngine."""
+
+
+RagEngineConfigOrDict = Union[RagEngineConfig, RagEngineConfigDict]
+
+
+class UpdateRagCorpusConfig(_common.BaseModel):
+    """Config for updating a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class UpdateRagCorpusConfigDict(TypedDict, total=False):
+    """Config for updating a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+UpdateRagCorpusConfigOrDict = Union[UpdateRagCorpusConfig, UpdateRagCorpusConfigDict]
+
+
+class _UpdateRagCorpusRequestParameters(_common.BaseModel):
+    """Parameters for updating a RAG corpus."""
+
+    name: Optional[str] = Field(default=None, description="""""")
+    corpus_id: Optional[str] = Field(default=None, description="""""")
+    rag_corpus: Optional[RagCorpus] = Field(default=None, description="""""")
+    config: Optional[UpdateRagCorpusConfig] = Field(default=None, description="""""")
+
+
+class _UpdateRagCorpusRequestParametersDict(TypedDict, total=False):
+    """Parameters for updating a RAG corpus."""
+
+    name: Optional[str]
+    """"""
+
+    corpus_id: Optional[str]
+    """"""
+
+    rag_corpus: Optional[RagCorpusDict]
+    """"""
+
+    config: Optional[UpdateRagCorpusConfigDict]
+    """"""
+
+
+_UpdateRagCorpusRequestParametersOrDict = Union[
+    _UpdateRagCorpusRequestParameters, _UpdateRagCorpusRequestParametersDict
+]
+
+
+class UpdateRagCorpusOperation(_common.BaseModel):
+    """Operation for updating a RAG corpus."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class UpdateRagCorpusOperationDict(TypedDict, total=False):
+    """Operation for updating a RAG corpus."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+UpdateRagCorpusOperationOrDict = Union[
+    UpdateRagCorpusOperation, UpdateRagCorpusOperationDict
+]
+
+
+class DeleteRagCorpusConfig(_common.BaseModel):
+    """Config for deleting a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class DeleteRagCorpusConfigDict(TypedDict, total=False):
+    """Config for deleting a RAG corpus."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+DeleteRagCorpusConfigOrDict = Union[DeleteRagCorpusConfig, DeleteRagCorpusConfigDict]
+
+
+class _DeleteRagCorpusRequestParameters(_common.BaseModel):
+    """Parameters for deleting a RAG corpus."""
+
+    corpus_id: Optional[str] = Field(default=None, description="""""")
+    config: Optional[DeleteRagCorpusConfig] = Field(default=None, description="""""")
+
+
+class _DeleteRagCorpusRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting a RAG corpus."""
+
+    corpus_id: Optional[str]
+    """"""
+
+    config: Optional[DeleteRagCorpusConfigDict]
+    """"""
+
+
+_DeleteRagCorpusRequestParametersOrDict = Union[
+    _DeleteRagCorpusRequestParameters, _DeleteRagCorpusRequestParametersDict
+]
+
+
+class DeleteRagCorpusOperation(_common.BaseModel):
+    """Operation for deleting a RAG corpus."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteRagCorpusOperationDict(TypedDict, total=False):
+    """Operation for deleting a RAG corpus."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteRagCorpusOperationOrDict = Union[
+    DeleteRagCorpusOperation, DeleteRagCorpusOperationDict
+]
+
+
+class DeleteRagFileConfig(_common.BaseModel):
+    """Config for deleting a RAG File."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class DeleteRagFileConfigDict(TypedDict, total=False):
+    """Config for deleting a RAG File."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+DeleteRagFileConfigOrDict = Union[DeleteRagFileConfig, DeleteRagFileConfigDict]
+
+
+class _DeleteRagFileRequestParameters(_common.BaseModel):
+    """Parameters for deleting a RAG File."""
+
+    corpus_id: Optional[str] = Field(default=None, description="""""")
+    file_id: Optional[str] = Field(default=None, description="""""")
+    config: Optional[DeleteRagFileConfig] = Field(default=None, description="""""")
+
+
+class _DeleteRagFileRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting a RAG File."""
+
+    corpus_id: Optional[str]
+    """"""
+
+    file_id: Optional[str]
+    """"""
+
+    config: Optional[DeleteRagFileConfigDict]
+    """"""
+
+
+_DeleteRagFileRequestParametersOrDict = Union[
+    _DeleteRagFileRequestParameters, _DeleteRagFileRequestParametersDict
+]
+
+
+class DeleteRagFileOperation(_common.BaseModel):
+    """Operation for deleting a RAG File."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteRagFileOperationDict(TypedDict, total=False):
+    """Operation for deleting a RAG File."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteRagFileOperationOrDict = Union[DeleteRagFileOperation, DeleteRagFileOperationDict]
+
+
+class UpdateRagConfig(_common.BaseModel):
+    """Config for updating a RAG Config."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class UpdateRagConfigDict(TypedDict, total=False):
+    """Config for updating a RAG Config."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+UpdateRagConfigOrDict = Union[UpdateRagConfig, UpdateRagConfigDict]
+
+
+class _UpdateRagConfigRequestParameters(_common.BaseModel):
+    """Parameters for updating a RAG Config."""
+
+    updated_config: Optional[RagEngineConfig] = Field(default=None, description="""""")
+    config: Optional[UpdateRagConfig] = Field(default=None, description="""""")
+
+
+class _UpdateRagConfigRequestParametersDict(TypedDict, total=False):
+    """Parameters for updating a RAG Config."""
+
+    updated_config: Optional[RagEngineConfigDict]
+    """"""
+
+    config: Optional[UpdateRagConfigDict]
+    """"""
+
+
+_UpdateRagConfigRequestParametersOrDict = Union[
+    _UpdateRagConfigRequestParameters, _UpdateRagConfigRequestParametersDict
+]
+
+
+class UpdateRagConfigOperation(_common.BaseModel):
+    """Operation for updating a RAG Config."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class UpdateRagConfigOperationDict(TypedDict, total=False):
+    """Operation for updating a RAG Config."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+UpdateRagConfigOperationOrDict = Union[
+    UpdateRagConfigOperation, UpdateRagConfigOperationDict
+]
+
+
+class RetrieveContextsConfig(_common.BaseModel):
+    """Config for retrieving RAG Contexts."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class RetrieveContextsConfigDict(TypedDict, total=False):
+    """Config for retrieving RAG Contexts."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+RetrieveContextsConfigOrDict = Union[RetrieveContextsConfig, RetrieveContextsConfigDict]
+
+
+class VertexRagStoreRagResource(_common.BaseModel):
+    """The definition of the Rag resource."""
+
+    rag_corpus: Optional[str] = Field(
+        default=None,
+        description="""Optional. RagCorpora resource name. Format: `projects/{project}/locations/{location}/ragCorpora/{rag_corpus}`""",
+    )
+    rag_file_ids: Optional[list[str]] = Field(
+        default=None,
+        description="""Optional. rag_file_id. The files should be in the same rag_corpus set in rag_corpus field.""",
+    )
+
+
+class VertexRagStoreRagResourceDict(TypedDict, total=False):
+    """The definition of the Rag resource."""
+
+    rag_corpus: Optional[str]
+    """Optional. RagCorpora resource name. Format: `projects/{project}/locations/{location}/ragCorpora/{rag_corpus}`"""
+
+    rag_file_ids: Optional[list[str]]
+    """Optional. rag_file_id. The files should be in the same rag_corpus set in rag_corpus field."""
+
+
+VertexRagStoreRagResourceOrDict = Union[
+    VertexRagStoreRagResource, VertexRagStoreRagResourceDict
+]
+
+
+class VertexRagStore(_common.BaseModel):
+    """Retrieve from Vertex RAG Store for grounding."""
+
+    rag_corpora: Optional[list[str]] = Field(
+        default=None,
+        description="""Optional. Deprecated. Please use rag_resources instead.""",
+    )
+    rag_resources: Optional[list[VertexRagStoreRagResource]] = Field(
+        default=None,
+        description="""Optional. The representation of the rag source. It can be used to specify corpus only or ragfiles. Currently only support one corpus or multiple files from one corpus. In the future we may open up multiple corpora support.""",
+    )
+    rag_retrieval_config: Optional[RagRetrievalConfig] = Field(
+        default=None,
+        description="""Optional. The retrieval config for the Rag query.""",
+    )
+    similarity_top_k: Optional[int] = Field(
+        default=None,
+        description="""Optional. Number of top k results to return from the selected corpora.""",
+    )
+    store_context: Optional[bool] = Field(
+        default=None,
+        description="""Optional. Currently only supported for Gemini Multimodal Live API. In Gemini Multimodal Live API, if `store_context` bool is specified, Gemini will leverage it to automatically memorize the interactions between the client and Gemini, and retrieve context when needed to augment the response generation for users' ongoing and future interactions.""",
+    )
+    vector_distance_threshold: Optional[float] = Field(
+        default=None,
+        description="""Optional. Only return results with vector distance smaller than the threshold.""",
+    )
+
+
+class VertexRagStoreDict(TypedDict, total=False):
+    """Retrieve from Vertex RAG Store for grounding."""
+
+    rag_corpora: Optional[list[str]]
+    """Optional. Deprecated. Please use rag_resources instead."""
+
+    rag_resources: Optional[list[VertexRagStoreRagResourceDict]]
+    """Optional. The representation of the rag source. It can be used to specify corpus only or ragfiles. Currently only support one corpus or multiple files from one corpus. In the future we may open up multiple corpora support."""
+
+    rag_retrieval_config: Optional[RagRetrievalConfigDict]
+    """Optional. The retrieval config for the Rag query."""
+
+    similarity_top_k: Optional[int]
+    """Optional. Number of top k results to return from the selected corpora."""
+
+    store_context: Optional[bool]
+    """Optional. Currently only supported for Gemini Multimodal Live API. In Gemini Multimodal Live API, if `store_context` bool is specified, Gemini will leverage it to automatically memorize the interactions between the client and Gemini, and retrieve context when needed to augment the response generation for users' ongoing and future interactions."""
+
+    vector_distance_threshold: Optional[float]
+    """Optional. Only return results with vector distance smaller than the threshold."""
+
+
+VertexRagStoreOrDict = Union[VertexRagStore, VertexRagStoreDict]
+
+
+class _RetrieveRagContextsRequestParameters(_common.BaseModel):
+    """Parameters for retrieving RAG Contexts."""
+
+    vertex_rag_store: Optional[VertexRagStore] = Field(default=None, description="""""")
+    query: Optional[RagQuery] = Field(default=None, description="""""")
+    config: Optional[RetrieveContextsConfig] = Field(default=None, description="""""")
+
+
+class _RetrieveRagContextsRequestParametersDict(TypedDict, total=False):
+    """Parameters for retrieving RAG Contexts."""
+
+    vertex_rag_store: Optional[VertexRagStoreDict]
+    """"""
+
+    query: Optional[RagQueryDict]
+    """"""
+
+    config: Optional[RetrieveContextsConfigDict]
+    """"""
+
+
+_RetrieveRagContextsRequestParametersOrDict = Union[
+    _RetrieveRagContextsRequestParameters, _RetrieveRagContextsRequestParametersDict
+]
+
+
+class RetrieveContextsResponse(_common.BaseModel):
+
+    contexts: Optional[RagContexts] = Field(
+        default=None, description="""The contexts of the query."""
+    )
+
+
+class RetrieveContextsResponseDict(TypedDict, total=False):
+
+    contexts: Optional[RagContextsDict]
+    """The contexts of the query."""
+
+
+RetrieveContextsResponseOrDict = Union[
+    RetrieveContextsResponse, RetrieveContextsResponseDict
+]
+
+
 class GetAgentEngineRuntimeRevisionConfig(_common.BaseModel):
     """Config for getting an Agent Engine Runtime Revision."""
 
@@ -18707,6 +21375,7 @@ _GetSkillOperationParametersOrDict = Union[
 
 
 class GetSkillRevisionConfig(_common.BaseModel):
+    """Configuration for getting a Skill Revision."""
 
     http_options: Optional[genai_types.HttpOptions] = Field(
         default=None, description="""Used to override HTTP request options."""
@@ -18714,6 +21383,7 @@ class GetSkillRevisionConfig(_common.BaseModel):
 
 
 class GetSkillRevisionConfigDict(TypedDict, total=False):
+    """Configuration for getting a Skill Revision."""
 
     http_options: Optional[genai_types.HttpOptionsDict]
     """Used to override HTTP request options."""
@@ -18723,6 +21393,7 @@ GetSkillRevisionConfigOrDict = Union[GetSkillRevisionConfig, GetSkillRevisionCon
 
 
 class _GetSkillRevisionRequestParameters(_common.BaseModel):
+    """Parameters for getting a Skill Revision."""
 
     name: Optional[str] = Field(
         default=None,
@@ -18732,6 +21403,7 @@ class _GetSkillRevisionRequestParameters(_common.BaseModel):
 
 
 class _GetSkillRevisionRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a Skill Revision."""
 
     name: Optional[str]
     """The resource name of the Skill Revision to retrieve. Format: projects/{project}/locations/{location}/skills/{skill}/revisions/{revision}"""
@@ -18746,6 +21418,7 @@ _GetSkillRevisionRequestParametersOrDict = Union[
 
 
 class SkillRevision(_common.BaseModel):
+    """A single revision of a Skill."""
 
     name: Optional[str] = Field(
         default=None,
@@ -18765,6 +21438,7 @@ class SkillRevision(_common.BaseModel):
 
 
 class SkillRevisionDict(TypedDict, total=False):
+    """A single revision of a Skill."""
 
     name: Optional[str]
     """Identifier. The resource name of the Skill Revision. Format: `projects/{project}/locations/{location}/skills/{skill}/revisions/{revision}`"""
@@ -18783,6 +21457,7 @@ SkillRevisionOrDict = Union[SkillRevision, SkillRevisionDict]
 
 
 class ListSkillRevisionsConfig(_common.BaseModel):
+    """Configuration for listing Skill Revisions."""
 
     http_options: Optional[genai_types.HttpOptions] = Field(
         default=None, description="""Used to override HTTP request options."""
@@ -18792,6 +21467,7 @@ class ListSkillRevisionsConfig(_common.BaseModel):
 
 
 class ListSkillRevisionsConfigDict(TypedDict, total=False):
+    """Configuration for listing Skill Revisions."""
 
     http_options: Optional[genai_types.HttpOptionsDict]
     """Used to override HTTP request options."""
@@ -18834,6 +21510,7 @@ _ListSkillRevisionsRequestParametersOrDict = Union[
 
 
 class ListSkillRevisionsResponse(_common.BaseModel):
+    """Response for listing Skill Revisions."""
 
     sdk_http_response: Optional[genai_types.HttpResponse] = Field(
         default=None, description="""Used to retain the full HTTP response."""
@@ -18845,6 +21522,7 @@ class ListSkillRevisionsResponse(_common.BaseModel):
 
 
 class ListSkillRevisionsResponseDict(TypedDict, total=False):
+    """Response for listing Skill Revisions."""
 
     sdk_http_response: Optional[genai_types.HttpResponseDict]
     """Used to retain the full HTTP response."""
@@ -19065,7 +21743,8 @@ class EvaluateDatasetRequestParameters(_common.BaseModel):
         default=None, description=""""""
     )
     autorater_config: Optional[genai_types.AutoraterConfig] = Field(
-        default=None, description=""""""
+        default=None,
+        description="""Autorater config used for evaluation. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored.""",
     )
     config: Optional[EvaluateDatasetConfig] = Field(default=None, description="""""")
 
@@ -19083,7 +21762,7 @@ class EvaluateDatasetRequestParametersDict(TypedDict, total=False):
     """"""
 
     autorater_config: Optional[genai_types.AutoraterConfigDict]
-    """"""
+    """Autorater config used for evaluation. Not applicable for predefined metrics (PredefinedMetricSpec); the server uses its own model configuration for predefined metrics and this field is ignored."""
 
     config: Optional[EvaluateDatasetConfigDict]
     """"""

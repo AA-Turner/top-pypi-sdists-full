@@ -27,8 +27,8 @@ class ForwarderDelivery:
     """A log entry for one attempt to deliver an event to a forwarder.
 
     Attributes:
-        forwarder_id (UUID): Forwarder the delivery belongs to.
-        event_id (UUID): Event that was being delivered.
+        forwarder (UUID): Forwarder the delivery belongs to.
+        event (UUID): Event that was being delivered.
         attempt_number (int): 1 for the initial delivery, incremented for each retry.
         status (ForwarderDeliveryStatus): Delivery outcome. `SUCCEEDED` when the destination accepted the event,
             `FAILED` when the delivery attempt did not succeed. Events that a forwarder's filter rejected are not recorded
@@ -42,8 +42,8 @@ class ForwarderDelivery:
         created_at (datetime.datetime | None | Unset): When the delivery attempt was recorded.
     """
 
-    forwarder_id: UUID
-    event_id: UUID
+    forwarder: UUID
+    event: UUID
     attempt_number: int
     status: ForwarderDeliveryStatus
     request: ForwarderDeliveryRequestType0 | None | Unset = UNSET
@@ -57,9 +57,9 @@ class ForwarderDelivery:
     def to_dict(self) -> dict[str, Any]:
         from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
 
-        forwarder_id = str(self.forwarder_id)
+        forwarder = str(self.forwarder)
 
-        event_id = str(self.event_id)
+        event = str(self.event)
 
         attempt_number = self.attempt_number
 
@@ -109,8 +109,8 @@ class ForwarderDelivery:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "forwarder_id": forwarder_id,
-                "event_id": event_id,
+                "forwarder": forwarder,
+                "event": event,
                 "attempt_number": attempt_number,
                 "status": status,
             }
@@ -135,9 +135,9 @@ class ForwarderDelivery:
         from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
 
         d = dict(src_dict)
-        forwarder_id = UUID(d.pop("forwarder_id"))
+        forwarder = UUID(d.pop("forwarder"))
 
-        event_id = UUID(d.pop("event_id"))
+        event = UUID(d.pop("event"))
 
         attempt_number = d.pop("attempt_number")
 
@@ -214,8 +214,8 @@ class ForwarderDelivery:
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
         forwarder_delivery = cls(
-            forwarder_id=forwarder_id,
-            event_id=event_id,
+            forwarder=forwarder,
+            event=event,
             attempt_number=attempt_number,
             status=status,
             request=request,

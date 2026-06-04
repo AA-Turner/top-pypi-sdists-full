@@ -5,6 +5,8 @@ Terminal size utility
 
 from __future__ import annotations
 
+__lazy_modules__ = {"contextlib", "platform", "struct", "warnings"}
+
 import contextlib
 import os
 import platform
@@ -19,7 +21,7 @@ def get_terminal_size(default: tuple[int, int] = (80, 25)) -> tuple[int, int]:
     Get width and height of console; works on linux, os x, windows and cygwin
 
     Adapted from https://gist.github.com/jtriley/1108174
-    Originally from: http://stackoverflow.com/questions/566746/how-to-get-console-window-width-in-python
+    Originally from: https://stackoverflow.com/questions/566746/how-to-get-linux-console-window-width-in-python
     """
     current_os = platform.system()
     if current_os == "Windows":  # pragma: no cover
@@ -45,9 +47,9 @@ def get_terminal_size(default: tuple[int, int] = (80, 25)) -> tuple[int, int]:
     return size
 
 
-def _get_terminal_size_windows():  # pragma: no cover
-    try:
-        from ctypes import create_string_buffer, windll
+def _get_terminal_size_windows() -> tuple[int, int] | None:  # pragma: no cover
+    with contextlib.suppress(Exception):
+        from ctypes import create_string_buffer, windll  # type: ignore[attr-defined]
 
         STDERR_HANDLE = -12
         h = windll.kernel32.GetStdHandle(STDERR_HANDLE)
@@ -57,21 +59,19 @@ def _get_terminal_size_windows():  # pragma: no cover
         if res:
             _, _, _, _, _, left, top, right, bottom, _, _ = csbi_struct.unpack(csbi.raw)
             return right - left + 1, bottom - top + 1
-        return None
-    except Exception:
-        return None
+    return None
 
 
-def _get_terminal_size_tput():  # pragma: no cover
+def _get_terminal_size_tput() -> tuple[int, int] | None:  # pragma: no cover
     # get terminal width
     # src: http://stackoverflow.com/questions/263890/how-do-i-find-the-width-height-of-a-terminal-window
     try:
         tput = local["tput"]
         cols = int(tput("cols"))
         rows = int(tput("lines"))
-        return (cols, rows)
     except Exception:
         return None
+    return (cols, rows)
 
 
 def _ioctl_GWINSZ(fd: int) -> tuple[int, int] | None:
@@ -85,9 +85,9 @@ def _ioctl_GWINSZ(fd: int) -> tuple[int, int] | None:
         # TODO: Clean this up. Problems could be hidden by the broad except.
         result = fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\x00" * winsize.size)
         rows, cols, _, _ = winsize.unpack(result)
-        return rows, cols
     except Exception:
         return None
+    return rows, cols
 
 
 def _get_terminal_size_linux() -> tuple[int, int] | None:
@@ -103,3 +103,12 @@ def _get_terminal_size_linux() -> tuple[int, int] | None:
         except Exception:
             return None
     return cr[1], cr[0]
+
+
+__all__ = [
+    "get_terminal_size",
+]
+
+
+def __dir__() -> list[str]:
+    return list(__all__)

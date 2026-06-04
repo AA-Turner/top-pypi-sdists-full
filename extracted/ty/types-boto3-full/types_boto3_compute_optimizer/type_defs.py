@@ -719,6 +719,7 @@ class UpdateEnrollmentStatusResponseTypeDef(TypedDict):
 
 class EBSEffectiveRecommendationPreferencesTypeDef(TypedDict):
     savingsEstimationMode: NotRequired[EBSSavingsEstimationModeTypeDef]
+    lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
 
 
 class EBSSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
@@ -736,6 +737,7 @@ class GetEBSVolumeRecommendationsRequestTypeDef(TypedDict):
 
 class ECSEffectiveRecommendationPreferencesTypeDef(TypedDict):
     savingsEstimationMode: NotRequired[ECSSavingsEstimationModeTypeDef]
+    lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
 
 
 class ECSSavingsOpportunityAfterDiscountsTypeDef(TypedDict):

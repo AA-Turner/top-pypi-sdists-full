@@ -28,7 +28,7 @@ def user_agent():
     return f"pulpcore/{pulp_version} ({python}, {system}) (pulp-glue {pulp_glue_version})"
 
 
-def replicate_distributions(server_pk):
+def replicate_distributions(server_pk, q_select=None):
     server = UpstreamPulp.objects.get(pk=server_pk)
 
     # Write out temporary files related to SSL
@@ -88,16 +88,18 @@ def replicate_distributions(server_pk):
                         replicator = replicator_class(ctx, task_group, remote_settings, server)
                         supported_replicators.append(replicator)
 
+        effective_q_select = q_select if q_select is not None else server.q_select
         distro_repo_pairs = []
         for replicator in supported_replicators:
             distro_names = []
-            distros = replicator.upstream_distributions(q=server.q_select)
+            pending_distributions = []
+            distros = replicator.upstream_distributions(q=effective_q_select)
             for distro in distros:
                 # Create remote
                 remote = replicator.create_or_update_remote(upstream_distribution=distro)
                 if not remote:
                     # The upstream distribution is not serving any content,
-                    # let if fall through the cracks and be cleanup below.
+                    # let it fall through the cracks and be cleaned up below.
                     continue
                 # Check if there is already a repository
                 repository = replicator.create_or_update_repository(remote=remote)
@@ -110,14 +112,25 @@ def replicate_distributions(server_pk):
                 if replicator.requires_syncing(distro):
                     replicator.sync(repository, remote)
 
-                # Get or create a distribution
-                replicator.create_or_update_distribution(repository, distro)
-
                 # Add name to the list of known distribution names
                 distro_names.append(distro["name"])
                 distro_repo_pairs.append((distro["name"], str(repository.pk)))
+                pending_distributions.append((repository, distro))
 
-            replicator.remove_missing(distro_names)
+            # Get or create distributions BEFORE remove_missing so that
+            # create_or_update_distribution can synchronously rename any existing
+            # distribution matched by base_path.  remove_missing then sees the
+            # updated name in the DB and won't schedule it for deletion.
+            for repository, distro in pending_distributions:
+                replicator.create_or_update_distribution(repository, distro)
+
+            # When a per-request q_select override is used, this is a selective sync
+            # of a subset of distributions.  Skipping remove_missing avoids deleting
+            # distributions that simply weren't included in the filter — but it also
+            # means that distributions removed from upstream won't be cleaned up until
+            # a full (non-overridden) replication runs.
+            if q_select is None:
+                replicator.remove_missing(distro_names)
     except GluePulpException as e:
         raise ExternalServiceError(service_name=server.base_url, details=str(e))
 
@@ -133,8 +146,17 @@ def finalize_replication(server_pk, distro_repo_pairs):
     task = Task.current()
     task_group = TaskGroup.current()
     server = UpstreamPulp.objects.get(pk=server_pk)
-    if task_group.tasks.exclude(pk=task.pk).exclude(state=TASK_STATES.COMPLETED).exists():
-        raise Exception("Replication failed.")
+    failed_tasks = task_group.tasks.exclude(pk=task.pk).exclude(state=TASK_STATES.COMPLETED)
+    if failed_tasks.exists():
+        details = []
+        for t in failed_tasks:
+            error_desc = t.error.get("description", "unknown error") if t.error else t.state
+            details.append(f"  {t.name}: {error_desc}")
+        raise Exception(
+            "Replication failed. {} subtask(s) did not complete successfully:\n{}".format(
+                failed_tasks.count(), "\n".join(details)
+            )
+        )
 
     # Atomically update all managed distributions to point to their repo's latest version,
     # clearing any previous repository or publication references.

@@ -19,34 +19,18 @@ from tango.server import Device, attribute, command, device_property
 from tango.utils import EventCallback
 
 # <<<<<< If user wants to trace their own things -------
-# Dependencies:
-# pip or conda install the following libraries:
-#   opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc
 
-# API
 from opentelemetry import trace as trace_api
+from tango.telemetry import get_telemetry_tracer_provider_factory
 
-# SDK
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import (
-    SERVICE_NAME,
-    SERVICE_NAMESPACE,
-    Resource,
+tracer_provider_factory = get_telemetry_tracer_provider_factory()
+tracer_provider = tracer_provider_factory("my.app")
+tracer = trace_api.get_tracer(
+    instrumenting_module_name="my.app.reader",
+    instrumenting_library_version="1.0.0",
+    tracer_provider=tracer_provider,
 )
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-resource = Resource.create({SERVICE_NAMESPACE: "org.institute", SERVICE_NAME: "my.app"})
-
-provider = TracerProvider(resource=resource)
-processor = BatchSpanProcessor(OTLPSpanExporter())
-provider.add_span_processor(processor)
-
-# Sets the global default tracer provider
-trace_api.set_tracer_provider(provider)
-
-# Creates a tracer from the global tracer provider
-tracer = trace_api.get_tracer("user.tracer")
 # ---- end of user's own tracing. >>>>>>
 
 # import to pass context to a user thread:
@@ -77,11 +61,6 @@ class Leader(Device):
     def SetDeviceTracing(self, enable):
         self.set_telemetry_enabled(enable)
         return self.is_telemetry_enabled()
-
-    @command(dtype_in=bool, dtype_out=bool)
-    def SetKernelTracing(self, enable):
-        self.set_kernel_tracing_enabled(enable)
-        return self.is_kernel_tracing_enabled()
 
     @command(dtype_in=int)
     @InfoIt(show_args=True)
@@ -202,13 +181,9 @@ def main():
         follower_1 = DeviceProxy("device/follower/1")
         follower_2 = DeviceProxy("device/follower/2")
         # user could create their own span, e.g.:
-        with tracer.start_as_current_span(
-            "my.app.main", kind=trace_api.SpanKind.CLIENT
-        ):
+        with tracer.start_as_current_span("my.app.main", kind=trace_api.SpanKind.CLIENT):
             for loop in range(2):
-                with tracer.start_as_current_span(
-                    "my.app.main.inner-loop", kind=trace_api.SpanKind.CLIENT
-                ) as span:
+                with tracer.start_as_current_span("my.app.main.inner-loop", kind=trace_api.SpanKind.CLIENT) as span:
                     span.set_attribute("operation.value", loop)
 
                     # tell leader to enable both followers
@@ -225,48 +200,36 @@ def main():
 
                     call_from_thread_with_context(follower_2)
 
-                    leader.TurnFollowerOff(1)  # FIXME
+                    leader.TurnFollowerOff(1)
 
-                    with tracer.start_as_current_span(
-                        "test.deviceproxy.other", kind=trace_api.SpanKind.CLIENT
-                    ):
+                    with tracer.start_as_current_span("test.deviceproxy.other", kind=trace_api.SpanKind.CLIENT):
                         # read multiple attributes, and check config
                         _ = follower_2.read_attributes(["isOn", "state"])
                         _ = follower_1.get_attribute_config("isOn")
                         _ = follower_1.read_attribute("dynamicAttribute")
                         _ = follower_1.command_inout("DynamicCommand", 22)
 
-                    with tracer.start_as_current_span(
-                        "test.polling-and-events", kind=trace_api.SpanKind.CLIENT
-                    ):
+                    with tracer.start_as_current_span("test.polling-and-events", kind=trace_api.SpanKind.CLIENT):
                         leader.PollFollowerOnOff(1)
                         # polling changes not within device context aren't traced yet
                         follower_1.poll_attribute("isOn", 1000)
                         follower_1.stop_poll_attribute("isOn")
 
-                    with tracer.start_as_current_span(
-                        "test.attributeproxy", kind=trace_api.SpanKind.CLIENT
-                    ):
+                    with tracer.start_as_current_span("test.attributeproxy", kind=trace_api.SpanKind.CLIENT):
                         follower_1_is_on = AttributeProxy("device/follower/1/isOn")
                         _ = follower_1_is_on.ping()
                         reading = follower_1_is_on.read()
                         print(f"AttributeProxy reading: {reading.value}")
 
-                    with tracer.start_as_current_span(
-                        "test.group", kind=trace_api.SpanKind.CLIENT
-                    ):
+                    with tracer.start_as_current_span("test.group", kind=trace_api.SpanKind.CLIENT):
                         group = Group("add-one-at-a-time")
                         group.add("device/follower/1")
                         group.add("device/follower/2")
                         group.ping()
                         reply = group.read_attribute("isOn")
-                        print(
-                            f"Group reading: 1:{reply[0].get_data().value}, 2:{reply[1].get_data().value}"
-                        )
+                        print(f"Group reading: 1:{reply[0].get_data().value}, 2:{reply[1].get_data().value}")
 
-                    with tracer.start_as_current_span(
-                        "test.database", kind=trace_api.SpanKind.CLIENT
-                    ):
+                    with tracer.start_as_current_span("test.database", kind=trace_api.SpanKind.CLIENT):
                         db = Database()
                         _ = db.get_server_list()
                         _ = db.put_device_property("sys/tg_test/1", {"foo": "bar"})
@@ -286,11 +249,11 @@ Examples:
 
 *** Change code above to use main() instead of tango.server.run(...)
 
-# Run example with telemetry on, traces go to stdout
+# Run example with telemetry on, traces and logs go to stdout
 $ TANGO_TELEMETRY_ENABLE=on python prototyping.py
 
-# Run example with telemetry on, traces to to local collector via gRPC
-$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACES_EXPORTER=grpc python
+# Run example with telemetry on, traces go to local collector via gRPC
+$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACING_EXPORTERS=grpc TANGO_TELEMETRY_TYPES=tracing python prototyping.py
 
 *** Change code above to use tango.server.run(...) instead of main()
 
@@ -298,19 +261,19 @@ $ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACES_EXPORTER=grpc python
 #  (create your own DeviceProxy)
 $ TANGO_TELEMETRY_ENABLE=on python
 
-# Python client with telemetry on, traces to to local collector via gRPC
+# Python client with telemetry on, traces go to local collector via gRPC
 # (create your own DeviceProxy)
-$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACES_EXPORTER=grpc python
+$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACING_EXPORTERS=grpc python
 
 # Run Leader device server, telemetry disabled
 $ python prototyping.py Leader --host=127.0.0.1 -v3
 
 # Run Leader device server, telemetry on, traces and logs to local collector via gRPC
-$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACES_EXPORTER=grpc TANGO_TELEMETRY_LOGS_EXPORTER=grpc python prototyping.py Leader --host=127.0.0.1 -v3
+$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACING_EXPORTERS=grpc TANGO_TELEMETRY_LOGGING_EXPORTERS=grpc python prototyping.py Leader --host=127.0.0.1 -v3
 
 # Run Follower device server, telemetry on, traces and logs to local collector via gRPC
 # Also include additional process info in the traces using experimental OpenTelemetry
 # resource detector.
-$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACES_EXPORTER=grpc TANGO_TELEMETRY_LOGS_EXPORTER=grpc OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=process python prototyping.py Follower --host=127.0.0.1 -v3
+$ TANGO_TELEMETRY_ENABLE=on TANGO_TELEMETRY_TRACING_EXPORTERS=grpc TANGO_TELEMETRY_LOGGING_EXPORTERS=grpc OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=process python prototyping.py Follower --host=127.0.0.1 -v3
 
 """

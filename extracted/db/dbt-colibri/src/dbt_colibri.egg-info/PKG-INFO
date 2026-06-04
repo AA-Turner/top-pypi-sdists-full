@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-colibri
-Version: 0.3.5
+Version: 0.3.6
 Summary: A column lineage parser and dashboarding tool
 Author: bned
 License: MIT
@@ -148,6 +148,7 @@ Gitlab has similar functionality. Other options are writing the file to a bucket
    - SQL Server (TSQL)
    - ClickHouse
    - Oracle
+   - StarRocks
 
 ### dbt Compatibility
 

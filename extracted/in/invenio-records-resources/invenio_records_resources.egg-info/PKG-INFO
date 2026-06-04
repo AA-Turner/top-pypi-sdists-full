@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-records-resources
-Version: 10.0.0
+Version: 10.1.0
 Summary: Invenio resources module to create REST APIs.
 Home-page: https://github.com/inveniosoftware/invenio-records-resources
 Author: CERN
@@ -92,6 +92,10 @@ https://invenio-records-resources.readthedocs.io/
 
 Changes
 =======
+
+Version v10.1.0 (released 2026-06-03)
+
+- files: allow limiting archive download by total file size
 
 Version v10.0.0 (released 2026-05-29)
 

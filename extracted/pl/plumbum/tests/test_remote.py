@@ -111,6 +111,12 @@ class TestRemotePath:
         assert p.stem == "file"
         p = RemotePath(self._connect(), "/some/long/path/")
         assert p.stem == "path"
+        # only the final suffix is removed (like pathlib)
+        p = RemotePath(self._connect(), "/some/archive.tar.gz")
+        assert p.stem == "archive.tar"
+        # leading-dot names have no suffix to remove
+        p = RemotePath(self._connect(), "/home/user/.bashrc")
+        assert p.stem == ".bashrc"
 
     def test_suffix(self):
         p1 = RemotePath(self._connect(), "/some/long/path/to/file.txt")
@@ -341,10 +347,25 @@ s.close()
             filenames = [f.name for f in rem.cwd // ("*with space.txt")]
             assert "file with space.txt" in filenames
 
+    def test_glob_recursive(self):
+        with self._connect() as rem, rem.tempdir() as tmp:
+            (tmp / "top.zip").touch()
+            nested = tmp / "foo" / "bar"
+            nested.mkdir()
+            (nested / "sample.zip").touch()
+
+            # ``**`` should recurse like pathlib, not behave like a single ``*``
+            found = {p.name for p in tmp // "**/*.zip"}
+            assert found == {"top.zip", "sample.zip"}
+
+            # a plain ``*`` is still non-recursive
+            assert {p.name for p in tmp // "*.zip"} == {"top.zip"}
+
     def test_cmd(self):
         with self._connect() as rem:
             rem.cmd.ls("/tmp")
 
+    @pytest.mark.xfail(env.PYPY, reason="PyPy sometimes fails here", strict=False)
     @pytest.mark.usefixtures("testdir")
     def test_download_upload(self):
         with self._connect() as rem:
@@ -519,6 +540,7 @@ s.close()
 """
                 p = (rem.python["-u"] << get_unbound_socket_remote).popen()
                 remote_socket = p.stdout.readline().decode("ascii").strip()
+                p.wait()
             else:
                 remote_socket = 0
 
@@ -538,7 +560,8 @@ s.connect(("localhost", {tun.dport}))
 s.send("{message}".encode("ascii"))
 s.close()
 """
-                (rem.python["-u"] << remote_send_af_inet).popen()
+                sender = (rem.python["-u"] << remote_send_af_inet).popen()
+                sender.wait()
                 tunnel_server.join(timeout=1)
                 assert queue.get() == message
 
@@ -655,7 +678,8 @@ class TestParamikoMachine(BaseRemoteMachineTest):
                 with (remote_tmpdir / "bar.txt").open("wb") as f:
                     f.write(data)
                 rem.download((remote_tmpdir / "bar.txt"), (tmpdir / "bar.txt"))
-                assert (tmpdir / "bar.txt").open("rb").read() == data
+                with (tmpdir / "bar.txt").open("rb") as f:
+                    assert f.read() == data
 
             assert not remote_tmpdir.exists()
             assert not tmpdir.exists()

@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from angr.analyses.typehoon.typehoon import Typehoon
 from angr.analyses.analysis import AnalysesHub
-from angr.rust.typehoon.translator import RustTypeTranslator
+from angr.analyses.typehoon.typehoon import Typehoon
+from angr.analyses.typehoon.typevars import TypeVariable, TypeVariableManager
 from angr.rust.sim_type import RustSimTypeInt
-from angr.sim_type import SimTypePointer, SimTypeArray, SimStruct, SimTypeBottom
-from angr.analyses.typehoon.typevars import TypeVariable
-from angr.sim_variable import SimVariable, SimStackVariable
+from angr.rust.typehoon.translator import RustTypeTranslator
+from angr.sim_type import SimStruct, SimTypeArray, SimTypeBottom, SimTypePointer
+from angr.sim_variable import SimStackVariable, SimVariable
 
 if TYPE_CHECKING:
     from angr.sim_type import SimType
@@ -28,6 +29,7 @@ class RustTypehoon(Typehoon):
         stack_offset_tvs: dict[int, TypeVariable] | None = None,
         constraint_set_degradation_threshold: int = 150,
         type_translator: RustTypeTranslator | None = None,
+        tv_manager: TypeVariableManager | None = None,
     ):
         super().__init__(
             constraints,
@@ -39,6 +41,7 @@ class RustTypehoon(Typehoon):
             stack_offset_tvs,
             constraint_set_degradation_threshold,
             type_translator=(type_translator if type_translator is not None else RustTypeTranslator(self.project.arch)),
+            tv_manager=tv_manager,
         )
 
     def update_variable_types(

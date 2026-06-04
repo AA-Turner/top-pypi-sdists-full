@@ -8,6 +8,7 @@ import httpx
 import pytest
 from litestar import Litestar, get
 from litestar.exceptions import ImproperlyConfiguredException
+from litestar.params import FromPath, FromQuery
 from litestar.testing import AsyncTestClient
 
 from litestar_vite.config import ViteConfig
@@ -741,7 +742,7 @@ async def test_spa_handler_route_exclusion_api_path(spa_config: ViteConfig) -> N
         return {"users": ["alice", "bob"]}
 
     @get("/api/posts/{post_id:int}")
-    async def get_post(post_id: int) -> dict[str, int]:
+    async def get_post(post_id: FromPath[int]) -> dict[str, int]:
         return {"id": post_id}
 
     # SPA route should be registered LAST
@@ -1050,7 +1051,7 @@ async def test_spa_handler_route_exclusion_with_query_params(spa_config: ViteCon
 
     # Add API route that accepts query params
     @get("/api/search")
-    async def search(q: str) -> dict[str, str]:
+    async def search(q: FromQuery[str]) -> dict[str, str]:
         return {"query": q}
 
     app = Litestar(route_handlers=[route, search])
@@ -1190,6 +1191,57 @@ async def test_spa_handler_route_exclusion_no_false_positives(spa_config: ViteCo
             response = await client.get(path)
             assert response.status_code == 200, f"Failed for path: {path}"
             assert "Test SPA" in response.text, f"No SPA content for path: {path}"
+
+
+async def test_spa_handler_serves_non_root_spa_path(temp_resource_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression test for #258: spa_path="/ui" must remain reachable.
+
+    is_litestar_route() previously included the SPA handler's own paths in the
+    prefix list, causing every request matching spa_path to self-exclude and
+    return NotFoundException("Not an SPA route: ...").
+    """
+    from litestar_vite.config import PathConfig, RuntimeConfig
+
+    monkeypatch.delenv("VITE_DEV_MODE", raising=False)
+    monkeypatch.delenv("VITE_HOT_RELOAD", raising=False)
+
+    config = ViteConfig(
+        mode="spa",
+        spa_path="/ui",
+        paths=PathConfig(resource_dir=temp_resource_dir),
+        runtime=RuntimeConfig(dev_mode=False),
+    )
+
+    handler = AppHandler(config)
+    await handler.initialize_async()
+    route = handler.create_route_handler()
+
+    @get("/books/{book_id:int}")
+    async def get_book(book_id: FromPath[int]) -> dict:
+        return {"book_id": book_id}
+
+    app = Litestar(route_handlers=[get_book, route])
+
+    from litestar_vite.plugin import is_litestar_route
+
+    # The SPA's own paths must not be classified as Litestar (non-SPA) routes.
+    assert is_litestar_route("/ui", app) is False
+    assert is_litestar_route("/ui/anything", app) is False
+    assert is_litestar_route("/ui/nested/deep", app) is False
+    # Sanity check: non-SPA framework routes are still detected.
+    assert is_litestar_route("/schema", app) is True
+    assert is_litestar_route("/schema/openapi.json", app) is True
+
+    async with AsyncTestClient(app=app) as client:
+        for path in ("/ui", "/ui/", "/ui/anything", "/ui/nested/deep"):
+            response = await client.get(path)
+            assert response.status_code == 200, f"Failed for path: {path}"
+            assert "Test SPA" in response.text, f"No SPA content for path: {path}"
+
+        # Real route still works.
+        response = await client.get("/books/1")
+        assert response.status_code == 200
+        assert response.json() == {"book_id": 1}
 
 
 # ============================================================================

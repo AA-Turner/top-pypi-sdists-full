@@ -1702,6 +1702,44 @@ struct TjBuffer {
     /// Pre-computed horizontal scale factor (CTM × text_matrix).
     /// Used to convert accumulated_width from text space to user space for bbox.
     user_h_scale: f32,
+    /// Display rotation of this run in degrees, snapped to a quadrant when near
+    /// one; `0.0` for ordinary horizontal text (see `snap_run_rotation`).
+    rotation_degrees: f32,
+}
+
+/// Snap a run's display rotation (from the composed `CTM × T_m` rotation block,
+/// `θ = atan2(b, a)`) to the nearest of `0 / 90 / 180 / -90` when it is within
+/// `SNAP_TOL_DEG` of one, and treat everything within tolerance of `0` as exactly
+/// horizontal (`0.0`). Mirrored text (negative matrix determinant) is reported as
+/// its raw angle, not snapped, so it is never confused with a clean rotation.
+fn snap_run_rotation(combined: &Matrix) -> f32 {
+    const SNAP_TOL_DEG: f32 = 5.0;
+    let (a, b, c, d) = (combined.a, combined.b, combined.c, combined.d);
+    // Pure horizontal fast path (covers virtually all text): b and c ~ 0.
+    if b.abs() < 1e-4 && c.abs() < 1e-4 {
+        return 0.0;
+    }
+    let mut deg = b.atan2(a).to_degrees();
+    // Normalise to (-180, 180].
+    while deg > 180.0 {
+        deg -= 360.0;
+    }
+    while deg <= -180.0 {
+        deg += 360.0;
+    }
+    // Mirror (det < 0): leave the raw angle; the reading-order path treats any
+    // non-zero rotation as a separate block regardless, and snapping a mirror to
+    // a quadrant would misrepresent it.
+    let det = a * d - b * c;
+    if det < 0.0 {
+        return if deg.abs() < SNAP_TOL_DEG { 0.0 } else { deg };
+    }
+    for &q in &[0.0_f32, 90.0, 180.0, -90.0] {
+        if (deg - q).abs() <= SNAP_TOL_DEG {
+            return q;
+        }
+    }
+    deg
 }
 
 impl TjBuffer {
@@ -1732,6 +1770,7 @@ impl TjBuffer {
                 || name.contains("MONO")
                 || name.contains("FIXED")
         });
+        let rotation_degrees = snap_run_rotation(&combined);
         // Pre-compute user-space position: text_matrix origin → CTM transform
         let text_pos = state.text_matrix.transform_point(0.0, 0.0);
         let user_pos = state.ctm.transform_point(text_pos.x, text_pos.y);
@@ -1754,6 +1793,7 @@ impl TjBuffer {
             user_pos_x: user_pos.x,
             user_pos_y: user_pos.y,
             user_h_scale,
+            rotation_degrees,
         }
     }
 
@@ -2367,6 +2407,13 @@ pub struct TextExtractor<'doc> {
     /// statistical distribution analysis (coefficient of variation).
     /// Used to dynamically adjust spacing thresholds per ISO 32000-1:2008 Section 9.4.4.
     tj_offset_history: Vec<f32>,
+    /// Running sum / sum-of-squares so `analyze_tj_distribution` is O(1) rather
+    /// than re-scanning the offset history (called once per TJ offset → O(n²)
+    /// per page). `tj_stats_len` is the history length they cover; if the
+    /// history is replaced wholesale, `analyze` recomputes once. f64 for precision.
+    tj_sum: f64,
+    tj_sum_sq: f64,
+    tj_stats_len: usize,
     /// Character-level tracking for word boundary detection
     ///
     /// Collects CharacterInfo for each character during TJ array processing.
@@ -2463,10 +2510,13 @@ impl<'doc> TextExtractor<'doc> {
             excluded_inks: HashSet::new(),
             inside_excluded_ink: false,
             tj_offset_history: Vec::with_capacity(1000), // Track TJ offsets for statistical analysis
-            tj_character_array: Vec::new(),              // Character tracking for word boundaries
-            current_x_position: 0.0,                     // Start at origin
-            word_boundary_mode,                          // Word boundary detection mode
-            cached_current_font: None,                   // Set on first Tf
+            tj_sum: 0.0,
+            tj_sum_sq: 0.0,
+            tj_stats_len: 0,
+            tj_character_array: Vec::new(), // Character tracking for word boundaries
+            current_x_position: 0.0,        // Start at origin
+            word_boundary_mode,             // Word boundary detection mode
+            cached_current_font: None,      // Set on first Tf
         }
     }
 
@@ -2667,26 +2717,36 @@ impl<'doc> TextExtractor<'doc> {
     /// "Determining word boundaries is not specified by PDF." This method uses only
     /// spec-defined TJ offset values to infer text characteristics, not semantic assumptions.
     fn analyze_tj_distribution(&self) -> (bool, f32) {
-        if self.tj_offset_history.is_empty() {
+        let n = self.tj_offset_history.len();
+        if n == 0 {
             return (false, 0.0);
         }
 
-        let offsets = &self.tj_offset_history;
+        // Use the accumulators when current; recompute from the slice if the
+        // history was replaced wholesale (same sum order → same result).
+        let (sum, sum_sq) = if self.tj_stats_len == n {
+            (self.tj_sum, self.tj_sum_sq)
+        } else {
+            let mut s = 0.0f64;
+            let mut sq = 0.0f64;
+            for &x in &self.tj_offset_history {
+                let x = x as f64;
+                s += x;
+                sq += x * x;
+            }
+            (s, sq)
+        };
 
-        // Calculate mean of TJ offsets
-        let mean = offsets.iter().sum::<f32>() / offsets.len() as f32;
-
-        // Calculate variance (average of squared deviations)
-        let variance =
-            offsets.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / offsets.len() as f32;
-
-        // Calculate standard deviation
+        let nf = n as f64;
+        let mean = sum / nf;
+        // Variance from accumulators: E[x²] − E[x]². Clamp to ≥0 to absorb
+        // floating-point cancellation when the spread is tiny.
+        let variance = ((sum_sq / nf) - mean * mean).max(0.0);
         let std_dev = variance.sqrt();
 
-        // Calculate coefficient of variation (normalized spread)
-        // Avoid division by zero for edge case of zero mean
+        // Coefficient of variation (normalized spread); guard zero mean.
         let cv = if mean.abs() > 0.001 {
-            std_dev / mean.abs()
+            (std_dev / mean.abs()) as f32
         } else {
             0.0
         };
@@ -2877,16 +2937,31 @@ impl<'doc> TextExtractor<'doc> {
         if let Some(cs_array) = self.resolve_color_space(name) {
             if cs_array.len() >= 2 {
                 if let Some(cs_type) = cs_array[0].as_name() {
+                    // §8.6.6.2 / §8.6.6.3: the colorant slot (Separation's
+                    // ink-name, DeviceN's names array) can be an indirect
+                    // reference. Some subsetters share the names list across
+                    // multiple DeviceN spaces, emitting
+                    // `[/DeviceN 4 0 R /DeviceCMYK <attrs>]` where `4 0 R`
+                    // points to the actual names list. Resolve before
+                    // pattern-matching.
+                    let deref = |obj: &Object| -> Object {
+                        match (obj.as_reference(), self.document) {
+                            (Some(r), Some(d)) => d.load_object(r).unwrap_or_else(|_| obj.clone()),
+                            _ => obj.clone(),
+                        }
+                    };
                     match cs_type {
                         "Separation" => {
                             // [/Separation /InkName /AlternateCS /TintTransform]
-                            if let Some(ink_name) = cs_array[1].as_name() {
+                            let name_obj = deref(&cs_array[1]);
+                            if let Some(ink_name) = name_obj.as_name() {
                                 return self.excluded_inks.contains(ink_name);
                             }
                         },
                         "DeviceN" => {
-                            // [/DeviceN [/Ink1 /Ink2 ...] /AlternateCS /TintTransform]
-                            if let Some(ink_names) = cs_array[1].as_array() {
+                            // [/DeviceN <names-array> /AlternateCS /TintTransform <attrs>]
+                            let names_obj = deref(&cs_array[1]);
+                            if let Some(ink_names) = names_obj.as_array() {
                                 return ink_names.iter().any(|obj| {
                                     obj.as_name()
                                         .map(|n| self.excluded_inks.contains(n))
@@ -3743,11 +3818,15 @@ impl<'doc> TextExtractor<'doc> {
         }
         let old_len = self.spans.len();
         let spans = std::mem::take(&mut self.spans);
-        // Bucket text → list of prior bboxes. Only runs when trimmed text
-        // has ≥ 2 *characters* (not bytes) — shorter candidates (single
-        // letters, digits) rely on the downstream positional dedup already
-        // in place.
-        let mut seen: HashMap<String, Vec<crate::geometry::Rect>> = HashMap::new();
+        // Bucket each text key into a coarse (cx,cy) grid instead of one flat
+        // Vec (O(k²) when a short label repeats N times). The IoU ≥ 0.7 test is
+        // unchanged: a partner with that overlap is within ≈0.176·width, so it
+        // falls in this cell or a neighbour — querying the 3×3 neighbourhood
+        // finds every match the full scan would. Only runs for text ≥ 2 chars
+        // (shorter candidates rely on downstream positional dedup).
+        const CELL: f32 = 16.0;
+        type Grid = HashMap<(i32, i32), Vec<crate::geometry::Rect>>;
+        let mut seen: HashMap<String, Grid> = HashMap::new();
         let mut kept: Vec<TextSpan> = Vec::with_capacity(old_len);
         let mut skipped = 0usize;
         for span in spans {
@@ -3758,33 +3837,49 @@ impl<'doc> TextExtractor<'doc> {
             }
             let key = trimmed.to_ascii_lowercase();
             let b = span.bbox;
+            let cx = ((b.x + b.width * 0.5) / CELL).floor() as i32;
+            let cy = ((b.y + b.height * 0.5) / CELL).floor() as i32;
             let mut is_dup = false;
-            if let Some(existing) = seen.get(&key) {
-                for other in existing {
-                    // IoU — intersection over union. >= 0.7 means the two
-                    // bboxes are almost the same rectangle, which is what
-                    // stroke+fill produces.
-                    let ix1 = b.x.max(other.x);
-                    let iy1 = b.y.max(other.y);
-                    let ix2 = (b.x + b.width).min(other.x + other.width);
-                    let iy2 = (b.y + b.height).min(other.y + other.height);
-                    if ix2 <= ix1 || iy2 <= iy1 {
-                        continue;
-                    }
-                    let inter = (ix2 - ix1) * (iy2 - iy1);
-                    let area_a = b.width * b.height;
-                    let area_b = other.width * other.height;
-                    let union = area_a + area_b - inter;
-                    if union > 0.0 && inter / union >= 0.7 {
-                        is_dup = true;
-                        break;
+            if let Some(grid) = seen.get(&key) {
+                // Saturating bounds: a span with an extreme/out-of-page bbox can
+                // push cx/cy to the i32 limits, where `cx + 1` would overflow in
+                // an overflow-checked build (observed on 1008.3918v2.pdf).
+                'outer: for gx in cx.saturating_sub(1)..=cx.saturating_add(1) {
+                    for gy in cy.saturating_sub(1)..=cy.saturating_add(1) {
+                        let Some(others) = grid.get(&(gx, gy)) else {
+                            continue;
+                        };
+                        for other in others {
+                            // IoU — intersection over union. >= 0.7 means the
+                            // two bboxes are almost the same rectangle, which is
+                            // what stroke+fill produces.
+                            let ix1 = b.x.max(other.x);
+                            let iy1 = b.y.max(other.y);
+                            let ix2 = (b.x + b.width).min(other.x + other.width);
+                            let iy2 = (b.y + b.height).min(other.y + other.height);
+                            if ix2 <= ix1 || iy2 <= iy1 {
+                                continue;
+                            }
+                            let inter = (ix2 - ix1) * (iy2 - iy1);
+                            let area_a = b.width * b.height;
+                            let area_b = other.width * other.height;
+                            let union = area_a + area_b - inter;
+                            if union > 0.0 && inter / union >= 0.7 {
+                                is_dup = true;
+                                break 'outer;
+                            }
+                        }
                     }
                 }
             }
             if is_dup {
                 skipped += 1;
             } else {
-                seen.entry(key).or_default().push(b);
+                seen.entry(key)
+                    .or_default()
+                    .entry((cx, cy))
+                    .or_default()
+                    .push(b);
                 kept.push(span);
             }
         }
@@ -4687,6 +4782,10 @@ impl<'doc> TextExtractor<'doc> {
                                             rotation_degrees,
                                             advance_width: tx.abs(),
                                             rendered_advance: tx.abs(),
+                                            ascent: font.map(|f| f.ascent).unwrap_or(0.95)
+                                                * effective_font_size,
+                                            descent: font.map(|f| f.descent).unwrap_or(-0.35)
+                                                * effective_font_size,
                                             matrix: Some([
                                                 final_matrix.a,
                                                 final_matrix.b,
@@ -6117,6 +6216,7 @@ impl<'doc> TextExtractor<'doc> {
                 cw
             },
             heading_level: None,
+            rotation_degrees: buffer.rotation_degrees,
         };
         self.span_sequence_counter += 1;
 
@@ -6237,7 +6337,12 @@ impl<'doc> TextExtractor<'doc> {
                     // to detect justified vs normal text through coefficient of variation
                     if self.tj_offset_history.len() < 10000 {
                         // Keep history reasonable size (first 10k offsets per document)
+                        // and update the running accumulators.
+                        let x = *offset as f64;
+                        self.tj_sum += x;
+                        self.tj_sum_sq += x * x;
                         self.tj_offset_history.push(*offset);
+                        self.tj_stats_len = self.tj_offset_history.len();
                     }
 
                     // Associate TJ offset with the last character
@@ -6624,6 +6729,7 @@ impl<'doc> TextExtractor<'doc> {
             artifact_type: None,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: snap_run_rotation(&state.ctm.multiply(&state.text_matrix)),
         };
 
         // Step 6: Increment sequence counter and add to spans
@@ -7243,6 +7349,7 @@ impl<'doc> TextExtractor<'doc> {
             artifact_type: self.current_artifact_type(),
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: snap_run_rotation(&state.ctm.multiply(&state.text_matrix)),
         };
         self.span_sequence_counter += 1;
 
@@ -7399,6 +7506,7 @@ impl<'doc> TextExtractor<'doc> {
                         cw
                     },
                     heading_level: None,
+                    rotation_degrees: buffer.rotation_degrees,
                 };
                 self.span_sequence_counter += 1;
 
@@ -7582,6 +7690,8 @@ impl<'doc> TextExtractor<'doc> {
                         rotation_degrees,
                         advance_width: char_width_device,
                         rendered_advance: rendered_advance_per_char,
+                        ascent: font.map(|f| f.ascent).unwrap_or(0.95) * effective_font_size,
+                        descent: font.map(|f| f.descent).unwrap_or(-0.35) * effective_font_size,
                         matrix: Some([
                             final_matrix.a,
                             final_matrix.b,
@@ -7680,6 +7790,37 @@ mod tests {
     use crate::fonts::{Encoding, LazyCMap};
     use std::sync::Arc;
 
+    #[test]
+    fn test_snap_run_rotation() {
+        let m = |a, b, c, d| Matrix {
+            a,
+            b,
+            c,
+            d,
+            e: 0.0,
+            f: 0.0,
+        };
+        // Horizontal identity-scale → 0.0 (byte-identical path).
+        assert_eq!(snap_run_rotation(&m(12.0, 0.0, 0.0, 12.0)), 0.0);
+        // Tiny float noise still counts as horizontal.
+        assert_eq!(snap_run_rotation(&m(12.0, 1e-5, -1e-5, 12.0)), 0.0);
+        // 90° CCW (a=0, b=+s, c=-s, d=0).
+        assert_eq!(snap_run_rotation(&m(0.0, 12.0, -12.0, 0.0)), 90.0);
+        // 270° / -90° (a=0, b=-s, c=+s, d=0).
+        assert_eq!(snap_run_rotation(&m(0.0, -12.0, 12.0, 0.0)), -90.0);
+        // ~88° snaps to 90.
+        let r = 12.0_f32;
+        let th = 88.0_f32.to_radians();
+        assert_eq!(
+            snap_run_rotation(&m(r * th.cos(), r * th.sin(), -r * th.sin(), r * th.cos())),
+            90.0
+        );
+        // 45° watermark is NOT snapped (kept as its own block downstream).
+        let th = 45.0_f32.to_radians();
+        let got = snap_run_rotation(&m(r * th.cos(), r * th.sin(), -r * th.sin(), r * th.cos()));
+        assert!((got - 45.0).abs() < 0.5, "45° should pass through, got {got}");
+    }
+
     fn create_test_font() -> FontInfo {
         FontInfo {
             base_font: "Times-Roman".to_string(),
@@ -7689,6 +7830,8 @@ mod tests {
             font_weight: None,
             flags: None,
             stem_v: None,
+            ascent: 0.95,
+            descent: -0.35,
             embedded_font_data: None,
             truetype_cmap: std::sync::OnceLock::new(),
             embedded_glyph_names: std::sync::OnceLock::new(),
@@ -7707,6 +7850,9 @@ mod tests {
             cff_gid_map: None,
             multi_char_map: HashMap::new(),
             byte_to_char_table: std::sync::OnceLock::new(),
+            type0_unicode_memo: std::sync::Arc::new(std::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
             byte_to_width_table: std::sync::OnceLock::new(),
             diff_glyph_names: std::collections::HashMap::new(),
         }
@@ -8133,6 +8279,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -8159,6 +8306,7 @@ mod tests {
                 horizontal_scaling: 100.0,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -9036,6 +9184,7 @@ mod tests {
             primary_detected: false,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: 0.0,
         }
     }
 
@@ -9170,6 +9319,38 @@ mod tests {
         let (is_justified, cv) = extractor.analyze_tj_distribution();
         assert!(is_justified, "High variance should indicate justified text, cv={}", cv);
         assert!(cv > 0.5, "CV should be > 0.5 for justified text, got {}", cv);
+    }
+
+    /// The O(1) accumulator path and the recompute-from-slice fallback must
+    /// produce identical results (same f64 formula, same sum order).
+    #[test]
+    fn test_tj_accumulator_matches_recompute() {
+        let vals = vec![
+            -50.0f32, -200.0, -75.0, -180.0, -60.0, -210.0, -90.0, -150.0,
+        ];
+
+        // O(1) path: accumulators kept consistent with the history (as `push` does).
+        let mut a = TextExtractor::new();
+        let mut sum = 0.0f64;
+        let mut sq = 0.0f64;
+        for &v in &vals {
+            let x = v as f64;
+            sum += x;
+            sq += x * x;
+            a.tj_offset_history.push(v);
+        }
+        a.tj_sum = sum;
+        a.tj_sum_sq = sq;
+        a.tj_stats_len = a.tj_offset_history.len();
+        let (ja, cva) = a.analyze_tj_distribution();
+
+        // Recompute path: only the history is set (stale accumulators).
+        let mut b = TextExtractor::new();
+        b.tj_offset_history = vals.clone();
+        let (jb, cvb) = b.analyze_tj_distribution();
+
+        assert_eq!(ja, jb, "is_justified must agree across paths");
+        assert!((cva - cvb).abs() < 1e-6, "O(1) cv {cva} must equal recompute cv {cvb}");
     }
 
     // ========================================================================
@@ -9590,6 +9771,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
             TextChar {
@@ -9607,6 +9790,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
         ];
@@ -9636,6 +9821,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
             TextChar {
@@ -9653,6 +9840,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
         ];
@@ -9688,6 +9877,8 @@ mod tests {
             rotation_degrees: 0.0,
             advance_width: 6.0,
             rendered_advance: 6.0,
+            ascent: 11.4,
+            descent: -4.2,
             matrix: None,
         };
 
@@ -9729,6 +9920,8 @@ mod tests {
             rotation_degrees: 0.0,
             advance_width: 6.0,
             rendered_advance: 6.0,
+            ascent: 11.4,
+            descent: -4.2,
             matrix: None,
         };
 
@@ -9766,6 +9959,8 @@ mod tests {
             rotation_degrees: 0.0,
             advance_width: advance_em * font_size,
             rendered_advance: advance_em * font_size,
+            ascent: 11.4,
+            descent: -4.2,
             matrix: None,
         };
 
@@ -9818,6 +10013,8 @@ mod tests {
             rotation_degrees: 0.0,
             advance_width: 2.5, // 0.278 em × 9 pt
             rendered_advance: 2.5,
+            ascent: 11.4,
+            descent: -4.2,
             matrix: None,
         };
 
@@ -9862,6 +10059,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -9883,6 +10081,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -9929,6 +10128,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             };
 
         // (glyph, Helvetica per-em advance width)
@@ -9983,6 +10183,7 @@ mod tests {
             primary_detected: false,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: 0.0,
         };
 
         // Stroke pass + fill pass at ~2 % of advance apart.
@@ -10033,6 +10234,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             });
         }
 
@@ -10064,6 +10266,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
             TextChar {
@@ -10081,6 +10285,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
         ];
@@ -10111,6 +10317,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
             TextChar {
@@ -10128,6 +10336,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
         ];
@@ -10157,6 +10367,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
             TextChar {
@@ -10174,6 +10386,8 @@ mod tests {
                 rotation_degrees: 0.0,
                 advance_width: 6.0,
                 rendered_advance: 6.0,
+                ascent: 11.4,
+                descent: -4.2,
                 matrix: None,
             },
         ];
@@ -10213,6 +10427,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -10234,6 +10449,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -10269,6 +10485,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -10290,6 +10507,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -10330,6 +10548,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -10351,6 +10570,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -10384,6 +10604,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -10405,6 +10626,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -10426,6 +10648,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -12790,6 +13013,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -12811,6 +13035,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -12842,6 +13067,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -12863,6 +13089,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -12954,6 +13181,7 @@ mod tests {
             primary_detected: false,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: 0.0,
         }];
 
         extractor.split_fused_words();
@@ -12986,6 +13214,7 @@ mod tests {
             primary_detected: false,
             char_widths: vec![],
             heading_level: None,
+            rotation_degrees: 0.0,
         }];
 
         extractor.split_fused_words();
@@ -13165,6 +13394,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -13186,6 +13416,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -13263,6 +13494,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -13284,6 +13516,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -13578,6 +13811,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -13599,6 +13833,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -13773,6 +14008,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -13794,6 +14030,7 @@ mod tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14311,6 +14548,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14332,6 +14570,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14372,6 +14611,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14393,6 +14633,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14433,6 +14674,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14454,6 +14696,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14500,6 +14743,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14521,6 +14765,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14559,6 +14804,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14580,6 +14826,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14615,6 +14862,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14636,6 +14884,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 
@@ -14675,6 +14924,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
             TextSpan {
                 artifact_type: None,
@@ -14696,6 +14946,7 @@ mod profile_based_space_tests {
                 primary_detected: false,
                 char_widths: vec![],
                 heading_level: None,
+                rotation_degrees: 0.0,
             },
         ];
 

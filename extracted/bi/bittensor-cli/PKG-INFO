@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor-cli
-Version: 9.22.0
+Version: 9.22.1
 Summary: Bittensor CLI
 Author: bittensor.com
 Requires-Python: >=3.10

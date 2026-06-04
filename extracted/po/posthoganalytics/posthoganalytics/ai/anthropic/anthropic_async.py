@@ -11,6 +11,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from posthoganalytics import setup
+from posthoganalytics.ai.stream import AsyncStreamWrapper
 from posthoganalytics.ai.types import StreamingContentBlock, TokenUsage, ToolInProgress
 from posthoganalytics.ai.utils import (
     call_llm_and_track_usage_async,
@@ -225,7 +226,7 @@ class AsyncWrappedMessages(AsyncMessages):
                     stop_reason=stop_reason,
                 )
 
-        return generator()
+        return AsyncStreamWrapper(generator(), stream=response)
 
     async def _capture_streaming_event(
         self,
